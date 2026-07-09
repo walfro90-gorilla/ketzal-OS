@@ -1,0 +1,98 @@
+'use server'
+
+import { revalidatePath } from 'next/cache'
+import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
+
+export type ClienteInput = {
+  full_name: string
+  phone?: string
+  email?: string
+  doc_id?: string
+  notes?: string
+}
+
+/** Normaliza los campos del cliente; null si falta el nombre. */
+function normalizarCampos(input: ClienteInput) {
+  const fullName = input.full_name?.trim()
+  if (!fullName) return null
+  return {
+    full_name: fullName,
+    phone: input.phone?.trim() || null,
+    email: input.email?.trim() || null,
+    doc_id: input.doc_id?.trim() || null,
+    notes: input.notes?.trim() || null,
+  }
+}
+
+export async function crearCliente(
+  input: ClienteInput
+): Promise<{ error: string } | void> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  // Agencia del agente (RLS: el cliente debe pertenecer a su supplier).
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('supplier_id')
+    .eq('id', user.id)
+    .single()
+  if (profileError || !profile?.supplier_id) {
+    return {
+      error:
+        'Tu perfil no tiene una agencia asignada. Pide a un administrador que configure tu supplier_id.',
+    }
+  }
+
+  const fields = normalizarCampos(input)
+  if (!fields) {
+    return { error: 'Escribe el nombre completo del cliente.' }
+  }
+
+  const { data, error } = await supabase
+    .from('customers')
+    .insert({
+      supplier_id: profile.supplier_id,
+      ...fields,
+      created_by: user.id,
+    })
+    .select('id')
+    .single()
+  if (error || !data) {
+    return { error: error?.message ?? 'No se pudo guardar el cliente.' }
+  }
+
+  revalidatePath('/clientes')
+  redirect(`/clientes/${data.id}`)
+}
+
+export async function actualizarCliente(
+  id: string,
+  input: ClienteInput
+): Promise<{ error: string } | { ok: true }> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const fields = normalizarCampos(input)
+  if (!fields) {
+    return { error: 'Escribe el nombre completo del cliente.' }
+  }
+
+  // RLS acota el update a los clientes de la agencia del agente.
+  const { error } = await supabase.from('customers').update(fields).eq('id', id)
+  if (error) {
+    return { error: error.message }
+  }
+
+  revalidatePath('/clientes')
+  revalidatePath(`/clientes/${id}`)
+  return { ok: true }
+}

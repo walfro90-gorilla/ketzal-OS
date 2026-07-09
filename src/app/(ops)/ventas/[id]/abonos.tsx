@@ -1,0 +1,307 @@
+'use client'
+
+import { useState, useTransition } from 'react'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { balance } from '@/lib/domain/balance'
+import { mxn } from '../ui'
+import { emitirRecibo, registrarAbono } from './actions'
+
+export type AbonoRow = {
+  id: string
+  amount_mxn: number
+  type: 'payment' | 'refund'
+  status: string
+  payment_method: string | null
+  paid_at: string | null
+}
+
+export type ReciboRow = {
+  payment_id: string | null
+  folio: number
+}
+
+// Mismo estilo de <select> nativo alineado al Input de shadcn que en nueva-venta-form.
+const selectClass =
+  'h-8 w-full min-w-0 appearance-none rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 dark:bg-input/30'
+
+const METODOS = [
+  { value: 'efectivo', label: 'Efectivo' },
+  { value: 'transferencia', label: 'Transferencia' },
+  { value: 'tarjeta', label: 'Tarjeta' },
+] as const
+
+const METHOD_LABELS: Record<string, string> = Object.fromEntries(
+  METODOS.map((m) => [m.value, m.label])
+)
+
+const paidAtFormatter = new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium' })
+
+function formatPaidAt(paidAt: string | null): string {
+  if (!paidAt) return '—'
+  const parsed = new Date(paidAt)
+  if (Number.isNaN(parsed.getTime())) return paidAt
+  return paidAtFormatter.format(parsed)
+}
+
+/** Hoy en formato YYYY-MM-DD (zona local), para el default del input date. */
+function hoy(): string {
+  const d = new Date()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${mm}-${dd}`
+}
+
+export function AbonosSection({
+  bookingId,
+  total,
+  payments,
+  receipts,
+}: {
+  bookingId: string
+  total: number
+  payments: AbonoRow[]
+  receipts: ReciboRow[]
+}) {
+  const [isRegistering, startRegistering] = useTransition()
+  const [isEmitting, startEmitting] = useTransition()
+  const [formError, setFormError] = useState<string | null>(null)
+  const [receiptError, setReceiptError] = useState<string | null>(null)
+  const [emittingId, setEmittingId] = useState<string | null>(null)
+
+  // Formulario de registro
+  const [amount, setAmount] = useState('')
+  const [method, setMethod] = useState<string>('efectivo')
+  const [date, setDate] = useState(hoy)
+  const [tipo, setTipo] = useState<'payment' | 'refund'>('payment')
+
+  // Saldo derivado (regla de oro): total − pagos + reembolsos.
+  const saldo = balance(
+    total,
+    payments.map((p) => ({ type: p.type, amount: Number(p.amount_mxn), status: p.status }))
+  )
+  const pagado = total - saldo
+  const liquidada = saldo <= 0
+
+  const folioByPayment = new Map(
+    receipts
+      .filter((r) => r.payment_id != null)
+      .map((r) => [r.payment_id as string, r.folio])
+  )
+
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    setFormError(null)
+
+    const amountNum = Number(amount)
+    if (!Number.isFinite(amountNum) || amountNum <= 0) {
+      setFormError('El monto debe ser un número mayor que 0.')
+      return
+    }
+
+    startRegistering(async () => {
+      const result = await registrarAbono(bookingId, {
+        amount: amountNum,
+        method,
+        date,
+        type: tipo,
+      })
+      if ('error' in result) {
+        setFormError(result.error)
+        return
+      }
+      // revalidatePath refresca la lista; solo limpiamos el monto.
+      setAmount('')
+    })
+  }
+
+  function handleEmitir(paymentId: string) {
+    setReceiptError(null)
+    setEmittingId(paymentId)
+    startEmitting(async () => {
+      const result = await emitirRecibo(bookingId, paymentId)
+      if ('error' in result) setReceiptError(result.error)
+      setEmittingId(null)
+    })
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Abonos y recibo</CardTitle>
+        <CardDescription>
+          Ledger de pagos de la venta: registra abonos o reembolsos y emite recibos internos.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {/* Resumen de saldo */}
+        <div className="grid gap-4 rounded-lg border p-4 sm:grid-cols-3">
+          <div>
+            <p className="text-sm text-muted-foreground">Total</p>
+            <p className="mt-1 text-lg font-medium tabular-nums">{mxn.format(total)}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Pagado</p>
+            <p className="mt-1 text-lg font-medium tabular-nums">{mxn.format(pagado)}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Saldo</p>
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <p className="text-2xl font-bold tabular-nums">{mxn.format(saldo)}</p>
+              {liquidada && (
+                <Badge className="bg-emerald-600 text-white">Liquidada</Badge>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Lista de abonos */}
+        {payments.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Sin abonos todavía.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Fecha</TableHead>
+                  <TableHead>Método</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead className="text-right">Monto</TableHead>
+                  <TableHead>Recibo</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {payments.map((p) => {
+                  const folio = folioByPayment.get(p.id)
+                  const isRefund = p.type === 'refund'
+                  return (
+                    <TableRow key={p.id}>
+                      <TableCell>{formatPaidAt(p.paid_at)}</TableCell>
+                      <TableCell>
+                        {p.payment_method
+                          ? METHOD_LABELS[p.payment_method] ?? p.payment_method
+                          : '—'}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={isRefund ? 'destructive' : 'secondary'}>
+                          {isRefund ? 'Reembolso' : 'Abono'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {isRefund ? '−' : ''}
+                        {mxn.format(Number(p.amount_mxn))}
+                      </TableCell>
+                      <TableCell>
+                        {folio != null ? (
+                          <span className="text-sm">Recibo #{folio}</span>
+                        ) : (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEmitir(p.id)}
+                            disabled={isEmitting}
+                          >
+                            {isEmitting && emittingId === p.id
+                              ? 'Emitiendo…'
+                              : 'Emitir recibo'}
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+        {receiptError && (
+          <p role="alert" className="text-sm text-destructive">
+            {receiptError}
+          </p>
+        )}
+
+        {/* Registrar abono */}
+        <form onSubmit={handleSubmit} className="space-y-4 border-t pt-4">
+          <p className="text-sm font-medium">Registrar abono</p>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="space-y-2">
+              <Label htmlFor="abono-monto">Monto *</Label>
+              <Input
+                id="abono-monto"
+                type="number"
+                min={0.01}
+                step="0.01"
+                required
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="0.00"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="abono-metodo">Método</Label>
+              <select
+                id="abono-metodo"
+                className={selectClass}
+                value={method}
+                onChange={(e) => setMethod(e.target.value)}
+              >
+                {METODOS.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="abono-fecha">Fecha</Label>
+              <Input
+                id="abono-fecha"
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="abono-tipo">Tipo</Label>
+              <select
+                id="abono-tipo"
+                className={selectClass}
+                value={tipo}
+                onChange={(e) => setTipo(e.target.value as 'payment' | 'refund')}
+              >
+                <option value="payment">Abono</option>
+                <option value="refund">Reembolso</option>
+              </select>
+            </div>
+          </div>
+          {formError && (
+            <p role="alert" className="text-sm text-destructive">
+              {formError}
+            </p>
+          )}
+          <Button type="submit" disabled={isRegistering}>
+            {isRegistering ? 'Registrando…' : 'Registrar'}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  )
+}

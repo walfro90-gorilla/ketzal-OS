@@ -1,0 +1,267 @@
+import Link from 'next/link'
+import { notFound } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import {
+  formatTravelDate,
+  ITEM_TYPE_LABELS,
+  mxn,
+  PASSENGER_TYPE_LABELS,
+  StatusBadge,
+  type BookingStatus,
+} from '../ui'
+import { AbonosSection } from './abonos'
+
+type BookingDetail = {
+  id: string
+  folio: string | null
+  travel_date: string | null
+  num_pax: number
+  subtotal: number
+  discount: number
+  total: number
+  currency: string
+  status: BookingStatus
+  notes: string | null
+  created_at: string
+  owner_supplier_id: string
+  selling_supplier_id: string
+  customer: { full_name: string; phone: string | null } | null
+  service: { name: string } | null
+}
+
+export default async function VentaDetallePage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = await params
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from('bookings')
+    .select(
+      'id, folio, travel_date, num_pax, subtotal, discount, total, currency, status, notes, created_at, owner_supplier_id, selling_supplier_id, customer:customers(full_name, phone), service:services(name)'
+    )
+    .eq('id', id)
+    .single()
+
+  if (error || !data) notFound()
+  // Los tipos generados a mano no describen las relaciones (FK), así que la
+  // inferencia del select anidado falla: cast estrecho del resultado.
+  const booking = data as unknown as BookingDetail
+
+  // Reventa: el dueño del servicio es otra agencia → la venta genera comisión.
+  let ownerName: string | null = null
+  if (booking.owner_supplier_id !== booking.selling_supplier_id) {
+    const { data: owner } = await supabase
+      .from('suppliers')
+      .select('name')
+      .eq('id', booking.owner_supplier_id)
+      .single()
+    ownerName = owner?.name ?? null
+  }
+
+  const { data: items, error: itemsError } = await supabase
+    .from('booking_items')
+    .select('id, item_type, passenger_type, description, qty, unit_price, line_total')
+    .eq('booking_id', id)
+    .order('created_at', { ascending: true })
+
+  // Ledger de la venta (RLS por supplier): abonos/reembolsos y sus recibos.
+  const { data: payments, error: paymentsError } = await supabase
+    .from('payments')
+    .select('id, amount_mxn, type, status, payment_method, paid_at')
+    .eq('booking_id', id)
+    .order('paid_at')
+
+  const { data: receipts, error: receiptsError } = await supabase
+    .from('receipts')
+    .select('payment_id, folio')
+    .eq('booking_id', id)
+
+  const createdAt = new Intl.DateTimeFormat('es-MX', {
+    dateStyle: 'long',
+  }).format(new Date(booking.created_at))
+
+  return (
+    <div className="mx-auto max-w-4xl space-y-6">
+      <div>
+        <Link
+          href="/ventas"
+          className="text-sm text-muted-foreground hover:underline"
+        >
+          ← Volver a ventas
+        </Link>
+        <div className="mt-1 flex items-center gap-3">
+          <h1 className="text-2xl font-semibold">
+            Venta {booking.folio ?? `#${booking.id.slice(0, 8)}`}
+          </h1>
+          <StatusBadge status={booking.status} />
+        </div>
+        {ownerName && (
+          <p className="mt-1 text-sm text-muted-foreground">
+            Reventa de {ownerName} — genera comisión
+          </p>
+        )}
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Datos de la venta</CardTitle>
+          <CardDescription>Registrada el {createdAt}.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <dl className="grid gap-4 text-sm sm:grid-cols-2">
+            <div>
+              <dt className="text-muted-foreground">Cliente</dt>
+              <dd className="mt-1 font-medium">
+                {booking.customer?.full_name ?? 'Sin cliente'}
+                {booking.customer?.phone && (
+                  <span className="ml-2 font-normal text-muted-foreground">
+                    · {booking.customer.phone}
+                  </span>
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Servicio</dt>
+              <dd className="mt-1 font-medium">
+                {booking.service?.name ?? 'A medida'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Fecha de viaje</dt>
+              <dd className="mt-1 font-medium">
+                {formatTravelDate(booking.travel_date)}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Pasajeros</dt>
+              <dd className="mt-1 font-medium">{booking.num_pax}</dd>
+            </div>
+            {booking.notes && (
+              <div className="sm:col-span-2">
+                <dt className="text-muted-foreground">Notas</dt>
+                <dd className="mt-1">{booking.notes}</dd>
+              </div>
+            )}
+          </dl>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Líneas de la venta</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {itemsError ? (
+            <p className="text-sm text-destructive">
+              Error al leer las líneas: {itemsError.message}
+            </p>
+          ) : !items || items.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Esta venta no tiene líneas registradas.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Concepto</TableHead>
+                    <TableHead>Descripción</TableHead>
+                    <TableHead className="text-right">Cant.</TableHead>
+                    <TableHead className="text-right">P. unitario</TableHead>
+                    <TableHead className="text-right">Importe</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {items.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell>
+                        {ITEM_TYPE_LABELS[item.item_type] ?? item.item_type}
+                        {item.passenger_type && (
+                          <span className="ml-1 text-muted-foreground">
+                            ·{' '}
+                            {PASSENGER_TYPE_LABELS[item.passenger_type] ??
+                              item.passenger_type}
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell>{item.description ?? '—'}</TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {item.qty}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {mxn.format(Number(item.unit_price))}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {mxn.format(Number(item.line_total))}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+
+          <div className="ml-auto w-full max-w-xs space-y-2 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Subtotal</span>
+              <span className="tabular-nums">
+                {mxn.format(Number(booking.subtotal))}
+              </span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Descuento</span>
+              <span className="tabular-nums">
+                −{mxn.format(Number(booking.discount))}
+              </span>
+            </div>
+            <div className="flex items-center justify-between border-t pt-2 text-base font-semibold">
+              <span>Total</span>
+              <span className="tabular-nums">
+                {mxn.format(Number(booking.total))}
+              </span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {paymentsError || receiptsError ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Abonos y recibo</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-destructive">
+              Error al leer los abonos:{' '}
+              {(paymentsError ?? receiptsError)?.message}
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <AbonosSection
+          bookingId={booking.id}
+          total={Number(booking.total)}
+          payments={payments ?? []}
+          receipts={receipts ?? []}
+        />
+      )}
+    </div>
+  )
+}
