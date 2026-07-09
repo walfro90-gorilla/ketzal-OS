@@ -34,6 +34,7 @@ export type AbonoRow = {
 }
 
 export type ReciboRow = {
+  id: string
   payment_id: string | null
   folio: number
 }
@@ -74,11 +75,14 @@ export function AbonosSection({
   total,
   payments,
   receipts,
+  cancelled = false,
 }: {
   bookingId: string
   total: number
   payments: AbonoRow[]
   receipts: ReciboRow[]
+  /** Venta cancelada: la lista/saldo quedan visibles pero ya no se registran abonos. */
+  cancelled?: boolean
 }) {
   const [isRegistering, startRegistering] = useTransition()
   const [isEmitting, startEmitting] = useTransition()
@@ -100,10 +104,10 @@ export function AbonosSection({
   const pagado = total - saldo
   const liquidada = saldo <= 0
 
-  const folioByPayment = new Map(
+  const reciboByPayment = new Map(
     receipts
       .filter((r) => r.payment_id != null)
-      .map((r) => [r.payment_id as string, r.folio])
+      .map((r) => [r.payment_id as string, r])
   )
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -189,7 +193,7 @@ export function AbonosSection({
               </TableHeader>
               <TableBody>
                 {payments.map((p) => {
-                  const folio = folioByPayment.get(p.id)
+                  const recibo = reciboByPayment.get(p.id)
                   const isRefund = p.type === 'refund'
                   return (
                     <TableRow key={p.id}>
@@ -209,8 +213,15 @@ export function AbonosSection({
                         {mxn.format(Number(p.amount_mxn))}
                       </TableCell>
                       <TableCell>
-                        {folio != null ? (
-                          <span className="text-sm">Recibo #{folio}</span>
+                        {recibo != null ? (
+                          <a
+                            href={`/recibo/${recibo.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm underline underline-offset-2 hover:no-underline"
+                          >
+                            Recibo #{recibo.folio}
+                          </a>
                         ) : (
                           <Button
                             type="button"
@@ -238,69 +249,75 @@ export function AbonosSection({
           </p>
         )}
 
-        {/* Registrar abono */}
-        <form onSubmit={handleSubmit} className="space-y-4 border-t pt-4">
-          <p className="text-sm font-medium">Registrar abono</p>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="space-y-2">
-              <Label htmlFor="abono-monto">Monto *</Label>
-              <Input
-                id="abono-monto"
-                type="number"
-                min={0.01}
-                step="0.01"
-                required
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="0.00"
-              />
+        {/* Registrar abono (oculto si la venta está cancelada) */}
+        {cancelled ? (
+          <p className="border-t pt-4 text-sm text-muted-foreground">
+            Venta cancelada — no se registran más abonos.
+          </p>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4 border-t pt-4">
+            <p className="text-sm font-medium">Registrar abono</p>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="space-y-2">
+                <Label htmlFor="abono-monto">Monto *</Label>
+                <Input
+                  id="abono-monto"
+                  type="number"
+                  min={0.01}
+                  step="0.01"
+                  required
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="abono-metodo">Método</Label>
+                <select
+                  id="abono-metodo"
+                  className={selectClass}
+                  value={method}
+                  onChange={(e) => setMethod(e.target.value)}
+                >
+                  {METODOS.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="abono-fecha">Fecha</Label>
+                <Input
+                  id="abono-fecha"
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="abono-tipo">Tipo</Label>
+                <select
+                  id="abono-tipo"
+                  className={selectClass}
+                  value={tipo}
+                  onChange={(e) => setTipo(e.target.value as 'payment' | 'refund')}
+                >
+                  <option value="payment">Abono</option>
+                  <option value="refund">Reembolso</option>
+                </select>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="abono-metodo">Método</Label>
-              <select
-                id="abono-metodo"
-                className={selectClass}
-                value={method}
-                onChange={(e) => setMethod(e.target.value)}
-              >
-                {METODOS.map((m) => (
-                  <option key={m.value} value={m.value}>
-                    {m.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="abono-fecha">Fecha</Label>
-              <Input
-                id="abono-fecha"
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="abono-tipo">Tipo</Label>
-              <select
-                id="abono-tipo"
-                className={selectClass}
-                value={tipo}
-                onChange={(e) => setTipo(e.target.value as 'payment' | 'refund')}
-              >
-                <option value="payment">Abono</option>
-                <option value="refund">Reembolso</option>
-              </select>
-            </div>
-          </div>
-          {formError && (
-            <p role="alert" className="text-sm text-destructive">
-              {formError}
-            </p>
-          )}
-          <Button type="submit" disabled={isRegistering}>
-            {isRegistering ? 'Registrando…' : 'Registrar'}
-          </Button>
-        </form>
+            {formError && (
+              <p role="alert" className="text-sm text-destructive">
+                {formError}
+              </p>
+            )}
+            <Button type="submit" disabled={isRegistering}>
+              {isRegistering ? 'Registrando…' : 'Registrar'}
+            </Button>
+          </form>
+        )}
       </CardContent>
     </Card>
   )

@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { Badge } from '@/components/ui/badge'
 import {
   Card,
   CardContent,
@@ -32,6 +33,8 @@ type VentaSaldo = {
   total: number
   saldo: number
   status: BookingStatus
+  due_date: string | null
+  vencida: boolean
 }
 
 type ProximoViaje = {
@@ -49,6 +52,8 @@ type DashboardSummary = {
   num_cotizaciones: number
   total_vendido: number
   num_ventas: number
+  monto_vencido: number
+  num_vencidas: number
   ventas_saldo: VentaSaldo[]
   proximos_viajes: ProximoViaje[]
 }
@@ -59,12 +64,18 @@ const EMPTY_SUMMARY: DashboardSummary = {
   num_cotizaciones: 0,
   total_vendido: 0,
   num_ventas: 0,
+  monto_vencido: 0,
+  num_vencidas: 0,
   ventas_saldo: [],
   proximos_viajes: [],
 }
 
 function pluralVentas(n: number): string {
   return n === 1 ? '1 venta' : `${n} ventas`
+}
+
+function pluralVencidas(n: number): string {
+  return n === 1 ? '1 vencida' : `${n} vencidas`
 }
 
 export default async function DashboardPage() {
@@ -90,6 +101,8 @@ export default async function DashboardPage() {
   const d = (summaryRes.data ?? EMPTY_SUMMARY) as unknown as DashboardSummary
   const ventasSaldo = d.ventas_saldo ?? []
   const proximosViajes = d.proximos_viajes ?? []
+  const montoVencido = Number(d.monto_vencido ?? 0)
+  const hayVencidas = montoVencido > 0
 
   let agencia: string | null = null
   const supplierId = profileRes.data?.supplier_id
@@ -117,7 +130,7 @@ export default async function DashboardPage() {
         </p>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <Card>
           <CardHeader>
             <CardDescription>Por cobrar</CardDescription>
@@ -128,6 +141,26 @@ export default async function DashboardPage() {
           <CardContent>
             <p className="text-xs text-muted-foreground">
               {pluralVentas(d.num_por_cobrar ?? 0)}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className={hayVencidas ? 'border-destructive/50 bg-destructive/5' : undefined}>
+          <CardHeader>
+            <CardDescription className={hayVencidas ? 'text-destructive' : undefined}>
+              Vencido
+            </CardDescription>
+            <CardTitle
+              className={`text-2xl tabular-nums${hayVencidas ? ' text-destructive' : ''}`}
+            >
+              {mxn.format(montoVencido)}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p
+              className={`text-xs ${hayVencidas ? 'text-destructive' : 'text-muted-foreground'}`}
+            >
+              {pluralVencidas(d.num_vencidas ?? 0)}
             </p>
           </CardContent>
         </Card>
@@ -194,6 +227,7 @@ export default async function DashboardPage() {
                     <TableHead>Servicio</TableHead>
                     <TableHead className="text-right">Total</TableHead>
                     <TableHead className="text-right">Saldo</TableHead>
+                    <TableHead>Vence</TableHead>
                     <TableHead>Estado</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -214,6 +248,18 @@ export default async function DashboardPage() {
                       </TableCell>
                       <TableCell className="text-right font-semibold tabular-nums">
                         {mxn.format(Number(venta.saldo))}
+                      </TableCell>
+                      <TableCell
+                        className={venta.vencida ? 'text-destructive' : undefined}
+                      >
+                        <span className="whitespace-nowrap">
+                          {formatTravelDate(venta.due_date)}
+                        </span>
+                        {venta.vencida && (
+                          <Badge variant="destructive" className="ml-2">
+                            Vencida
+                          </Badge>
+                        )}
                       </TableCell>
                       <TableCell>
                         <StatusBadge status={venta.status} />

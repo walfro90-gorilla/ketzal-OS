@@ -15,6 +15,19 @@ function jsonbALineas(valor: unknown): string {
   return Array.isArray(valor) ? valor.map(String).join('\n') : ''
 }
 
+/** El jsonb itinerary → lista de días {title, description}. */
+function jsonbAItinerario(
+  valor: unknown
+): { title: string; description: string }[] {
+  if (!Array.isArray(valor)) return []
+  return valor
+    .filter((d): d is Record<string, unknown> => !!d && typeof d === 'object')
+    .map((d) => ({
+      title: String(d.title ?? ''),
+      description: String(d.description ?? ''),
+    }))
+}
+
 /** timestamptz → valor del input date (YYYY-MM-DD). */
 function fechaAInput(valor: string | null): string {
   return valor ? valor.slice(0, 10) : ''
@@ -92,6 +105,7 @@ export default async function ServicioDetallePage({
           available_to: fechaAInput(servicio.available_to),
           includes: jsonbALineas(servicio.includes),
           excludes: jsonbALineas(servicio.excludes),
+          itinerary: jsonbAItinerario(servicio.itinerary),
         }}
       />
 

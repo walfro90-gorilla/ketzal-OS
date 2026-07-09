@@ -25,11 +25,14 @@ import {
   type BookingStatus,
 } from '../ui'
 import { AbonosSection } from './abonos'
+import { CancelarVenta } from './cancelar-venta'
+import { VencimientoForm } from './vencimiento-form'
 
 type BookingDetail = {
   id: string
   folio: string | null
   travel_date: string | null
+  due_date: string | null
   num_pax: number
   subtotal: number
   discount: number
@@ -37,6 +40,7 @@ type BookingDetail = {
   currency: string
   status: BookingStatus
   notes: string | null
+  cancel_reason: string | null
   created_at: string
   owner_supplier_id: string
   selling_supplier_id: string
@@ -55,7 +59,7 @@ export default async function VentaDetallePage({
   const { data, error } = await supabase
     .from('bookings')
     .select(
-      'id, folio, travel_date, num_pax, subtotal, discount, total, currency, status, notes, created_at, owner_supplier_id, selling_supplier_id, customer:customers(full_name, phone), service:services(name)'
+      'id, folio, travel_date, due_date, num_pax, subtotal, discount, total, currency, status, notes, cancel_reason, created_at, owner_supplier_id, selling_supplier_id, customer:customers(full_name, phone), service:services(name)'
     )
     .eq('id', id)
     .single()
@@ -91,12 +95,16 @@ export default async function VentaDetallePage({
 
   const { data: receipts, error: receiptsError } = await supabase
     .from('receipts')
-    .select('payment_id, folio')
+    .select('id, payment_id, folio')
     .eq('booking_id', id)
 
   const createdAt = new Intl.DateTimeFormat('es-MX', {
     dateStyle: 'long',
   }).format(new Date(booking.created_at))
+
+  const cancelada = booking.status === 'cancelled'
+  // La zona de peligro solo aplica a ventas vivas: no pagadas ni ya canceladas.
+  const puedeCancelar = !cancelada && booking.status !== 'paid'
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -116,6 +124,11 @@ export default async function VentaDetallePage({
         {ownerName && (
           <p className="mt-1 text-sm text-muted-foreground">
             Reventa de {ownerName} — genera comisión
+          </p>
+        )}
+        {cancelada && booking.cancel_reason && (
+          <p className="mt-1 text-sm text-muted-foreground">
+            Motivo: {booking.cancel_reason}
           </p>
         )}
       </div>
@@ -153,6 +166,21 @@ export default async function VentaDetallePage({
             <div>
               <dt className="text-muted-foreground">Pasajeros</dt>
               <dd className="mt-1 font-medium">{booking.num_pax}</dd>
+            </div>
+            <div className="sm:col-span-2">
+              <dt className="text-muted-foreground">Fecha límite de pago</dt>
+              <dd className="mt-1">
+                {cancelada ? (
+                  <span className="font-medium">
+                    {formatTravelDate(booking.due_date)}
+                  </span>
+                ) : (
+                  <VencimientoForm
+                    bookingId={booking.id}
+                    dueDate={booking.due_date}
+                  />
+                )}
+              </dd>
             </div>
             {booking.notes && (
               <div className="sm:col-span-2">
@@ -260,7 +288,23 @@ export default async function VentaDetallePage({
           total={Number(booking.total)}
           payments={payments ?? []}
           receipts={receipts ?? []}
+          cancelled={cancelada}
         />
+      )}
+
+      {puedeCancelar && (
+        <Card className="border-destructive/50">
+          <CardHeader>
+            <CardTitle>Zona de peligro</CardTitle>
+            <CardDescription>
+              Cancelar la venta la marca como cancelada y bloquea nuevos
+              abonos. Los pagos registrados no se borran (ledger append-only).
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <CancelarVenta bookingId={booking.id} />
+          </CardContent>
+        </Card>
       )}
     </div>
   )

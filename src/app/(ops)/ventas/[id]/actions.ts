@@ -66,3 +66,51 @@ export async function emitirRecibo(
   revalidatePath('/ventas/' + bookingId)
   return { ok: true, folio: Number(data) }
 }
+
+export async function actualizarVencimiento(
+  bookingId: string,
+  dueDate: string | null
+): Promise<{ error: string } | { ok: true }> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const { error } = await supabase
+    .from('bookings')
+    .update({ due_date: dueDate || null })
+    .eq('id', bookingId)
+  if (error) return { error: error.message }
+
+  revalidatePath('/ventas/' + bookingId)
+  // El vencimiento alimenta el KPI "Vencido" y la tabla "Por cobrar" del panel.
+  revalidatePath('/dashboard')
+  return { ok: true }
+}
+
+export async function cancelarVenta(
+  bookingId: string,
+  reason: string
+): Promise<{ error: string } | { ok: true }> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  // El RPC valida estado (falla si no existe o ya está cancelada) y respeta RLS.
+  // No borra pagos: el ledger es append-only.
+  const { error } = await supabase.rpc('cancel_booking', {
+    p_booking_id: bookingId,
+    p_reason: reason,
+  })
+  if (error) return { error: error.message }
+
+  revalidatePath('/ventas/' + bookingId)
+  revalidatePath('/ventas')
+  revalidatePath('/dashboard')
+  return { ok: true }
+}

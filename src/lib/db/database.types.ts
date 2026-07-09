@@ -63,10 +63,12 @@ export type Database = {
       }
       bookings: {
         Row: {
+          cancel_reason: string | null
           created_at: string
           currency: string
           customer_id: string
           discount: number
+          due_date: string | null
           folio: string | null
           id: string
           notes: string | null
@@ -83,10 +85,12 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          cancel_reason?: string | null
           created_at?: string
           currency?: string
           customer_id: string
           discount?: number
+          due_date?: string | null
           folio?: string | null
           id?: string
           notes?: string | null
@@ -103,10 +107,12 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          cancel_reason?: string | null
           created_at?: string
           currency?: string
           customer_id?: string
           discount?: number
+          due_date?: string | null
           folio?: string | null
           id?: string
           notes?: string | null
@@ -406,6 +412,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cancel_booking: {
+        Args: { p_booking_id: string; p_reason: string }
+        Returns: undefined
+      }
       commissions_summary: {
         Args: Record<PropertyKey, never>
         Returns: Json

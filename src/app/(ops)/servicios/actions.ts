@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 
+export type ItineraryDay = { title: string; description: string }
+
 export type ServicioInput = {
   name: string
   supplier_id: string
@@ -20,6 +22,7 @@ export type ServicioInput = {
   available_to?: string
   includes?: string[]
   excludes?: string[]
+  itinerary?: ItineraryDay[]
 }
 
 /**
@@ -37,6 +40,16 @@ function fechaAIso(fecha?: string): string | null {
 /** Limpia la lista de conceptos: recorta espacios y descarta vacíos. */
 function limpiarLineas(lineas?: string[]): string[] {
   return (lineas ?? []).map((linea) => String(linea).trim()).filter(Boolean)
+}
+
+/** Limpia el itinerario: recorta y descarta días sin título. */
+function limpiarItinerario(dias?: ItineraryDay[]): ItineraryDay[] {
+  return (dias ?? [])
+    .map((d) => ({
+      title: String(d?.title ?? '').trim(),
+      description: String(d?.description ?? '').trim(),
+    }))
+    .filter((d) => d.title !== '')
 }
 
 /** Normaliza y valida los campos del servicio. */
@@ -58,6 +71,7 @@ function normalizarCampos(input: ServicioInput):
         available_to: string | null
         includes: string[]
         excludes: string[]
+        itinerary: ItineraryDay[]
       }
     } {
   const name = input.name?.trim()
@@ -98,6 +112,7 @@ function normalizarCampos(input: ServicioInput):
       available_to: fechaAIso(input.available_to),
       includes: limpiarLineas(input.includes),
       excludes: limpiarLineas(input.excludes),
+      itinerary: limpiarItinerario(input.itinerary),
     },
   }
 }

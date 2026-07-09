@@ -14,6 +14,7 @@ import { Label } from '@/components/ui/label'
 import {
   actualizarServicio,
   crearServicio,
+  type ItineraryDay,
   type ServicioInput,
 } from './actions'
 
@@ -66,6 +67,8 @@ export type ServicioFormInitial = {
   /** Conceptos unidos por salto de línea. */
   includes: string
   excludes: string
+  /** Itinerario día por día. */
+  itinerary: ItineraryDay[]
 }
 
 export function ServicioForm({
@@ -110,6 +113,21 @@ export function ServicioForm({
   const [availableTo, setAvailableTo] = useState(initial?.available_to ?? '')
   const [includesText, setIncludesText] = useState(initial?.includes ?? '')
   const [excludesText, setExcludesText] = useState(initial?.excludes ?? '')
+  const [itinerary, setItinerary] = useState<ItineraryDay[]>(
+    initial?.itinerary ?? []
+  )
+
+  function agregarDia() {
+    setItinerary((prev) => [...prev, { title: '', description: '' }])
+  }
+  function quitarDia(indice: number) {
+    setItinerary((prev) => prev.filter((_, i) => i !== indice))
+  }
+  function actualizarDia(indice: number, patch: Partial<ItineraryDay>) {
+    setItinerary((prev) =>
+      prev.map((dia, i) => (i === indice ? { ...dia, ...patch } : dia))
+    )
+  }
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -156,6 +174,7 @@ export function ServicioForm({
       available_to: availableTo || undefined,
       includes: separarLineas(includesText),
       excludes: separarLineas(excludesText),
+      itinerary,
     }
 
     startTransition(async () => {
@@ -339,6 +358,59 @@ export function ServicioForm({
               />
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Itinerario</CardTitle>
+          <CardDescription>
+            Día por día (opcional). Se muestra en la cotización que envías al
+            cliente.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {itinerary.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              Sin días todavía. Agrega el primero.
+            </p>
+          )}
+          {itinerary.map((dia, i) => (
+            <div key={i} className="space-y-2 rounded-lg border p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Día {i + 1}</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => quitarDia(i)}
+                >
+                  Quitar
+                </Button>
+              </div>
+              <Input
+                value={dia.title}
+                onChange={(e) => actualizarDia(i, { title: e.target.value })}
+                placeholder="Título del día. Ej. Llegada a Creel y recorrido"
+              />
+              <textarea
+                className={textareaClass}
+                value={dia.description}
+                onChange={(e) =>
+                  actualizarDia(i, { description: e.target.value })
+                }
+                placeholder="Qué se hace ese día… (opcional)"
+              />
+            </div>
+          ))}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={agregarDia}
+          >
+            + Agregar día
+          </Button>
         </CardContent>
       </Card>
 

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -15,6 +15,19 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Ketzal OS",
   description: "Back-office de ventas para agencias de viajes",
+};
+
+// Campo-primero: el teléfono es el dispositivo principal.
+// `viewportFit: 'cover'` habilita el manejo de safe-area (notch / home indicator)
+// que usa el bottom tab bar. No fijamos maximumScale para no bloquear el zoom accesible.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
+  ],
 };
 
 export default function RootLayout({

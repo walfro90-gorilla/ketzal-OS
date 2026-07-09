@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { ImprimirBoton } from '@/components/imprimir-boton'
 import {
   Card,
   CardContent,
@@ -45,7 +46,7 @@ type QuoteData = {
     logo: string | null
   }
   customer: { full_name: string }
-  service: { name: string } | null
+  service: { name: string; itinerary?: { title: string; description: string }[] } | null
   items: QuoteItem[]
 }
 
@@ -118,6 +119,10 @@ export default async function CotizacionPublicaPage({
         </h1>
       </header>
 
+      <div className="flex justify-center print:hidden">
+        <ImprimirBoton label="Descargar PDF / Imprimir" />
+      </div>
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
@@ -141,6 +146,29 @@ export default async function CotizacionPublicaPage({
           </dl>
         </CardContent>
       </Card>
+
+      {quote.service?.itinerary && quote.service.itinerary.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Itinerario</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {quote.service.itinerary.map((dia, i) => (
+              <div key={i}>
+                <p className="text-sm font-semibold">
+                  Día {i + 1}
+                  {dia.title ? `: ${dia.title}` : ''}
+                </p>
+                {dia.description && (
+                  <p className="mt-0.5 text-sm text-muted-foreground">
+                    {dia.description}
+                  </p>
+                )}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
