@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/table'
 import { balance } from '@/lib/domain/balance'
 import { mxn } from '../ui'
-import { emitirRecibo, registrarAbono } from './actions'
+import { crearLinkPago, emitirRecibo, registrarAbono } from './actions'
 
 export type AbonoRow = {
   id: string
@@ -87,6 +87,7 @@ export function AbonosSection({
 }) {
   const [isRegistering, startRegistering] = useTransition()
   const [isEmitting, startEmitting] = useTransition()
+  const [isCharging, startCharging] = useTransition()
   const [formError, setFormError] = useState<string | null>(null)
   const [receiptError, setReceiptError] = useState<string | null>(null)
   const [emittingId, setEmittingId] = useState<string | null>(null)
@@ -140,6 +141,18 @@ export function AbonosSection({
     })
   }
 
+  function handleCobrar() {
+    startCharging(async () => {
+      const result = await crearLinkPago(bookingId, saldo)
+      if ('error' in result) {
+        toast.error(result.error)
+        return
+      }
+      window.open(result.url, '_blank', 'noopener,noreferrer')
+      toast.success('Link de pago generado')
+    })
+  }
+
   function handleEmitir(paymentId: string) {
     setReceiptError(null)
     setEmittingId(paymentId)
@@ -180,6 +193,26 @@ export function AbonosSection({
             </div>
           </div>
         </div>
+
+        {/* Cobro en línea (Mercado Pago) — solo con saldo pendiente y venta activa */}
+        {!cancelled && saldo > 0 && (
+          <div className="space-y-1.5">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleCobrar}
+              disabled={isCharging}
+            >
+              {isCharging
+                ? 'Generando…'
+                : `Cobrar en línea (${mxn.format(saldo)})`}
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Genera un link de Mercado Pago (tarjeta, OXXO, SPEI). El abono se
+              registra solo al pagar.
+            </p>
+          </div>
+        )}
 
         {/* Lista de abonos */}
         {payments.length === 0 ? (

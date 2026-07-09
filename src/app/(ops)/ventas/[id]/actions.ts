@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 
@@ -113,4 +114,76 @@ export async function cancelarVenta(
   revalidatePath('/ventas')
   revalidatePath('/dashboard')
   return { ok: true }
+}
+
+/**
+ * Cobro en línea con Mercado Pago: crea un intento + una preferencia de Checkout
+ * Pro y devuelve el link de pago. El webhook (/api/mp/webhook) confirma y registra
+ * el abono automáticamente. Requiere MP_ACCESS_TOKEN (env).
+ */
+export async function crearLinkPago(
+  bookingId: string,
+  amount: number
+): Promise<{ error: string } | { url: string }> {
+  const token = process.env.MP_ACCESS_TOKEN
+  if (!token) {
+    return { error: 'Los pagos en línea aún no están configurados (falta MP_ACCESS_TOKEN).' }
+  }
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const monto = Number(amount)
+  if (!Number.isFinite(monto) || monto <= 0) {
+    return { error: 'El monto debe ser un número mayor que 0.' }
+  }
+
+  // 1. Intento de pago (RLS valida acceso a la venta + cuenta activa).
+  const { data: intentId, error: rpcError } = await supabase.rpc('create_payment_intent', {
+    p_booking_id: bookingId,
+    p_amount: monto,
+  })
+  if (rpcError || !intentId) {
+    return { error: rpcError?.message ?? 'No se pudo iniciar el cobro.' }
+  }
+
+  // 2. Origen para back_urls y el webhook.
+  const h = await headers()
+  const origin = process.env.NEXT_PUBLIC_APP_URL ?? `https://${h.get('host')}`
+
+  // 3. Preferencia de Checkout Pro en Mercado Pago.
+  const res = await fetch('https://api.mercadopago.com/checkout/preferences', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({
+      items: [
+        {
+          title: `Abono venta ${bookingId.slice(0, 8)}`,
+          quantity: 1,
+          unit_price: monto,
+          currency_id: 'MXN',
+        },
+      ],
+      external_reference: intentId as string,
+      notification_url: `${origin}/api/mp/webhook`,
+      back_urls: {
+        success: `${origin}/ventas/${bookingId}?pago=ok`,
+        failure: `${origin}/ventas/${bookingId}?pago=error`,
+        pending: `${origin}/ventas/${bookingId}?pago=pendiente`,
+      },
+      auto_return: 'approved',
+    }),
+  })
+  if (!res.ok) {
+    return { error: 'Mercado Pago rechazó la solicitud. Revisa las credenciales.' }
+  }
+  const pref = (await res.json()) as { init_point?: string }
+  if (!pref.init_point) {
+    return { error: 'Mercado Pago no devolvió un link de pago.' }
+  }
+
+  return { url: pref.init_point }
 }

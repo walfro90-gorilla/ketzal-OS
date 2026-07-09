@@ -442,6 +442,14 @@ export type Database = {
         Args: { p_from: string; p_to: string }
         Returns: Json
       }
+      create_payment_intent: {
+        Args: { p_booking_id: string; p_amount: number }
+        Returns: string
+      }
+      confirm_online_payment: {
+        Args: { p_intent_id: string; p_mp_payment_id: string; p_status: string }
+        Returns: Json
+      }
       ensure_profile: {
         Args: Record<PropertyKey, never>
         Returns: undefined

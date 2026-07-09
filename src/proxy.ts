@@ -28,7 +28,8 @@ export async function proxy(request: NextRequest) {
     path.startsWith('/login') ||
     path.startsWith('/auth') ||
     path.startsWith('/cotizacion/') ||
-    path.startsWith('/recuperar')
+    path.startsWith('/recuperar') ||
+    path.startsWith('/api/') // endpoints (p.ej. webhook de Mercado Pago) manejan su propia auth
   if (!user && !isPublic) {
     const url = request.nextUrl.clone(); url.pathname = '/login'; return NextResponse.redirect(url)
   }
