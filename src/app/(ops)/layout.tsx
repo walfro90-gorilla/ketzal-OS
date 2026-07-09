@@ -68,6 +68,11 @@ export default async function OpsLayout({
               </Link>
             </li>
             <li>
+              <Link href="/servicios" className="hover:underline">
+                Servicios
+              </Link>
+            </li>
+            <li>
               <Link href="/proveedores" className="hover:underline">
                 Proveedores
               </Link>

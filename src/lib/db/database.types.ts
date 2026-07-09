@@ -268,51 +268,84 @@ export type Database = {
       services: {
         Row: {
           add_ons: Json | null
-          current_bookings: number | null
+          available_from: string | null
+          available_to: string | null
+          city_from: string | null
+          city_to: string | null
+          created_at: string | null
+          current_bookings: number
           dates: Json | null
           description: string | null
+          excludes: Json | null
           hotel_provider_id: string | null
           id: string
+          includes: Json | null
           itinerary: Json | null
           max_capacity: number | null
           name: string
           packs: Json | null
-          price: number | null
+          price: number
           seasonal_prices: Json | null
-          supplier_id: string | null
+          service_type: string | null
+          state_from: string | null
+          state_to: string | null
+          supplier_id: string
           transport_provider_id: string | null
+          updated_at: string | null
         }
         Insert: {
           add_ons?: Json | null
-          current_bookings?: number | null
+          available_from?: string | null
+          available_to?: string | null
+          city_from?: string | null
+          city_to?: string | null
+          created_at?: string | null
+          current_bookings?: number
           dates?: Json | null
           description?: string | null
+          excludes?: Json | null
           hotel_provider_id?: string | null
           id?: string
+          includes?: Json | null
           itinerary?: Json | null
           max_capacity?: number | null
           name: string
           packs?: Json | null
-          price?: number | null
+          price: number
           seasonal_prices?: Json | null
-          supplier_id?: string | null
+          service_type?: string | null
+          state_from?: string | null
+          state_to?: string | null
+          supplier_id: string
           transport_provider_id?: string | null
+          updated_at?: string | null
         }
         Update: {
           add_ons?: Json | null
-          current_bookings?: number | null
+          available_from?: string | null
+          available_to?: string | null
+          city_from?: string | null
+          city_to?: string | null
+          created_at?: string | null
+          current_bookings?: number
           dates?: Json | null
           description?: string | null
+          excludes?: Json | null
           hotel_provider_id?: string | null
           id?: string
+          includes?: Json | null
           itinerary?: Json | null
           max_capacity?: number | null
           name?: string
           packs?: Json | null
-          price?: number | null
+          price?: number
           seasonal_prices?: Json | null
-          supplier_id?: string | null
+          service_type?: string | null
+          state_from?: string | null
+          state_to?: string | null
+          supplier_id?: string
           transport_provider_id?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }
