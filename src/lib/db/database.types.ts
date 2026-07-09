@@ -438,6 +438,10 @@ export type Database = {
         Args: { p_booking_id: string; p_reason: string }
         Returns: undefined
       }
+      reports_summary: {
+        Args: { p_from: string; p_to: string }
+        Returns: Json
+      }
       ensure_profile: {
         Args: Record<PropertyKey, never>
         Returns: undefined
