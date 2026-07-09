@@ -75,7 +75,7 @@ export function DataList<T>({
                     {rowHref && i === primaryIndex ? (
                       <Link
                         href={rowHref(row)}
-                        className="font-medium hover:underline"
+                        className="font-medium text-primary hover:underline"
                       >
                         {col.cell(row)}
                       </Link>

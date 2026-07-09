@@ -80,7 +80,7 @@ export function BottomTabs({ role }: { role: string | null }) {
                         className={cn(
                           'flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                           active
-                            ? 'bg-secondary text-secondary-foreground'
+                            ? 'bg-primary/10 text-primary'
                             : 'hover:bg-muted'
                         )}
                       >
