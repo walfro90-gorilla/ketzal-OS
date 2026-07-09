@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { isAdminRole, isAdminRoute } from '@/lib/access'
 
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request })
@@ -33,6 +34,18 @@ export async function proxy(request: NextRequest) {
   }
   if (user && path.startsWith('/login')) {
     const url = request.nextUrl.clone(); url.pathname = '/dashboard'; return NextResponse.redirect(url)
+  }
+  // Rutas de administración (catálogo, comisiones, equipo): solo admin/superadmin.
+  // El rol se consulta SOLO al entrar a una ruta admin (no en cada request).
+  if (user && isAdminRoute(path)) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+    if (!isAdminRole(profile?.role)) {
+      const url = request.nextUrl.clone(); url.pathname = '/dashboard'; return NextResponse.redirect(url)
+    }
   }
   return response
 }

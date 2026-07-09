@@ -12,10 +12,12 @@ import { FlashToasts } from './flash-toasts'
 export function AppShell({
   email,
   displayName,
+  role,
   children,
 }: {
   email: string | null
   displayName: string | null
+  role: string | null
   children: React.ReactNode
 }) {
   return (
@@ -43,7 +45,7 @@ export function AppShell({
       <div className="flex flex-1">
         <aside className="hidden w-56 shrink-0 border-r md:block">
           <div className="sticky top-14">
-            <SidebarNav />
+            <SidebarNav role={role} />
           </div>
         </aside>
 
@@ -57,7 +59,7 @@ export function AppShell({
         </main>
       </div>
 
-      <BottomTabs />
+      <BottomTabs role={role} />
     </div>
   )
 }

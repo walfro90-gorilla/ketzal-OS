@@ -35,18 +35,13 @@ export async function crearCliente(
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // Agencia del agente (RLS: el cliente debe pertenecer a su supplier).
-  const { data: profile, error: profileError } = await supabase
+  // Agencia del agente, o null si es agente libre de Ketzal.
+  // El acceso lo gobierna el RLS (is_active + dueño/agencia); no exigimos agencia aquí.
+  const { data: profile } = await supabase
     .from('profiles')
     .select('supplier_id')
     .eq('id', user.id)
     .single()
-  if (profileError || !profile?.supplier_id) {
-    return {
-      error:
-        'Tu perfil no tiene una agencia asignada. Pide a un administrador que configure tu supplier_id.',
-    }
-  }
 
   const fields = normalizarCampos(input)
   if (!fields) {
@@ -56,7 +51,7 @@ export async function crearCliente(
   const { data, error } = await supabase
     .from('customers')
     .insert({
-      supplier_id: profile.supplier_id,
+      supplier_id: profile?.supplier_id ?? null,
       ...fields,
       created_by: user.id,
     })

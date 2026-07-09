@@ -12,17 +12,19 @@ export default async function OpsLayout({
   } = await supabase.auth.getUser()
 
   let displayName: string | null = null
+  let role: string | null = null
   if (user) {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('name')
+      .select('name, role')
       .eq('id', user.id)
       .single()
     displayName = profile?.name ?? null
+    role = profile?.role ?? null
   }
 
   return (
-    <AppShell email={user?.email ?? null} displayName={displayName}>
+    <AppShell email={user?.email ?? null} displayName={displayName} role={role}>
       {children}
     </AppShell>
   )

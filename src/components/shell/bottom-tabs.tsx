@@ -12,22 +12,26 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet'
-import { PRIMARY_ITEMS, SECONDARY_ITEMS, isNavActive } from './nav-items'
+import { navItemsForRole, isNavActive } from './nav-items'
 
-// Bottom tab bar (sólo móvil). 4 rutas primarias + "Más" que abre un sheet
-// con el resto. Respeta el safe-area del home indicator de iOS.
-export function BottomTabs() {
+// Bottom tab bar (sólo móvil). Rutas primarias + "Más" que abre un sheet
+// con el resto (solo admin). Respeta el safe-area del home indicator de iOS.
+export function BottomTabs({ role }: { role: string | null }) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
-  const moreActive = SECONDARY_ITEMS.some((i) => isNavActive(pathname, i.href))
+  const items = navItemsForRole(role)
+  const primaryItems = items.filter((i) => i.primary)
+  const secondaryItems = items.filter((i) => !i.primary)
+  const hasMore = secondaryItems.length > 0
+  const moreActive = secondaryItems.some((i) => isNavActive(pathname, i.href))
 
   return (
     <nav
       aria-label="Navegación principal"
       className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur supports-backdrop-filter:bg-background/80 md:hidden"
     >
-      <ul className="grid grid-cols-5">
-        {PRIMARY_ITEMS.map(({ label, href, icon: Icon }) => {
+      <ul className={cn('grid', hasMore ? 'grid-cols-5' : 'grid-cols-4')}>
+        {primaryItems.map(({ label, href, icon: Icon }) => {
           const active = isNavActive(pathname, href)
           return (
             <li key={href}>
@@ -45,6 +49,7 @@ export function BottomTabs() {
             </li>
           )
         })}
+        {hasMore && (
         <li>
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger
@@ -64,7 +69,7 @@ export function BottomTabs() {
                 <SheetTitle>Más</SheetTitle>
               </SheetHeader>
               <ul className="flex flex-col gap-1 px-2 pb-2">
-                {SECONDARY_ITEMS.map(({ label, href, icon: Icon }) => {
+                {secondaryItems.map(({ label, href, icon: Icon }) => {
                   const active = isNavActive(pathname, href)
                   return (
                     <li key={href}>
@@ -89,6 +94,7 @@ export function BottomTabs() {
             </SheetContent>
           </Sheet>
         </li>
+        )}
       </ul>
     </nav>
   )
