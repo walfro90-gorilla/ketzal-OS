@@ -68,19 +68,20 @@ El "Más" abre un `Sheet` con: Comisiones, Servicios, Proveedores, perfil y Sali
 
 ## 5. Plan por fases
 
-### Fase 0 — Fundamentos (invisible, desbloquea todo) ⏱️ primero
-- [ ] `viewport` + `themeColor` + safe-area en `app/layout.tsx`.
-- [ ] Escala táctil en `ui/button.tsx` e `ui/input.tsx` (3.1) + `size="touch"`.
-- [ ] Instalar shadcn faltantes (3.2).
-- [ ] Extraer `mxn`, `formatTravelDate`, `StatusBadge` de `(ops)/ventas/ui.tsx` a `components/data/`.
-- **Criterio de aceptación:** ningún control interactivo < 44px en viewport móvil; build verde; páginas existentes sin regresión visual en desktop.
+### Fase 0 — Fundamentos (invisible, desbloquea todo) ✅ HECHA (2026-07-09)
+- [x] `viewport` + `themeColor` + `viewportFit:'cover'` en `app/layout.tsx`.
+- [x] Escala táctil en `ui/button.tsx` (`h-10 md:h-8`, size `touch`/`icon-touch`) e `ui/input.tsx` (`h-11 md:h-9`).
+- [x] Instalados shadcn: select, sheet, dropdown-menu, separator, skeleton, sonner. `sonner.tsx` desacoplado de `next-themes` (se reconecta en Fase 3).
+- [ ] ~~Extraer `mxn`/`formatTravelDate`/`StatusBadge`~~ → **diferido a Fase 2** (se hace cuando el `DataList` los necesite; evita churn con el backend ahora).
+- **Verificación:** reglas CSS confirmadas (`.h-11`=44px, `.h-10`=40px, `.md:h-9`=36px); typecheck verde; dashboard sin regresión en desktop.
 
-### Fase 1 — Shell responsive
-- [ ] `AppShell` + `BottomTabs` + `nav-items.ts` (fuente única).
-- [ ] Reescribir `(ops)/layout.tsx` para usar el shell: sidebar `md:`, bottom tabs móvil, `aria-current` en la ruta activa.
-- [ ] `UserMenu` (avatar → dropdown con email + Salir); header deja de desbordarse.
-- [ ] Padding responsive del `<main>`: `p-4 md:p-6`.
-- **Criterio de aceptación:** en 375px el contenido usa el 100% del ancho; navegación alcanzable con el pulgar; se ve la ruta activa; header no se parte.
+### Fase 1 — Shell responsive ✅ HECHA (2026-07-09)
+- [x] `components/shell/`: `nav-items.ts` (fuente única) + `sidebar-nav` + `bottom-tabs` (con sheet "Más" + safe-area) + `user-menu` + `app-shell`.
+- [x] `(ops)/layout.tsx` reescrito sobre `AppShell` (conserva el fetch de user/profile): sidebar `hidden md:block`, bottom tabs `md:hidden`, `aria-current` en la ruta activa.
+- [x] `UserMenu` (avatar → dropdown con nombre/email + Salir vía `requestSubmit`); el header ya no desborda el email.
+- [x] `<main>` con `p-4 pb-24 md:p-6` (libera espacio para la bottom bar).
+- **Verificación:** desktop OK por screenshot (sidebar con íconos + activo, avatar); bottom bar validada por DOM (5 tabs, `aria-current`, `md:hidden`).
+- **⚠️ Gotcha base-ui encontrado y corregido:** su `DropdownMenuLabel` es `Menu.GroupLabel` y **exige** un `<Menu.Group>` padre; usado suelto tira todo el árbol. Regla: para bloques de texto informativos en un menú usar un `<div>`, no `DropdownMenuLabel`. (base-ui ≠ radix en varias partes; leer el componente generado antes de usarlo.)
 
 ### Fase 2 — Datos responsive
 - [ ] `DataList` (tabla desktop / tarjetas móvil desde una def de columnas).

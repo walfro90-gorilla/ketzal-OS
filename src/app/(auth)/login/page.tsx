@@ -1,6 +1,7 @@
 'use client'
 
 import { Suspense, useState } from 'react'
+import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -220,6 +221,12 @@ function LoginForm() {
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'Entrando…' : 'Entrar'}
             </Button>
+            <Link
+              href="/recuperar"
+              className="block text-center text-sm text-muted-foreground hover:underline"
+            >
+              ¿Olvidaste tu contraseña?
+            </Link>
           </form>
         )}
       </CardContent>
