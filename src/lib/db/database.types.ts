@@ -22,6 +22,25 @@ export type Database = {
   }
   ketzal: {
     Tables: {
+      // PARTIAL: fila única (id=1) con la configuración global de la plataforma.
+      app_settings: {
+        Row: {
+          id: number
+          platform_commission_rate: number
+          updated_at: string
+        }
+        Insert: {
+          id?: number
+          platform_commission_rate?: number
+          updated_at?: string
+        }
+        Update: {
+          id?: number
+          platform_commission_rate?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       booking_items: {
         Row: {
           booking_id: string
@@ -212,6 +231,7 @@ export type Database = {
       // PARTIAL: pre-existing table, only the columns Ketzal OS v1 uses.
       profiles: {
         Row: {
+          active: boolean
           email: string | null
           id: string
           name: string | null
@@ -219,6 +239,7 @@ export type Database = {
           supplier_id: string | null
         }
         Insert: {
+          active?: boolean
           email?: string | null
           id: string
           name?: string | null
@@ -226,6 +247,7 @@ export type Database = {
           supplier_id?: string | null
         }
         Update: {
+          active?: boolean
           email?: string | null
           id?: string
           name?: string | null
@@ -414,6 +436,26 @@ export type Database = {
     Functions: {
       cancel_booking: {
         Args: { p_booking_id: string; p_reason: string }
+        Returns: undefined
+      }
+      ensure_profile: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      list_team: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      set_user_active: {
+        Args: { p_user: string; p_active: boolean }
+        Returns: undefined
+      }
+      assign_user_agency: {
+        Args: { p_user: string; p_supplier: string | null }
+        Returns: undefined
+      }
+      set_user_role: {
+        Args: { p_user: string; p_role: Database["ketzal"]["Enums"]["user_role"] }
         Returns: undefined
       }
       commissions_summary: {

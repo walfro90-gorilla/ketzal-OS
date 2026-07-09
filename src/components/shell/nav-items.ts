@@ -9,6 +9,7 @@ import {
   PercentIcon,
   MapPinIcon,
   Building2Icon,
+  UsersRoundIcon,
 } from 'lucide-react'
 
 export type NavIcon = ComponentType<{ className?: string }>
@@ -27,6 +28,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Clientes', href: '/clientes', icon: UsersIcon, primary: true },
   { label: 'Cotizaciones', href: '/cotizaciones', icon: FileTextIcon, primary: true },
   { label: 'Comisiones', href: '/comisiones', icon: PercentIcon, primary: false },
+  { label: 'Equipo', href: '/equipo', icon: UsersRoundIcon, primary: false },
   { label: 'Servicios', href: '/servicios', icon: MapPinIcon, primary: false },
   { label: 'Proveedores', href: '/proveedores', icon: Building2Icon, primary: false },
 ]

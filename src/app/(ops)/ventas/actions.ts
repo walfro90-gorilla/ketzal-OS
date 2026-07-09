@@ -43,20 +43,8 @@ export async function createBooking(
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // 1. Agencia del agente (RLS: la venta debe pertenecer a su supplier).
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('supplier_id')
-    .eq('id', user.id)
-    .single()
-  if (profileError || !profile?.supplier_id) {
-    return {
-      error:
-        'Tu perfil no tiene una agencia asignada. Pide a un administrador que configure tu supplier_id.',
-    }
-  }
-
-  // 2. Validar y normalizar las líneas (defensa de UX; el RPC recalcula la autoridad final).
+  // 1. Validar y normalizar las líneas (defensa de UX; el RPC recalcula la autoridad final).
+  //    El RPC valida cuenta activa y maneja agente de agencia (supplier_id) o libre (null).
   const rawLines = Array.isArray(input.lines) ? input.lines : []
   if (rawLines.length === 0) {
     return { error: 'Agrega al menos una línea a la venta.' }
