@@ -1,6 +1,6 @@
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
 import {
   Card,
   CardContent,
@@ -8,14 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { DataList, type DataColumn } from '@/components/data/data-list'
 import {
   formatTravelDate,
   mxn,
@@ -77,6 +70,52 @@ function pluralVentas(n: number): string {
 function pluralVencidas(n: number): string {
   return n === 1 ? '1 vencida' : `${n} vencidas`
 }
+
+const porCobrarColumns: DataColumn<VentaSaldo>[] = [
+  { header: 'Cliente', primary: true, cell: (v) => v.cliente ?? 'Sin cliente' },
+  { header: 'Servicio', cell: (v) => v.servicio ?? 'A medida' },
+  {
+    header: 'Total',
+    align: 'right',
+    cell: (v) => <span className="tabular-nums">{mxn.format(Number(v.total))}</span>,
+  },
+  {
+    header: 'Saldo',
+    align: 'right',
+    cell: (v) => (
+      <span className="font-semibold tabular-nums">
+        {mxn.format(Number(v.saldo))}
+      </span>
+    ),
+  },
+  {
+    header: 'Vence',
+    cell: (v) => (
+      <span
+        className={cn(
+          'inline-flex items-center gap-2',
+          v.vencida && 'text-destructive'
+        )}
+      >
+        <span className="whitespace-nowrap">{formatTravelDate(v.due_date)}</span>
+        {v.vencida && <Badge variant="destructive">Vencida</Badge>}
+      </span>
+    ),
+  },
+  { header: 'Estado', cell: (v) => <StatusBadge status={v.status} /> },
+]
+
+const proximosColumns: DataColumn<ProximoViaje>[] = [
+  { header: 'Cliente', primary: true, cell: (v) => v.cliente ?? 'Sin cliente' },
+  { header: 'Servicio', cell: (v) => v.servicio ?? 'A medida' },
+  { header: 'Fecha', cell: (v) => formatTravelDate(v.travel_date) },
+  {
+    header: 'Pax',
+    align: 'right',
+    cell: (v) => <span className="tabular-nums">{v.num_pax}</span>,
+  },
+  { header: 'Estado', cell: (v) => <StatusBadge status={v.status} /> },
+]
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -215,60 +254,17 @@ export default async function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {ventasSaldo.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Nada por cobrar. 🎉
-              </p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Cliente</TableHead>
-                    <TableHead>Servicio</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                    <TableHead className="text-right">Saldo</TableHead>
-                    <TableHead>Vence</TableHead>
-                    <TableHead>Estado</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {ventasSaldo.map((venta) => (
-                    <TableRow key={venta.id}>
-                      <TableCell>
-                        <Link
-                          href={`/ventas/${venta.id}`}
-                          className="font-medium hover:underline"
-                        >
-                          {venta.cliente ?? 'Sin cliente'}
-                        </Link>
-                      </TableCell>
-                      <TableCell>{venta.servicio ?? 'A medida'}</TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {mxn.format(Number(venta.total))}
-                      </TableCell>
-                      <TableCell className="text-right font-semibold tabular-nums">
-                        {mxn.format(Number(venta.saldo))}
-                      </TableCell>
-                      <TableCell
-                        className={venta.vencida ? 'text-destructive' : undefined}
-                      >
-                        <span className="whitespace-nowrap">
-                          {formatTravelDate(venta.due_date)}
-                        </span>
-                        {venta.vencida && (
-                          <Badge variant="destructive" className="ml-2">
-                            Vencida
-                          </Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge status={venta.status} />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
+            <DataList
+              columns={porCobrarColumns}
+              rows={ventasSaldo}
+              getRowKey={(v) => v.id}
+              rowHref={(v) => `/ventas/${v.id}`}
+              empty={
+                <p className="text-sm text-muted-foreground">
+                  Nada por cobrar. 🎉
+                </p>
+              }
+            />
           </CardContent>
         </Card>
 
@@ -280,45 +276,17 @@ export default async function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {proximosViajes.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Sin viajes próximos.
-              </p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Cliente</TableHead>
-                    <TableHead>Servicio</TableHead>
-                    <TableHead>Fecha</TableHead>
-                    <TableHead className="text-right">Pax</TableHead>
-                    <TableHead>Estado</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {proximosViajes.map((viaje) => (
-                    <TableRow key={viaje.id}>
-                      <TableCell>
-                        <Link
-                          href={`/ventas/${viaje.id}`}
-                          className="font-medium hover:underline"
-                        >
-                          {viaje.cliente ?? 'Sin cliente'}
-                        </Link>
-                      </TableCell>
-                      <TableCell>{viaje.servicio ?? 'A medida'}</TableCell>
-                      <TableCell>{formatTravelDate(viaje.travel_date)}</TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {viaje.num_pax}
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge status={viaje.status} />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
+            <DataList
+              columns={proximosColumns}
+              rows={proximosViajes}
+              getRowKey={(v) => v.id}
+              rowHref={(v) => `/ventas/${v.id}`}
+              empty={
+                <p className="text-sm text-muted-foreground">
+                  Sin viajes próximos.
+                </p>
+              }
+            />
           </CardContent>
         </Card>
       </div>

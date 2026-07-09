@@ -1,7 +1,16 @@
 'use client'
 
 import Link from 'next/link'
-import { useRef, useState, useTransition } from 'react'
+import {
+  useRef,
+  useState,
+  useTransition,
+  type ComponentProps,
+  type ReactNode,
+} from 'react'
+import { ChevronDownIcon, PlusIcon, Trash2Icon } from 'lucide-react'
+import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 import { Button, buttonVariants } from '@/components/ui/button'
 import {
   Card,
@@ -47,9 +56,38 @@ type LineDraft = {
   unit_price: string
 }
 
-// Estilo de <select> nativo alineado al Input de shadcn (no hay Select en components/ui).
+// <select> nativo (en móvil el picker del SO es mejor UX que un dropdown custom).
+// Táctil en móvil (44px), compacto en desktop; el `text-base` móvil evita el zoom de iOS.
 const selectClass =
-  'h-8 w-full min-w-0 appearance-none rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 dark:bg-input/30'
+  'h-11 md:h-9 w-full min-w-0 appearance-none rounded-lg border border-input bg-transparent px-3 md:px-2.5 py-1 pr-9 text-base md:text-sm transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 dark:bg-input/30'
+
+// El <select> con appearance-none pierde la flecha nativa: la reponemos con un chevron.
+function NativeSelect({ className, children, ...props }: ComponentProps<'select'>) {
+  return (
+    <div className="relative">
+      <select className={cn(selectClass, className)} {...props}>
+        {children}
+      </select>
+      <ChevronDownIcon className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground" />
+    </div>
+  )
+}
+
+// Campo con etiqueta visible (para las tarjetas móviles; los controles ya traen aria-label).
+function LabeledField({
+  label,
+  children,
+}: {
+  label: string
+  children: ReactNode
+}) {
+  return (
+    <div className="space-y-1.5">
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      {children}
+    </div>
+  )
+}
 
 const ITEM_TYPES: ItemType[] = ['passenger', 'room', 'addon', 'custom']
 const PASSENGER_TYPES: PassengerType[] = ['adult', 'child', 'inapam']
@@ -186,7 +224,10 @@ export function NuevaVentaForm({
     startTransition(async () => {
       const result = await createBooking(input)
       // En éxito la acción redirige (/ventas/[id] o /cotizaciones); solo llega aquí con error.
-      if (result?.error) setError(result.error)
+      if (result?.error) {
+        setError(result.error)
+        toast.error(result.error)
+      }
     })
   }
 
@@ -194,6 +235,97 @@ export function NuevaVentaForm({
     e.preventDefault()
     submit('reserved')
   }
+
+  // --- Render-helpers de campo: una sola fuente por control, reusada en
+  //     la tabla (desktop) y en las tarjetas (móvil). ---
+  const tipoSelect = (line: LineDraft) => (
+    <NativeSelect
+      aria-label="Tipo de línea"
+      value={line.item_type}
+      onChange={(e) =>
+        updateLine(line.key, { item_type: e.target.value as ItemType })
+      }
+    >
+      {ITEM_TYPES.map((t) => (
+        <option key={t} value={t}>
+          {ITEM_TYPE_LABELS[t]}
+        </option>
+      ))}
+    </NativeSelect>
+  )
+
+  const subtipoSelect = (line: LineDraft) => (
+    <NativeSelect
+      aria-label="Tipo de pasajero"
+      value={line.passenger_type}
+      onChange={(e) =>
+        updateLine(line.key, {
+          passenger_type: e.target.value as PassengerType,
+        })
+      }
+    >
+      {PASSENGER_TYPES.map((t) => (
+        <option key={t} value={t}>
+          {PASSENGER_TYPE_LABELS[t]}
+        </option>
+      ))}
+    </NativeSelect>
+  )
+
+  const descInput = (line: LineDraft) => (
+    <Input
+      aria-label="Descripción"
+      value={line.description}
+      onChange={(e) => updateLine(line.key, { description: e.target.value })}
+      placeholder="Descripción"
+    />
+  )
+
+  const qtyInput = (line: LineDraft) => (
+    <Input
+      aria-label="Cantidad"
+      type="number"
+      inputMode="numeric"
+      min={1}
+      step={1}
+      value={line.qty}
+      onChange={(e) => updateLine(line.key, { qty: e.target.value })}
+    />
+  )
+
+  const priceInput = (line: LineDraft) => (
+    <Input
+      aria-label="Precio unitario"
+      type="number"
+      inputMode="decimal"
+      min={0}
+      step="0.01"
+      value={line.unit_price}
+      onChange={(e) => updateLine(line.key, { unit_price: e.target.value })}
+      placeholder="0.00"
+    />
+  )
+
+  const importe = (line: LineDraft) =>
+    mxn.format(
+      lineTotal({
+        qty: Number(line.qty) || 0,
+        unitPrice: Number(line.unit_price) || 0,
+      })
+    )
+
+  const deleteBtn = (line: LineDraft, size: 'icon-sm' | 'icon-touch') => (
+    <Button
+      type="button"
+      variant="ghost"
+      size={size}
+      aria-label="Eliminar línea"
+      onClick={() => removeLine(line.key)}
+      disabled={lines.length === 1}
+    >
+      <Trash2Icon />
+    </Button>
+  )
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -208,18 +340,18 @@ export function NuevaVentaForm({
           <div className="flex gap-2">
             <Button
               type="button"
-              size="sm"
               variant={newCustomerMode ? 'outline' : 'default'}
               onClick={() => setNewCustomerMode(false)}
               disabled={customers.length === 0}
+              className="flex-1 sm:flex-none"
             >
               Cliente existente
             </Button>
             <Button
               type="button"
-              size="sm"
               variant={newCustomerMode ? 'default' : 'outline'}
               onClick={() => setNewCustomerMode(true)}
+              className="flex-1 sm:flex-none"
             >
               Nuevo cliente
             </Button>
@@ -241,6 +373,7 @@ export function NuevaVentaForm({
                 <Input
                   id="new-customer-phone"
                   type="tel"
+                  inputMode="tel"
                   value={newPhone}
                   onChange={(e) => setNewPhone(e.target.value)}
                   placeholder="Ej. 656 123 4567"
@@ -250,9 +383,8 @@ export function NuevaVentaForm({
           ) : (
             <div className="space-y-2">
               <Label htmlFor="customer-select">Cliente</Label>
-              <select
+              <NativeSelect
                 id="customer-select"
-                className={selectClass}
                 value={customerId}
                 onChange={(e) => setCustomerId(e.target.value)}
               >
@@ -262,7 +394,7 @@ export function NuevaVentaForm({
                     {c.full_name}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
           )}
         </CardContent>
@@ -278,9 +410,8 @@ export function NuevaVentaForm({
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="service-select">Servicio</Label>
-            <select
+            <NativeSelect
               id="service-select"
-              className={selectClass}
               value={serviceId}
               onChange={(e) => handleServiceChange(e.target.value)}
             >
@@ -291,7 +422,7 @@ export function NuevaVentaForm({
                   {s.price != null ? ` (${mxn.format(Number(s.price))})` : ''}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           </div>
           <div className="space-y-2">
             <Label htmlFor="travel-date">Fecha de viaje</Label>
@@ -313,7 +444,8 @@ export function NuevaVentaForm({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="overflow-x-auto">
+          {/* Desktop (md+): tabla compacta */}
+          <div className="hidden overflow-x-auto md:block">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -329,106 +461,76 @@ export function NuevaVentaForm({
               <TableBody>
                 {lines.map((line) => (
                   <TableRow key={line.key}>
-                    <TableCell>
-                      <select
-                        aria-label="Tipo de línea"
-                        className={selectClass}
-                        value={line.item_type}
-                        onChange={(e) =>
-                          updateLine(line.key, {
-                            item_type: e.target.value as ItemType,
-                          })
-                        }
-                      >
-                        {ITEM_TYPES.map((t) => (
-                          <option key={t} value={t}>
-                            {ITEM_TYPE_LABELS[t]}
-                          </option>
-                        ))}
-                      </select>
-                    </TableCell>
+                    <TableCell>{tipoSelect(line)}</TableCell>
                     <TableCell>
                       {line.item_type === 'passenger' ? (
-                        <select
-                          aria-label="Tipo de pasajero"
-                          className={selectClass}
-                          value={line.passenger_type}
-                          onChange={(e) =>
-                            updateLine(line.key, {
-                              passenger_type: e.target.value as PassengerType,
-                            })
-                          }
-                        >
-                          {PASSENGER_TYPES.map((t) => (
-                            <option key={t} value={t}>
-                              {PASSENGER_TYPE_LABELS[t]}
-                            </option>
-                          ))}
-                        </select>
+                        subtipoSelect(line)
                       ) : (
                         <span className="text-sm text-muted-foreground">—</span>
                       )}
                     </TableCell>
-                    <TableCell>
-                      <Input
-                        aria-label="Descripción"
-                        value={line.description}
-                        onChange={(e) =>
-                          updateLine(line.key, { description: e.target.value })
-                        }
-                        placeholder="Descripción"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        aria-label="Cantidad"
-                        type="number"
-                        min={1}
-                        step={1}
-                        value={line.qty}
-                        onChange={(e) => updateLine(line.key, { qty: e.target.value })}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        aria-label="Precio unitario"
-                        type="number"
-                        min={0}
-                        step="0.01"
-                        value={line.unit_price}
-                        onChange={(e) =>
-                          updateLine(line.key, { unit_price: e.target.value })
-                        }
-                        placeholder="0.00"
-                      />
-                    </TableCell>
+                    <TableCell>{descInput(line)}</TableCell>
+                    <TableCell>{qtyInput(line)}</TableCell>
+                    <TableCell>{priceInput(line)}</TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {mxn.format(
-                        lineTotal({
-                          qty: Number(line.qty) || 0,
-                          unitPrice: Number(line.unit_price) || 0,
-                        })
-                      )}
+                      {importe(line)}
                     </TableCell>
-                    <TableCell>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label="Eliminar línea"
-                        onClick={() => removeLine(line.key)}
-                        disabled={lines.length === 1}
-                      >
-                        ×
-                      </Button>
-                    </TableCell>
+                    <TableCell>{deleteBtn(line, 'icon-sm')}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </div>
-          <Button type="button" variant="outline" size="sm" onClick={addLine}>
-            + Agregar línea
+
+          {/* Móvil (<md): una tarjeta por línea */}
+          <ul className="flex flex-col gap-4 md:hidden">
+            {lines.map((line, i) => (
+              <li key={line.key} className="space-y-3 rounded-xl border p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Línea {i + 1}</span>
+                  {deleteBtn(line, 'icon-touch')}
+                </div>
+
+                {line.item_type === 'passenger' ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    <LabeledField label="Tipo">{tipoSelect(line)}</LabeledField>
+                    <LabeledField label="Subtipo">
+                      {subtipoSelect(line)}
+                    </LabeledField>
+                  </div>
+                ) : (
+                  <LabeledField label="Tipo">{tipoSelect(line)}</LabeledField>
+                )}
+
+                <LabeledField label="Descripción">
+                  {descInput(line)}
+                </LabeledField>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <LabeledField label="Cantidad">{qtyInput(line)}</LabeledField>
+                  <LabeledField label="P. unitario">
+                    {priceInput(line)}
+                  </LabeledField>
+                </div>
+
+                <div className="flex items-center justify-between border-t pt-3">
+                  <span className="text-sm text-muted-foreground">Importe</span>
+                  <span className="font-semibold tabular-nums">
+                    {importe(line)}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+
+          <Button
+            type="button"
+            variant="outline"
+            onClick={addLine}
+            className="w-full md:w-auto"
+          >
+            <PlusIcon />
+            Agregar línea
           </Button>
         </CardContent>
       </Card>
@@ -450,6 +552,7 @@ export function NuevaVentaForm({
               <Input
                 id="discount"
                 type="number"
+                inputMode="decimal"
                 min={0}
                 step="0.01"
                 className="w-32 text-right"
@@ -480,8 +583,12 @@ export function NuevaVentaForm({
         </p>
       )}
 
-      <div className="flex flex-wrap items-center gap-3">
-        <Button type="submit" disabled={isPending}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <Button
+          type="submit"
+          disabled={isPending}
+          className="w-full sm:w-auto"
+        >
           {isPending ? 'Guardando…' : 'Guardar venta'}
         </Button>
         <Button
@@ -489,10 +596,17 @@ export function NuevaVentaForm({
           variant="secondary"
           disabled={isPending}
           onClick={() => submit('draft')}
+          className="w-full sm:w-auto"
         >
           {isPending ? 'Guardando…' : 'Guardar como cotización'}
         </Button>
-        <Link href="/ventas" className={buttonVariants({ variant: 'outline' })}>
+        <Link
+          href="/ventas"
+          className={cn(
+            buttonVariants({ variant: 'outline' }),
+            'w-full sm:w-auto'
+          )}
+        >
           Cancelar
         </Link>
       </div>

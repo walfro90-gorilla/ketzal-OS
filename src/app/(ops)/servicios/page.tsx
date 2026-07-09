@@ -1,14 +1,9 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { buttonVariants } from '@/components/ui/button'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { MapPinIcon } from 'lucide-react'
+import { DataList, type DataColumn } from '@/components/data/data-list'
+import { EmptyState } from '@/components/data/empty-state'
 import { mxn } from '../ventas/ui'
 
 const TIPO_LABELS: Record<string, string> = {
@@ -23,6 +18,17 @@ const TIPO_LABELS: Record<string, string> = {
 function formatDestino(city: string | null, state: string | null): string {
   const partes = [city, state].filter(Boolean)
   return partes.length > 0 ? partes.join(', ') : '—'
+}
+
+type ServicioRow = {
+  id: string
+  name: string
+  price: number | null
+  service_type: string | null
+  state_to: string | null
+  city_to: string | null
+  max_capacity: number | null
+  supplier_id: string
 }
 
 export default async function ServiciosPage() {
@@ -41,10 +47,52 @@ export default async function ServiciosPage() {
     supabase.from('suppliers').select('id, name'),
   ])
 
-  const servicios = serviciosRes.data ?? []
+  const servicios = (serviciosRes.data ?? []) as unknown as ServicioRow[]
   const agenciaPorId = new Map(
     (agenciasRes.data ?? []).map((agencia) => [agencia.id, agencia.name])
   )
+
+  const columns: DataColumn<ServicioRow>[] = [
+    {
+      header: 'Nombre',
+      primary: true,
+      cell: (s) => (
+        <div className="flex flex-col">
+          <span>{s.name}</span>
+          {s.service_type && (
+            <span className="text-xs font-normal text-muted-foreground">
+              {TIPO_LABELS[s.service_type] ?? s.service_type}
+            </span>
+          )}
+        </div>
+      ),
+    },
+    {
+      header: 'Agencia',
+      cell: (s) =>
+        agenciaPorId.get(s.supplier_id) ?? (
+          <span className="text-muted-foreground">—</span>
+        ),
+    },
+    { header: 'Destino', cell: (s) => formatDestino(s.city_to, s.state_to) },
+    {
+      header: 'Precio',
+      align: 'right',
+      cell: (s) => (
+        <span className="tabular-nums">{mxn.format(Number(s.price ?? 0))}</span>
+      ),
+    },
+    {
+      header: 'Cupo',
+      align: 'right',
+      cell: (s) =>
+        s.max_capacity != null ? (
+          <span className="tabular-nums">{s.max_capacity}</span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        ),
+    },
+  ]
 
   return (
     <div className="space-y-6">
@@ -67,60 +115,28 @@ export default async function ServiciosPage() {
         <p className="text-sm text-destructive">
           Error al leer los servicios: {serviciosRes.error.message}
         </p>
-      ) : servicios.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          Aún no hay servicios. Crea el primero.
-        </p>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nombre</TableHead>
-              <TableHead>Agencia</TableHead>
-              <TableHead>Destino</TableHead>
-              <TableHead className="text-right">Precio</TableHead>
-              <TableHead className="text-right">Cupo</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {servicios.map((servicio) => (
-              <TableRow key={servicio.id}>
-                <TableCell>
-                  <div className="flex flex-col">
-                    <Link
-                      href={`/servicios/${servicio.id}`}
-                      className="font-medium hover:underline"
-                    >
-                      {servicio.name}
-                    </Link>
-                    {servicio.service_type && (
-                      <span className="text-xs text-muted-foreground">
-                        {TIPO_LABELS[servicio.service_type] ??
-                          servicio.service_type}
-                      </span>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  {agenciaPorId.get(servicio.supplier_id) ?? (
-                    <span className="text-muted-foreground">—</span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {formatDestino(servicio.city_to, servicio.state_to)}
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {mxn.format(Number(servicio.price ?? 0))}
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {servicio.max_capacity ?? (
-                    <span className="text-muted-foreground">—</span>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <DataList
+          columns={columns}
+          rows={servicios}
+          getRowKey={(s) => s.id}
+          rowHref={(s) => `/servicios/${s.id}`}
+          empty={
+            <EmptyState
+              icon={MapPinIcon}
+              title="Aún no hay servicios"
+              description="Agrega los viajes y paquetes de tu catálogo."
+              action={
+                <Link
+                  href="/servicios/nuevo"
+                  className={buttonVariants({ variant: 'default' })}
+                >
+                  Nuevo servicio
+                </Link>
+              }
+            />
+          }
+        />
       )}
     </div>
   )

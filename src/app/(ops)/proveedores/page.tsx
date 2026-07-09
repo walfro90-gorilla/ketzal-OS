@@ -2,14 +2,9 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { Building2Icon } from 'lucide-react'
+import { DataList, type DataColumn } from '@/components/data/data-list'
+import { EmptyState } from '@/components/data/empty-state'
 
 const TIPO_LABELS: Record<string, string> = {
   agency: 'Agencia',
@@ -31,6 +26,42 @@ function TipoBadge({ tipo }: { tipo: string | null }) {
   )
 }
 
+type ProveedorRow = {
+  id: string
+  name: string
+  supplier_type: string | null
+  contact_email: string | null
+  phone_number: string | null
+  commission_rate: number | null
+}
+
+const columns: DataColumn<ProveedorRow>[] = [
+  { header: 'Nombre', primary: true, cell: (p) => p.name },
+  { header: 'Tipo', cell: (p) => <TipoBadge tipo={p.supplier_type} /> },
+  {
+    header: 'Contacto',
+    cell: (p) =>
+      p.contact_email || p.phone_number ? (
+        <div className="flex flex-col text-xs text-muted-foreground">
+          {p.contact_email && <span>{p.contact_email}</span>}
+          {p.phone_number && <span>{p.phone_number}</span>}
+        </div>
+      ) : (
+        <span className="text-muted-foreground">—</span>
+      ),
+  },
+  {
+    header: 'Comisión',
+    align: 'right',
+    cell: (p) =>
+      esAgencia(p.supplier_type) ? (
+        <span className="tabular-nums">{Number(p.commission_rate ?? 0)}%</span>
+      ) : (
+        <span className="text-muted-foreground">—</span>
+      ),
+  },
+]
+
 export default async function ProveedoresPage() {
   const supabase = await createClient()
   const { data, error } = await supabase
@@ -40,7 +71,7 @@ export default async function ProveedoresPage() {
     )
     .order('name')
 
-  const proveedores = data ?? []
+  const proveedores = (data ?? []) as unknown as ProveedorRow[]
 
   return (
     <div className="space-y-6">
@@ -63,57 +94,28 @@ export default async function ProveedoresPage() {
         <p className="text-sm text-destructive">
           Error al leer los proveedores: {error.message}
         </p>
-      ) : proveedores.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Aún no hay proveedores.</p>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Nombre</TableHead>
-              <TableHead>Tipo</TableHead>
-              <TableHead>Contacto</TableHead>
-              <TableHead className="text-right">Comisión</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {proveedores.map((proveedor) => (
-              <TableRow key={proveedor.id}>
-                <TableCell>
-                  <Link
-                    href={`/proveedores/${proveedor.id}`}
-                    className="font-medium hover:underline"
-                  >
-                    {proveedor.name}
-                  </Link>
-                </TableCell>
-                <TableCell>
-                  <TipoBadge tipo={proveedor.supplier_type} />
-                </TableCell>
-                <TableCell>
-                  {proveedor.contact_email || proveedor.phone_number ? (
-                    <div className="flex flex-col text-xs text-muted-foreground">
-                      {proveedor.contact_email && (
-                        <span>{proveedor.contact_email}</span>
-                      )}
-                      {proveedor.phone_number && (
-                        <span>{proveedor.phone_number}</span>
-                      )}
-                    </div>
-                  ) : (
-                    <span className="text-muted-foreground">—</span>
-                  )}
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {esAgencia(proveedor.supplier_type) ? (
-                    `${Number(proveedor.commission_rate ?? 0)}%`
-                  ) : (
-                    <span className="text-muted-foreground">—</span>
-                  )}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <DataList
+          columns={columns}
+          rows={proveedores}
+          getRowKey={(p) => p.id}
+          rowHref={(p) => `/proveedores/${p.id}`}
+          empty={
+            <EmptyState
+              icon={Building2Icon}
+              title="Aún no hay proveedores"
+              description="Registra agencias y proveedores operativos (transporte, hospedaje)."
+              action={
+                <Link
+                  href="/proveedores/nuevo"
+                  className={buttonVariants({ variant: 'default' })}
+                >
+                  Nuevo proveedor
+                </Link>
+              }
+            />
+          }
+        />
       )}
     </div>
   )

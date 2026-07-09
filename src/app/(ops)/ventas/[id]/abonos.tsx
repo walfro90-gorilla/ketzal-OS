@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -41,7 +42,7 @@ export type ReciboRow = {
 
 // Mismo estilo de <select> nativo alineado al Input de shadcn que en nueva-venta-form.
 const selectClass =
-  'h-8 w-full min-w-0 appearance-none rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 dark:bg-input/30'
+  'h-11 md:h-9 w-full min-w-0 appearance-none rounded-lg border border-input bg-transparent px-3 md:px-2.5 py-1 text-base md:text-sm transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 dark:bg-input/30'
 
 const METODOS = [
   { value: 'efectivo', label: 'Efectivo' },
@@ -133,6 +134,9 @@ export function AbonosSection({
       }
       // revalidatePath refresca la lista; solo limpiamos el monto.
       setAmount('')
+      toast.success(
+        tipo === 'refund' ? 'Reembolso registrado' : 'Abono registrado'
+      )
     })
   }
 
@@ -142,6 +146,7 @@ export function AbonosSection({
     startEmitting(async () => {
       const result = await emitirRecibo(bookingId, paymentId)
       if ('error' in result) setReceiptError(result.error)
+      else toast.success('Recibo emitido')
       setEmittingId(null)
     })
   }

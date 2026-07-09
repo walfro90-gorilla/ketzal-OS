@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { toast } from 'sonner'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { convertirCotizacion } from './actions'
 
@@ -48,7 +49,12 @@ export function CotizacionAcciones({
     startConverting(async () => {
       const result = await convertirCotizacion(bookingId)
       // En éxito, revalidatePath saca la fila de la lista.
-      if ('error' in result) setError(result.error)
+      if ('error' in result) {
+        setError(result.error)
+        toast.error(result.error)
+      } else {
+        toast.success('Convertida a venta')
+      }
     })
   }
 

@@ -83,20 +83,26 @@ El "Más" abre un `Sheet` con: Comisiones, Servicios, Proveedores, perfil y Sali
 - **Verificación:** desktop OK por screenshot (sidebar con íconos + activo, avatar); bottom bar validada por DOM (5 tabs, `aria-current`, `md:hidden`).
 - **⚠️ Gotcha base-ui encontrado y corregido:** su `DropdownMenuLabel` es `Menu.GroupLabel` y **exige** un `<Menu.Group>` padre; usado suelto tira todo el árbol. Regla: para bloques de texto informativos en un menú usar un `<div>`, no `DropdownMenuLabel`. (base-ui ≠ radix en varias partes; leer el componente generado antes de usarlo.)
 
-### Fase 2 — Datos responsive
-- [ ] `DataList` (tabla desktop / tarjetas móvil desde una def de columnas).
-- [ ] Migrar `dashboard`, `ventas`, `clientes`, `cotizaciones`, `servicios`, `proveedores` a `DataList`.
-- [ ] Rediseñar el editor de líneas (`nueva-venta-form.tsx`) a **tarjetas apiladas por línea** en móvil (el caso más difícil: hoy es tabla de 7 columnas).
-- [ ] `loading.tsx` con `Skeleton` por ruta.
-- **Criterio de aceptación:** cero scroll horizontal para leer datos en móvil; crear una venta de 3 líneas en teléfono se siente natural; toda ruta muestra skeleton al cargar.
+### Fase 2 — Datos responsive ✅ HECHA (2026-07-09)
+- [x] `components/data/data-list.tsx` — `DataList<T>` (1 def de columnas ⇒ tabla `md+` / tarjetas `<md`; `rowHref` hace la tarjeta/nombre un link; `fullWidthOnCard` para columnas de acciones).
+- [x] `components/data/list-skeleton.tsx` + `(ops)/loading.tsx` (skeleton genérico; el shell queda intacto durante la carga).
+- [x] **Editor de líneas rediseñado** (`nueva-venta-form.tsx`): móvil = **una tarjeta por línea** (Tipo/Subtipo, Descripción, Cant.+P.unitario, Importe, borrar 44px); desktop = la tabla compacta de siempre. Lógica intacta. `NativeSelect` con chevron, `inputMode` móviles, botones apilados full-width.
+- [x] **Todas las listas migradas a `DataList`:** ventas, dashboard (Por cobrar + Próximos viajes, preservando vencido/vence del backend), clientes, cotizaciones (acciones full-width, sin rowHref), servicios, proveedores, comisiones (Comisiones ganadas), equipo (miembros, acciones full-width). **Cero `import` de `Table` en páginas de lista.**
+- **Verificación:** typecheck verde; las 7 rutas compilan (307, no 500). Visual de tarjetas móviles: pendiente de eyeball autenticado (post-push).
 
-### Fase 3 — Pulido
-- [ ] Toasts (`Sonner`) para éxito/error en todas las server-actions.
-- [ ] `EmptyState` con CTA (reemplaza los `<p>` de "aún no hay…").
-- [ ] Toggle de dark mode + persistencia.
-- [ ] Manifest PWA + íconos.
-- [ ] Microinteracciones (transiciones, `active:` states) y revisión de foco/teclado.
-- **Criterio de aceptación:** cada acción confirma resultado; estados vacíos invitan a la acción; instalable en home.
+### Fase 3 — Pulido ✅ HECHA (2026-07-09)
+- [x] **Dark mode**: `app/providers.tsx` (next-themes, `attribute="class"`, `defaultTheme=system`) + `ThemeToggle` en el header (claro/oscuro/sistema) + `suppressHydrationWarning`. **Verificado en vivo:** `.dark` aplica/quita bien, fondo negro↔blanco, sin errores.
+- [x] **Toasts (`Sonner`)** — cableados end-to-end:
+  - `Toaster` en el root (reconectado a next-themes).
+  - **Éxito tras redirect:** instrumenté los 7 redirects de las actions con `?ok=<código>` (venta, cotización, cliente, servicio ±eliminado, proveedor ±eliminado) → `FlashToasts` (shell) muestra el toast y limpia el param. **Actions eran del backend pero estaban limpias; edité solo la línea del redirect con comentario.**
+  - **Éxito en flujos que se quedan en la página:** `toast.success` en abono/reembolso, emitir recibo, convertir cotización.
+  - **Error:** `toast.error` en crear venta y convertir cotización.
+  - **Contrato para el backend:** al agregar acciones nuevas que redirigen, añadir `?ok=<código>` (y el mensaje en `flash-toasts.tsx`); las que se quedan, `toast.success` directo.
+- [x] **`EmptyState` con CTA** (icono + texto + botón) en ventas, clientes, cotizaciones, servicios, proveedores.
+- [x] **PWA instalable** (adelantada a pedido): `app/manifest.ts` (standalone, start_url `/dashboard`) + íconos generados con `next/og` (`/icons/192·512·maskable`, `app/apple-icon.tsx`, `app/icon.tsx`) — **sin dependencias ni assets binarios**. Mark placeholder (hoja/pluma esmeralda) swappable por el logo real. Verificado por curl: manifest válido, PNGs correctos (192×192, etc.), `<link rel=manifest>` + `apple-touch-icon` en el HTML.
+  - **⚠️ Tocado del backend:** `src/proxy.ts` — extendí el `matcher` para que `/manifest.webmanifest` y `/icons/*` sean públicos (sin sesión no eran instalables). Cambio mínimo de una línea.
+- [x] **Microinteracciones + accesibilidad:** `prefers-reduced-motion` global (globals.css); **skip link** "Saltar al contenido" + `<main id="contenido" tabIndex=-1>`; anillos `focus-visible` en sidebar, bottom tabs y tarjetas del `DataList` (navegación por teclado); `transition-colors`/`active:` ya presentes.
+- **Criterio de aceptación:** ✅ cada acción confirma resultado (toasts); estados vacíos invitan a la acción; instalable en home; navegable por teclado con foco visible.
 
 ## 6. Fuera de alcance (para no expandir sin acuerdo)
 Animaciones elaboradas, ilustraciones custom, rediseño de marca/paleta, i18n más allá de es-MX, offline-first real (sync). Se evalúan después de Fase 3.

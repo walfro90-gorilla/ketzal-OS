@@ -142,7 +142,7 @@ export async function crearServicio(
   }
 
   revalidatePath('/servicios')
-  redirect(`/servicios/${data.id}`)
+  redirect(`/servicios/${data.id}?ok=servicio-creado`)
 }
 
 export async function actualizarServicio(
@@ -200,5 +200,5 @@ export async function eliminarServicio(
   }
 
   revalidatePath('/servicios')
-  redirect('/servicios')
+  redirect('/servicios?ok=servicio-eliminado')
 }

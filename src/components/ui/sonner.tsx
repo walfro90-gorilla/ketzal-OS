@@ -1,12 +1,11 @@
 "use client"
 
+import { useTheme } from "next-themes"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon } from "lucide-react"
 
 const Toaster = ({ ...props }: ToasterProps) => {
-  // Fase 3 reconectará esto a next-themes cuando exista el toggle de tema.
-  // Por ahora `system` sigue el prefers-color-scheme del SO sin provider.
-  const theme = "system"
+  const { theme = "system" } = useTheme()
 
   return (
     <Sonner

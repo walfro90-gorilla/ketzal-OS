@@ -133,6 +133,7 @@ export async function createBooking(
 
   revalidatePath('/ventas')
   revalidatePath('/cotizaciones')
-  if (input.status === 'draft') redirect('/cotizaciones')
-  redirect(`/ventas/${bookingId as string}`)
+  // ?ok=<código> lo lee <FlashToasts> (shell) para el toast de éxito tras el redirect.
+  if (input.status === 'draft') redirect('/cotizaciones?ok=cotizacion-creada')
+  redirect(`/ventas/${bookingId as string}?ok=venta-creada`)
 }

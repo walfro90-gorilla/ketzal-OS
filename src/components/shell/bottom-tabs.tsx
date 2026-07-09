@@ -35,7 +35,7 @@ export function BottomTabs() {
                 href={href}
                 aria-current={active ? 'page' : undefined}
                 className={cn(
-                  'flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors',
+                  'flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
                   active ? 'text-primary' : 'text-muted-foreground'
                 )}
               >
@@ -49,7 +49,7 @@ export function BottomTabs() {
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger
               className={cn(
-                'flex h-16 w-full flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors',
+                'flex h-16 w-full flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
                 moreActive ? 'text-primary' : 'text-muted-foreground'
               )}
             >
@@ -73,7 +73,7 @@ export function BottomTabs() {
                         onClick={() => setOpen(false)}
                         aria-current={active ? 'page' : undefined}
                         className={cn(
-                          'flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors',
+                          'flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                           active
                             ? 'bg-secondary text-secondary-foreground'
                             : 'hover:bg-muted'

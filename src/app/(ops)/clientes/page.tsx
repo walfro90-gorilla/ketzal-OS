@@ -1,14 +1,9 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { buttonVariants } from '@/components/ui/button'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { UsersIcon } from 'lucide-react'
+import { DataList, type DataColumn } from '@/components/data/data-list'
+import { EmptyState } from '@/components/data/empty-state'
 import { formatTravelDate, mxn } from '../ventas/ui'
 
 type Cliente = {
@@ -22,6 +17,38 @@ type Cliente = {
   ultima_venta: string | null
 }
 
+const columns: DataColumn<Cliente>[] = [
+  { header: 'Cliente', primary: true, cell: (c) => c.full_name },
+  {
+    header: 'Contacto',
+    cell: (c) =>
+      c.phone || c.email ? (
+        <div className="flex flex-col text-xs text-muted-foreground">
+          {c.phone && <span>{c.phone}</span>}
+          {c.email && <span>{c.email}</span>}
+        </div>
+      ) : (
+        <span className="text-muted-foreground">—</span>
+      ),
+  },
+  {
+    header: '# Ventas',
+    align: 'right',
+    cell: (c) => <span className="tabular-nums">{c.num_ventas}</span>,
+  },
+  {
+    header: 'Total comprado',
+    align: 'right',
+    cell: (c) => (
+      <span className="tabular-nums">{mxn.format(Number(c.total_comprado))}</span>
+    ),
+  },
+  {
+    header: 'Última compra',
+    cell: (c) => formatTravelDate(c.ultima_venta?.slice(0, 10) ?? null),
+  },
+]
+
 export default async function ClientesPage() {
   const supabase = await createClient()
   const { data, error } = await supabase.rpc('list_customers')
@@ -31,7 +58,7 @@ export default async function ClientesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Clientes</h1>
         <Link
           href="/clientes/nuevo"
@@ -45,55 +72,28 @@ export default async function ClientesPage() {
         <p className="text-sm text-destructive">
           Error al leer los clientes: {error.message}
         </p>
-      ) : clientes.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          Aún no hay clientes. Agrega el primero.
-        </p>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Cliente</TableHead>
-              <TableHead>Contacto</TableHead>
-              <TableHead className="text-right"># Ventas</TableHead>
-              <TableHead className="text-right">Total comprado</TableHead>
-              <TableHead>Última compra</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {clientes.map((cliente) => (
-              <TableRow key={cliente.id}>
-                <TableCell>
-                  <Link
-                    href={`/clientes/${cliente.id}`}
-                    className="font-medium hover:underline"
-                  >
-                    {cliente.full_name}
-                  </Link>
-                </TableCell>
-                <TableCell>
-                  {cliente.phone || cliente.email ? (
-                    <div className="flex flex-col text-xs text-muted-foreground">
-                      {cliente.phone && <span>{cliente.phone}</span>}
-                      {cliente.email && <span>{cliente.email}</span>}
-                    </div>
-                  ) : (
-                    <span className="text-muted-foreground">—</span>
-                  )}
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {cliente.num_ventas}
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {mxn.format(Number(cliente.total_comprado))}
-                </TableCell>
-                <TableCell>
-                  {formatTravelDate(cliente.ultima_venta?.slice(0, 10) ?? null)}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <DataList
+          columns={columns}
+          rows={clientes}
+          getRowKey={(c) => c.id}
+          rowHref={(c) => `/clientes/${c.id}`}
+          empty={
+            <EmptyState
+              icon={UsersIcon}
+              title="Aún no hay clientes"
+              description="Da de alta tu primer cliente para empezar a venderle."
+              action={
+                <Link
+                  href="/clientes/nuevo"
+                  className={buttonVariants({ variant: 'default' })}
+                >
+                  Nuevo cliente
+                </Link>
+              }
+            />
+          }
+        />
       )}
     </div>
   )

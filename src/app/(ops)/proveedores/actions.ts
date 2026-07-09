@@ -87,7 +87,7 @@ export async function crearProveedor(
   }
 
   revalidatePath('/proveedores')
-  redirect(`/proveedores/${data.id}`)
+  redirect(`/proveedores/${data.id}?ok=proveedor-creado`)
 }
 
 export async function actualizarProveedor(
@@ -146,5 +146,5 @@ export async function eliminarProveedor(
   }
 
   revalidatePath('/proveedores')
-  redirect('/proveedores')
+  redirect('/proveedores?ok=proveedor-eliminado')
 }

@@ -37,5 +37,9 @@ export async function proxy(request: NextRequest) {
   return response
 }
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
+  // Assets PWA públicos (manifest + íconos generados por next/og): deben servirse
+  // sin sesión para que la app sea instalable. `icon` cubre /icon y /icons/*.
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|manifest\\.webmanifest|icon|apple-icon|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+  ],
 }

@@ -7,14 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { DataList, type DataColumn } from '@/components/data/data-list'
 import { MiembroAcciones, type Miembro } from './miembro-acciones'
 import { TasaPlataformaForm } from './tasa-plataforma-form'
 
@@ -89,6 +82,30 @@ export default async function EquipoPage() {
   const agencias = agenciasRes.data ?? []
   const platformRate = Number(settingsRes.data?.platform_commission_rate ?? 0)
 
+  const columns: DataColumn<Miembro>[] = [
+    { header: 'Correo', primary: true, cell: (m) => m.email ?? '—' },
+    { header: 'Nombre', cell: (m) => m.name ?? '—' },
+    { header: 'Rol', cell: (m) => <RolBadge role={m.role} /> },
+    { header: 'Vínculo', cell: (m) => m.agency ?? 'Libre' },
+    { header: 'Estado', cell: (m) => <EstadoBadge active={m.active} /> },
+    {
+      header: '# Ventas',
+      align: 'right',
+      cell: (m) => <span className="tabular-nums">{m.num_ventas}</span>,
+    },
+    {
+      header: 'Acciones',
+      fullWidthOnCard: true,
+      cell: (m) => (
+        <MiembroAcciones
+          miembro={m}
+          agencias={agencias}
+          isSuperadmin={isSuperadmin}
+        />
+      ),
+    },
+  ]
+
   return (
     <div className="space-y-6">
       <div>
@@ -138,54 +155,16 @@ export default async function EquipoPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {miembros.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Aún no hay miembros en el equipo.
-            </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Correo</TableHead>
-                    <TableHead>Nombre</TableHead>
-                    <TableHead>Rol</TableHead>
-                    <TableHead>Vínculo</TableHead>
-                    <TableHead>Estado</TableHead>
-                    <TableHead className="text-right"># Ventas</TableHead>
-                    <TableHead>Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {miembros.map((miembro) => (
-                    <TableRow key={miembro.id}>
-                      <TableCell className="font-medium">
-                        {miembro.email ?? '—'}
-                      </TableCell>
-                      <TableCell>{miembro.name ?? '—'}</TableCell>
-                      <TableCell>
-                        <RolBadge role={miembro.role} />
-                      </TableCell>
-                      <TableCell>{miembro.agency ?? 'Libre'}</TableCell>
-                      <TableCell>
-                        <EstadoBadge active={miembro.active} />
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {miembro.num_ventas}
-                      </TableCell>
-                      <TableCell>
-                        <MiembroAcciones
-                          miembro={miembro}
-                          agencias={agencias}
-                          isSuperadmin={isSuperadmin}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+          <DataList
+            columns={columns}
+            rows={miembros}
+            getRowKey={(m) => m.id}
+            empty={
+              <p className="text-sm text-muted-foreground">
+                Aún no hay miembros en el equipo.
+              </p>
+            }
+          />
         </CardContent>
       </Card>
     </div>

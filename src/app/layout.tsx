@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { Providers } from "./providers";
+import { Toaster } from "@/components/ui/sonner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -13,8 +15,15 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  applicationName: "Ketzal OS",
   title: "Ketzal OS",
   description: "Back-office de ventas para agencias de viajes",
+  // El <link rel="manifest"> lo inyecta Next automáticamente por app/manifest.ts.
+  appleWebApp: {
+    capable: true,
+    title: "Ketzal OS",
+    statusBarStyle: "default",
+  },
 };
 
 // Campo-primero: el teléfono es el dispositivo principal.
@@ -38,9 +47,15 @@ export default function RootLayout({
   return (
     <html
       lang="es"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <Providers>
+          {children}
+          <Toaster />
+        </Providers>
+      </body>
     </html>
   );
 }

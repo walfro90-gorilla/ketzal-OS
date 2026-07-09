@@ -67,7 +67,7 @@ export async function crearCliente(
   }
 
   revalidatePath('/clientes')
-  redirect(`/clientes/${data.id}`)
+  redirect(`/clientes/${data.id}?ok=cliente-creado`)
 }
 
 export async function actualizarCliente(

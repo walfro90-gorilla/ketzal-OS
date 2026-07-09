@@ -1,14 +1,9 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { buttonVariants } from '@/components/ui/button'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { FileTextIcon } from 'lucide-react'
+import { DataList, type DataColumn } from '@/components/data/data-list'
+import { EmptyState } from '@/components/data/empty-state'
 import { mxn } from '../ventas/ui'
 import { CotizacionAcciones } from './cotizacion-acciones'
 
@@ -62,9 +57,41 @@ export default async function CotizacionesPage() {
     }
   }
 
+  const columns: DataColumn<QuoteRow>[] = [
+    {
+      header: 'Cliente',
+      primary: true,
+      cell: (q) => q.customer?.full_name ?? 'Sin cliente',
+    },
+    { header: 'Servicio', cell: (q) => q.service?.name ?? 'A medida' },
+    {
+      header: 'Total (MXN)',
+      align: 'right',
+      cell: (q) => (
+        <span className="tabular-nums">{mxn.format(Number(q.total))}</span>
+      ),
+    },
+    {
+      header: 'Creada',
+      cell: (q) => createdAtFormatter.format(new Date(q.created_at)),
+    },
+    {
+      header: 'Acciones',
+      fullWidthOnCard: true,
+      cell: (q) => (
+        <CotizacionAcciones
+          bookingId={q.id}
+          quoteToken={q.quote_token}
+          clienteNombre={q.customer?.full_name ?? 'cliente'}
+          agenciaNombre={agenciaNombre}
+        />
+      ),
+    },
+  ]
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Cotizaciones</h1>
         <Link
           href="/ventas/nueva"
@@ -78,47 +105,27 @@ export default async function CotizacionesPage() {
         <p className="text-sm text-destructive">
           Error al leer las cotizaciones: {error.message}
         </p>
-      ) : quotes.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          Aún no hay cotizaciones. Crea una desde «Nueva venta» → «Guardar como
-          cotización».
-        </p>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Cliente</TableHead>
-              <TableHead>Servicio</TableHead>
-              <TableHead className="text-right">Total (MXN)</TableHead>
-              <TableHead>Creada</TableHead>
-              <TableHead>Acciones</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {quotes.map((quote) => (
-              <TableRow key={quote.id}>
-                <TableCell className="font-medium">
-                  {quote.customer?.full_name ?? 'Sin cliente'}
-                </TableCell>
-                <TableCell>{quote.service?.name ?? 'A medida'}</TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {mxn.format(Number(quote.total))}
-                </TableCell>
-                <TableCell>
-                  {createdAtFormatter.format(new Date(quote.created_at))}
-                </TableCell>
-                <TableCell>
-                  <CotizacionAcciones
-                    bookingId={quote.id}
-                    quoteToken={quote.quote_token}
-                    clienteNombre={quote.customer?.full_name ?? 'cliente'}
-                    agenciaNombre={agenciaNombre}
-                  />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <DataList
+          columns={columns}
+          rows={quotes}
+          getRowKey={(q) => q.id}
+          empty={
+            <EmptyState
+              icon={FileTextIcon}
+              title="Aún no hay cotizaciones"
+              description="Crea una desde «Nueva venta» → «Guardar como cotización»."
+              action={
+                <Link
+                  href="/ventas/nueva"
+                  className={buttonVariants({ variant: 'default' })}
+                >
+                  Nueva venta
+                </Link>
+              }
+            />
+          }
+        />
       )}
     </div>
   )

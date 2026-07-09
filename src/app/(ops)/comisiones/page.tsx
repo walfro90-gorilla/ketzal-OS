@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import {
   Card,
@@ -7,14 +6,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { DataList, type DataColumn } from '@/components/data/data-list'
 import { mxn, StatusBadge, type BookingStatus } from '../ventas/ui'
 import { TasaForm } from './tasa-form'
 
@@ -47,6 +39,32 @@ const EMPTY_SUMMARY: CommissionsSummary = {
 function pluralRevendidas(n: number): string {
   return n === 1 ? '1 venta revendida' : `${n} ventas revendidas`
 }
+
+const columns: DataColumn<ComisionVenta>[] = [
+  { header: 'Cliente', primary: true, cell: (v) => v.cliente ?? 'Sin cliente' },
+  { header: 'Servicio', cell: (v) => v.servicio ?? 'A medida' },
+  { header: 'Agencia dueña', cell: (v) => v.owner },
+  {
+    header: 'Total venta',
+    align: 'right',
+    cell: (v) => <span className="tabular-nums">{mxn.format(Number(v.total))}</span>,
+  },
+  {
+    header: '%',
+    align: 'right',
+    cell: (v) => <span className="tabular-nums">{Number(v.rate)}%</span>,
+  },
+  {
+    header: 'Comisión',
+    align: 'right',
+    cell: (v) => (
+      <span className="font-semibold tabular-nums">
+        {mxn.format(Number(v.comision))}
+      </span>
+    ),
+  },
+  { header: 'Estado', cell: (v) => <StatusBadge status={v.status} /> },
+]
 
 export default async function ComisionesPage() {
   const supabase = await createClient()
@@ -146,56 +164,18 @@ export default async function ComisionesPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {lista.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Aún no has revendido viajes de otra agencia. Cuando vendas un
-              servicio cuyo dueño es otra agencia, la comisión aparece aquí.
-            </p>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Cliente</TableHead>
-                    <TableHead>Servicio</TableHead>
-                    <TableHead>Agencia dueña</TableHead>
-                    <TableHead className="text-right">Total venta</TableHead>
-                    <TableHead className="text-right">%</TableHead>
-                    <TableHead className="text-right">Comisión</TableHead>
-                    <TableHead>Estado</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {lista.map((venta) => (
-                    <TableRow key={venta.id}>
-                      <TableCell>
-                        <Link
-                          href={`/ventas/${venta.id}`}
-                          className="font-medium hover:underline"
-                        >
-                          {venta.cliente ?? 'Sin cliente'}
-                        </Link>
-                      </TableCell>
-                      <TableCell>{venta.servicio ?? 'A medida'}</TableCell>
-                      <TableCell>{venta.owner}</TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {mxn.format(Number(venta.total))}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {Number(venta.rate)}%
-                      </TableCell>
-                      <TableCell className="text-right font-semibold tabular-nums">
-                        {mxn.format(Number(venta.comision))}
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge status={venta.status} />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+          <DataList
+            columns={columns}
+            rows={lista}
+            getRowKey={(v) => v.id}
+            rowHref={(v) => `/ventas/${v.id}`}
+            empty={
+              <p className="text-sm text-muted-foreground">
+                Aún no has revendido viajes de otra agencia. Cuando vendas un
+                servicio cuyo dueño es otra agencia, la comisión aparece aquí.
+              </p>
+            }
+          />
         </CardContent>
       </Card>
     </div>
