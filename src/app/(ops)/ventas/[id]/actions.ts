@@ -169,12 +169,15 @@ export async function crearLinkPago(
       ],
       external_reference: intentId as string,
       notification_url: `${origin}/api/mp/webhook`,
+      // Sin `auto_return` y sin query-strings en back_urls: la combinación de
+      // auto_return + params en success URL es la causa #1 del "algo salió mal"
+      // (pantalla /fatal/) en el checkout sandbox de MP. El webhook (notification_url)
+      // registra el abono igual; back_urls es solo el regreso visual.
       back_urls: {
-        success: `${origin}/ventas/${bookingId}?pago=ok`,
-        failure: `${origin}/ventas/${bookingId}?pago=error`,
-        pending: `${origin}/ventas/${bookingId}?pago=pendiente`,
+        success: `${origin}/ventas/${bookingId}`,
+        failure: `${origin}/ventas/${bookingId}`,
+        pending: `${origin}/ventas/${bookingId}`,
       },
-      auto_return: 'approved',
     }),
   })
   if (!res.ok) {
