@@ -9,40 +9,10 @@ import {
 import { DataList, type DataColumn } from '@/components/data/data-list'
 import { mxn } from '../ventas/ui'
 import { RangoFechas } from './rango-fechas'
-
-// Forma del jsonb que devuelve ketzal.reports_summary(p_from, p_to).
-// Los tipos generados a mano declaran `Returns: Json`, así que se
-// estrecha aquí con un cast (mismo patrón que en /dashboard y /comisiones).
-type PorAgente = {
-  agente: string
-  num: number
-  vendido: number
-  comision: number
-}
-
-type PorServicio = {
-  servicio: string
-  num: number
-  vendido: number
-}
-
-type PorMes = {
-  mes: string // "YYYY-MM"
-  num: number
-  vendido: number
-}
-
-type Reporte = {
-  total_vendido: number
-  total_cobrado: number
-  saldo_por_cobrar: number
-  total_comision: number
-  num_ventas: number
-  ticket_promedio: number
-  por_agente: PorAgente[]
-  por_servicio: PorServicio[]
-  por_mes: PorMes[]
-}
+import { ExportarCsv } from './exportar-csv'
+import { BarrasTop, GraficaMensual } from './graficas'
+// Tipos del jsonb de ketzal.reports_summary(p_from, p_to): ver ./tipos.ts.
+import type { PorAgente, PorMes, PorServicio, Reporte } from './tipos'
 
 const EMPTY_REPORTE: Reporte = {
   total_vendido: 0,
@@ -182,11 +152,14 @@ export default async function ReportesPage({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Reportes</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Ventas y comisiones por periodo.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">Reportes</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Ventas y comisiones por periodo.
+          </p>
+        </div>
+        <ExportarCsv reporte={d} from={from} to={to} />
       </div>
 
       <RangoFechas key={`${from}|${to}`} from={from} to={to} />
@@ -303,7 +276,17 @@ export default async function ReportesPage({
               Lo vendido y la comisión de cada agente en el periodo.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-6">
+            <BarrasTop
+              items={porAgente.map((r) => ({
+                clave: r.agente,
+                etiqueta: r.agente,
+                valor: Number(r.vendido),
+                detalle: `${r.agente} · ${mxn.format(Number(r.vendido))} · ${pluralVentas(
+                  Number(r.num),
+                )} · comisión ${mxn.format(Number(r.comision))}`,
+              }))}
+            />
             <DataList
               columns={agenteColumns}
               rows={porAgente}
@@ -320,7 +303,17 @@ export default async function ReportesPage({
               Los servicios más vendidos en el periodo.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-6">
+            <BarrasTop
+              items={porServicio.map((r) => ({
+                clave: r.servicio,
+                etiqueta: r.servicio,
+                valor: Number(r.vendido),
+                detalle: `${r.servicio} · ${mxn.format(Number(r.vendido))} · ${pluralVentas(
+                  Number(r.num),
+                )}`,
+              }))}
+            />
             <DataList
               columns={servicioColumns}
               rows={porServicio}
@@ -338,7 +331,8 @@ export default async function ReportesPage({
             Evolución mensual dentro del periodo.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-6">
+          <GraficaMensual data={porMes} />
           <DataList
             columns={mesColumns}
             rows={porMes}
