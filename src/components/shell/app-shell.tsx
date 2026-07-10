@@ -4,6 +4,7 @@ import { SidebarNav } from './sidebar-nav'
 import { BottomTabs } from './bottom-tabs'
 import { UserMenu } from './user-menu'
 import { ThemeToggle } from './theme-toggle'
+import { GlobalSearch } from './global-search'
 import { FlashToasts } from './flash-toasts'
 
 // Shell responsive de Ketzal OS (campo-primero):
@@ -36,7 +37,8 @@ export function AppShell({
         <Link href="/dashboard" className="text-lg font-semibold">
           Ketzal OS
         </Link>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 sm:gap-2">
+          <GlobalSearch />
           <ThemeToggle />
           {email && <UserMenu email={email} displayName={displayName} />}
         </div>

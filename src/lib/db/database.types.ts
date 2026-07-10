@@ -465,6 +465,10 @@ export type Database = {
         Args: { p_receipt_id: string }
         Returns: Json
       }
+      global_search: {
+        Args: { p_q: string }
+        Returns: Json
+      }
       ensure_profile: {
         Args: Record<PropertyKey, never>
         Returns: undefined
