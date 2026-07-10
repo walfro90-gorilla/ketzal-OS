@@ -29,17 +29,27 @@ const columns: DataColumn<SaleRow>[] = [
         )}
       </>
     ),
+    sortValue: (s) => s.customer?.full_name,
   },
   { header: 'Servicio', cell: (s) => s.service?.name ?? 'A medida' },
-  { header: 'Fecha', cell: (s) => formatTravelDate(s.travel_date) },
+  {
+    header: 'Fecha',
+    cell: (s) => formatTravelDate(s.travel_date),
+    sortValue: (s) => s.travel_date,
+  },
   {
     header: 'Total',
     align: 'right',
     cell: (s) => (
       <span className="tabular-nums">{mxn.format(Number(s.total))}</span>
     ),
+    sortValue: (s) => Number(s.total),
   },
-  { header: 'Estado', cell: (s) => <StatusBadge status={s.status} /> },
+  {
+    header: 'Estado',
+    cell: (s) => <StatusBadge status={s.status} />,
+    sortValue: (s) => s.status,
+  },
 ]
 
 const filters: ListFilter<SaleRow>[] = [

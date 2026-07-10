@@ -53,15 +53,40 @@ export function EquipoList({
   // Las columnas dependen de agencias/isSuperadmin (props del servidor),
   // así que se construyen dentro del componente, no a nivel de módulo.
   const columns: DataColumn<Miembro>[] = [
-    { header: 'Correo', primary: true, cell: (m) => m.email ?? '—' },
-    { header: 'Nombre', cell: (m) => m.name ?? '—' },
-    { header: 'Rol', cell: (m) => <RolBadge role={m.role} /> },
-    { header: 'Vínculo', cell: (m) => m.agency ?? 'Libre' },
-    { header: 'Estado', cell: (m) => <EstadoBadge active={m.active} /> },
+    {
+      header: 'Correo',
+      primary: true,
+      cell: (m) => m.email ?? '—',
+      sortValue: (m) => m.email,
+    },
+    {
+      header: 'Nombre',
+      cell: (m) => m.name ?? '—',
+      sortValue: (m) => m.name,
+    },
+    {
+      header: 'Rol',
+      cell: (m) => <RolBadge role={m.role} />,
+      // Orden canónico por privilegio (Agente < Admin < Superadmin),
+      // no alfabético.
+      sortValue: (m) => ROLE_ORDER.indexOf(m.role),
+    },
+    {
+      header: 'Vínculo',
+      cell: (m) => m.agency ?? 'Libre',
+      sortValue: (m) => m.agency,
+    },
+    {
+      header: 'Estado',
+      cell: (m) => <EstadoBadge active={m.active} />,
+      // 0 = pendiente, 1 = activo.
+      sortValue: (m) => (m.active ? 1 : 0),
+    },
     {
       header: '# Ventas',
       align: 'right',
       cell: (m) => <span className="tabular-nums">{m.num_ventas}</span>,
+      sortValue: (m) => m.num_ventas,
     },
     {
       header: 'Acciones',

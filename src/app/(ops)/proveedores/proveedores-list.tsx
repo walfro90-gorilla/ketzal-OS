@@ -44,8 +44,19 @@ export type ProveedorRow = {
 }
 
 const columns: DataColumn<ProveedorRow>[] = [
-  { header: 'Nombre', primary: true, cell: (p) => p.name },
-  { header: 'Tipo', cell: (p) => <TipoBadge tipo={p.supplier_type} /> },
+  {
+    header: 'Nombre',
+    primary: true,
+    cell: (p) => p.name,
+    sortValue: (p) => p.name,
+  },
+  {
+    header: 'Tipo',
+    cell: (p) => <TipoBadge tipo={p.supplier_type} />,
+    // Etiqueta visible (no el valor crudo): el orden alfabético coincide
+    // con lo que el usuario lee en el badge.
+    sortValue: (p) => (p.supplier_type ? tipoLabel(p.supplier_type) : null),
+  },
   {
     header: 'Contacto',
     cell: (p) =>

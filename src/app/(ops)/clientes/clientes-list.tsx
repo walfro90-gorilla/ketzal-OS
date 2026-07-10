@@ -17,7 +17,12 @@ export type Cliente = {
 }
 
 const columns: DataColumn<Cliente>[] = [
-  { header: 'Cliente', primary: true, cell: (c) => c.full_name },
+  {
+    header: 'Cliente',
+    primary: true,
+    cell: (c) => c.full_name,
+    sortValue: (c) => c.full_name,
+  },
   {
     header: 'Contacto',
     cell: (c) =>
@@ -34,6 +39,7 @@ const columns: DataColumn<Cliente>[] = [
     header: '# Ventas',
     align: 'right',
     cell: (c) => <span className="tabular-nums">{c.num_ventas}</span>,
+    sortValue: (c) => c.num_ventas,
   },
   {
     header: 'Total comprado',
@@ -41,10 +47,12 @@ const columns: DataColumn<Cliente>[] = [
     cell: (c) => (
       <span className="tabular-nums">{mxn.format(Number(c.total_comprado))}</span>
     ),
+    sortValue: (c) => Number(c.total_comprado),
   },
   {
     header: 'Última compra',
     cell: (c) => formatTravelDate(c.ultima_venta?.slice(0, 10) ?? null),
+    sortValue: (c) => c.ultima_venta,
   },
 ]
 

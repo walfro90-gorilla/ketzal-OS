@@ -51,18 +51,27 @@ const columns: DataColumn<Servicio>[] = [
         )}
       </div>
     ),
+    sortValue: (s) => s.name,
   },
   {
     header: 'Agencia',
     cell: (s) => s.agencia ?? <span className="text-muted-foreground">—</span>,
+    sortValue: (s) => s.agencia,
   },
-  { header: 'Destino', cell: (s) => formatDestino(s.city_to, s.state_to) },
+  {
+    header: 'Destino',
+    cell: (s) => formatDestino(s.city_to, s.state_to),
+    // null (no "—") para que los servicios sin destino queden al final.
+    sortValue: (s) => (s.city_to || s.state_to ? formatDestino(s.city_to, s.state_to) : null),
+  },
   {
     header: 'Precio',
     align: 'right',
     cell: (s) => (
       <span className="tabular-nums">{mxn.format(Number(s.price ?? 0))}</span>
     ),
+    // La celda muestra $0.00 cuando no hay precio ⇒ ordenamos igual que se ve.
+    sortValue: (s) => Number(s.price ?? 0),
   },
   {
     header: 'Cupo',
@@ -73,6 +82,7 @@ const columns: DataColumn<Servicio>[] = [
       ) : (
         <span className="text-muted-foreground">—</span>
       ),
+    sortValue: (s) => s.max_capacity,
   },
 ]
 

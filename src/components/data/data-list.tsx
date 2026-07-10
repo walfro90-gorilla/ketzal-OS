@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { ChevronDown, ChevronUp, ChevronsUpDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   Table,
@@ -26,7 +27,13 @@ export type DataColumn<T> = {
   /** En la tarjeta móvil, ocupar todo el ancho (etiqueta arriba, contenido abajo).
    *  Ideal para acciones o contenido ancho que no cabe en una fila etiqueta/valor. */
   fullWidthOnCard?: boolean
+  /** Valor CRUDO para ordenar (número, ISO date string, nombre). Si existe,
+   *  la columna es ordenable con clic en el encabezado (solo desktop). */
+  sortValue?: (row: T) => string | number | null | undefined
 }
+
+/** Ordenamiento activo: índice de columna + dirección. `null` = orden original. */
+export type SortState = { index: number; dir: 'asc' | 'desc' }
 
 export function DataList<T>({
   columns,
@@ -34,12 +41,18 @@ export function DataList<T>({
   getRowKey,
   rowHref,
   empty,
+  sort,
+  onToggleSort,
 }: {
   columns: DataColumn<T>[]
   rows: T[]
   getRowKey: (row: T) => string
   rowHref?: (row: T) => string
   empty?: React.ReactNode
+  /** Estado de orden (lo posee el padre, p. ej. FilterableList). */
+  sort?: SortState | null
+  /** Al hacer clic en un encabezado ordenable. Sin esto, no hay controles. */
+  onToggleSort?: (index: number) => void
 }) {
   if (rows.length === 0) return empty ? <>{empty}</> : null
 
@@ -54,14 +67,56 @@ export function DataList<T>({
         <Table>
           <TableHeader>
             <TableRow>
-              {columns.map((col, i) => (
-                <TableHead
-                  key={i}
-                  className={cn(col.align === 'right' && 'text-right')}
-                >
-                  {col.header}
-                </TableHead>
-              ))}
+              {columns.map((col, i) => {
+                const sortable = Boolean(col.sortValue && onToggleSort)
+                const active = sortable && sort?.index === i ? sort.dir : null
+                if (!sortable) {
+                  return (
+                    <TableHead
+                      key={i}
+                      className={cn(col.align === 'right' && 'text-right')}
+                    >
+                      {col.header}
+                    </TableHead>
+                  )
+                }
+                return (
+                  <TableHead
+                    key={i}
+                    className={cn('p-0', col.align === 'right' && 'text-right')}
+                    aria-sort={
+                      active === 'asc'
+                        ? 'ascending'
+                        : active === 'desc'
+                          ? 'descending'
+                          : undefined
+                    }
+                  >
+                    <button
+                      type="button"
+                      onClick={() => onToggleSort?.(i)}
+                      aria-label={
+                        typeof col.header === 'string'
+                          ? `Ordenar por ${col.header}`
+                          : 'Ordenar'
+                      }
+                      className={cn(
+                        'flex h-10 w-full items-center gap-1 px-2 font-medium transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm',
+                        col.align === 'right' && 'justify-end'
+                      )}
+                    >
+                      {col.header}
+                      {active === 'asc' ? (
+                        <ChevronUp className="size-3.5 shrink-0" />
+                      ) : active === 'desc' ? (
+                        <ChevronDown className="size-3.5 shrink-0" />
+                      ) : (
+                        <ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground/60" />
+                      )}
+                    </button>
+                  </TableHead>
+                )
+              })}
             </TableRow>
           </TableHeader>
           <TableBody>

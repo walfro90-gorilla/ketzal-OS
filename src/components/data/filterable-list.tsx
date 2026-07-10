@@ -5,7 +5,11 @@ import { ChevronDownIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { DataList, type DataColumn } from '@/components/data/data-list'
+import {
+  DataList,
+  type DataColumn,
+  type SortState,
+} from '@/components/data/data-list'
 
 // Búsqueda + filtros instantáneos EN MEMORIA sobre un DataList (campo-primero:
 // cero round-trips al servidor; las listas v1 caben completas en el cliente).
@@ -21,6 +25,25 @@ export type ListFilter<T> = {
 /** Minúsculas y sin acentos: "José" ≡ "jose". */
 function normalize(s: string): string {
   return s.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '')
+}
+
+// "José" ≡ "jose" también al ordenar; numeric: "Tour 2" antes que "Tour 10".
+const collator = new Intl.Collator('es', { sensitivity: 'base', numeric: true })
+
+/** null/undefined SIEMPRE al final, sin importar la dirección. */
+function compareValues(
+  a: string | number | null | undefined,
+  b: string | number | null | undefined,
+  dir: 'asc' | 'desc'
+): number {
+  if (a == null && b == null) return 0
+  if (a == null) return 1
+  if (b == null) return -1
+  const base =
+    typeof a === 'number' && typeof b === 'number'
+      ? a - b
+      : collator.compare(String(a), String(b))
+  return dir === 'asc' ? base : -base
 }
 
 // Mismo <select> nativo alineado al Input de shadcn que en abonos/nueva-venta:
@@ -63,6 +86,16 @@ export function FilterableList<T>({
   const [query, setQuery] = useState('')
   // '' = "Todos" (filtro inactivo).
   const [selected, setSelected] = useState<Record<string, string>>({})
+  // null = orden original. Ciclo por columna: asc → desc → null.
+  const [sort, setSort] = useState<SortState | null>(null)
+
+  const toggleSort = (index: number) => {
+    setSort((prev) => {
+      if (!prev || prev.index !== index) return { index, dir: 'asc' }
+      if (prev.dir === 'asc') return { index, dir: 'desc' }
+      return null
+    })
+  }
 
   const filtered = useMemo(() => {
     // Multi-token: "jose 656" exige que TODOS los tokens aparezcan.
@@ -79,6 +112,19 @@ export function FilterableList<T>({
       return true
     })
   }, [rows, query, selected, filters, searchText])
+
+  // Orden ESTABLE sobre el resultado filtrado (decorate–sort–undecorate:
+  // empates conservan el orden original, y sortValue se evalúa una sola vez).
+  const sorted = useMemo(() => {
+    const getValue = sort ? columns[sort.index]?.sortValue : undefined
+    if (!sort || !getValue) return filtered
+    return filtered
+      .map((row, i) => ({ row, i, value: getValue(row) }))
+      .sort(
+        (a, b) => compareValues(a.value, b.value, sort.dir) || a.i - b.i
+      )
+      .map((d) => d.row)
+  }, [filtered, sort, columns])
 
   // Sin datos en absoluto: el EmptyState (con su CTA) guía; la toolbar sobra.
   if (rows.length === 0) return <>{empty}</>
@@ -144,9 +190,11 @@ export function FilterableList<T>({
       ) : (
         <DataList
           columns={columns}
-          rows={filtered}
+          rows={sorted}
           getRowKey={getRowKey}
           rowHref={rowHref}
+          sort={sort}
+          onToggleSort={toggleSort}
         />
       )}
     </div>

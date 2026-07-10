@@ -37,18 +37,25 @@ export function CotizacionesList({
       header: 'Cliente',
       primary: true,
       cell: (q) => q.customer?.full_name ?? 'Sin cliente',
+      sortValue: (q) => q.customer?.full_name,
     },
-    { header: 'Servicio', cell: (q) => q.service?.name ?? 'A medida' },
+    {
+      header: 'Servicio',
+      cell: (q) => q.service?.name ?? 'A medida',
+      sortValue: (q) => q.service?.name,
+    },
     {
       header: 'Total (MXN)',
       align: 'right',
       cell: (q) => (
         <span className="tabular-nums">{mxn.format(Number(q.total))}</span>
       ),
+      sortValue: (q) => Number(q.total),
     },
     {
       header: 'Creada',
       cell: (q) => createdAtFormatter.format(new Date(q.created_at)),
+      sortValue: (q) => q.created_at,
     },
     {
       header: 'Acciones',
