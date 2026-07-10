@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useState, useTransition, type ComponentProps } from 'react'
+import { ChevronDownIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -21,6 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { cn } from '@/lib/utils'
 import { balance } from '@/lib/domain/balance'
 import { mxn } from '../ui'
 import {
@@ -47,12 +49,28 @@ export type ReciboRow = {
 
 // Mismo estilo de <select> nativo alineado al Input de shadcn que en nueva-venta-form.
 const selectClass =
-  'h-11 md:h-9 w-full min-w-0 appearance-none rounded-lg border border-input bg-transparent px-3 md:px-2.5 py-1 text-base md:text-sm transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 dark:bg-input/30'
+  'h-11 md:h-9 w-full min-w-0 appearance-none rounded-lg border border-input bg-transparent px-3 md:px-2.5 py-1 pr-9 text-base md:text-sm transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 dark:bg-input/30'
+
+// Mismo NativeSelect que en nueva-venta-form (no está exportado allá):
+// <select> nativo con chevron repuesto — en móvil el picker del SO es mejor UX.
+function NativeSelect({ className, children, ...props }: ComponentProps<'select'>) {
+  return (
+    <div className="relative">
+      <select className={cn(selectClass, className)} {...props}>
+        {children}
+      </select>
+      <ChevronDownIcon className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground" />
+    </div>
+  )
+}
 
 const METODOS = [
   { value: 'efectivo', label: 'Efectivo' },
   { value: 'transferencia', label: 'Transferencia' },
+  { value: 'deposito', label: 'Depósito' },
   { value: 'tarjeta', label: 'Tarjeta' },
+  { value: 'mercado_pago', label: 'Mercado Pago' },
+  { value: 'otro', label: 'Otro' },
 ] as const
 
 const METHOD_LABELS: Record<string, string> = Object.fromEntries(
@@ -98,12 +116,6 @@ export function AbonosSection({
   const [receiptError, setReceiptError] = useState<string | null>(null)
   const [emittingId, setEmittingId] = useState<string | null>(null)
 
-  // Formulario de registro
-  const [amount, setAmount] = useState('')
-  const [method, setMethod] = useState<string>('efectivo')
-  const [date, setDate] = useState(hoy)
-  const [tipo, setTipo] = useState<'payment' | 'refund'>('payment')
-
   // Saldo derivado (regla de oro): total − pagos + reembolsos.
   const saldo = balance(
     total,
@@ -111,6 +123,21 @@ export function AbonosSection({
   )
   const pagado = total - saldo
   const liquidada = saldo <= 0
+
+  // Formulario de registro
+  const [amount, setAmount] = useState('')
+  const [method, setMethod] = useState<string>('efectivo')
+  const [date, setDate] = useState(hoy)
+  const [tipo, setTipo] = useState<'payment' | 'refund'>('payment')
+
+  // Cobro en línea: monto editable (permite anticipos), prellenado con el saldo.
+  const [montoCobro, setMontoCobro] = useState(() => String(saldo))
+  const montoCobroNum = Number(montoCobro)
+  const cobroValido =
+    montoCobro.trim() !== '' &&
+    Number.isFinite(montoCobroNum) &&
+    montoCobroNum > 0 &&
+    montoCobroNum <= saldo
 
   const reciboByPayment = new Map(
     receipts
@@ -148,8 +175,9 @@ export function AbonosSection({
   }
 
   function handleCobrar() {
+    if (!cobroValido) return
     startCharging(async () => {
-      const result = await crearLinkPago(bookingId, saldo)
+      const result = await crearLinkPago(bookingId, montoCobroNum)
       if ('error' in result) {
         toast.error(result.error)
         return
@@ -223,19 +251,36 @@ export function AbonosSection({
           </div>
         </div>
 
-        {/* Cobro en línea (Mercado Pago) — solo con saldo pendiente y venta activa */}
+        {/* Cobro en línea (Mercado Pago) — solo con saldo pendiente y venta activa.
+            El monto es editable para permitir anticipos parciales. */}
         {!cancelled && saldo > 0 && (
           <div className="space-y-1.5">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleCobrar}
-              disabled={isCharging}
-            >
-              {isCharging
-                ? 'Generando…'
-                : `Cobrar en línea (${mxn.format(saldo)})`}
-            </Button>
+            <Label htmlFor="cobro-monto">Monto a cobrar</Label>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <Input
+                id="cobro-monto"
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                min="0"
+                value={montoCobro}
+                onChange={(e) => setMontoCobro(e.target.value)}
+                className="sm:w-40"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleCobrar}
+                disabled={isCharging || !cobroValido}
+              >
+                {isCharging ? 'Generando…' : 'Cobrar en línea'}
+              </Button>
+            </div>
+            {!cobroValido && (
+              <p className="text-xs text-destructive">
+                El monto debe ser mayor a 0. Máximo: {mxn.format(saldo)}
+              </p>
+            )}
             <p className="text-xs text-muted-foreground">
               Genera un link de Mercado Pago (tarjeta, OXXO, SPEI). El abono se
               registra solo al pagar.
@@ -357,9 +402,8 @@ export function AbonosSection({
               </div>
               <div className="space-y-2">
                 <Label htmlFor="abono-metodo">Método</Label>
-                <select
+                <NativeSelect
                   id="abono-metodo"
-                  className={selectClass}
                   value={method}
                   onChange={(e) => setMethod(e.target.value)}
                 >
@@ -368,7 +412,7 @@ export function AbonosSection({
                       {m.label}
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="abono-fecha">Fecha</Label>
@@ -381,15 +425,14 @@ export function AbonosSection({
               </div>
               <div className="space-y-2">
                 <Label htmlFor="abono-tipo">Tipo</Label>
-                <select
+                <NativeSelect
                   id="abono-tipo"
-                  className={selectClass}
                   value={tipo}
                   onChange={(e) => setTipo(e.target.value as 'payment' | 'refund')}
                 >
                   <option value="payment">Abono</option>
                   <option value="refund">Reembolso</option>
-                </select>
+                </NativeSelect>
               </div>
             </div>
             {formError && (
