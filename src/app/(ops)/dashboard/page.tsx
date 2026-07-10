@@ -1,14 +1,27 @@
+import Link from 'next/link'
+import type { ComponentType } from 'react'
+import {
+  ArrowRightIcon,
+  BanknoteIcon,
+  CalendarDaysIcon,
+  CircleCheckIcon,
+  FileTextIcon,
+  TriangleAlertIcon,
+} from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { Badge } from '@/components/ui/badge'
+import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
 import { DataList, type DataColumn } from '@/components/data/data-list'
+import { EmptyState } from '@/components/data/empty-state'
 import {
   formatTravelDate,
   mxn,
@@ -63,13 +76,124 @@ const EMPTY_SUMMARY: DashboardSummary = {
   proximos_viajes: [],
 }
 
+/** Máximo de filas por lista en el panel; el resto vive en /ventas. */
+const TOP_N = 5
+
 function pluralVentas(n: number): string {
   return n === 1 ? '1 venta' : `${n} ventas`
 }
 
-function pluralVencidas(n: number): string {
-  return n === 1 ? '1 vencida' : `${n} vencidas`
+// ── KPI ──────────────────────────────────────────────────────────────
+// Mismo patrón visual que las tarjetas de /reportes: etiqueta muted,
+// cifra 2xl tabular, detalle xs.
+
+function Kpi({
+  label,
+  value,
+  detail,
+}: {
+  label: string
+  value: string
+  detail: string
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardDescription>{label}</CardDescription>
+        <CardTitle className="text-2xl tabular-nums">{value}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p className="text-xs text-muted-foreground">{detail}</p>
+      </CardContent>
+    </Card>
+  )
 }
+
+// ── Requiere atención ────────────────────────────────────────────────
+// Tarjetas accionables con dos estados: alerta (tinte semántico + cifra
+// tonificada) y "todo al día" (tarjeta neutra con palomita). El enlace a
+// la lista completa se muestra siempre.
+
+type AtencionTone = 'danger' | 'pendiente'
+
+const ATENCION_TONES: Record<AtencionTone, { card: string; text: string }> = {
+  // Vencido = token destructive del tema.
+  danger: {
+    card: 'bg-destructive/5 ring-destructive/30',
+    text: 'text-destructive',
+  },
+  // Pendiente = ámbar, la misma convención de /reportes y del badge "Cotización".
+  pendiente: {
+    card: 'bg-amber-500/5 ring-amber-500/40',
+    text: 'text-amber-700 dark:text-amber-400',
+  },
+}
+
+function AtencionCard({
+  tone,
+  icon: Icon,
+  label,
+  active,
+  value,
+  detail,
+  calmDetail,
+  href,
+  linkLabel,
+}: {
+  tone: AtencionTone
+  icon: ComponentType<{ className?: string }>
+  label: string
+  /** true = hay pendientes (alerta); false = "todo al día". */
+  active: boolean
+  value: string
+  detail: string
+  calmDetail: string
+  href: string
+  linkLabel: string
+}) {
+  const t = ATENCION_TONES[tone]
+  return (
+    <Card className={active ? t.card : undefined}>
+      <CardHeader>
+        <CardDescription
+          className={cn('flex items-center gap-1.5', active && t.text)}
+        >
+          {active ? (
+            <Icon className="size-3.5 shrink-0" />
+          ) : (
+            <CircleCheckIcon className="size-3.5 shrink-0 text-emerald-600 dark:text-emerald-500" />
+          )}
+          {label}
+        </CardDescription>
+        <CardTitle
+          className={cn(
+            'text-2xl tabular-nums',
+            active ? t.text : 'text-muted-foreground'
+          )}
+        >
+          {active ? value : 'Todo al día'}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex items-end justify-between gap-3">
+        <p className={cn('text-xs', active ? t.text : 'text-muted-foreground')}>
+          {active ? detail : calmDetail}
+        </p>
+        <Link
+          href={href}
+          className={cn(
+            'inline-flex shrink-0 items-center gap-1 text-xs font-medium hover:underline',
+            active ? t.text : 'text-primary'
+          )}
+        >
+          {linkLabel}
+          <ArrowRightIcon className="size-3" />
+        </Link>
+      </CardContent>
+    </Card>
+  )
+}
+
+// ── Listas ───────────────────────────────────────────────────────────
 
 const porCobrarColumns: DataColumn<VentaSaldo>[] = [
   { header: 'Cliente', primary: true, cell: (v) => v.cliente ?? 'Sin cliente' },
@@ -77,6 +201,8 @@ const porCobrarColumns: DataColumn<VentaSaldo>[] = [
   {
     header: 'Total',
     align: 'right',
+    // En la tarjeta móvil el saldo es lo accionable; el total sobra.
+    hideOnCard: true,
     cell: (v) => <span className="tabular-nums">{mxn.format(Number(v.total))}</span>,
   },
   {
@@ -117,6 +243,18 @@ const proximosColumns: DataColumn<ProximoViaje>[] = [
   { header: 'Estado', cell: (v) => <StatusBadge status={v.status} /> },
 ]
 
+function VerTodas({ children = 'Ver todas' }: { children?: string }) {
+  return (
+    <Link
+      href="/ventas"
+      className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+    >
+      {children}
+      <ArrowRightIcon className="size-3.5" />
+    </Link>
+  )
+}
+
 export default async function DashboardPage() {
   const supabase = await createClient()
   const {
@@ -141,7 +279,8 @@ export default async function DashboardPage() {
   const ventasSaldo = d.ventas_saldo ?? []
   const proximosViajes = d.proximos_viajes ?? []
   const montoVencido = Number(d.monto_vencido ?? 0)
-  const hayVencidas = montoVencido > 0
+  const numVencidas = Number(d.num_vencidas ?? 0)
+  const numCotizaciones = Number(d.num_cotizaciones ?? 0)
 
   let agencia: string | null = null
   const supplierId = profileRes.data?.supplier_id
@@ -156,11 +295,19 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Panel</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          {agencia ? `Resumen operativo de ${agencia}` : 'Resumen operativo'}
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">Panel</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {agencia ? `Resumen operativo de ${agencia}` : 'Resumen operativo'}
+          </p>
+        </div>
+        <Link
+          href="/ventas/nueva"
+          className={buttonVariants({ variant: 'default' })}
+        >
+          Nueva venta
+        </Link>
       </div>
 
       {summaryRes.error && (
@@ -169,102 +316,96 @@ export default async function DashboardPage() {
         </p>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-        <Card>
-          <CardHeader>
-            <CardDescription>Por cobrar</CardDescription>
-            <CardTitle className="text-2xl tabular-nums">
-              {mxn.format(Number(d.por_cobrar ?? 0))}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">
-              {pluralVentas(d.num_por_cobrar ?? 0)}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className={hayVencidas ? 'border-destructive/50 bg-destructive/5' : undefined}>
-          <CardHeader>
-            <CardDescription className={hayVencidas ? 'text-destructive' : undefined}>
-              Vencido
-            </CardDescription>
-            <CardTitle
-              className={`text-2xl tabular-nums${hayVencidas ? ' text-destructive' : ''}`}
-            >
-              {mxn.format(montoVencido)}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p
-              className={`text-xs ${hayVencidas ? 'text-destructive' : 'text-muted-foreground'}`}
-            >
-              {pluralVencidas(d.num_vencidas ?? 0)}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardDescription>Ventas</CardDescription>
-            <CardTitle className="text-2xl tabular-nums">
-              {d.num_ventas ?? 0}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">
-              Reservadas, confirmadas y pagadas
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardDescription>Cotizaciones</CardDescription>
-            <CardTitle className="text-2xl tabular-nums">
-              {d.num_cotizaciones ?? 0}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">En borrador</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardDescription>Total vendido</CardDescription>
-            <CardTitle className="text-2xl tabular-nums">
-              {mxn.format(Number(d.total_vendido ?? 0))}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">
-              {pluralVentas(d.num_ventas ?? 0)}
-            </p>
-          </CardContent>
-        </Card>
+      {/* KPIs: la foto financiera del momento. */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Kpi
+          label="Total vendido"
+          value={mxn.format(Number(d.total_vendido ?? 0))}
+          detail={pluralVentas(Number(d.num_ventas ?? 0))}
+        />
+        <Kpi
+          label="Por cobrar"
+          value={mxn.format(Number(d.por_cobrar ?? 0))}
+          detail={`${pluralVentas(Number(d.num_por_cobrar ?? 0))} con saldo pendiente`}
+        />
+        <Kpi
+          label="Ventas activas"
+          value={String(Number(d.num_ventas ?? 0))}
+          detail="Reservadas, confirmadas y pagadas"
+        />
       </div>
+
+      {/* Lo accionable del día: vencidos y cotizaciones sin cerrar. */}
+      <section aria-label="Requiere atención" className="space-y-3">
+        <h2 className="text-base font-semibold">Requiere atención</h2>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <AtencionCard
+            tone="danger"
+            icon={TriangleAlertIcon}
+            label="Pagos vencidos"
+            active={numVencidas > 0}
+            value={mxn.format(montoVencido)}
+            detail={
+              numVencidas === 1
+                ? '1 venta con fecha de pago vencida'
+                : `${numVencidas} ventas con fecha de pago vencida`
+            }
+            calmDetail="Ninguna venta tiene pagos vencidos."
+            href="/ventas"
+            linkLabel="Ver ventas"
+          />
+          <AtencionCard
+            tone="pendiente"
+            icon={FileTextIcon}
+            label="Cotizaciones por cerrar"
+            active={numCotizaciones > 0}
+            value={String(numCotizaciones)}
+            detail={
+              numCotizaciones === 1
+                ? '1 cotización en borrador por dar seguimiento'
+                : `${numCotizaciones} cotizaciones en borrador por dar seguimiento`
+            }
+            calmDetail="No hay cotizaciones pendientes."
+            href="/cotizaciones"
+            linkLabel="Ver cotizaciones"
+          />
+        </div>
+      </section>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>Por cobrar</CardTitle>
             <CardDescription>
-              Ventas reservadas o confirmadas con saldo pendiente.
+              Ventas activas con saldo pendiente.
             </CardDescription>
+            <CardAction>
+              <VerTodas />
+            </CardAction>
           </CardHeader>
           <CardContent>
             <DataList
               columns={porCobrarColumns}
-              rows={ventasSaldo}
+              rows={ventasSaldo.slice(0, TOP_N)}
               getRowKey={(v) => v.id}
               rowHref={(v) => `/ventas/${v.id}`}
               empty={
-                <p className="text-sm text-muted-foreground">
-                  Nada por cobrar. 🎉
-                </p>
+                <EmptyState
+                  icon={BanknoteIcon}
+                  title="Nada por cobrar"
+                  description="Las ventas activas no tienen saldo pendiente."
+                />
               }
             />
+            {ventasSaldo.length > TOP_N && (
+              <p className="mt-3 text-xs text-muted-foreground">
+                Mostrando {TOP_N} de {ventasSaldo.length}; el resto está en{' '}
+                <Link href="/ventas" className="font-medium text-primary hover:underline">
+                  Ventas
+                </Link>
+                .
+              </p>
+            )}
           </CardContent>
         </Card>
 
@@ -274,19 +415,33 @@ export default async function DashboardPage() {
             <CardDescription>
               Salidas con fecha de viaje a partir de hoy.
             </CardDescription>
+            <CardAction>
+              <VerTodas />
+            </CardAction>
           </CardHeader>
           <CardContent>
             <DataList
               columns={proximosColumns}
-              rows={proximosViajes}
+              rows={proximosViajes.slice(0, TOP_N)}
               getRowKey={(v) => v.id}
               rowHref={(v) => `/ventas/${v.id}`}
               empty={
-                <p className="text-sm text-muted-foreground">
-                  Sin viajes próximos.
-                </p>
+                <EmptyState
+                  icon={CalendarDaysIcon}
+                  title="Sin viajes próximos"
+                  description="Cuando una venta tenga fecha de viaje futura aparecerá aquí."
+                />
               }
             />
+            {proximosViajes.length > TOP_N && (
+              <p className="mt-3 text-xs text-muted-foreground">
+                Mostrando {TOP_N} de {proximosViajes.length}; el resto está en{' '}
+                <Link href="/ventas" className="font-medium text-primary hover:underline">
+                  Ventas
+                </Link>
+                .
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
