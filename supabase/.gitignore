@@ -1,0 +1,4 @@
+# Supabase CLI (temporales locales; no versionar)
+.branches
+.temp
+.env
