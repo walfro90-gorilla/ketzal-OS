@@ -3,6 +3,7 @@ import type { ComponentType } from 'react'
 import {
   ArrowRightIcon,
   BanknoteIcon,
+  BotIcon,
   CalendarDaysIcon,
   CircleCheckIcon,
   FileTextIcon,
@@ -28,6 +29,7 @@ import {
   StatusBadge,
   type BookingStatus,
 } from '../ventas/ui'
+import { getClawbotResumen, type ClawbotResumen } from '../clawbot/data'
 
 // Forma del jsonb que devuelve ketzal.dashboard_summary().
 // Los tipos generados a mano declaran `Returns: Json`, así que se
@@ -83,6 +85,23 @@ function pluralVentas(n: number): string {
   return n === 1 ? '1 venta' : `${n} ventas`
 }
 
+/** Desglose en una línea del digest de Clawbot: "2 vencidos · 1 por vencer · 1 viaje". */
+function clawbotDetalle(r: ClawbotResumen): string {
+  const parts: string[] = []
+  if (r.abono_vencido > 0)
+    parts.push(`${r.abono_vencido} ${r.abono_vencido === 1 ? 'vencido' : 'vencidos'}`)
+  if (r.abono_por_vencer > 0) parts.push(`${r.abono_por_vencer} por vencer`)
+  if (r.viaje_proximo > 0)
+    parts.push(`${r.viaje_proximo} ${r.viaje_proximo === 1 ? 'viaje' : 'viajes'}`)
+  if (r.cotizacion_seguimiento > 0)
+    parts.push(
+      `${r.cotizacion_seguimiento} ${
+        r.cotizacion_seguimiento === 1 ? 'cotización' : 'cotizaciones'
+      }`
+    )
+  return parts.join(' · ')
+}
+
 // ── KPI ──────────────────────────────────────────────────────────────
 // Mismo patrón visual que las tarjetas de /reportes: etiqueta muted,
 // cifra 2xl tabular, detalle xs.
@@ -114,7 +133,7 @@ function Kpi({
 // tonificada) y "todo al día" (tarjeta neutra con palomita). El enlace a
 // la lista completa se muestra siempre.
 
-type AtencionTone = 'danger' | 'pendiente'
+type AtencionTone = 'danger' | 'pendiente' | 'bot'
 
 const ATENCION_TONES: Record<AtencionTone, { card: string; text: string }> = {
   // Vencido = token destructive del tema.
@@ -127,6 +146,11 @@ const ATENCION_TONES: Record<AtencionTone, { card: string; text: string }> = {
     card: 'bg-amber-500/5 ring-amber-500/40',
     text: 'text-amber-700 dark:text-amber-400',
   },
+  // Clawbot = primario (teal de marca): accionable, no alarmante.
+  bot: {
+    card: 'bg-primary/5 ring-primary/30',
+    text: 'text-primary',
+  },
 }
 
 function AtencionCard({
@@ -136,6 +160,7 @@ function AtencionCard({
   active,
   value,
   detail,
+  calmValue = 'Todo al día',
   calmDetail,
   href,
   linkLabel,
@@ -147,6 +172,8 @@ function AtencionCard({
   active: boolean
   value: string
   detail: string
+  /** Título del estado en calma (default "Todo al día"). */
+  calmValue?: string
   calmDetail: string
   href: string
   linkLabel: string
@@ -171,7 +198,7 @@ function AtencionCard({
             active ? t.text : 'text-muted-foreground'
           )}
         >
-          {active ? value : 'Todo al día'}
+          {active ? value : calmValue}
         </CardTitle>
       </CardHeader>
       <CardContent className="flex items-end justify-between gap-3">
@@ -266,13 +293,14 @@ export default async function DashboardPage() {
     return <p className="text-sm text-muted-foreground">Sesión no válida.</p>
   }
 
-  const [summaryRes, profileRes] = await Promise.all([
+  const [summaryRes, profileRes, clawbot] = await Promise.all([
     supabase.rpc('dashboard_summary'),
     supabase
       .from('profiles')
       .select('supplier_id')
       .eq('id', user.id)
       .single(),
+    getClawbotResumen(),
   ])
 
   const d = (summaryRes.data ?? EMPTY_SUMMARY) as unknown as DashboardSummary
@@ -338,7 +366,7 @@ export default async function DashboardPage() {
       {/* Lo accionable del día: vencidos y cotizaciones sin cerrar. */}
       <section aria-label="Requiere atención" className="space-y-3">
         <h2 className="text-base font-semibold">Requiere atención</h2>
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <AtencionCard
             tone="danger"
             icon={TriangleAlertIcon}
@@ -368,6 +396,18 @@ export default async function DashboardPage() {
             calmDetail="No hay cotizaciones pendientes."
             href="/cotizaciones"
             linkLabel="Ver cotizaciones"
+          />
+          <AtencionCard
+            tone="bot"
+            icon={BotIcon}
+            label="Clawbot"
+            active={Number(clawbot.total ?? 0) > 0}
+            value={String(Number(clawbot.total ?? 0))}
+            detail={clawbotDetalle(clawbot) || 'Recordatorios por enviar'}
+            calmValue="Clawbot al día"
+            calmDetail="No hay recordatorios pendientes por enviar."
+            href="/clawbot"
+            linkLabel="Ver bandeja"
           />
         </div>
       </section>
