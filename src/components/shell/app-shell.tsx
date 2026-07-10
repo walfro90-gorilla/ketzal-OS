@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { Suspense } from 'react'
-import { SidebarNav } from './sidebar-nav'
+import { DesktopSidebar } from './desktop-sidebar'
 import { BottomTabs } from './bottom-tabs'
 import { UserMenu } from './user-menu'
 import { ThemeToggle } from './theme-toggle'
@@ -14,11 +14,13 @@ export function AppShell({
   email,
   displayName,
   role,
+  sidebarCollapsed = false,
   children,
 }: {
   email: string | null
   displayName: string | null
   role: string | null
+  sidebarCollapsed?: boolean
   children: React.ReactNode
 }) {
   return (
@@ -45,11 +47,7 @@ export function AppShell({
       </header>
 
       <div className="flex flex-1">
-        <aside className="hidden w-56 shrink-0 border-r md:block">
-          <div className="sticky top-14">
-            <SidebarNav role={role} />
-          </div>
-        </aside>
+        <DesktopSidebar role={role} defaultCollapsed={sidebarCollapsed} />
 
         {/* pb-24 en móvil libera espacio para la bottom bar fija. */}
         <main

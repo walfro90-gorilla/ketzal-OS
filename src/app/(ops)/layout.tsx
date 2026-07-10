@@ -1,3 +1,4 @@
+import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { AppShell } from '@/components/shell/app-shell'
 
@@ -10,6 +11,10 @@ export default async function OpsLayout({
   const {
     data: { user },
   } = await supabase.auth.getUser()
+
+  // Estado del sidebar colapsable (escritorio) leído en el servidor ⇒ sin parpadeo.
+  const cookieStore = await cookies()
+  const sidebarCollapsed = cookieStore.get('sidebar_collapsed')?.value === '1'
 
   let displayName: string | null = null
   let role: string | null = null
@@ -24,7 +29,12 @@ export default async function OpsLayout({
   }
 
   return (
-    <AppShell email={user?.email ?? null} displayName={displayName} role={role}>
+    <AppShell
+      email={user?.email ?? null}
+      displayName={displayName}
+      role={role}
+      sidebarCollapsed={sidebarCollapsed}
+    >
       {children}
     </AppShell>
   )
