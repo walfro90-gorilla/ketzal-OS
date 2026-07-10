@@ -138,6 +138,13 @@ export function AbonosSection({
     Number.isFinite(montoCobroNum) &&
     montoCobroNum > 0 &&
     montoCobroNum <= saldo
+  // Mensaje preciso según la condición que falla (null = monto válido, sin hint).
+  const cobroHint =
+    montoCobro.trim() === '' || !Number.isFinite(montoCobroNum) || montoCobroNum <= 0
+      ? 'El monto debe ser mayor a 0.'
+      : montoCobroNum > saldo
+        ? `El monto no puede exceder el saldo: ${mxn.format(saldo)}.`
+        : null
 
   const reciboByPayment = new Map(
     receipts
@@ -276,10 +283,8 @@ export function AbonosSection({
                 {isCharging ? 'Generando…' : 'Cobrar en línea'}
               </Button>
             </div>
-            {!cobroValido && (
-              <p className="text-xs text-destructive">
-                El monto debe ser mayor a 0. Máximo: {mxn.format(saldo)}
-              </p>
+            {cobroHint && (
+              <p className="text-xs text-destructive">{cobroHint}</p>
             )}
             <p className="text-xs text-muted-foreground">
               Genera un link de Mercado Pago (tarjeta, OXXO, SPEI). El abono se

@@ -22,6 +22,12 @@ export type ListFilter<T> = {
   getValue: (row: T) => string | null | undefined
 }
 
+export type ListDateFilter<T> = {
+  label: string // p. ej. "Fecha de viaje"
+  /** ISO 'yyyy-mm-dd' (o datetime ISO); se compara por el prefijo de fecha. */
+  getDate: (row: T) => string | null | undefined
+}
+
 /** Minúsculas y sin acentos: "José" ≡ "jose". */
 function normalize(s: string): string {
   return s.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '')
@@ -70,6 +76,7 @@ export function FilterableList<T>({
   searchText,
   searchPlaceholder = 'Buscar…',
   filters,
+  dateFilter,
   empty,
 }: {
   rows: T[]
@@ -80,12 +87,17 @@ export function FilterableList<T>({
   searchText: (row: T) => string
   searchPlaceholder?: string
   filters?: ListFilter<T>[]
+  /** Rango de fechas opcional (desde/hasta inclusivos) sobre una fecha de la fila. */
+  dateFilter?: ListDateFilter<T>
   /** Se muestra cuando NO hay datos en absoluto (rows vacío). */
   empty?: ReactNode
 }) {
   const [query, setQuery] = useState('')
   // '' = "Todos" (filtro inactivo).
   const [selected, setSelected] = useState<Record<string, string>>({})
+  // '' = sin cota (filtro inactivo). Formato yyyy-mm-dd del <input type="date">.
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   // null = orden original. Ciclo por columna: asc → desc → null.
   const [sort, setSort] = useState<SortState | null>(null)
 
@@ -109,9 +121,17 @@ export function FilterableList<T>({
         const value = selected[filter.key]
         if (value && String(filter.getValue(row) ?? '') !== value) return false
       }
+      if (dateFilter && (dateFrom || dateTo)) {
+        // Comparación lexicográfica sobre el prefijo yyyy-mm-dd (cotas inclusivas).
+        // Fila sin fecha: se excluye solo si hay alguna cota activa (este branch).
+        const date = String(dateFilter.getDate(row) ?? '').slice(0, 10)
+        if (!date) return false
+        if (dateFrom && date < dateFrom) return false
+        if (dateTo && date > dateTo) return false
+      }
       return true
     })
-  }, [rows, query, selected, filters, searchText])
+  }, [rows, query, selected, filters, dateFilter, dateFrom, dateTo, searchText])
 
   // Orden ESTABLE sobre el resultado filtrado (decorate–sort–undecorate:
   // empates conservan el orden original, y sortValue se evalúa una sola vez).
@@ -132,11 +152,13 @@ export function FilterableList<T>({
   const clear = () => {
     setQuery('')
     setSelected({})
+    setDateFrom('')
+    setDateTo('')
   }
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
         <label htmlFor="filterable-list-search" className="sr-only">
           Buscar
         </label>
@@ -171,6 +193,35 @@ export function FilterableList<T>({
             </NativeSelect>
           </div>
         ))}
+        {dateFilter && (
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+            <span className="text-sm text-muted-foreground sm:whitespace-nowrap">
+              {dateFilter.label}
+            </span>
+            <Input
+              type="date"
+              aria-label="Desde"
+              value={dateFrom}
+              max={dateTo || undefined}
+              onChange={(e) => setDateFrom(e.target.value)}
+              className="sm:w-40"
+            />
+            <span
+              aria-hidden="true"
+              className="hidden text-sm text-muted-foreground sm:inline"
+            >
+              –
+            </span>
+            <Input
+              type="date"
+              aria-label="Hasta"
+              value={dateTo}
+              min={dateFrom || undefined}
+              onChange={(e) => setDateTo(e.target.value)}
+              className="sm:w-40"
+            />
+          </div>
+        )}
       </div>
 
       <p className="text-xs text-muted-foreground" aria-live="polite">

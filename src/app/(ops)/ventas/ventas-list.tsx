@@ -86,6 +86,7 @@ export function VentasList({
       }
       searchPlaceholder="Buscar por cliente, servicio o folio…"
       filters={filters}
+      dateFilter={{ label: 'Fecha de viaje', getDate: (s) => s.travel_date }}
       empty={empty}
     />
   )
