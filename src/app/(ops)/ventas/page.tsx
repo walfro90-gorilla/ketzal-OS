@@ -2,46 +2,8 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { buttonVariants } from '@/components/ui/button'
 import { BanknoteIcon } from 'lucide-react'
-import { DataList, type DataColumn } from '@/components/data/data-list'
 import { EmptyState } from '@/components/data/empty-state'
-import { formatTravelDate, mxn, StatusBadge, type BookingStatus } from './ui'
-
-type SaleRow = {
-  id: string
-  folio: string | null
-  travel_date: string | null
-  total: number
-  status: BookingStatus
-  customer: { full_name: string } | null
-  service: { name: string } | null
-}
-
-const columns: DataColumn<SaleRow>[] = [
-  {
-    header: 'Cliente',
-    primary: true,
-    cell: (s) => (
-      <>
-        {s.customer?.full_name ?? 'Sin cliente'}
-        {s.folio && (
-          <span className="ml-2 text-xs font-normal text-muted-foreground">
-            {s.folio}
-          </span>
-        )}
-      </>
-    ),
-  },
-  { header: 'Servicio', cell: (s) => s.service?.name ?? 'A medida' },
-  { header: 'Fecha', cell: (s) => formatTravelDate(s.travel_date) },
-  {
-    header: 'Total',
-    align: 'right',
-    cell: (s) => (
-      <span className="tabular-nums">{mxn.format(Number(s.total))}</span>
-    ),
-  },
-  { header: 'Estado', cell: (s) => <StatusBadge status={s.status} /> },
-]
+import { VentasList, type SaleRow } from './ventas-list'
 
 export default async function VentasPage() {
   const supabase = await createClient()
@@ -73,11 +35,8 @@ export default async function VentasPage() {
           Error al leer las ventas: {error.message}
         </p>
       ) : (
-        <DataList
-          columns={columns}
+        <VentasList
           rows={sales}
-          getRowKey={(s) => s.id}
-          rowHref={(s) => `/ventas/${s.id}`}
           empty={
             <EmptyState
               icon={BanknoteIcon}

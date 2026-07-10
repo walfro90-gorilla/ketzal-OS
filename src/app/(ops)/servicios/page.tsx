@@ -2,34 +2,10 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { buttonVariants } from '@/components/ui/button'
 import { MapPinIcon } from 'lucide-react'
-import { DataList, type DataColumn } from '@/components/data/data-list'
 import { EmptyState } from '@/components/data/empty-state'
-import { mxn } from '../ventas/ui'
+import { ServiciosList, type Servicio } from './servicios-list'
 
-const TIPO_LABELS: Record<string, string> = {
-  tour: 'Tour',
-  paquete: 'Paquete',
-  transporte: 'Transporte',
-  hospedaje: 'Hospedaje',
-  actividad: 'Actividad',
-}
-
-/** "{ciudad}, {estado}" con lo que haya; "—" si no hay nada. */
-function formatDestino(city: string | null, state: string | null): string {
-  const partes = [city, state].filter(Boolean)
-  return partes.length > 0 ? partes.join(', ') : '—'
-}
-
-type ServicioRow = {
-  id: string
-  name: string
-  price: number | null
-  service_type: string | null
-  state_to: string | null
-  city_to: string | null
-  max_capacity: number | null
-  supplier_id: string
-}
+type ServicioRow = Omit<Servicio, 'agencia'>
 
 export default async function ServiciosPage() {
   const supabase = await createClient()
@@ -47,52 +23,14 @@ export default async function ServiciosPage() {
     supabase.from('suppliers').select('id, name'),
   ])
 
-  const servicios = (serviciosRes.data ?? []) as unknown as ServicioRow[]
   const agenciaPorId = new Map(
     (agenciasRes.data ?? []).map((agencia) => [agencia.id, agencia.name])
   )
 
-  const columns: DataColumn<ServicioRow>[] = [
-    {
-      header: 'Nombre',
-      primary: true,
-      cell: (s) => (
-        <div className="flex flex-col">
-          <span>{s.name}</span>
-          {s.service_type && (
-            <span className="text-xs font-normal text-muted-foreground">
-              {TIPO_LABELS[s.service_type] ?? s.service_type}
-            </span>
-          )}
-        </div>
-      ),
-    },
-    {
-      header: 'Agencia',
-      cell: (s) =>
-        agenciaPorId.get(s.supplier_id) ?? (
-          <span className="text-muted-foreground">—</span>
-        ),
-    },
-    { header: 'Destino', cell: (s) => formatDestino(s.city_to, s.state_to) },
-    {
-      header: 'Precio',
-      align: 'right',
-      cell: (s) => (
-        <span className="tabular-nums">{mxn.format(Number(s.price ?? 0))}</span>
-      ),
-    },
-    {
-      header: 'Cupo',
-      align: 'right',
-      cell: (s) =>
-        s.max_capacity != null ? (
-          <span className="tabular-nums">{s.max_capacity}</span>
-        ) : (
-          <span className="text-muted-foreground">—</span>
-        ),
-    },
-  ]
+  // Se aplana el nombre de la agencia en la fila: el Map no cruza al cliente.
+  const servicios: Servicio[] = (
+    (serviciosRes.data ?? []) as unknown as ServicioRow[]
+  ).map((s) => ({ ...s, agencia: agenciaPorId.get(s.supplier_id) ?? null }))
 
   return (
     <div className="space-y-6">
@@ -116,11 +54,8 @@ export default async function ServiciosPage() {
           Error al leer los servicios: {serviciosRes.error.message}
         </p>
       ) : (
-        <DataList
-          columns={columns}
+        <ServiciosList
           rows={servicios}
-          getRowKey={(s) => s.id}
-          rowHref={(s) => `/servicios/${s.id}`}
           empty={
             <EmptyState
               icon={MapPinIcon}
