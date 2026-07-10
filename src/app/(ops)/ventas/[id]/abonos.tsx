@@ -23,7 +23,12 @@ import {
 } from '@/components/ui/table'
 import { balance } from '@/lib/domain/balance'
 import { mxn } from '../ui'
-import { crearLinkPago, emitirRecibo, registrarAbono } from './actions'
+import {
+  compartirEstadoCuenta,
+  crearLinkPago,
+  emitirRecibo,
+  registrarAbono,
+} from './actions'
 
 export type AbonoRow = {
   id: string
@@ -88,6 +93,7 @@ export function AbonosSection({
   const [isRegistering, startRegistering] = useTransition()
   const [isEmitting, startEmitting] = useTransition()
   const [isCharging, startCharging] = useTransition()
+  const [isSharing, startSharing] = useTransition()
   const [formError, setFormError] = useState<string | null>(null)
   const [receiptError, setReceiptError] = useState<string | null>(null)
   const [emittingId, setEmittingId] = useState<string | null>(null)
@@ -153,6 +159,29 @@ export function AbonosSection({
     })
   }
 
+  function handleCompartir() {
+    startSharing(async () => {
+      const result = await compartirEstadoCuenta(bookingId)
+      if ('error' in result) {
+        toast.error(result.error)
+        return
+      }
+      // Mismo UX que compartir cotización: link por WhatsApp + copia al portapapeles.
+      const msg = `Hola, aquí está tu estado de cuenta: ${result.url}`
+      window.open(
+        `https://wa.me/?text=${encodeURIComponent(msg)}`,
+        '_blank',
+        'noopener,noreferrer'
+      )
+      try {
+        await navigator.clipboard.writeText(result.url)
+        toast.success('Link de estado de cuenta copiado')
+      } catch {
+        toast.error('No se pudo copiar el link.')
+      }
+    })
+  }
+
   function handleEmitir(paymentId: string) {
     setReceiptError(null)
     setEmittingId(paymentId)
@@ -213,6 +242,23 @@ export function AbonosSection({
             </p>
           </div>
         )}
+
+        {/* Estado de cuenta público: link de solo lectura para el cliente
+            (válido también en ventas canceladas — el ledger sigue siendo real). */}
+        <div className="space-y-1.5">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleCompartir}
+            disabled={isSharing}
+          >
+            {isSharing ? 'Generando…' : 'Compartir estado de cuenta'}
+          </Button>
+          <p className="text-xs text-muted-foreground">
+            Abre WhatsApp con el link público (total, abonos y saldo) y lo copia
+            al portapapeles.
+          </p>
+        </div>
 
         {/* Lista de abonos */}
         {payments.length === 0 ? (

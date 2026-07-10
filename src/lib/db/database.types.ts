@@ -97,6 +97,7 @@ export type Database = {
           selling_supplier_id: string
           service_id: string | null
           sold_by: string | null
+          statement_token: string | null
           status: Database["ketzal"]["Enums"]["booking_status"]
           subtotal: number
           total: number
@@ -119,6 +120,7 @@ export type Database = {
           selling_supplier_id: string
           service_id?: string | null
           sold_by?: string | null
+          statement_token?: string | null
           status?: Database["ketzal"]["Enums"]["booking_status"]
           subtotal?: number
           total?: number
@@ -141,6 +143,7 @@ export type Database = {
           selling_supplier_id?: string
           service_id?: string | null
           sold_by?: string | null
+          statement_token?: string | null
           status?: Database["ketzal"]["Enums"]["booking_status"]
           subtotal?: number
           total?: number
@@ -448,6 +451,14 @@ export type Database = {
       }
       confirm_online_payment: {
         Args: { p_intent_id: string; p_mp_payment_id: string; p_status: string }
+        Returns: Json
+      }
+      ensure_statement_token: {
+        Args: { p_booking_id: string }
+        Returns: string
+      }
+      get_statement_by_token: {
+        Args: { p_token: string }
         Returns: Json
       }
       ensure_profile: {

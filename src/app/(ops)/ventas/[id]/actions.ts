@@ -190,3 +190,29 @@ export async function crearLinkPago(
 
   return { url: pref.init_point }
 }
+
+/**
+ * Estado de cuenta del cliente: genera (o reutiliza) el token público de la venta
+ * y devuelve el link compartible (/estado/[token]). El agente lo comparte por
+ * WhatsApp; el cliente ve total, abonos y saldo sin necesitar cuenta. El RPC es
+ * SECURITY INVOKER: si la venta no es del agente/su agencia, devuelve null.
+ */
+export async function compartirEstadoCuenta(
+  bookingId: string
+): Promise<{ error: string } | { url: string }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const { data: token, error } = await supabase.rpc('ensure_statement_token', {
+    p_booking_id: bookingId,
+  })
+  if (error) return { error: error.message }
+  if (!token) return { error: 'No se pudo generar el estado de cuenta de esta venta.' }
+
+  const h = await headers()
+  const origin = process.env.NEXT_PUBLIC_APP_URL ?? `https://${h.get('host')}`
+  return { url: `${origin}/estado/${token}` }
+}

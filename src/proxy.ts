@@ -28,6 +28,7 @@ export async function proxy(request: NextRequest) {
     path.startsWith('/login') ||
     path.startsWith('/auth') ||
     path.startsWith('/cotizacion/') ||
+    path.startsWith('/estado/') || // estado de cuenta del cliente (link público por token)
     path.startsWith('/recuperar') ||
     path.startsWith('/api/') // endpoints (p.ej. webhook de Mercado Pago) manejan su propia auth
   if (!user && !isPublic) {
