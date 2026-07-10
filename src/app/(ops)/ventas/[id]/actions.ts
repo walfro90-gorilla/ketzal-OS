@@ -183,9 +183,21 @@ export async function crearLinkPago(
   if (!res.ok) {
     return { error: 'Mercado Pago rechazó la solicitud. Revisa las credenciales.' }
   }
-  const pref = (await res.json()) as { init_point?: string }
+  const pref = (await res.json()) as { id?: string; init_point?: string }
   if (!pref.init_point) {
     return { error: 'Mercado Pago no devolvió un link de pago.' }
+  }
+
+  // Guarda el preference id en el intento para reconciliar el pago después
+  // (RLS payment_intents_upd: created_by = auth.uid() lo permite). No es crítico
+  // si falla — el webhook correlaciona por external_reference, no por esto.
+  // `payment_intents` no está en database.types.ts (lo mantiene otro agente):
+  // cast puntual `as never`, igual que los RPCs nuevos, para no tocar los tipos.
+  if (pref.id) {
+    await supabase
+      .from('payment_intents' as never)
+      .update({ mp_preference_id: pref.id } as never)
+      .eq('id', intentId as string)
   }
 
   return { url: pref.init_point }
