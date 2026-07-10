@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import type { Metadata } from 'next'
+import { getStatement } from './data'
 import { ImprimirBoton } from '@/components/imprimir-boton'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -17,34 +18,8 @@ import {
 } from '@/components/ui/table'
 
 // Página PÚBLICA (sin sesión): el cliente final la abre desde WhatsApp.
-// El acceso a los datos pasa por el RPC get_statement_by_token (callable por
-// anon); el token uuid es la única llave. Misma receta que /cotizacion/[token].
-
-// El RPC devuelve jsonb: tipamos el resultado localmente y casteamos.
-type StatementAbono = {
-  fecha: string
-  monto: number
-  metodo: string | null
-  tipo: 'payment' | 'refund'
-}
-
-type Statement = {
-  agencia: string
-  logo: string | null
-  folio: string
-  cliente: string | null
-  servicio: string | null
-  fecha_viaje: string | null // ISO date "2026-07-30"
-  pasajeros: number
-  estado: 'draft' | 'reserved' | 'paid' | 'cancelled' | string
-  moneda: string // "MXN"
-  total: number
-  pagado: number
-  saldo: number
-  due_date: string | null // ISO date
-  emitido: string // ISO timestamp
-  abonos: StatementAbono[]
-}
+// Datos y tipos viven en ./data (getStatement). El preview social lo genera
+// ./opengraph-image; aquí solo el <title>/<meta> vía generateMetadata.
 
 // Formatters locales (duplicados a propósito: los de (ops)/ventas/ui.tsx
 // viven en el grupo privado; esta página es pública y autocontenida).
@@ -77,6 +52,41 @@ function EstadoBadge({ estado }: { estado: string }) {
   return <Badge variant="outline">{estado}</Badge>
 }
 
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ token: string }>
+}): Promise<Metadata> {
+  const { token } = await params
+  const s = await getStatement(token)
+  if (!s) return { title: 'Estado de cuenta', robots: { index: false } }
+
+  const money = new Intl.NumberFormat('es-MX', {
+    style: 'currency',
+    currency: s.moneda || 'MXN',
+    maximumFractionDigits: 0,
+  })
+  const saldo = Number(s.saldo)
+  const title = `Estado de cuenta ${s.folio} — ${s.agencia}`
+  const description = [
+    s.cliente ? `Para ${s.cliente}` : null,
+    s.servicio ?? 'Venta de viaje',
+    saldo <= 0
+      ? 'Liquidada'
+      : `Saldo ${money.format(saldo)} de ${money.format(Number(s.total))}`,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+
+  return {
+    title,
+    description,
+    robots: { index: false },
+    openGraph: { title, description, type: 'website' },
+    twitter: { card: 'summary_large_image', title, description },
+  }
+}
+
 function NotFound() {
   return (
     <main className="flex flex-1 items-center justify-center px-4 py-16">
@@ -97,16 +107,8 @@ export default async function EstadoCuentaPublicoPage({
   params: Promise<{ token: string }>
 }) {
   const { token } = await params
-  const supabase = await createClient()
-
-  // Sin sesión, el cliente server usa la anon key: el RPC es callable por anon.
-  // Un token malformado (no-uuid) hace fallar el RPC → misma pantalla de no encontrada.
-  const { data, error } = await supabase.rpc('get_statement_by_token', {
-    p_token: token,
-  })
-
-  if (error || data == null) return <NotFound />
-  const statement = data as unknown as Statement
+  const statement = await getStatement(token)
+  if (!statement) return <NotFound />
 
   const money = new Intl.NumberFormat('es-MX', {
     style: 'currency',

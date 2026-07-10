@@ -14,7 +14,17 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// URL base para resolver imágenes OG a absolutas (WhatsApp/Telegram las exigen).
+// En Vercel usamos el dominio de producción; override con NEXT_PUBLIC_SITE_URL
+// si algún día hay dominio propio. ponytail: un env, sin config extra.
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ??
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : "http://localhost:3000");
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   applicationName: "Ketzal OS",
   title: "Ketzal OS",
   description: "Back-office de ventas para agencias de viajes",

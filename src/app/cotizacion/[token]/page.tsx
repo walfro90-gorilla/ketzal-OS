@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import type { Metadata } from 'next'
+import { getQuote } from './data'
 import { ImprimirBoton } from '@/components/imprimir-boton'
 import {
   Card,
@@ -16,39 +17,8 @@ import {
 } from '@/components/ui/table'
 
 // Página PÚBLICA (sin sesión): el cliente final la abre desde WhatsApp.
-// El acceso a los datos pasa por el RPC get_quote_by_token (SECURITY DEFINER,
-// callable por anon); el token uuid es la única llave.
-
-// El RPC devuelve jsonb: tipamos el resultado localmente y casteamos.
-type QuoteItem = {
-  item_type: string
-  passenger_type: string | null
-  description: string | null
-  qty: number
-  unit_price: number
-  line_total: number
-}
-
-type QuoteData = {
-  id: string
-  status: string
-  travel_date: string | null
-  num_pax: number
-  subtotal: number
-  discount: number
-  total: number
-  currency: string
-  created_at: string
-  agency: {
-    name: string
-    contact_email: string | null
-    phone: string | null
-    logo: string | null
-  }
-  customer: { full_name: string }
-  service: { name: string; itinerary?: { title: string; description: string }[] } | null
-  items: QuoteItem[]
-}
+// Datos y tipos viven en ./data (getQuote). El preview social lo genera
+// ./opengraph-image; aquí solo el <title>/<meta> vía generateMetadata.
 
 // Formatters locales (duplicados a propósito: los de (ops)/ventas/ui.tsx
 // viven en el grupo privado; esta página es pública y autocontenida).
@@ -79,6 +49,30 @@ const PASSENGER_TYPE_LABELS: Record<string, string> = {
   inapam: 'INAPAM',
 }
 
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ token: string }>
+}): Promise<Metadata> {
+  const { token } = await params
+  const quote = await getQuote(token)
+  if (!quote) return { title: 'Cotización', robots: { index: false } }
+
+  const total = `${mxn.format(Number(quote.total))} ${quote.currency || 'MXN'}`
+  const service = quote.service?.name ?? 'Viaje a medida'
+  const title = `Cotización · ${service} — ${quote.agency.name}`
+  const description = `Para ${quote.customer.full_name} · ${quote.num_pax} pax · ${formatTravelDate(quote.travel_date)} · Total ${total}`
+
+  return {
+    title,
+    description,
+    // Documento privado por token: fuera de buscadores (no bloquea el scrape OG).
+    robots: { index: false },
+    openGraph: { title, description, type: 'website' },
+    twitter: { card: 'summary_large_image', title, description },
+  }
+}
+
 function NotFound() {
   return (
     <main className="flex flex-1 items-center justify-center px-4 py-16">
@@ -99,16 +93,8 @@ export default async function CotizacionPublicaPage({
   params: Promise<{ token: string }>
 }) {
   const { token } = await params
-  const supabase = await createClient()
-
-  // Sin sesión, el cliente server usa la anon key: el RPC es callable por anon.
-  // Un token malformado (no-uuid) hace fallar el RPC → misma pantalla de no encontrada.
-  const { data, error } = await supabase.rpc('get_quote_by_token', {
-    p_token: token,
-  })
-
-  if (error || data == null) return <NotFound />
-  const quote = data as unknown as QuoteData
+  const quote = await getQuote(token)
+  if (!quote) return <NotFound />
 
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 space-y-6 px-4 py-8 sm:py-12">

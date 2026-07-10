@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
+import type { Metadata } from 'next'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/server'
+import { getReceipt } from './data'
 import { ImprimirBoton } from '@/components/imprimir-boton'
 import { CompartirRecibo } from './compartir-recibo'
 
@@ -13,25 +14,6 @@ import { CompartirRecibo } from './compartir-recibo'
 // acentos teal de marca van SIEMPRE acompañados de peso/regla/borde para que
 // el recibo lea perfecto en impresión blanco y negro. La regla teal superior
 // es un border (no background) porque los fondos no se imprimen por defecto.
-
-// El RPC devuelve jsonb: tipamos el resultado localmente y casteamos.
-type Recibo = {
-  agencia: string
-  logo: string | null
-  email: string | null
-  telefono: string | null
-  folio: number
-  fecha: string // ISO timestamp (issued_at)
-  cliente: string | null
-  concepto: string
-  metodo: string | null
-  tipo: 'payment' | 'refund'
-  monto: number // monto de ESTE recibo
-  total: number // total de la venta
-  pagado: number
-  saldo: number // puede ser <= 0 (liquidada / a favor)
-  moneda: string // 'MXN'
-}
 
 const dateFmt = new Intl.DateTimeFormat('es-MX', { dateStyle: 'long' })
 
@@ -127,6 +109,42 @@ function Campo({ label, children }: { label: string; children: ReactNode }) {
   )
 }
 
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ receiptId: string }>
+}): Promise<Metadata> {
+  const { receiptId } = await params
+  const r = await getReceipt(receiptId)
+  if (!r) return { title: 'Recibo', robots: { index: false } }
+
+  const money = new Intl.NumberFormat('es-MX', {
+    style: 'currency',
+    currency: r.moneda || 'MXN',
+    maximumFractionDigits: 0,
+  })
+  const isRefund = r.tipo === 'refund'
+  const folio = String(r.folio).padStart(4, '0')
+  const kind = isRefund ? 'Reembolso' : 'Recibo de pago'
+  const title = `${kind} #${folio} — ${r.agencia}`
+  const monto = `${money.format(Number(r.monto))} ${r.moneda || 'MXN'}`
+  const description = [
+    r.cliente ? `Para ${r.cliente}` : null,
+    `${isRefund ? 'Reembolso' : 'Abono'} de ${monto}`,
+    r.concepto,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+
+  return {
+    title,
+    description,
+    robots: { index: false },
+    openGraph: { title, description, type: 'website' },
+    twitter: { card: 'summary_large_image', title, description },
+  }
+}
+
 function NotFound() {
   return (
     <main className="flex flex-1 items-center justify-center px-4 py-16">
@@ -147,16 +165,8 @@ export default async function ReciboPage({
   params: Promise<{ receiptId: string }>
 }) {
   const { receiptId } = await params
-  const supabase = await createClient()
-
-  // Sin sesión, el cliente server usa la anon key: el RPC es callable por anon.
-  // Un id malformado (no-uuid) hace fallar el RPC → misma pantalla de no encontrado.
-  const { data, error } = await supabase.rpc('get_receipt_public', {
-    p_receipt_id: receiptId,
-  })
-
-  if (error || data == null) return <NotFound />
-  const r = data as unknown as Recibo
+  const r = await getReceipt(receiptId)
+  if (!r) return <NotFound />
 
   const money = new Intl.NumberFormat('es-MX', {
     style: 'currency',
