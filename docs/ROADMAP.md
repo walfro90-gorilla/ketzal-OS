@@ -57,6 +57,21 @@ Back-office multi-agencia. Un agente cierra la venta de un tour, controla abonos
 
 ---
 
+## Pagos en línea — estado real y ruta futura (nota viva, 2026-07-10)
+
+**Hoy (ya en prod):** Mercado Pago Checkout Pro **validado en producción** (SPEI real confirmado end-to-end). El agente cobra saldo o abono; el webhook confirma contra la API de MP y el ledger registra el abono. Idempotente.
+
+**Campo ya preparado para multi-PSP:** `payment_intents.provider` es `text NOT NULL default 'mercadopago'`. Sumar otro proveedor **no requiere cambio de schema** — solo poblar `provider` distinto.
+
+**Ruta futura — Openpay (cuando el volumen lo justifique):** Openpay es **de BBVA**; genera CLABE + referencia para cobro **SPEI**, tiene **webhooks** y **liquida a la cuenta BBVA**, evitando el ~3.5% de tarjeta de MP. Pasos para implementarlo (sin tocar schema):
+1. Credenciales Openpay (env vars) + comparar su tarifa SPEI-in vs MP.
+2. Acción `crearCargoSpeiOpenpay` que cree el cargo SPEI y guarde el intento con `provider='openpay'`.
+3. Ruta `/api/openpay/webhook` que confirme con el **mismo** RPC `confirm_online_payment` (correlaciona por `external_reference`).
+
+**Por lo pronto: SOLO MP.** No se construye scaffolding de Openpay hasta decidir hacerlo (YAGNI).
+
+---
+
 ## Fuera de alcance hasta que se decida explícitamente
 - Facturación fiscal (CFDI/SAT con PAC) — proyecto propio
 - App móvil nativa

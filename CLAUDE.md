@@ -81,7 +81,7 @@ Detalle completo del modelo objetivo en **`docs/DATA_MODEL.md`**. SQL propuesto 
 **Flujo de venta (RPCs atómicos):** catálogo de servicios → **cotización** (link público `/cotizacion/[token]` + PDF + convertir) → **venta** con líneas (opciones de pasajero + habitación/add-ons) → **abonos** (ledger append-only, saldo derivado) → **recibo** interno (folio atómico por agencia) → **comisiones** (reventa entre agencias / plataforma para libres). Cancelaciones, vencimientos, editor de itinerario.
 
 **Pagos — más allá del v1 original (ampliado con acuerdo del fundador):**
-- **Cobro en línea (Mercado Pago Checkout Pro)**: construido; validación con pago real pendiente al pasar a credenciales de producción (el sandbox de MP truena por su lado).
+- **Cobro en línea (Mercado Pago Checkout Pro)**: **VALIDADO en producción (2026-07-10)** — pago SPEI real de $20 confirmado end-to-end (webhook `approved` → abono en el ledger). El bloqueo era el token en TEST; con `APP_USR-` de prod cobra bien. (El sandbox de MP nunca sirvió; se validó directo en prod, como se acordó.)
 - **Estado de cuenta del cliente** compartible por WhatsApp (link público `/estado/[token]`).
 - **Recibo** rediseñado + público/compartible (`/recibo/[uuid]`, cantidad con letra, sello "Liquidada").
 - **Plan de pagos (abonos)**: enganche % configurable (default 20%) + abonos semanal/quincenal/mensual hasta la fecha final; invariante suma=total. Tabla `payment_schedule` + RPCs `preview/generate/clear_payment_plan`; `bookings.payment_type`.
@@ -98,7 +98,7 @@ Detalle completo del modelo objetivo en **`docs/DATA_MODEL.md`**. SQL propuesto 
 
 **Modelo de 2 agentes (dev):** UI/UX (Fable) dueño de la capa presentacional; backend (Opus) dueño de `actions.ts`, RPCs, RLS, dinero. Ver `docs/UI_UX_PLAN.md` §7.
 
-**Roadmap pendiente (v2+):** notificaciones (WhatsApp/email), facturación CFDI/SAT, catálogo público/marketplace (primer paso B2C), validar MP en producción.
+**Roadmap pendiente (v2+):** notificaciones (WhatsApp/email), facturación CFDI/SAT, catálogo público/marketplace (primer paso B2C). **Pagos:** MP ya validado en prod; a futuro **Openpay** (es de BBVA) para cobrar SPEI conciliable a la cuenta BBVA sin el fee de tarjeta de MP — el campo ya está listo (`payment_intents.provider`, sin cambio de schema). **Por lo pronto: solo MP** (nada de scaffolding de Openpay hasta decidirlo, YAGNI). Detalle en `docs/ROADMAP.md`.
 
 ## Docs
 
