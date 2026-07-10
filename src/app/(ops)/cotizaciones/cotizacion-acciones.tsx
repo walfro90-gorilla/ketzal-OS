@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -61,6 +62,12 @@ export function CotizacionAcciones({
   return (
     <div className="space-y-1">
       <div className="flex flex-wrap items-center gap-2">
+        <Link
+          href={`/ventas/${bookingId}`}
+          className={buttonVariants({ variant: 'outline', size: 'sm' })}
+        >
+          Detalle
+        </Link>
         <a
           href={path}
           target="_blank"

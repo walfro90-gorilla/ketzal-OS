@@ -49,6 +49,12 @@ const PASSENGER_TYPE_LABELS: Record<string, string> = {
   inapam: 'INAPAM',
 }
 
+const FREQ_LABEL: Record<string, string> = {
+  semanal: 'semanales',
+  quincenal: 'quincenales',
+  mensual: 'mensuales',
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -95,6 +101,19 @@ export default async function CotizacionPublicaPage({
   const { token } = await params
   const quote = await getQuote(token)
   if (!quote) return <NotFound />
+
+  // Plan de pagos: filas con saldo restante (suma pura, sin acumulador mutable).
+  const total = Number(quote.total)
+  const planItems = quote.plan?.items ?? []
+  const planRows = planItems.map((p, i) => ({
+    ...p,
+    saldo:
+      total -
+      planItems.slice(0, i + 1).reduce((sum, x) => sum + Number(x.amount), 0),
+  }))
+  const numAbonos = planItems.filter((p) => p.kind === 'abono').length
+  const engancheMonto =
+    planItems.find((p) => p.kind === 'enganche')?.amount ?? 0
 
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 space-y-6 px-4 py-8 sm:py-12">
@@ -231,6 +250,62 @@ export default async function CotizacionPublicaPage({
           </div>
         </CardContent>
       </Card>
+
+      {quote.plan && planRows.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Plan de pagos</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Enganche de{' '}
+              <span className="font-medium text-foreground">
+                {mxn.format(Number(engancheMonto))}
+              </span>{' '}
+              y {numAbonos} {numAbonos === 1 ? 'abono' : 'abonos'}{' '}
+              {FREQ_LABEL[quote.plan.frequency ?? ''] ?? ''}
+              {quote.plan.final_date
+                ? `, hasta el ${formatTravelDate(quote.plan.final_date)}`
+                : ''}
+              .
+            </p>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Fecha</TableHead>
+                    <TableHead>Concepto</TableHead>
+                    <TableHead className="text-right">Monto</TableHead>
+                    <TableHead className="text-right">Saldo restante</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {planRows.map((p) => (
+                    <TableRow key={p.seq}>
+                      <TableCell className="whitespace-nowrap">
+                        {formatTravelDate(p.due_date)}
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {p.kind === 'enganche' ? 'Enganche' : `Abono ${p.seq}`}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {mxn.format(Number(p.amount))}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {mxn.format(p.saldo)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              El enganche aparta tu lugar. Las fechas de los abonos son la guía
+              sugerida de pago.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       <footer className="pb-8 text-center text-sm text-muted-foreground">
         Contáctanos para confirmar:{' '}

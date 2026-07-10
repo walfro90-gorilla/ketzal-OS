@@ -30,6 +30,17 @@ export type QuoteData = {
   customer: { full_name: string }
   service: { name: string; itinerary?: { title: string; description: string }[] } | null
   items: QuoteItem[]
+  // Plan de pagos (null si la cotización es de contado).
+  plan: {
+    frequency: string | null
+    final_date: string | null
+    items: {
+      seq: number
+      kind: 'enganche' | 'abono'
+      due_date: string
+      amount: number
+    }[]
+  } | null
 }
 
 // cache(): dedupe entre generateMetadata y el render de la página en un mismo
