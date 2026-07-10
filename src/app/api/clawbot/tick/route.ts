@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { logSistema } from '@/lib/system-log'
 
-// Clawbot tick — lo llama Vercel Cron a diario (ver vercel.json). Genera los
-// recordatorios del día en el outbox (idempotente). Protegido con CRON_SECRET:
-// Vercel Cron manda `Authorization: Bearer <CRON_SECRET>` cuando la env var está
-// puesta. El proxy deja pasar `/api/*` (manejan su propia auth).
+// Clawbot tick — lo llama Vercel Cron a diario (ver vercel.json). (1) genera los
+// recordatorios del día en el outbox (idempotente); (2) corre el chequeo de
+// invariantes de dinero (monitoreo). Todo queda en system_log. Protegido con
+// CRON_SECRET (Vercel Cron manda `Authorization: Bearer <CRON_SECRET>`).
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET
   const auth = request.headers.get('authorization')
@@ -13,13 +14,39 @@ export async function GET(request: Request) {
   }
 
   const supabase = createServiceClient()
-  // `clawbot_generar_recordatorios` no está en los tipos generados a mano;
-  // cast puntual del nombre (mismo patrón que src/app/(ops)/cobranza/data.ts).
-  const { data, error } = await supabase.rpc(
+
+  // 1. Generar recordatorios del día.
+  const { data: pendientes, error: genErr } = await supabase.rpc(
     'clawbot_generar_recordatorios' as never
   )
-  if (error) {
-    return NextResponse.json({ ok: false, reason: error.message }, { status: 500 })
+  if (genErr) {
+    await logSistema(supabase, 'clawbot_tick', 'error', 'fallo al generar recordatorios', {
+      message: genErr.message,
+    })
+    return NextResponse.json({ ok: false, reason: genErr.message }, { status: 500 })
   }
-  return NextResponse.json({ ok: true, pendientes: data })
+  await logSistema(supabase, 'clawbot_tick', 'info', 'recordatorios generados', {
+    pendientes,
+  })
+
+  // 2. Chequeo de invariantes de dinero (monitoreo diario).
+  const { data: inv, error: invErr } = await supabase.rpc(
+    'verificar_invariantes' as never
+  )
+  if (invErr) {
+    await logSistema(supabase, 'invariantes', 'error', 'fallo al verificar invariantes', {
+      message: invErr.message,
+    })
+  } else {
+    const n = (inv as { violaciones?: number } | null)?.violaciones ?? 0
+    await logSistema(
+      supabase,
+      'invariantes',
+      n > 0 ? 'critical' : 'info',
+      n > 0 ? 'violaciones de dinero detectadas' : 'invariantes OK',
+      inv
+    )
+  }
+
+  return NextResponse.json({ ok: true, pendientes, invariantes: inv })
 }
