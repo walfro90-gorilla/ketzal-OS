@@ -461,6 +461,10 @@ export type Database = {
         Args: { p_token: string }
         Returns: Json
       }
+      get_receipt_public: {
+        Args: { p_receipt_id: string }
+        Returns: Json
+      }
       ensure_profile: {
         Args: Record<PropertyKey, never>
         Returns: undefined
