@@ -2,24 +2,8 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { buttonVariants } from '@/components/ui/button'
 import { FileTextIcon } from 'lucide-react'
-import { DataList, type DataColumn } from '@/components/data/data-list'
 import { EmptyState } from '@/components/data/empty-state'
-import { mxn } from '../ventas/ui'
-import { CotizacionAcciones } from './cotizacion-acciones'
-
-type QuoteRow = {
-  id: string
-  quote_token: string
-  travel_date: string | null
-  total: number
-  created_at: string
-  customer: { full_name: string } | null
-  service: { name: string } | null
-}
-
-const createdAtFormatter = new Intl.DateTimeFormat('es-MX', {
-  dateStyle: 'medium',
-})
+import { CotizacionesList, type QuoteRow } from './cotizaciones-list'
 
 export default async function CotizacionesPage() {
   const supabase = await createClient()
@@ -57,38 +41,6 @@ export default async function CotizacionesPage() {
     }
   }
 
-  const columns: DataColumn<QuoteRow>[] = [
-    {
-      header: 'Cliente',
-      primary: true,
-      cell: (q) => q.customer?.full_name ?? 'Sin cliente',
-    },
-    { header: 'Servicio', cell: (q) => q.service?.name ?? 'A medida' },
-    {
-      header: 'Total (MXN)',
-      align: 'right',
-      cell: (q) => (
-        <span className="tabular-nums">{mxn.format(Number(q.total))}</span>
-      ),
-    },
-    {
-      header: 'Creada',
-      cell: (q) => createdAtFormatter.format(new Date(q.created_at)),
-    },
-    {
-      header: 'Acciones',
-      fullWidthOnCard: true,
-      cell: (q) => (
-        <CotizacionAcciones
-          bookingId={q.id}
-          quoteToken={q.quote_token}
-          clienteNombre={q.customer?.full_name ?? 'cliente'}
-          agenciaNombre={agenciaNombre}
-        />
-      ),
-    },
-  ]
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
@@ -106,10 +58,9 @@ export default async function CotizacionesPage() {
           Error al leer las cotizaciones: {error.message}
         </p>
       ) : (
-        <DataList
-          columns={columns}
+        <CotizacionesList
           rows={quotes}
-          getRowKey={(q) => q.id}
+          agenciaNombre={agenciaNombre}
           empty={
             <EmptyState
               icon={FileTextIcon}
