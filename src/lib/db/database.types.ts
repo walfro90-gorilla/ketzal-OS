@@ -93,6 +93,9 @@ export type Database = {
           notes: string | null
           num_pax: number
           owner_supplier_id: string
+          payment_type: string
+          plan_final_date: string | null
+          plan_frequency: string | null
           quote_token: string
           selling_supplier_id: string
           service_id: string | null
@@ -116,6 +119,9 @@ export type Database = {
           notes?: string | null
           num_pax?: number
           owner_supplier_id: string
+          payment_type?: string
+          plan_final_date?: string | null
+          plan_frequency?: string | null
           quote_token?: string
           selling_supplier_id: string
           service_id?: string | null
@@ -139,6 +145,9 @@ export type Database = {
           notes?: string | null
           num_pax?: number
           owner_supplier_id?: string
+          payment_type?: string
+          plan_final_date?: string | null
+          plan_frequency?: string | null
           quote_token?: string
           selling_supplier_id?: string
           service_id?: string | null
@@ -228,6 +237,39 @@ export type Database = {
           supplier_id?: string | null
           type?: Database["ketzal"]["Enums"]["payment_type"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      payment_schedule: {
+        Row: {
+          amount: number
+          booking_id: string
+          created_at: string
+          due_date: string
+          id: string
+          kind: string
+          seq: number
+          supplier_id: string | null
+        }
+        Insert: {
+          amount: number
+          booking_id: string
+          created_at?: string
+          due_date: string
+          id?: string
+          kind: string
+          seq: number
+          supplier_id?: string | null
+        }
+        Update: {
+          amount?: number
+          booking_id?: string
+          created_at?: string
+          due_date?: string
+          id?: string
+          kind?: string
+          seq?: number
+          supplier_id?: string | null
         }
         Relationships: []
       }
@@ -468,6 +510,28 @@ export type Database = {
       global_search: {
         Args: { p_q: string }
         Returns: Json
+      }
+      preview_payment_plan: {
+        Args: {
+          p_total: number
+          p_final: string
+          p_frequency: string
+          p_down_pct?: number
+        }
+        Returns: Json
+      }
+      generate_payment_plan: {
+        Args: {
+          p_booking_id: string
+          p_frequency: string
+          p_final_date?: string | null
+          p_down_pct?: number
+        }
+        Returns: Json
+      }
+      clear_payment_plan: {
+        Args: { p_booking_id: string }
+        Returns: undefined
       }
       ensure_profile: {
         Args: Record<PropertyKey, never>

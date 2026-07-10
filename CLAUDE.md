@@ -66,9 +66,31 @@ Detalle completo del modelo objetivo en **`docs/DATA_MODEL.md`**. SQL propuesto 
 - [x] Estrategia, alcance y modelo de datos v1 definidos
 - [x] Documentos base y SQL escritos
 - [x] **Migración v1 APLICADA a `ketzal`** (2026-07-08): `ketzal_os_v1_sales_core` + `ketzal_os_v1_security_hardening`. Advisors de seguridad: **0 errores**.
-- [ ] Semilla: crear Wanderlust/Border/Snapshot como `suppliers` type='agency' y ligar `profiles.supplier_id`
-- [ ] Scaffolding de la app Next.js
-- [ ] Primera pantalla: flujo del agente al cerrar una venta
+- [x] Semilla: crear Wanderlust/Border/Snapshot como `suppliers` type='agency' y ligar `profiles.supplier_id`
+- [x] Scaffolding de la app Next.js
+- [x] Primera pantalla: flujo del agente al cerrar una venta
+
+## Construido — estado real (actualizado 2026-07-09)
+
+> El checklist de arriba quedó corto: el OS ya está **en uso real en producción**. Resumen aditivo de lo construido. Detalle vivo en la memoria del proyecto (`ketzal-project`).
+
+**Infra/deploy:** Next.js 16 (App Router) · React 19 · TS · Tailwind 4 · shadcn base-nova (sobre `@base-ui/react`, no radix) · pnpm. Repo `walfro90-gorilla/ketzal-OS` (SSH) → Vercel `ketzal-os` (push a `main` auto-despliega). Prod: **https://ketzal-os.vercel.app**. Migraciones NO versionadas en el repo (Supabase es la fuente, vía `apply_migration`). `middleware.ts`→`proxy.ts` en Next 16; `next build` no falla por lint.
+
+**Auth + tenancy:** magic link / contraseña / Google OAuth / recuperación. Dos tipos de vendedor: **agente de agencia** (`profiles.supplier_id`) y **agente Ketzal libre** (`supplier_id` null, vende todo, comisión de plataforma). Nuevos usuarios nacen **pendientes** (`active=false`) → aprobación de admin. RLS reescrito y probado adversarialmente (sin escalación/spoof/fugas). Helpers: `my_supplier_id`, `is_superadmin`, `is_active`, `ensure_profile`.
+
+**Flujo de venta (RPCs atómicos):** catálogo de servicios → **cotización** (link público `/cotizacion/[token]` + PDF + convertir) → **venta** con líneas (opciones de pasajero + habitación/add-ons) → **abonos** (ledger append-only, saldo derivado) → **recibo** interno (folio atómico por agencia) → **comisiones** (reventa entre agencias / plataforma para libres). Cancelaciones, vencimientos, editor de itinerario.
+
+**Pagos — más allá del v1 original (ampliado con acuerdo del fundador):**
+- **Cobro en línea (Mercado Pago Checkout Pro)**: construido; validación con pago real pendiente al pasar a credenciales de producción (el sandbox de MP truena por su lado).
+- **Estado de cuenta del cliente** compartible por WhatsApp (link público `/estado/[token]`).
+- **Recibo** rediseñado + público/compartible (`/recibo/[uuid]`, cantidad con letra, sello "Liquidada").
+- **Plan de pagos (abonos)**: enganche % configurable (default 20%) + abonos semanal/quincenal/mensual hasta la fecha final; invariante suma=total. Tabla `payment_schedule` + RPCs `preview/generate/clear_payment_plan`; `bookings.payment_type`.
+
+**Operación / institucional:** Panel (KPIs + "Requiere atención") · **Reportes** (`/reportes`, gráficas + exportar CSV) · **búsqueda + filtros + ordenar por columna** en todas las listas · **buscador global ⌘K** · **sidebar de escritorio colapsable** · PWA · dark mode · toasts · mobile-first (campo-primero) · borrados con confirmación + guardas de integridad.
+
+**Modelo de 2 agentes (dev):** UI/UX (Fable) dueño de la capa presentacional; backend (Opus) dueño de `actions.ts`, RPCs, RLS, dinero. Ver `docs/UI_UX_PLAN.md` §7.
+
+**Roadmap pendiente (v2+):** notificaciones (WhatsApp/email), facturación CFDI/SAT, catálogo público/marketplace (primer paso B2C), validar MP en producción.
 
 ## Docs
 

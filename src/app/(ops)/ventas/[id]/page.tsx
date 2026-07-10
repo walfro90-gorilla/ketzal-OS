@@ -25,6 +25,7 @@ import {
   type BookingStatus,
 } from '../ui'
 import { AbonosSection } from './abonos'
+import { PlanPagosSection, type PlanItem } from './plan-pagos'
 import { CancelarVenta } from './cancelar-venta'
 import { VencimientoForm } from './vencimiento-form'
 
@@ -39,6 +40,9 @@ type BookingDetail = {
   total: number
   currency: string
   status: BookingStatus
+  payment_type: string
+  plan_frequency: string | null
+  plan_final_date: string | null
   notes: string | null
   cancel_reason: string | null
   created_at: string
@@ -59,7 +63,7 @@ export default async function VentaDetallePage({
   const { data, error } = await supabase
     .from('bookings')
     .select(
-      'id, folio, travel_date, due_date, num_pax, subtotal, discount, total, currency, status, notes, cancel_reason, created_at, owner_supplier_id, selling_supplier_id, customer:customers(full_name, phone), service:services(name)'
+      'id, folio, travel_date, due_date, num_pax, subtotal, discount, total, currency, status, payment_type, plan_frequency, plan_final_date, notes, cancel_reason, created_at, owner_supplier_id, selling_supplier_id, customer:customers(full_name, phone), service:services(name)'
     )
     .eq('id', id)
     .single()
@@ -97,6 +101,13 @@ export default async function VentaDetallePage({
     .from('receipts')
     .select('id, payment_id, folio')
     .eq('booking_id', id)
+
+  // Calendario sugerido del plan de pagos (seq 0 = enganche).
+  const { data: schedule } = await supabase
+    .from('payment_schedule')
+    .select('seq, kind, due_date, amount')
+    .eq('booking_id', id)
+    .order('seq')
 
   const createdAt = new Intl.DateTimeFormat('es-MX', {
     dateStyle: 'long',
@@ -269,6 +280,17 @@ export default async function VentaDetallePage({
           </div>
         </CardContent>
       </Card>
+
+      <PlanPagosSection
+        bookingId={booking.id}
+        total={Number(booking.total)}
+        travelDate={booking.travel_date}
+        paymentType={booking.payment_type}
+        planFrequency={booking.plan_frequency}
+        planFinalDate={booking.plan_final_date}
+        schedule={(schedule ?? []) as unknown as PlanItem[]}
+        cancelled={cancelada}
+      />
 
       {paymentsError || receiptsError ? (
         <Card>

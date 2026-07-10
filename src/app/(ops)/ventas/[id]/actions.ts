@@ -216,3 +216,73 @@ export async function compartirEstadoCuenta(
   const origin = process.env.NEXT_PUBLIC_APP_URL ?? `https://${h.get('host')}`
   return { url: `${origin}/estado/${token}` }
 }
+
+// ── Plan de pagos (abonos) ───────────────────────────────────────────────
+export type FrecuenciaPlan = 'semanal' | 'quincenal' | 'mensual'
+
+/** Vista previa del calendario SIN persistir (para el formulario). */
+export async function previewPlanPagos(
+  total: number,
+  finalDate: string,
+  frequency: FrecuenciaPlan,
+  downPct: number
+): Promise<{ error: string } | { plan: unknown }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const { data, error } = await supabase.rpc('preview_payment_plan', {
+    p_total: total,
+    p_final: finalDate,
+    p_frequency: frequency,
+    p_down_pct: downPct,
+  })
+  if (error) return { error: error.message }
+  return { plan: data }
+}
+
+/** Genera y persiste el plan (enganche % + abonos por frecuencia hasta la fecha final). */
+export async function crearPlanPagos(
+  bookingId: string,
+  frequency: FrecuenciaPlan,
+  finalDate: string | null,
+  downPct: number
+): Promise<{ error: string } | { ok: true }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const { error } = await supabase.rpc('generate_payment_plan', {
+    p_booking_id: bookingId,
+    p_frequency: frequency,
+    p_final_date: finalDate,
+    p_down_pct: downPct,
+  })
+  if (error) return { error: error.message }
+
+  revalidatePath('/ventas/' + bookingId)
+  return { ok: true }
+}
+
+/** Quita el plan y regresa la venta a "contado". */
+export async function quitarPlanPagos(
+  bookingId: string
+): Promise<{ error: string } | { ok: true }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const { error } = await supabase.rpc('clear_payment_plan', {
+    p_booking_id: bookingId,
+  })
+  if (error) return { error: error.message }
+
+  revalidatePath('/ventas/' + bookingId)
+  return { ok: true }
+}
