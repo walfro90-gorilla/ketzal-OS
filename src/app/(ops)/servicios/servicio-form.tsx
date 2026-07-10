@@ -17,6 +17,7 @@ import {
   type ItineraryDay,
   type ServicioInput,
 } from './actions'
+import { PACK_TYPES, type Pack, type PackInput } from '@/lib/domain/packs'
 
 // Estilo de <textarea> nativo alineado al Input de shadcn (no hay Textarea en components/ui).
 const textareaClass =
@@ -69,6 +70,8 @@ export type ServicioFormInitial = {
   excludes: string
   /** Itinerario día por día. */
   itinerary: ItineraryDay[]
+  /** Paquetes por ocupación (solo tours/paquetes). */
+  packs: Pack[]
 }
 
 export function ServicioForm({
@@ -116,6 +119,15 @@ export function ServicioForm({
   const [itinerary, setItinerary] = useState<ItineraryDay[]>(
     initial?.itinerary ?? []
   )
+  // Precios por ocupación como strings (uno por tipo); vacío = no se ofrece.
+  const [packPrices, setPackPrices] = useState<Record<string, string>>(() => {
+    const m: Record<string, string> = {}
+    for (const p of initial?.packs ?? []) m[p.key] = String(p.price)
+    return m
+  })
+
+  // Los paquetes por ocupación solo aplican a tours y paquetes.
+  const muestraPaquetes = tipo === 'tour' || tipo === 'paquete'
 
   function agregarDia() {
     setItinerary((prev) => [...prev, { title: '', description: '' }])
@@ -159,6 +171,21 @@ export function ServicioForm({
       cupo = Math.trunc(cupoNum)
     }
 
+    // Paquetes: solo para tours/paquetes; toma los que tienen precio válido.
+    const packs: PackInput[] = []
+    if (muestraPaquetes) {
+      for (const t of PACK_TYPES) {
+        const raw = packPrices[t.key]?.trim()
+        if (!raw) continue
+        const p = Number(raw)
+        if (!Number.isFinite(p) || p < 0) {
+          setError(`El precio de "${t.label}" debe ser un número mayor o igual a 0.`)
+          return
+        }
+        packs.push({ key: t.key, price: p })
+      }
+    }
+
     const input: ServicioInput = {
       name: name.trim(),
       supplier_id: supplierId,
@@ -175,6 +202,7 @@ export function ServicioForm({
       includes: separarLineas(includesText),
       excludes: separarLineas(excludesText),
       itinerary,
+      packs,
     }
 
     startTransition(async () => {
@@ -413,6 +441,41 @@ export function ServicioForm({
           </Button>
         </CardContent>
       </Card>
+
+      {muestraPaquetes && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Paquetes por ocupación</CardTitle>
+            <CardDescription>
+              Precio por persona según el tipo de habitación. Deja en blanco los
+              que no ofrezcas. Es solo precio: el cupo se controla en las salidas.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {PACK_TYPES.map((t) => (
+              <div
+                key={t.key}
+                className="grid grid-cols-[1fr_auto] items-center gap-3"
+              >
+                <Label htmlFor={`pack-${t.key}`}>{t.label}</Label>
+                <Input
+                  id={`pack-${t.key}`}
+                  type="number"
+                  inputMode="decimal"
+                  min={0}
+                  step="0.01"
+                  className="w-40"
+                  value={packPrices[t.key] ?? ''}
+                  onChange={(e) =>
+                    setPackPrices((prev) => ({ ...prev, [t.key]: e.target.value }))
+                  }
+                  placeholder="Precio p/persona"
+                />
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       {error && (
         <p role="alert" className="text-sm text-destructive">

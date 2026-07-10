@@ -8,11 +8,19 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { ServicioForm } from '../servicio-form'
+import { listarSalidas } from '../actions'
 import { EliminarServicio } from './eliminar-servicio'
+import { SalidasEditor } from './salidas-editor'
+import type { Pack } from '@/lib/domain/packs'
 
 /** El jsonb includes/excludes → textarea: una línea por concepto. */
 function jsonbALineas(valor: unknown): string {
   return Array.isArray(valor) ? valor.map(String).join('\n') : ''
+}
+
+/** El jsonb packs → lista de paquetes {key, label, price}. */
+function jsonbAPacks(valor: unknown): Pack[] {
+  return Array.isArray(valor) ? (valor as Pack[]) : []
 }
 
 /** El jsonb itinerary → lista de días {title, description}. */
@@ -41,16 +49,18 @@ export default async function ServicioDetallePage({
   const { id } = await params
   const supabase = await createClient()
 
-  const [servicioRes, agenciasRes] = await Promise.all([
+  const [servicioRes, agenciasRes, salidasRes] = await Promise.all([
     supabase.from('services').select('*').eq('id', id).single(),
     supabase
       .from('suppliers')
       .select('id, name')
       .eq('supplier_type', 'agency')
       .order('name'),
+    listarSalidas(id),
   ])
 
   const servicio = servicioRes.data
+  const salidas = 'salidas' in salidasRes ? salidasRes.salidas : []
 
   if (servicioRes.error || !servicio) {
     return (
@@ -106,8 +116,11 @@ export default async function ServicioDetallePage({
           includes: jsonbALineas(servicio.includes),
           excludes: jsonbALineas(servicio.excludes),
           itinerary: jsonbAItinerario(servicio.itinerary),
+          packs: jsonbAPacks(servicio.packs),
         }}
       />
+
+      <SalidasEditor serviceId={servicio.id} initial={salidas} />
 
       <Card className="border-destructive/50">
         <CardHeader>

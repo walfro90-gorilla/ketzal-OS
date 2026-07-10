@@ -10,16 +10,34 @@ type ServicioRow = Omit<Servicio, 'agencia'>
 export default async function ServiciosPage() {
   const supabase = await createClient()
 
+  // Silo: el admin de una agencia solo administra SUS servicios. El superadmin
+  // ve todo el catálogo (por eso conserva la columna de agencia).
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  const { data: profile } = user
+    ? await supabase
+        .from('profiles')
+        .select('role, supplier_id')
+        .eq('id', user.id)
+        .single()
+    : { data: null }
+
   // services tiene 3 FKs hacia suppliers (dueña, transporte, hotel), por lo
   // que el embed `supplier:suppliers(...)` es ambiguo. El nombre de la agencia
   // dueña se resuelve con una consulta aparte (mismo patrón que /comisiones).
+  let serviciosQuery = supabase
+    .from('services')
+    .select(
+      'id, name, price, service_type, state_to, city_to, max_capacity, supplier_id'
+    )
+    .order('name')
+  if (profile?.supplier_id && profile.role !== 'superadmin') {
+    serviciosQuery = serviciosQuery.eq('supplier_id', profile.supplier_id)
+  }
+
   const [serviciosRes, agenciasRes] = await Promise.all([
-    supabase
-      .from('services')
-      .select(
-        'id, name, price, service_type, state_to, city_to, max_capacity, supplier_id'
-      )
-      .order('name'),
+    serviciosQuery,
     supabase.from('suppliers').select('id, name'),
   ])
 

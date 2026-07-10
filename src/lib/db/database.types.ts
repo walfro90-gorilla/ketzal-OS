@@ -337,6 +337,47 @@ export type Database = {
         }
         Relationships: []
       }
+      service_departures: {
+        Row: {
+          created_at: string
+          departs_on: string
+          id: string
+          max_capacity: number
+          note: string | null
+          seats_taken: number
+          service_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          departs_on: string
+          id?: string
+          max_capacity: number
+          note?: string | null
+          seats_taken?: number
+          service_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          departs_on?: string
+          id?: string
+          max_capacity?: number
+          note?: string | null
+          seats_taken?: number
+          service_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_departures_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       // PARTIAL: pre-existing table (32 columns), only the columns Ketzal OS v1 uses.
       services: {
         Row: {

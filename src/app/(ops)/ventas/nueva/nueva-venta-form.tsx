@@ -40,9 +40,30 @@ import {
   type CreateBookingLine,
 } from '../actions'
 import { ITEM_TYPE_LABELS, PASSENGER_TYPE_LABELS, mxn } from '../ui'
+import type { Pack } from '@/lib/domain/packs'
 
 export type CustomerOption = { id: string; full_name: string }
-export type ServiceOption = { id: string; name: string; price: number | null }
+// packs = precios por ocupación (sencilla/doble/triple/cuádruple). PRESET:
+// al elegir un paquete, autollena el `unit_price` de las líneas de PASAJERO
+// (no crear línea `room` suelta, o num_pax=0 y el cupo no baja). El precio
+// sigue siendo editable a mano (válvula) tras aplicar el preset.
+export type ServiceOption = {
+  id: string
+  name: string
+  price: number | null
+  packs?: Pack[]
+}
+// Una salida vendible: fecha + lugares restantes (0 = agotada).
+export type DepartureOption = { id: string; departs_on: string; remaining: number }
+
+/** YYYY-MM-DD → etiqueta corta es-MX para el selector de salida. */
+function fechaCorta(iso: string): string {
+  return new Date(`${iso}T12:00:00`).toLocaleDateString('es-MX', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  })
+}
 
 type ItemType = CreateBookingLine['item_type']
 type PassengerType = NonNullable<CreateBookingLine['passenger_type']>
@@ -106,9 +127,11 @@ function newLine(key: number): LineDraft {
 export function NuevaVentaForm({
   customers,
   services,
+  departuresByService,
 }: {
   customers: CustomerOption[]
   services: ServiceOption[]
+  departuresByService: Record<string, DepartureOption[]>
 }) {
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -122,6 +145,11 @@ export function NuevaVentaForm({
   // Servicio y fecha
   const [serviceId, setServiceId] = useState('')
   const [travelDate, setTravelDate] = useState('')
+  const [packKey, setPackKey] = useState('')
+
+  const selectedService = services.find((s) => s.id === serviceId)
+  const salidas = departuresByService[serviceId] ?? []
+  const packs = selectedService?.packs ?? []
 
   // Líneas
   const nextKey = useRef(1)
@@ -141,6 +169,9 @@ export function NuevaVentaForm({
 
   function handleServiceChange(id: string) {
     setServiceId(id)
+    // Salidas y paquetes son por servicio: al cambiar, se reinicia la selección.
+    setTravelDate('')
+    setPackKey('')
     if (!id) return
     const service = services.find((s) => s.id === id)
     if (!service || service.price == null) return
@@ -152,6 +183,21 @@ export function NuevaVentaForm({
       next[idx] = { ...next[idx], unit_price: String(service.price) }
       return next
     })
+  }
+
+  // Preset de paquete: aplica el precio por persona a TODAS las líneas de
+  // pasajero (sigue editable a mano). El paquete es precio, no cabezas: el cupo
+  // baja por num_pax contra la salida.
+  function aplicarPaquete(key: string) {
+    setPackKey(key)
+    if (!key) return
+    const pack = packs.find((p) => p.key === key)
+    if (!pack) return
+    setLines((prev) =>
+      prev.map((l) =>
+        l.item_type === 'passenger' ? { ...l, unit_price: String(pack.price) } : l
+      )
+    )
   }
 
   function updateLine(key: number, patch: Partial<LineDraft>) {
@@ -404,7 +450,8 @@ export function NuevaVentaForm({
         <CardHeader>
           <CardTitle>Servicio y fecha</CardTitle>
           <CardDescription>
-            Al elegir un servicio se sugiere su precio en la primera línea de pasajero.
+            Al elegir un servicio se sugiere su precio en la primera línea de
+            pasajero.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
@@ -424,15 +471,63 @@ export function NuevaVentaForm({
               ))}
             </NativeSelect>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="travel-date">Fecha de viaje</Label>
-            <Input
-              id="travel-date"
-              type="date"
-              value={travelDate}
-              onChange={(e) => setTravelDate(e.target.value)}
-            />
-          </div>
+
+          {/* Con salidas dadas de alta → se elige una (con lugares libres) y de
+              ahí sale la fecha. Sin salidas → fecha libre (venta sin tope). */}
+          {salidas.length > 0 ? (
+            <div className="space-y-2">
+              <Label htmlFor="salida-select">Salida</Label>
+              <NativeSelect
+                id="salida-select"
+                value={travelDate}
+                onChange={(e) => setTravelDate(e.target.value)}
+              >
+                <option value="">— Elige salida —</option>
+                {salidas.map((s) => (
+                  <option
+                    key={s.id}
+                    value={s.departs_on}
+                    disabled={s.remaining <= 0}
+                  >
+                    {fechaCorta(s.departs_on)} ·{' '}
+                    {s.remaining > 0 ? `${s.remaining} lugares` : 'Agotado'}
+                  </option>
+                ))}
+              </NativeSelect>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="travel-date">Fecha de viaje</Label>
+              <Input
+                id="travel-date"
+                type="date"
+                value={travelDate}
+                onChange={(e) => setTravelDate(e.target.value)}
+              />
+            </div>
+          )}
+
+          {packs.length > 0 && (
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="pack-select">Paquete (ocupación)</Label>
+              <NativeSelect
+                id="pack-select"
+                value={packKey}
+                onChange={(e) => aplicarPaquete(e.target.value)}
+              >
+                <option value="">— Precio a medida —</option>
+                {packs.map((p) => (
+                  <option key={p.key} value={p.key}>
+                    {p.label} · {mxn.format(p.price)} p/persona
+                  </option>
+                ))}
+              </NativeSelect>
+              <p className="text-xs text-muted-foreground">
+                Aplica el precio por persona a las líneas de pasajero. Editable
+                después.
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
