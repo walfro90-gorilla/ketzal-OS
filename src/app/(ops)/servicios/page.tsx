@@ -29,7 +29,7 @@ export default async function ServiciosPage() {
   let serviciosQuery = supabase
     .from('services')
     .select(
-      'id, name, price, service_type, state_to, city_to, max_capacity, supplier_id'
+      'id, name, price, service_type, state_to, city_to, max_capacity, supplier_id, published'
     )
     .order('name')
   if (profile?.supplier_id && profile.role !== 'superadmin') {

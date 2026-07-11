@@ -4,6 +4,7 @@ import { useMemo, type ReactNode } from 'react'
 import type { DataColumn } from '@/components/data/data-list'
 import { FilterableList, type ListFilter } from '@/components/data/filterable-list'
 import { mxn } from '../ventas/ui'
+import { PublicarToggle } from './publicar-toggle'
 
 const TIPO_LABELS: Record<string, string> = {
   tour: 'Tour',
@@ -35,6 +36,7 @@ export type Servicio = {
   max_capacity: number | null
   supplier_id: string
   agencia: string | null
+  published: boolean
 }
 
 const columns: DataColumn<Servicio>[] = [
@@ -83,6 +85,12 @@ const columns: DataColumn<Servicio>[] = [
         <span className="text-muted-foreground">—</span>
       ),
     sortValue: (s) => s.max_capacity,
+  },
+  {
+    header: 'Catálogo',
+    cell: (s) => <PublicarToggle id={s.id} publicado={s.published} />,
+    // Publicados primero al ordenar.
+    sortValue: (s) => (s.published ? 0 : 1),
   },
 ]
 

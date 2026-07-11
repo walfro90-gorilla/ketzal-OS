@@ -178,6 +178,31 @@ export async function actualizarServicio(
   return { ok: true }
 }
 
+/** Publica / despublica un servicio en el catálogo público (marketplace). */
+export async function setServicioPublicado(
+  id: string,
+  publicado: boolean
+): Promise<{ error: string } | { ok: true }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  // RLS: solo la agencia dueña (o superadmin) publica su servicio.
+  // `published` es columna nueva no tipada aún ⇒ cast (convención multi-agente).
+  const { error } = await supabase
+    .from('services')
+    .update({ published: publicado } as never)
+    .eq('id', id)
+  if (error) return { error: error.message }
+
+  revalidatePath('/servicios')
+  revalidatePath('/explora')
+  revalidatePath(`/servicio/${id}`)
+  return { ok: true }
+}
+
 export async function eliminarServicio(
   id: string
 ): Promise<{ error: string } | void> {
