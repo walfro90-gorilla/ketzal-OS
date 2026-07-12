@@ -1,11 +1,18 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { logSistema } from '@/lib/system-log'
+import { mpSignatureValid } from '@/lib/mp-signature'
 
 // Webhook de Mercado Pago. Público (lo llaman los servidores de MP; el proxy lo
 // deja pasar via '/api/'). Consulta el pago real en MP con nuestro token y
-// confirma vía service_role (SECURITY DEFINER). Idempotente. Siempre responde 200
-// para que MP no reintente indefinidamente. Registra errores/éxito en system_log.
+// confirma vía service_role (SECURITY DEFINER). Idempotente. Registra
+// errores/éxito en system_log.
+//
+// Autenticidad: si `MP_WEBHOOK_SECRET` está configurado, se EXIGE una firma
+// `x-signature` válida (rechazo 401 si falta o no cuadra). Sin el secret, se
+// deja pasar (rollout no-rompedor: el flujo real ya está protegido porque
+// re-consultamos el pago a la API de MP con nuestro token). Poner el secret en
+// Vercel activa el enforcement.
 export async function POST(request: Request) {
   const token = process.env.MP_ACCESS_TOKEN
   if (!token) return NextResponse.json({ ok: false, reason: 'not_configured' })
@@ -15,8 +22,9 @@ export async function POST(request: Request) {
   // MP notifica por dos vías: webhook moderno (body {type, data:{id}}) e IPN
   // legacy (query ?topic=...&id=...). Capturamos tipo + id de ambas.
   const url = new URL(request.url)
+  const queryDataId = url.searchParams.get('data.id')
   let notifType = url.searchParams.get('type') ?? url.searchParams.get('topic')
-  let paymentId = url.searchParams.get('data.id') ?? url.searchParams.get('id')
+  let paymentId = queryDataId ?? url.searchParams.get('id')
   try {
     const body = (await request.json()) as {
       type?: string
@@ -26,6 +34,25 @@ export async function POST(request: Request) {
     if (paymentId == null && body?.data?.id != null) paymentId = String(body.data.id)
   } catch {
     // sin body JSON: usamos solo la query
+  }
+
+  // Verificación de firma (fail-closed cuando hay secret). El manifest de MP usa
+  // el `data.id` del query, no el del body.
+  const webhookSecret = process.env.MP_WEBHOOK_SECRET
+  if (webhookSecret) {
+    const valido = mpSignatureValid({
+      signatureHeader: request.headers.get('x-signature'),
+      requestId: request.headers.get('x-request-id'),
+      dataId: queryDataId,
+      secret: webhookSecret,
+    })
+    if (!valido) {
+      await logSistema(supabase, 'mp_webhook', 'error', 'firma inválida', {
+        paymentId,
+        hasSignature: request.headers.get('x-signature') != null,
+      })
+      return NextResponse.json({ ok: false, reason: 'invalid_signature' }, { status: 401 })
+    }
   }
 
   // Procesamos SOLO notificaciones de pago. MP también manda merchant_order (y
@@ -62,7 +89,9 @@ export async function POST(request: Request) {
       intentId,
       message: error.message,
     })
-    return NextResponse.json({ ok: false, reason: error.message })
+    // 500 → MP reintenta (el RPC confirm_online_payment es idempotente), en vez
+    // de dar por perdido un pago real por un fallo transitorio nuestro.
+    return NextResponse.json({ ok: false, reason: 'confirm_failed' }, { status: 500 })
   }
 
   await logSistema(supabase, 'mp_webhook', 'info', 'pago confirmado', {
