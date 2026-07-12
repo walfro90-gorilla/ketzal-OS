@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { safeError } from '@/lib/errors'
 import { limpiarPacks, type PackInput, type Pack } from '@/lib/domain/packs'
 
 export type ItineraryDay = { title: string; description: string }
@@ -143,7 +144,7 @@ export async function crearServicio(
     .select('id')
     .single()
   if (error || !data) {
-    return { error: error?.message ?? 'No se pudo guardar el servicio.' }
+    return { error: safeError(error, 'No se pudo guardar el servicio.') }
   }
 
   revalidatePath('/servicios')
@@ -170,7 +171,7 @@ export async function actualizarServicio(
     .update(result.fields)
     .eq('id', id)
   if (error) {
-    return { error: error.message }
+    return { error: safeError(error) }
   }
 
   revalidatePath('/servicios')
@@ -195,7 +196,7 @@ export async function setServicioPublicado(
     .from('services')
     .update({ published: publicado } as never)
     .eq('id', id)
-  if (error) return { error: error.message }
+  if (error) return { error: safeError(error) }
 
   revalidatePath('/servicios')
   revalidatePath('/explora')
@@ -226,7 +227,7 @@ export async function eliminarServicio(
         error: 'No se puede eliminar: este servicio tiene ventas asociadas.',
       }
     }
-    return { error: error.message }
+    return { error: safeError(error) }
   }
 
   revalidatePath('/servicios')
@@ -307,7 +308,7 @@ export async function listarSalidas(
     .select('id, departs_on, max_capacity, seats_taken, note')
     .eq('service_id', serviceId)
     .order('departs_on', { ascending: true })
-  if (error) return { error: error.message }
+  if (error) return { error: safeError(error) }
 
   const salidas: Salida[] = (data ?? []).map((s) => ({
     id: s.id,
@@ -347,7 +348,7 @@ export async function crearSalida(
     if (error.code === '23505') {
       return { error: 'Ya existe una salida para esa fecha en este servicio.' }
     }
-    return { error: error.message }
+    return { error: safeError(error) }
   }
 
   revalidatePath(`/servicios/${svc}`)
@@ -386,7 +387,7 @@ export async function actualizarSalida(
     if (error.code === 'PGRST116') {
       return { error: 'Salida no encontrada o sin acceso.' }
     }
-    return { error: error.message }
+    return { error: safeError(error) }
   }
 
   if (data?.service_id) revalidatePath(`/servicios/${data.service_id}`)
@@ -418,7 +419,7 @@ export async function eliminarSalida(
   }
 
   const { error } = await supabase.from('service_departures').delete().eq('id', id)
-  if (error) return { error: error.message }
+  if (error) return { error: safeError(error) }
 
   revalidatePath(`/servicios/${salida.service_id}`)
   return { ok: true }

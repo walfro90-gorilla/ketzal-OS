@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { safeError } from '@/lib/errors'
 import type { Database } from '@/lib/db/database.types'
 
 type UserRole = Database['ketzal']['Enums']['user_role']
@@ -27,7 +28,7 @@ export async function aprobarUsuario(
     p_active: active,
   })
   if (error) {
-    return { error: error.message }
+    return { error: safeError(error) }
   }
 
   revalidatePath('/equipo')
@@ -51,7 +52,7 @@ export async function asignarAgencia(
     p_supplier: supplierId,
   })
   if (error) {
-    return { error: error.message }
+    return { error: safeError(error) }
   }
 
   revalidatePath('/equipo')
@@ -75,7 +76,7 @@ export async function cambiarRol(
     p_role: role,
   })
   if (error) {
-    return { error: error.message }
+    return { error: safeError(error) }
   }
 
   revalidatePath('/equipo')
@@ -102,7 +103,7 @@ export async function guardarTarifaPlataforma(
     .update({ platform_commission_rate: rate })
     .eq('id', 1)
   if (error) {
-    return { error: error.message }
+    return { error: safeError(error) }
   }
 
   revalidatePath('/equipo')

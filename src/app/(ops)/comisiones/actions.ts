@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { safeError } from '@/lib/errors'
 
 export async function actualizarComision(
   supplierId: string,
@@ -25,7 +26,7 @@ export async function actualizarComision(
     .update({ commission_rate: rate })
     .eq('id', supplierId)
   if (error) {
-    return { error: error.message }
+    return { error: safeError(error) }
   }
 
   revalidatePath('/comisiones')

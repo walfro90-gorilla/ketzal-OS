@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { safeError } from '@/lib/errors'
 
 export type ProveedorInput = {
   name: string
@@ -83,7 +84,7 @@ export async function crearProveedor(
     .select('id')
     .single()
   if (error || !data) {
-    return { error: error?.message ?? 'No se pudo guardar el proveedor.' }
+    return { error: safeError(error, 'No se pudo guardar el proveedor.') }
   }
 
   revalidatePath('/proveedores')
@@ -110,7 +111,7 @@ export async function actualizarProveedor(
     .update(result.fields)
     .eq('id', id)
   if (error) {
-    return { error: error.message }
+    return { error: safeError(error) }
   }
 
   revalidatePath('/proveedores')
@@ -142,7 +143,7 @@ export async function eliminarProveedor(
           'No se puede eliminar: este proveedor tiene servicios o ventas asociadas.',
       }
     }
-    return { error: error.message }
+    return { error: safeError(error) }
   }
 
   revalidatePath('/proveedores')

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { safeError } from '@/lib/errors'
 
 export type RegistrarAbonoInput = {
   amount: number
@@ -40,7 +41,7 @@ export async function registrarAbono(
     p_paid_at: input.date ? new Date(input.date + 'T12:00:00').toISOString() : null,
     p_type: input.type,
   })
-  if (error) return { error: error.message }
+  if (error) return { error: safeError(error) }
 
   revalidatePath('/ventas/' + bookingId)
   // El saldo puede cambiar el estado de la venta (paid/reserved) que se ve en la lista.
@@ -62,7 +63,7 @@ export async function emitirRecibo(
   const { data, error } = await supabase.rpc('emit_receipt', {
     p_payment_id: paymentId,
   })
-  if (error) return { error: error.message }
+  if (error) return { error: safeError(error) }
 
   revalidatePath('/ventas/' + bookingId)
   return { ok: true, folio: Number(data) }
@@ -83,7 +84,7 @@ export async function actualizarVencimiento(
     .from('bookings')
     .update({ due_date: dueDate || null })
     .eq('id', bookingId)
-  if (error) return { error: error.message }
+  if (error) return { error: safeError(error) }
 
   revalidatePath('/ventas/' + bookingId)
   // El vencimiento alimenta el KPI "Vencido" y la tabla "Por cobrar" del panel.
@@ -108,7 +109,7 @@ export async function cancelarVenta(
     p_booking_id: bookingId,
     p_reason: reason,
   })
-  if (error) return { error: error.message }
+  if (error) return { error: safeError(error) }
 
   revalidatePath('/ventas/' + bookingId)
   revalidatePath('/ventas')
@@ -147,7 +148,7 @@ export async function crearLinkPago(
     p_amount: monto,
   })
   if (rpcError || !intentId) {
-    return { error: rpcError?.message ?? 'No se pudo iniciar el cobro.' }
+    return { error: safeError(rpcError, 'No se pudo iniciar el cobro.') }
   }
 
   // 2. Origen para back_urls y el webhook.
@@ -221,7 +222,7 @@ export async function compartirEstadoCuenta(
   const { data: token, error } = await supabase.rpc('ensure_statement_token', {
     p_booking_id: bookingId,
   })
-  if (error) return { error: error.message }
+  if (error) return { error: safeError(error) }
   if (!token) return { error: 'No se pudo generar el estado de cuenta de esta venta.' }
 
   const h = await headers()
@@ -251,7 +252,7 @@ export async function previewPlanPagos(
     p_frequency: frequency,
     p_down_pct: downPct,
   })
-  if (error) return { error: error.message }
+  if (error) return { error: safeError(error) }
   return { plan: data }
 }
 
@@ -274,7 +275,7 @@ export async function crearPlanPagos(
     p_final_date: finalDate,
     p_down_pct: downPct,
   })
-  if (error) return { error: error.message }
+  if (error) return { error: safeError(error) }
 
   revalidatePath('/ventas/' + bookingId)
   return { ok: true }
@@ -293,7 +294,7 @@ export async function quitarPlanPagos(
   const { error } = await supabase.rpc('clear_payment_plan', {
     p_booking_id: bookingId,
   })
-  if (error) return { error: error.message }
+  if (error) return { error: safeError(error) }
 
   revalidatePath('/ventas/' + bookingId)
   return { ok: true }

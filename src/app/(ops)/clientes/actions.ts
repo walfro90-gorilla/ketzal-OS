@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { safeError } from '@/lib/errors'
 
 export type ClienteInput = {
   full_name: string
@@ -58,7 +59,7 @@ export async function crearCliente(
     .select('id')
     .single()
   if (error || !data) {
-    return { error: error?.message ?? 'No se pudo guardar el cliente.' }
+    return { error: safeError(error, 'No se pudo guardar el cliente.') }
   }
 
   revalidatePath('/clientes')
@@ -84,7 +85,7 @@ export async function actualizarCliente(
   // RLS acota el update a los clientes de la agencia del agente.
   const { error } = await supabase.from('customers').update(fields).eq('id', id)
   if (error) {
-    return { error: error.message }
+    return { error: safeError(error) }
   }
 
   revalidatePath('/clientes')

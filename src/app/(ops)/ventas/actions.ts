@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { safeError } from '@/lib/errors'
 import { subtotal as sumLineTotals } from '@/lib/domain/pricing'
 
 const ITEM_TYPES = ['passenger', 'room', 'addon', 'custom'] as const
@@ -128,7 +129,7 @@ export async function createBooking(
     }
   )
   if (rpcError || !bookingId) {
-    return { error: rpcError?.message ?? 'No se pudo guardar la venta.' }
+    return { error: safeError(rpcError, 'No se pudo guardar la venta.') }
   }
 
   revalidatePath('/ventas')

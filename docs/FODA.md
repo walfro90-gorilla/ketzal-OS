@@ -147,8 +147,12 @@ otro extremo: son pocos movimientos de alto apalancamiento, no una re-arquitectu
    **Pendiente del fundador (dashboard, no hay SQL):** (i) activar *protección de
    contraseñas filtradas* (HaveIBeenPwned) en Supabase Auth; (ii) el bucket público
    `gorilla-assets` también permite listar, pero es del org (otra app) — decidir aparte.
-5. **No propagar errores crudos de Postgres al cliente** — envolver en mensajes genéricos
-   en los server actions.
+5. **No propagar errores crudos de Postgres al cliente.** **✅ Hecho (2026-07-12):**
+   helper `src/lib/errors.ts` (`safeError`) — los RPCs de negocio lanzan con
+   `raise exception` (SQLSTATE `P0001`, mensaje autoral) y se muestran tal cual; cualquier
+   otro código (constraint/permiso/tipo/RLS) se registra en el servidor y al cliente solo
+   le llega un genérico. Cableado en los 8 `actions.ts` (los ~30 `return { error:
+   error.message }`). Check runnable de 7 casos + typecheck OK.
 6. **B2C: dejar correr Analytics y decidir con datos.** No construir checkout aún;
    revisar en ~1-2 semanas vistas de `/explora` y clics al WhatsApp. Ese número decide.
 

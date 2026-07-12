@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { safeError } from '@/lib/errors'
 
 export async function convertirCotizacion(
   bookingId: string
@@ -19,7 +20,7 @@ export async function convertirCotizacion(
   const { error } = await supabase.rpc('convert_quote_to_sale', {
     p_booking_id: bookingId,
   })
-  if (error) return { error: error.message }
+  if (error) return { error: safeError(error) }
 
   revalidatePath('/cotizaciones')
   revalidatePath('/ventas')
