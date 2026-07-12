@@ -128,9 +128,25 @@ otro extremo: son pocos movimientos de alto apalancamiento, no una re-arquitectu
    una red que falla si la lógica de dinero se rompe.
 
 ### P1 — De-riesgo estructural + el loop de medición B2C
-4. **Higiene de seguridad de advisors** (barato): quitar listado del bucket `wa-media`;
-   confirmar `auth.uid()` en `clawbot_*`/`wallet_*` anon-ejecutables o revocar el grant;
-   activar protección de contraseñas filtradas en Auth.
+4. **Higiene de seguridad de advisors** (barato). Advisor: 91 hallazgos, **0 ERROR**.
+   **✅ Hecho (2026-07-12, migraciones `ketzal_p1_security_hygiene` + `_2`):**
+   (a) quitado el listado del bucket público `wa-media` (drop de la policy SELECT
+   anon/authenticated; los reads siguen por el CDN público);
+   (b) revocado `EXECUTE` de PUBLIC en `clawbot_*` y `notification_create_self` (la app
+   las llama como `authenticated`, grant intacto) y de PUBLIC+`authenticated` en
+   `wallet_*` (DEFINER, B2C dormido, 0 usos; se conserva `service_role`);
+   (c) pinado `search_path` de `ketzal.set_updated_at` (era la única función ketzal con
+   search_path mutable).
+   **Aceptado por diseño (no se toca):** `is_superadmin()`/`my_supplier_id()` quedan
+   anon-ejecutables — la RLS las evalúa como el rol que consulta y **no** tienen grant
+   explícito a `authenticated` (lo heredan de PUBLIC), así que revocar PUBLIC tumbaría
+   toda la RLS; para anon devuelven `false`/`null` (inofensivo). Los 26 DEFINER
+   ejecutables por `authenticated` son la superficie legítima de RPCs (guardas internas
+   vía RLS/`is_superadmin`). `ketzal.receipt_counters` con RLS sin policy es correcto
+   (solo se toca vía el RPC atómico `next_receipt_folio`).
+   **Pendiente del fundador (dashboard, no hay SQL):** (i) activar *protección de
+   contraseñas filtradas* (HaveIBeenPwned) en Supabase Auth; (ii) el bucket público
+   `gorilla-assets` también permite listar, pero es del org (otra app) — decidir aparte.
 5. **No propagar errores crudos de Postgres al cliente** — envolver en mensajes genéricos
    en los server actions.
 6. **B2C: dejar correr Analytics y decidir con datos.** No construir checkout aún;
