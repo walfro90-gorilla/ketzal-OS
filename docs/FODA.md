@@ -118,9 +118,17 @@ otro extremo: son pocos movimientos de alto apalancamiento, no una re-arquitectu
 ## Plan priorizado
 
 ### P0 — De-riesgar el motor de dinero (existencial si falla)
-1. **Versionar la BD de verdad.** Correr `supabase db pull --schema ketzal` (Supabase
-   CLI + login del fundador) para un dump fiel → adoptar `supabase/migrations/` como
-   fuente. Cierra el riesgo #1 (que el snapshot actual ya no cubre).
+1. **Versionar la BD de verdad. ✅ Hecho (2026-07-12, commit `4a7b454`).** Se cerró
+   con un **dump fiel**, no con `db pull`. Descubrimiento clave: `db pull`/`db push`
+   **no aplican aquí** — el proyecto Supabase es compartido con apps hermanas
+   (war-room/crm/tiendas) y su historial `schema_migrations` es un log lineal global
+   de **89 migraciones, solo 33 de Ketzal**; `pull` da `LegacyDbPullMigrationConflictError`
+   y `migration repair` reescribiría bookkeeping ajeno. En su lugar:
+   `supabase db dump --schema ketzal -f supabase/snapshots/ketzal_schema.sql`
+   (pg_dump fiel: 25 tablas/25 RLS, 49 funcs con cuerpo, 58 policies, 28 índices,
+   148 grants). Superó y reemplazó los 2 snapshots parciales stale. **Workflow going
+   forward:** re-correr el dump tras cada cambio de BD y commitear; el `git diff` del
+   dump es el historial de schema. Detalle en `supabase/README.md`.
 2. **Firmar el webhook de MP.** Validar el HMAC `x-signature` en `api/mp/webhook` y
    dejar de responder 200 a ciegas. Contenido, alto valor de seguridad.
 3. **Tests mínimos de invariantes de dinero.** Un harness ligero (sin framework
