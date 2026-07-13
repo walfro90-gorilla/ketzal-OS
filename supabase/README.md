@@ -2,51 +2,49 @@
 
 > **La fuente de verdad de la BD es Supabase** (proyecto Gorilla-Labs,
 > ref `wnujoyzdpdyxblgdtxjw`, schema `ketzal`). Las migraciones históricas se
-> aplicaron con la herramienta `apply_migration` de Supabase y **no** vivían en
-> git. Esta carpeta cierra ese hueco (riesgo #1 del FODA después de MP):
-> versionar el backend de la BD para **recuperación, historial y auditoría**.
+> aplicaron con la herramienta `apply_migration` de Supabase. Esta carpeta
+> cierra el riesgo #1 del FODA: versionar el backend para **recuperación,
+> historial y auditoría**.
 
 ## Qué hay aquí
 
-### `snapshots/` — respaldo versionado (generado 2026-07-09)
-- **`ketzal_functions.sql`** — las **39 funciones/RPCs** del schema (toda la
-  lógica de dinero y seguridad: `create_booking_with_items`, `register_payment`,
-  `emit_receipt`, `cancel_booking`, `generate_payment_plan`,
-  `confirm_online_payment`, `get_quote_by_token`, `cobranza`, helpers de RLS
-  `is_superadmin`/`my_supplier_id`/`is_active`, etc.). Extraído con
-  `pg_get_functiondef`.
-- **`ketzal_policies.sql`** — las **56 políticas RLS** (aislamiento multi-agencia
-  = riesgo #1 del negocio). Reconstruido desde `pg_policies`.
+### `snapshots/ketzal_schema.sql` — respaldo fiel y completo
+Dump `pg_dump` del schema `ketzal` completo: tablas, columnas, tipos/enums,
+índices, constraints, **funciones/RPCs con su cuerpo**, **políticas RLS**,
+triggers y grants. Es el respaldo autoritativo — si Supabase se perdiera, con
+este archivo se recrea el backend lógico. Generado con la Supabase CLI (abajo).
 
-Los snapshots son un respaldo, **no** el mecanismo de despliegue. Si Supabase
-se perdiera, con estos archivos se recupera casi todo el backend lógico.
-
-## Cómo obtener un dump FIEL y COMPLETO (recomendado, going forward)
-
-Los snapshots de arriba cubren funciones y policies. Para versionar **todo con
-fidelidad** (tablas, columnas, tipos/enums, índices, grants, triggers,
-constraints) usa la **Supabase CLI** — es la forma correcta a partir de ahora:
+## Cómo re-generar el dump (workflow correcto)
 
 ```bash
-# 1. Instalar la CLI (una vez): https://supabase.com/docs/guides/cli
-brew install supabase/tap/supabase        # macOS
-# o: npm i -g supabase
+# CLI ya instalada y proyecto ya linkeado (una sola vez):
+#   npm i -g supabase && supabase login && supabase link --project-ref wnujoyzdpdyxblgdtxjw
 
-# 2. Login + link al proyecto (una vez)
-supabase login
-supabase link --project-ref wnujoyzdpdyxblgdtxjw
-
-# 3. Bajar el schema `ketzal` como migración versionada
-supabase db pull --schema ketzal
-# → genera supabase/migrations/<timestamp>_remote_schema.sql (commitéalo)
+supabase db dump --schema ketzal -f supabase/snapshots/ketzal_schema.sql
+git diff supabase/snapshots/ketzal_schema.sql   # <- muestra el drift del schema
 ```
 
-A partir de ahí, cada cambio de BD debería ir como archivo en
-`supabase/migrations/` y aplicarse con `supabase db push`, en vez de sólo
-`apply_migration`. Así la BD queda con historial en git como el resto del código.
+Córrelo **después de cada cambio de BD** (o en CI/cron) y commitéalo. El
+`git diff` del dump es el historial de cambios de schema.
+
+## Por qué NO usamos `supabase db pull` / `db push`
+
+El proyecto Supabase es **compartido con otras apps** (schemas `tiendas`,
+war-room/crm, etc.). Su tabla de historial `supabase_migrations.schema_migrations`
+es un log lineal **global**: 89 migraciones, de las cuales solo 33 son de Ketzal
+(el resto de las apps hermanas). Por eso:
+
+- `supabase db pull` falla con `LegacyDbPullMigrationConflictError` (historial
+  remoto sin archivos locales que lo respalden), y "arreglarlo" con
+  `migration repair` reescribiría bookkeeping de las otras apps.
+- `supabase db push` nunca quedaría limpio: vería las 56 migraciones ajenas
+  como "remoto adelantado".
+
+El `db dump` esquiva todo eso: no toca el historial, solo fotografía el schema
+`ketzal`. Es el artefacto de respaldo correcto para este proyecto multi-app.
 
 ## Notas
 - Los tipos de TypeScript viven aparte en `src/lib/db/database.types.ts`
   (mantenidos a mano). No se generan desde aquí.
-- El schema `ketzal` es compartido en el proyecto Supabase con otros productos
-  (schemas `tiendas`, etc.); por eso se filtra `--schema ketzal`.
+- Los cambios de schema se siguen aplicando con `apply_migration` (MCP de
+  Supabase); este dump es el respaldo versionado, no el mecanismo de despliegue.
