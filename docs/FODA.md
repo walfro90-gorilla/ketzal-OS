@@ -129,13 +129,36 @@ otro extremo: son pocos movimientos de alto apalancamiento, no una re-arquitectu
    148 grants). Superó y reemplazó los 2 snapshots parciales stale. **Workflow going
    forward:** re-correr el dump tras cada cambio de BD y commitear; el `git diff` del
    dump es el historial de schema. Detalle en `supabase/README.md`.
-2. **Firmar el webhook de MP. ✅ Hecho (commit `842bca6`).** `src/lib/mp-signature.ts`
-   valida el HMAC `x-signature`/`x-request-id`; el webhook rechaza con **401** si falta o
-   no cuadra, en vez de responder 200 a ciegas. (La integridad de fondos ya estaba
-   protegida por re-consulta a la API de MP; esto cierra el abuso/enumeración del endpoint.)
+2. **Firmar el webhook de MP. ⚠️ Código hecho (commit `842bca6`), INERTE en producción.**
+   `src/lib/mp-signature.ts` valida el HMAC `x-signature`/`x-request-id`; el webhook rechaza
+   con **401** si falta o no cuadra, en vez de responder 200 a ciegas. (La integridad de
+   fondos ya estaba protegida por re-consulta a la API de MP; esto cierra el
+   abuso/enumeración del endpoint.)
+   **PERO (detectado 2026-07-18):** el enforcement es **fail-open por diseño** — sin
+   `MP_WEBHOOK_SECRET` configurado el webhook deja pasar todo (`route.ts:41-56`, rollout
+   no-rompedor deliberado). Esa variable **nunca se agregó a Vercel**, así que la firma
+   lleva sin validar desde que se desplegó (2026-07-11). Se cierra de verdad al poner el
+   secret. Ver P0 #3-bis.
 3. **Tests mínimos de invariantes de dinero. ✅ Hecho (commit `d0a2391`).** Harness ligero
    en SQL `supabase/tests/money_invariants.sql` (sin framework) sobre las invariantes de
    dinero (saldo derivado, plan suma=total, folio). Red que falla si la lógica se rompe.
+
+3-bis. **⚠️ ABIERTO — Dos env vars nunca agregadas a Vercel (detectado 2026-07-18).**
+   Auditoría `process.env` del código vs `vercel env ls production`. En Vercel solo existen
+   `MP_ACCESS_TOKEN`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
+   `NEXT_PUBLIC_SUPABASE_URL`. Faltan dos, con consecuencias opuestas:
+   - **`CRON_SECRET` — outage silencioso.** `api/clawbot/tick/route.ts:10-14` es
+     **fail-closed**: sin el secret devuelve **401 siempre**. `vercel.json` agenda el cron
+     `0 14 * * *` desde el 2026-07-10. **Confirmado en `ketzal.system_log`: cero filas
+     `clawbot_tick`, nunca.** ⇒ Clawbot lleva **8 días muerto**: ningún recordatorio de
+     cobranza generado y ningún chequeo diario de invariantes de dinero corrido. El panel
+     de `/salud` reporta "0 violaciones" porque **nadie está midiendo**, no porque esté sano.
+   - **`MP_WEBHOOK_SECRET` — seguridad inerte.** Fail-open (ver P0 #2): el webhook acepta
+     sin firma. 7 días así.
+   `NEXT_PUBLIC_APP_URL` y `NEXT_PUBLIC_SITE_URL` también faltan pero **tienen fallback**
+   (`?? https://${host}` y `VERCEL_PROJECT_PRODUCTION_URL`): no se agregan, YAGNI.
+   **Lección:** un item marcado ✅ por código commiteado no está hecho hasta que su
+   configuración vive en prod. Verificar env vars al cerrar, no al escribirlo.
 
 ### P1 — De-riesgo estructural + el loop de medición B2C
 4. **Higiene de seguridad de advisors** (barato). Advisor: 91 hallazgos, **0 ERROR**.
@@ -163,8 +186,24 @@ otro extremo: son pocos movimientos de alto apalancamiento, no una re-arquitectu
    otro código (constraint/permiso/tipo/RLS) se registra en el servidor y al cliente solo
    le llega un genérico. Cableado en los 8 `actions.ts` (los ~30 `return { error:
    error.message }`). Check runnable de 7 casos + typecheck OK.
-6. **B2C: dejar correr Analytics y decidir con datos.** No construir checkout aún;
-   revisar en ~1-2 semanas vistas de `/explora` y clics al WhatsApp. Ese número decide.
+6. **B2C: dejar correr Analytics y decidir con datos. ✅ Cerrado (2026-07-18) — veredicto
+   NO-GO al checkout self-service.** Lectura de Vercel Analytics, 7 días (11–18 jul, prod):
+   **8 visitantes, 62 page views, 0 referrers, 100% MX**. Top pages son **todas internas**
+   (`/servicios` 7, `/dashboard` 6, `/servicios/nuevo` 5, `/cotizaciones` 4, `/proveedores` 4,
+   `/clientes` 3, `/salud` 3). **`/explora` no aparece: cero.** Esos 8 visitantes son el
+   fundador y sus agentes operando el OS (desktop Linux + Android, sin un solo referrer).
+   **Matiz que importa:** el resultado NO es "el mercado rechazó B2C", es **"el experimento
+   nunca corrió"** — la vitrina no tuvo distribución (ni link en bio, ni WhatsApp a clientes).
+   Una página a la que nadie es enviado marca cero para siempre. La hipótesis B2C **no queda
+   archivada, queda sin probar**.
+   **Además:** los clics a WhatsApp **nunca se midieron** — los custom events de Vercel
+   Analytics son **Pro-only** y el proyecto está en Hobby. La mitad de la métrica del gate
+   era inmedible desde el día uno.
+   **Siguiente corrida (acordada 2026-07-18):** el fundador le da distribución esta semana
+   (link de `/explora` por WhatsApp a clientes que ya compraron + bio de Instagram de
+   Wanderlust). Métrica sustituta gratis: **page views de `/servicio/[id]`** (llegar a una
+   ficha ya es intención; el plan Hobby sí las cuenta). Si con distribución real sigue en
+   cero, ahí sí el veredicto es del mercado y B2C se archiva con datos.
 
 ### P2 — Cuando el equipo/volumen lo justifiquen (no ahora — YAGNI)
 7. Validación con esquema (zod) en las actions de dinero.
