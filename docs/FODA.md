@@ -129,11 +129,13 @@ otro extremo: son pocos movimientos de alto apalancamiento, no una re-arquitectu
    148 grants). Superó y reemplazó los 2 snapshots parciales stale. **Workflow going
    forward:** re-correr el dump tras cada cambio de BD y commitear; el `git diff` del
    dump es el historial de schema. Detalle en `supabase/README.md`.
-2. **Firmar el webhook de MP.** Validar el HMAC `x-signature` en `api/mp/webhook` y
-   dejar de responder 200 a ciegas. Contenido, alto valor de seguridad.
-3. **Tests mínimos de invariantes de dinero.** Un harness ligero (sin framework
-   pesado) sobre `verificar_invariantes` + cálculos de plan/comisión/folio. De 0 a
-   una red que falla si la lógica de dinero se rompe.
+2. **Firmar el webhook de MP. ✅ Hecho (commit `842bca6`).** `src/lib/mp-signature.ts`
+   valida el HMAC `x-signature`/`x-request-id`; el webhook rechaza con **401** si falta o
+   no cuadra, en vez de responder 200 a ciegas. (La integridad de fondos ya estaba
+   protegida por re-consulta a la API de MP; esto cierra el abuso/enumeración del endpoint.)
+3. **Tests mínimos de invariantes de dinero. ✅ Hecho (commit `d0a2391`).** Harness ligero
+   en SQL `supabase/tests/money_invariants.sql` (sin framework) sobre las invariantes de
+   dinero (saldo derivado, plan suma=total, folio). Red que falla si la lógica se rompe.
 
 ### P1 — De-riesgo estructural + el loop de medición B2C
 4. **Higiene de seguridad de advisors** (barato). Advisor: 91 hallazgos, **0 ERROR**.
