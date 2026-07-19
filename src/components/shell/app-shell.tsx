@@ -36,8 +36,19 @@ export function AppShell({
         <FlashToasts />
       </Suspense>
       <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-background/95 px-4 backdrop-blur supports-backdrop-filter:bg-background/80 md:px-6">
-        <Link href="/dashboard" className="text-lg font-semibold">
-          Ketzal OS
+        <Link
+          href="/dashboard"
+          className="flex items-center gap-2 text-lg font-semibold"
+        >
+          {/* Mark de marca: lo sirve /icons/192 (generado en lib/brand-icon,
+              swappable por el logo real sin tocar este header). */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/icons/192" alt="" className="size-6" />
+          <span>
+            {/* Wordmark teal según BRAND.md §4. */}
+            <span className="text-primary">Ketzal</span>{' '}
+            <span className="text-foreground">OS</span>
+          </span>
         </Link>
         <div className="flex items-center gap-1 sm:gap-2">
           <GlobalSearch />
@@ -59,7 +70,7 @@ export function AppShell({
         </main>
       </div>
 
-      <BottomTabs role={role} />
+      <BottomTabs role={role} email={email} />
     </div>
   )
 }
