@@ -54,8 +54,9 @@ ciclo y qué queda como deuda explícita.
   documento del momento de decisión) no mostraba logo ni acento de marca, el
   recibo tenía "← Volver" a una ruta con login, y "Compartir por WhatsApp"
   solo existía en el recibo. Unificado (header teal + logo + share + pie).
-- ~~**Detalle de venta con 3 tablas de scroll horizontal.**~~ ✅ migradas a
-  tarjetas móviles (líneas, abonos, plan) — era la pantalla más usada en campo.
+- **Detalle de venta con 3 tablas de scroll horizontal** (líneas, abonos,
+  plan) — la pantalla más usada en campo. Migración a tarjetas móviles
+  pendiente para el próximo ciclo (ver plan).
 - **`mxn`/`StatusBadge`/`formatTravelDate` siguen en `(ops)/ventas/ui.tsx`** e
   importados cross-feature (`cobranza`, `dashboard`, `reportes`…). El plan §4
   los quiere en `components/data/`. Mecánico pero ruidoso: próximo ciclo.
@@ -115,9 +116,8 @@ ciclo y qué queda como deuda explícita.
 | P0-1 | `@media print` fuerza tokens claros: cotización/estado imprimibles en dark | ✅ |
 | P1-1 | `NativeSelect` compartido (táctil + chevron) y adopción en los 9 usos; muere `selectClass` y el `ui/select.tsx` sin uso | ✅ |
 | P1-2 | `PageHeader` compartido y adopción en ~20 pantallas (título/desc/acción/back) | ✅ |
-| P1-3 | Detalle de venta: líneas, abonos y plan de pagos a tarjetas móviles (sin scroll horizontal) | ✅ |
-| P1-4 | Familia de marca en documentos: logo+teal en cotización, share WhatsApp en las 3, pie "Powered by Ketzal", fuera el "← Volver" interno del recibo, moneda real en cotización | ✅ |
-| P1-5 | Selects de 32px (servicios/proveedores/equipo) a escala táctil; botones de cotizaciones táctiles en móvil | ✅ |
+| P1-3 | Familia de marca en documentos: logo+teal en cotización, share WhatsApp en las 3, pie "Powered by Ketzal", fuera el "← Volver" interno del recibo, moneda real en cotización | ✅ |
+| P1-4 | Selects de 32px (servicios/proveedores/equipo) a escala táctil; botones de cotizaciones táctiles en móvil | ✅ |
 | P2-1 | `Textarea` compartido (5 usos), `Badge variant="success"` (4 hardcodes emerald) | ✅ |
 | P2-2 | "Salir" + email en el sheet "Más" móvil (uso a una mano) | ✅ |
 | P2-3 | PWA: `theme_color` teal, shortcuts Nueva venta/Cobranza, `id`, `lang` | ✅ |
@@ -127,7 +127,10 @@ ciclo y qué queda como deuda explícita.
 
 ### Pendiente (próximo ciclo — en orden)
 
-1. **Extraer `money`/`status`/`fechas` a `components/data/`** y matar los
+1. **Detalle de venta: 3 tablas (líneas, abonos, plan) a tarjetas móviles**
+   con `DataList`. Era P1 de este ciclo; quedó fuera por límite de sesión del
+   agente asignado. Es la pantalla más usada en campo — prioridad alta.
+2. **Extraer `money`/`status`/`fechas` a `components/data/`** y matar los
    imports cross-feature de `ventas/ui` (§4 del plan).
 2. **Skeletons bespoke** para dashboard/detalle/formularios.
 3. **Búsqueda en cobranza y comisiones** (FilterableList) y **⌘K ampliado** a

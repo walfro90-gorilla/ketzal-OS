@@ -1,13 +1,6 @@
 'use client'
 
-import {
-  useEffect,
-  useRef,
-  useState,
-  useTransition,
-  type ComponentProps,
-} from 'react'
-import { ChevronDownIcon } from 'lucide-react'
+import { useEffect, useRef, useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -20,6 +13,7 @@ import {
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { NativeSelect } from '@/components/ui/native-select'
 import {
   Table,
   TableBody,
@@ -61,21 +55,6 @@ type Plan = {
 type PreviewState =
   | { key: string; plan: Plan }
   | { key: string; error: string }
-
-// Mismo estilo de <select> nativo alineado al Input de shadcn que en abonos.tsx.
-const selectClass =
-  'h-11 md:h-9 w-full min-w-0 appearance-none rounded-lg border border-input bg-transparent px-3 md:px-2.5 py-1 pr-9 text-base md:text-sm transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 dark:bg-input/30'
-
-function NativeSelect({ className, children, ...props }: ComponentProps<'select'>) {
-  return (
-    <div className="relative">
-      <select className={cn(selectClass, className)} {...props}>
-        {children}
-      </select>
-      <ChevronDownIcon className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground" />
-    </div>
-  )
-}
 
 const FRECUENCIAS: { value: FrecuenciaPlan; label: string }[] = [
   { value: 'semanal', label: 'Semanal' },
