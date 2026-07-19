@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { NativeSelect } from '@/components/ui/native-select'
 import { balance } from '@/lib/domain/balance'
-import { mxn } from '../ui'
+import { mxn } from '@/components/data/format'
 import {
   compartirEstadoCuenta,
   crearLinkPago,

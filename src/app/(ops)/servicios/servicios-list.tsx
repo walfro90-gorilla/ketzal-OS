@@ -3,7 +3,7 @@
 import { useMemo, type ReactNode } from 'react'
 import type { DataColumn } from '@/components/data/data-list'
 import { FilterableList, type ListFilter } from '@/components/data/filterable-list'
-import { mxn } from '../ventas/ui'
+import { mxn } from '@/components/data/format'
 import { PublicarToggle } from './publicar-toggle'
 
 const TIPO_LABELS: Record<string, string> = {

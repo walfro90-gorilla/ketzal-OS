@@ -25,12 +25,8 @@ import {
 import { DataList, type DataColumn } from '@/components/data/data-list'
 import { EmptyState } from '@/components/data/empty-state'
 import { PageHeader } from '@/components/data/page-header'
-import {
-  formatTravelDate,
-  mxn,
-  StatusBadge,
-  type BookingStatus,
-} from '../ventas/ui'
+import { formatTravelDate, mxn } from '@/components/data/format'
+import { StatusBadge, type BookingStatus } from '@/components/data/status-badge'
 import { getClawbotResumen, type ClawbotResumen } from '../clawbot/data'
 import { BarrasTop } from '../reportes/graficas'
 import type { Reporte } from '../reportes/tipos'

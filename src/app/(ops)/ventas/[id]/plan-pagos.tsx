@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { NativeSelect } from '@/components/ui/native-select'
 import { DataList, type DataColumn } from '@/components/data/data-list'
-import { formatTravelDate, mxn } from '../ui'
+import { formatTravelDate, mxn } from '@/components/data/format'
 import {
   crearPlanPagos,
   previewPlanPagos,

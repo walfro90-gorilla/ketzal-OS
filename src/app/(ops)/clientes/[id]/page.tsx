@@ -7,12 +7,8 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { DataList, type DataColumn } from '@/components/data/data-list'
-import {
-  formatTravelDate,
-  mxn,
-  StatusBadge,
-  type BookingStatus,
-} from '../../ventas/ui'
+import { formatTravelDate, mxn } from '@/components/data/format'
+import { StatusBadge, type BookingStatus } from '@/components/data/status-badge'
 import { PageHeader } from '@/components/data/page-header'
 import { ClienteForm } from '../cliente-form'
 

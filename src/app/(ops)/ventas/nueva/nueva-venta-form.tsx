@@ -36,7 +36,8 @@ import {
   type CreateBookingInput,
   type CreateBookingLine,
 } from '../actions'
-import { ITEM_TYPE_LABELS, PASSENGER_TYPE_LABELS, mxn } from '../ui'
+import { mxn } from '@/components/data/format'
+import { ITEM_TYPE_LABELS, PASSENGER_TYPE_LABELS } from '../ui'
 import type { Pack } from '@/lib/domain/packs'
 
 export type CustomerOption = {

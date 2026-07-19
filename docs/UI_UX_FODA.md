@@ -109,6 +109,12 @@ ciclo y qué queda como deuda explícita.
 
 ## Plan de acción
 
+### Aplicado (ciclo 3 — tras integrar `services/new` del otro agente)
+
+| # | Acción | Estado |
+|---|---|---|
+| C3-1 | `money`/`fechas` → `components/data/format.ts` y `StatusBadge`/`BookingStatus` → `components/data/status-badge.tsx`. Los 17 importadores migrados; `ventas/ui.tsx` queda solo con las etiquetas de dominio (item/passenger). Mata los imports cross-feature de `ventas/ui` (§4 del plan) | ✅ |
+
 ### Aplicado (ciclo 2 — segunda pasada)
 
 | # | Acción | Estado |
@@ -137,9 +143,7 @@ ciclo y qué queda como deuda explícita.
 
 ### Pendiente (próximo ciclo — en orden)
 
-1. **Extraer `money`/`status`/`fechas` a `components/data/`** y matar los
-   imports cross-feature de `ventas/ui` (§4 del plan).
-2. **⌘K ampliado** a cotizaciones/proveedores/cobranza — requiere ampliar el
+1. **⌘K ampliado** a cotizaciones/proveedores/cobranza — requiere ampliar el
    RPC `global_search` (capa backend): coordinar con el agente de backend.
 4. **Unificar el patrón de éxito** de formularios (decidir toast vs inline).
 5. **OG condicional para ficha de servicio sin banner** (ojo: la convención

@@ -2,7 +2,7 @@
 // SVG inline autocontenido (CSP-safe): sin librerías ni assets remotos.
 // Texto y rejilla usan tokens del tema (fill-*/stroke-* de Tailwind) para
 // funcionar en claro y oscuro; el único color fijo es el teal de marca.
-import { mxn } from '../ventas/ui'
+import { mxn } from '@/components/data/format'
 import type { PorMes } from './tipos'
 
 /** Teal Ketzal: contraste ≥ 3:1 sobre superficie clara y oscura (validado). */

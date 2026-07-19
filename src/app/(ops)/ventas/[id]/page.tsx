@@ -9,14 +9,9 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { DataList, type DataColumn } from '@/components/data/data-list'
-import {
-  formatTravelDate,
-  ITEM_TYPE_LABELS,
-  mxn,
-  PASSENGER_TYPE_LABELS,
-  StatusBadge,
-  type BookingStatus,
-} from '../ui'
+import { formatTravelDate, mxn } from '@/components/data/format'
+import { StatusBadge, type BookingStatus } from '@/components/data/status-badge'
+import { ITEM_TYPE_LABELS, PASSENGER_TYPE_LABELS } from '../ui'
 import { AbonosSection } from './abonos'
 import { PlanPagosSection, type PlanItem } from './plan-pagos'
 import { CancelarVenta } from './cancelar-venta'
