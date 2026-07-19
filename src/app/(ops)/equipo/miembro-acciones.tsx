@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { Button } from '@/components/ui/button'
+import { NativeSelect } from '@/components/ui/native-select'
 import type { Database } from '@/lib/db/database.types'
 import { aprobarUsuario, asignarAgencia, cambiarRol } from './actions'
 
@@ -25,10 +26,6 @@ export type AgenciaOption = {
   id: string
   name: string
 }
-
-// Estilo de <select> nativo alineado al Input de shadcn (mismo patrón que ventas).
-const selectClass =
-  'h-8 min-w-0 appearance-none rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 dark:bg-input/30'
 
 const ROLE_OPTIONS: { value: UserRole; label: string }[] = [
   { value: 'user', label: 'Agente' },
@@ -79,6 +76,8 @@ export function MiembroAcciones({
         type="button"
         variant={miembro.active ? 'outline' : 'default'}
         size="sm"
+        // Táctil en móvil; compacto (el h-7 de size="sm") en desktop.
+        className="h-10 md:h-7"
         disabled={isPending}
         onClick={() => run(() => aprobarUsuario(miembro.id, !miembro.active))}
       >
@@ -86,8 +85,8 @@ export function MiembroAcciones({
       </Button>
 
       {isSuperadmin && (
-        <select
-          className={`${selectClass} w-36`}
+        <NativeSelect
+          className="w-36"
           value={agencia}
           disabled={isPending}
           aria-label={`Agencia de ${miembro.name ?? miembro.email ?? 'miembro'}`}
@@ -106,12 +105,12 @@ export function MiembroAcciones({
               {a.name}
             </option>
           ))}
-        </select>
+        </NativeSelect>
       )}
 
       {isSuperadmin && (
-        <select
-          className={`${selectClass} w-32`}
+        <NativeSelect
+          className="w-32"
           value={rol}
           disabled={isPending}
           aria-label={`Rol de ${miembro.name ?? miembro.email ?? 'miembro'}`}
@@ -129,7 +128,7 @@ export function MiembroAcciones({
               {r.label}
             </option>
           ))}
-        </select>
+        </NativeSelect>
       )}
 
       {saved && (

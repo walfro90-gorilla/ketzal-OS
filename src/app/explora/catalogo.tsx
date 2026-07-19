@@ -2,11 +2,11 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { MapPinIcon, ChevronDownIcon } from 'lucide-react'
+import { MapPinIcon } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import { NativeSelect } from '@/components/ui/native-select'
 import type { PublicServiceCard } from './data'
 
 // Vitrina navegable: búsqueda + filtros por destino (estado) y tipo, en memoria
@@ -34,10 +34,8 @@ function destino(city: string | null, state: string | null): string | null {
   return partes.length ? partes.join(', ') : null
 }
 
-// Mismo <select> nativo que en las listas de ops (picker del SO en móvil).
-const selectClass =
-  'h-11 md:h-9 w-full min-w-0 appearance-none rounded-lg border border-input bg-transparent px-3 py-1 pr-9 text-base md:text-sm transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30'
-
+// Mismo <select> nativo que en las listas de ops (picker del SO en móvil),
+// con la API local de este catálogo (label + options → onChange del valor).
 function Select({
   label,
   value,
@@ -50,12 +48,11 @@ function Select({
   options: { value: string; label: string }[]
 }) {
   return (
-    <div className="relative w-full sm:w-48">
-      <select
+    <div className="w-full sm:w-48">
+      <NativeSelect
         aria-label={label}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className={selectClass}
       >
         <option value="">Todos — {label.toLowerCase()}</option>
         {options.map((o) => (
@@ -63,8 +60,7 @@ function Select({
             {o.label}
           </option>
         ))}
-      </select>
-      <ChevronDownIcon className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground" />
+      </NativeSelect>
     </div>
   )
 }

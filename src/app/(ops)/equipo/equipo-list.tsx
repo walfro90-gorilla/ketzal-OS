@@ -27,7 +27,7 @@ function RolBadge({ role }: { role: Miembro['role'] }) {
 
 function EstadoBadge({ active }: { active: boolean }) {
   if (active) {
-    return <Badge className="bg-emerald-600 text-white">Activo</Badge>
+    return <Badge variant="success">Activo</Badge>
   }
   return (
     <Badge

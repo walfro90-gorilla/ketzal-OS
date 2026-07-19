@@ -1,14 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import {
-  useRef,
-  useState,
-  useTransition,
-  type ComponentProps,
-  type ReactNode,
-} from 'react'
-import { ChevronDownIcon, PlusIcon, Trash2Icon } from 'lucide-react'
+import { useRef, useState, useTransition, type ReactNode } from 'react'
+import { PlusIcon, Trash2Icon } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -22,6 +16,7 @@ import {
 import { Combobox } from '@/components/ui/combobox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { NativeSelect } from '@/components/ui/native-select'
 import { PhoneInput } from '@/components/ui/phone-input'
 import {
   Table,
@@ -81,23 +76,6 @@ type LineDraft = {
   description: string
   qty: string
   unit_price: string
-}
-
-// <select> nativo (en móvil el picker del SO es mejor UX que un dropdown custom).
-// Táctil en móvil (44px), compacto en desktop; el `text-base` móvil evita el zoom de iOS.
-const selectClass =
-  'h-11 md:h-9 w-full min-w-0 appearance-none rounded-lg border border-input bg-transparent px-3 md:px-2.5 py-1 pr-9 text-base md:text-sm transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 dark:bg-input/30'
-
-// El <select> con appearance-none pierde la flecha nativa: la reponemos con un chevron.
-function NativeSelect({ className, children, ...props }: ComponentProps<'select'>) {
-  return (
-    <div className="relative">
-      <select className={cn(selectClass, className)} {...props}>
-        {children}
-      </select>
-      <ChevronDownIcon className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground" />
-    </div>
-  )
 }
 
 // Campo con etiqueta visible (para las tarjetas móviles; los controles ya traen aria-label).

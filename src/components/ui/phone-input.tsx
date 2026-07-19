@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { ChevronDownIcon } from 'lucide-react'
 import { Input } from '@/components/ui/input'
+import { nativeSelectClass } from '@/components/ui/native-select'
 import { cn } from '@/lib/utils'
 
 // Ladas disponibles por ahora: México por default + EEUU/Canadá.
@@ -69,9 +70,14 @@ export function PhoneInput({
   return (
     <div className={cn('flex gap-2', className)}>
       <div className="relative shrink-0">
+        {/* Estilo base compartido + overrides propios: angosto (solo la lada)
+            y padding ajustado a su chevron compacto. */}
         <select
           aria-label="Lada internacional"
-          className="h-11 md:h-9 w-24 appearance-none rounded-lg border border-input bg-transparent py-1 pr-7 pl-2.5 text-base transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 md:text-sm dark:bg-input/30"
+          className={cn(
+            nativeSelectClass,
+            'w-24 pl-2.5 md:pl-2.5 pr-7 md:pr-7'
+          )}
           value={effective}
           disabled={disabled}
           onChange={(e) => {
