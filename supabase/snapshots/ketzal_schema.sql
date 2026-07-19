@@ -1169,18 +1169,42 @@ CREATE OR REPLACE FUNCTION "ketzal"."register_payment"("p_booking_id" "uuid", "p
     LANGUAGE "plpgsql"
     SET "search_path" TO 'ketzal', 'pg_temp'
     AS $$
-declare v_uid uuid := auth.uid(); v_supplier uuid; v_balance numeric;
+declare
+  v_uid uuid := auth.uid();
+  v_supplier uuid; v_balance numeric; v_total numeric; v_pagado numeric;
+  v_type ketzal.payment_type := coalesce(p_type, 'payment');
+  v_monto numeric := round(coalesce(p_amount, 0), 2);
 begin
   if v_uid is null then raise exception 'No autenticado'; end if;
   if not ketzal.is_active() then raise exception 'Tu cuenta está pendiente de aprobación.'; end if;
-  if coalesce(p_amount,0) <= 0 then raise exception 'El monto debe ser mayor a 0'; end if;
+  if v_monto <= 0 then raise exception 'El monto debe ser mayor a 0'; end if;
 
-  select selling_supplier_id into v_supplier from ketzal.bookings where id = p_booking_id;
+  select selling_supplier_id, total into v_supplier, v_total
+    from ketzal.bookings where id = p_booking_id for update;
   if not found then raise exception 'Venta no encontrada o sin acceso'; end if;
+
+  select coalesce(sum(case when type = 'payment' then amount_mxn
+                           when type = 'refund'  then -amount_mxn
+                           else 0 end), 0)
+    into v_pagado
+    from ketzal.payments
+   where booking_id = p_booking_id and status = 'COMPLETED';
+
+  if v_type = 'payment' then
+    if v_monto > round(v_total - v_pagado, 2) then
+      raise exception 'El monto (%) excede el saldo pendiente (%).',
+        v_monto, round(v_total - v_pagado, 2);
+    end if;
+  elsif v_type = 'refund' then
+    if v_monto > round(v_pagado, 2) then
+      raise exception 'El reembolso (%) excede lo abonado (%).',
+        v_monto, round(v_pagado, 2);
+    end if;
+  end if;
 
   insert into ketzal.payments(booking_id, supplier_id, user_id, amount_mxn, status, type,
                               payment_method, paid_at, installments, current_installment)
-  values (p_booking_id, v_supplier, v_uid, round(p_amount,2), 'COMPLETED', coalesce(p_type,'payment'),
+  values (p_booking_id, v_supplier, v_uid, v_monto, 'COMPLETED', v_type,
           nullif(trim(coalesce(p_method,'')),''), coalesce(p_paid_at, now()), 1, 1);
 
   select balance into v_balance from ketzal.bookings_with_balance where id = p_booking_id;
