@@ -3,6 +3,8 @@
 import { extractText, getDocumentProxy } from 'unpdf'
 import { createClient } from '@/lib/supabase/server'
 import {
+  MAX_BYTES,
+  MENSAJE_PESO,
   normalizarLeido,
   tieneDatos,
   type ServicioLeido,
@@ -29,9 +31,6 @@ const TIPOS_ACEPTADOS = [
   'image/jpeg',
   'image/webp',
 ]
-
-/** Tope de subida. Debe ir por debajo del bodySizeLimit de next.config.ts. */
-const MAX_BYTES = 6 * 1024 * 1024
 
 /** Texto de PDF que se le manda al modelo (~5k tokens). Un volante cabe de sobra. */
 const MAX_TEXTO = 20_000
@@ -96,8 +95,10 @@ export async function leerArchivoServicio(
   if (!TIPOS_ACEPTADOS.includes(archivo.type)) {
     return { error: 'Formato no soportado. Usa PDF, JPG, PNG o WebP.' }
   }
+  // Red de seguridad: el cliente ya lo checa (allá evita el 413 de Vercel, que
+  // mataría el request antes de llegar aquí), pero el action es invocable directo.
   if (archivo.size > MAX_BYTES) {
-    return { error: 'El archivo pesa más de 6 MB. Comprímelo o toma una captura.' }
+    return { error: MENSAJE_PESO }
   }
 
   const bytes = new Uint8Array(await archivo.arrayBuffer())

@@ -10,7 +10,11 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { leerArchivoServicio } from './importar-actions'
-import type { ServicioLeido } from '@/lib/ai/servicio-leido'
+import {
+  MAX_BYTES,
+  MENSAJE_PESO,
+  type ServicioLeido,
+} from '@/lib/ai/servicio-leido'
 
 const ACEPTA = 'application/pdf,image/png,image/jpeg,image/webp'
 
@@ -36,6 +40,15 @@ export function ImportarArchivo({
 
     setError(null)
     setListo(null)
+
+    // Se checa AQUÍ, no solo en el server: Vercel corta el body en 4.5 MB y
+    // responde 413 antes de invocar el action. Esa respuesta no es de server
+    // action, así que el runtime de Next lanza un error sin manejar en vez de
+    // devolver `{ error }`. Con el archivo ya en la mano, el guard es gratis.
+    if (archivo.size > MAX_BYTES) {
+      setError(MENSAJE_PESO)
+      return
+    }
 
     const formData = new FormData()
     formData.set('archivo', archivo)

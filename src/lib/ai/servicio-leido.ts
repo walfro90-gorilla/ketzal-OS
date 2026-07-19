@@ -33,6 +33,25 @@ export type ServicioLeido = {
   packs?: Record<string, number>
 }
 
+/**
+ * Tope de subida del lector, compartido por el cliente y el server action.
+ *
+ * El techo real NO lo pone la app: Vercel corta el body de una función en
+ * **4.5 MB** y devuelve 413 antes de que el action corra (límite de plataforma,
+ * no se sube por config). Por eso 4 MB, que deja aire para el multipart.
+ * El cliente DEBE checar esto antes de subir: si el 413 ocurre, la respuesta no
+ * es de server action y el cliente truena con un error sin manejar.
+ *
+ * ponytail: el path de imagen manda el archivo en base64 a Groq (+33%). Si un
+ * volante fotografiado empieza a fallar del lado de Groq por tamaño, la salida
+ * es redimensionar en el cliente con canvas, no bajar más este número.
+ */
+export const MAX_BYTES = 4 * 1024 * 1024
+
+/** Mismo texto en el guard del cliente y en el del servidor. */
+export const MENSAJE_PESO =
+  'El archivo pesa más de 4 MB. Comprímelo o toma una captura de pantalla.'
+
 const MAX_LISTA = 40
 const MAX_DIAS = 30
 

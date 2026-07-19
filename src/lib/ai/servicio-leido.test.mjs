@@ -5,7 +5,19 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { normalizarLeido, tieneDatos } from './servicio-leido.ts'
+import { MAX_BYTES, normalizarLeido, tieneDatos } from './servicio-leido.ts'
+
+// La regresión que rompió el lector en prod: el tope era 6 MB y Vercel corta el
+// body en 4.5 MB, así que el 413 mataba el request antes de que el action
+// corriera. Si alguien vuelve a subir MAX_BYTES, esto truena antes que prod.
+test('MAX_BYTES cabe en el body de 4.5 MB de Vercel, con aire de multipart', () => {
+  const TECHO_VERCEL = 4.5 * 1024 * 1024
+  assert.ok(MAX_BYTES < TECHO_VERCEL, 'MAX_BYTES excede el techo duro de Vercel')
+  assert.ok(
+    TECHO_VERCEL - MAX_BYTES > 256 * 1024,
+    'sin margen para el overhead del multipart'
+  )
+})
 
 test('basura de entrada no explota', () => {
   for (const basura of [null, undefined, 'texto', 42, [], [{ name: 'x' }]]) {
