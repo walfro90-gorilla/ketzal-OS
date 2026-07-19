@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react'
 import type { Metadata } from 'next'
-import Link from 'next/link'
 import { getReceipt } from './data'
+import { BrandMark } from '@/components/brand-mark'
 import { ImprimirBoton } from '@/components/imprimir-boton'
-import { CompartirRecibo } from './compartir-recibo'
+import { CompartirWhatsApp } from '@/components/data/compartir-whatsapp'
 
 // Recibo imprimible PÚBLICO (sin sesión): el agente comparte el link por
 // WhatsApp y el cliente final lo abre sin login. Los datos pasan por el RPC
@@ -149,6 +149,7 @@ function NotFound() {
   return (
     <main className="flex flex-1 items-center justify-center px-4 py-16">
       <div className="text-center">
+        <BrandMark className="mx-auto mb-4 size-10 text-primary" />
         <h1 className="text-2xl font-semibold">Recibo no disponible</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           El enlace no es válido o el recibo ya no está disponible. Pide a tu
@@ -187,14 +188,14 @@ export default async function ReciboPage({
 
   return (
     <main className="mx-auto w-full max-w-2xl px-4 py-8 print:max-w-none print:p-0">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2 print:hidden">
-        <Link href="/ventas" className="text-sm text-muted-foreground hover:underline">
-          ← Volver
-        </Link>
-        <div className="flex flex-wrap items-center gap-2">
-          <CompartirRecibo />
-          <ImprimirBoton />
-        </div>
+      {/* Documento público: sin links a rutas internas (el cliente llega por
+          WhatsApp sin sesión; un "Volver" a /ventas lo aventaría al login). */}
+      <div className="mb-4 flex flex-wrap items-center justify-end gap-2 print:hidden">
+        <CompartirWhatsApp
+          mensaje="Aquí está tu recibo de pago:"
+          toastOk="Link del recibo copiado"
+        />
+        <ImprimirBoton />
       </div>
 
       {/* Papel del recibo. La regla teal superior es border-t: sobrevive a la
@@ -305,6 +306,8 @@ export default async function ReciboPage({
           <p className="mt-3 text-[10px] text-neutral-500">
             Comprobante interno — no es una factura fiscal (CFDI).
           </p>
+          {/* Firma unificada de las 3 superficies compartibles. */}
+          <p className="mt-1 text-[10px] text-neutral-400">Powered by Ketzal</p>
         </footer>
       </article>
     </main>

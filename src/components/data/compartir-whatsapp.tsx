@@ -4,22 +4,29 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 
 /**
- * Comparte el link público del recibo por WhatsApp y lo copia al portapapeles.
- * Mismo UX que compartir cotización / estado de cuenta (wa.me + clipboard + toast).
+ * Comparte el link público de la página actual por WhatsApp y lo copia al
+ * portapapeles. Un solo affordance para las tres superficies compartibles
+ * (cotización, estado de cuenta, recibo): mismo botón, mismo toast.
  */
-export function CompartirRecibo() {
+export function CompartirWhatsApp({
+  mensaje,
+  toastOk = 'Link copiado',
+}: {
+  /** Texto que antecede al link en el mensaje de WhatsApp. */
+  mensaje: string
+  toastOk?: string
+}) {
   async function handleCompartir() {
     // La URL se lee en el cliente: funciona igual en localhost que en producción.
     const url = window.location.href
-    const msg = `Aquí está tu recibo de pago: ${url}`
     window.open(
-      `https://wa.me/?text=${encodeURIComponent(msg)}`,
+      `https://wa.me/?text=${encodeURIComponent(`${mensaje} ${url}`)}`,
       '_blank',
       'noopener,noreferrer'
     )
     try {
       await navigator.clipboard.writeText(url)
-      toast.success('Link del recibo copiado')
+      toast.success(toastOk)
     } catch {
       toast.error('No se pudo copiar el link.')
     }

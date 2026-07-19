@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import { getStatement } from './data'
+import { BrandMark } from '@/components/brand-mark'
+import { CompartirWhatsApp } from '@/components/data/compartir-whatsapp'
 import { ImprimirBoton } from '@/components/imprimir-boton'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -44,8 +46,7 @@ const METHOD_LABELS: Record<string, string> = {
 }
 
 function EstadoBadge({ estado }: { estado: string }) {
-  if (estado === 'paid')
-    return <Badge className="bg-emerald-600 text-white">Pagada</Badge>
+  if (estado === 'paid') return <Badge variant="success">Pagada</Badge>
   if (estado === 'cancelled') return <Badge variant="destructive">Cancelada</Badge>
   if (estado === 'reserved') return <Badge variant="secondary">Reservada</Badge>
   if (estado === 'draft') return <Badge variant="outline">Borrador</Badge>
@@ -91,6 +92,7 @@ function NotFound() {
   return (
     <main className="flex flex-1 items-center justify-center px-4 py-16">
       <div className="text-center">
+        <BrandMark className="mx-auto mb-4 size-10 text-primary" />
         <h1 className="text-2xl font-semibold">Estado de cuenta no disponible</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           El enlace no es válido o el estado de cuenta ya no está disponible.
@@ -128,13 +130,21 @@ export default async function EstadoCuentaPublicoPage({
           />
         )}
         <p className="text-2xl font-bold">{statement.agencia}</p>
-        <h1 className="text-sm font-medium tracking-widest text-muted-foreground uppercase">
+        {/* Mismo lenguaje de marca que cotización/recibo: etiqueta teal + regla. */}
+        <h1 className="text-[11px] font-semibold tracking-[0.22em] text-primary uppercase">
           Estado de cuenta
         </h1>
-        <p className="text-sm text-muted-foreground">Folio {statement.folio}</p>
+        <div className="mx-auto h-1 w-16 rounded-full bg-primary" />
+        <p className="pt-1 text-sm text-muted-foreground">
+          Folio {statement.folio}
+        </p>
       </header>
 
-      <div className="flex justify-center print:hidden">
+      <div className="flex flex-wrap justify-center gap-2 print:hidden">
+        <CompartirWhatsApp
+          mensaje="Aquí está tu estado de cuenta:"
+          toastOk="Link del estado de cuenta copiado"
+        />
         <ImprimirBoton label="Descargar PDF / Imprimir" />
       </div>
 

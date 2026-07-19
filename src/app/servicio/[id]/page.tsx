@@ -139,18 +139,19 @@ export default async function ServicioPublicoPage({
             )}
           </div>
           {wa ? (
+            // CTA de conversión: full-width y táctil (44px) en el teléfono.
             <a
               href={`${wa}?text=${encodeURIComponent(`Hola, me interesa el viaje "${s.name}".`)}`}
               target="_blank"
               rel="noopener noreferrer"
-              className={buttonVariants({ variant: 'default' })}
+              className={`${buttonVariants({ variant: 'default', size: 'touch' })} w-full sm:w-auto`}
             >
               Reservar por WhatsApp
             </a>
           ) : s.agency.email ? (
             <a
               href={`mailto:${s.agency.email}?subject=${encodeURIComponent(`Reserva: ${s.name}`)}`}
-              className={buttonVariants({ variant: 'default' })}
+              className={`${buttonVariants({ variant: 'default', size: 'touch' })} w-full sm:w-auto`}
             >
               Pedir informes
             </a>

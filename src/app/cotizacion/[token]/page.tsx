@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import { getQuote } from './data'
+import { BrandMark } from '@/components/brand-mark'
+import { CompartirWhatsApp } from '@/components/data/compartir-whatsapp'
 import { ImprimirBoton } from '@/components/imprimir-boton'
 import {
   Card,
@@ -22,10 +24,13 @@ import {
 
 // Formatters locales (duplicados a propósito: los de (ops)/ventas/ui.tsx
 // viven en el grupo privado; esta página es pública y autocontenida).
-const mxn = new Intl.NumberFormat('es-MX', {
-  style: 'currency',
-  currency: 'MXN',
-})
+// La moneda sale de la cotización (una agencia puede cotizar en USD).
+function moneyFormatter(currency: string | null | undefined) {
+  return new Intl.NumberFormat('es-MX', {
+    style: 'currency',
+    currency: currency || 'MXN',
+  })
+}
 
 const dateFormatter = new Intl.DateTimeFormat('es-MX', { dateStyle: 'long' })
 
@@ -64,7 +69,7 @@ export async function generateMetadata({
   const quote = await getQuote(token)
   if (!quote) return { title: 'Cotización', robots: { index: false } }
 
-  const total = `${mxn.format(Number(quote.total))} ${quote.currency || 'MXN'}`
+  const total = `${moneyFormatter(quote.currency).format(Number(quote.total))} ${quote.currency || 'MXN'}`
   const service = quote.service?.name ?? 'Viaje a medida'
   const title = `Cotización · ${service} — ${quote.agency.name}`
   const description = `Para ${quote.customer.full_name} · ${quote.num_pax} pax · ${formatTravelDate(quote.travel_date)} · Total ${total}`
@@ -83,6 +88,7 @@ function NotFound() {
   return (
     <main className="flex flex-1 items-center justify-center px-4 py-16">
       <div className="text-center">
+        <BrandMark className="mx-auto mb-4 size-10 text-primary" />
         <h1 className="text-2xl font-semibold">Cotización no encontrada</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           El enlace no es válido o la cotización ya no está disponible.
@@ -102,6 +108,8 @@ export default async function CotizacionPublicaPage({
   const quote = await getQuote(token)
   if (!quote) return <NotFound />
 
+  const fmt = moneyFormatter(quote.currency)
+
   // Plan de pagos: filas con saldo restante (suma pura, sin acumulador mutable).
   const total = Number(quote.total)
   const planItems = quote.plan?.items ?? []
@@ -117,14 +125,30 @@ export default async function CotizacionPublicaPage({
 
   return (
     <main className="mx-auto w-full max-w-2xl flex-1 space-y-6 px-4 py-8 sm:py-12">
-      <header className="space-y-1 text-center">
+      {/* Header de marca: mismo lenguaje que el recibo (logo + etiqueta teal
+          + regla), para que las 3 superficies compartibles sean una familia. */}
+      <header className="space-y-2 text-center">
+        {quote.agency.logo && (
+          // Logo externo (URL fuera del dominio): <img> plano a propósito.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={quote.agency.logo}
+            alt={`Logo de ${quote.agency.name}`}
+            className="mx-auto h-14 w-auto max-w-[150px] object-contain"
+          />
+        )}
         <p className="text-2xl font-bold">{quote.agency.name}</p>
-        <h1 className="text-sm font-medium tracking-widest text-muted-foreground uppercase">
+        <h1 className="text-[11px] font-semibold tracking-[0.22em] text-primary uppercase">
           Cotización
         </h1>
+        <div className="mx-auto h-1 w-16 rounded-full bg-primary" />
       </header>
 
-      <div className="flex justify-center print:hidden">
+      <div className="flex flex-wrap justify-center gap-2 print:hidden">
+        <CompartirWhatsApp
+          mensaje="Aquí está tu cotización:"
+          toastOk="Link de la cotización copiado"
+        />
         <ImprimirBoton label="Descargar PDF / Imprimir" />
       </div>
 
@@ -217,10 +241,10 @@ export default async function CotizacionPublicaPage({
                       {item.qty}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {mxn.format(Number(item.unit_price))}
+                      {fmt.format(Number(item.unit_price))}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {mxn.format(Number(item.line_total))}
+                      {fmt.format(Number(item.line_total))}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -232,19 +256,19 @@ export default async function CotizacionPublicaPage({
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Subtotal</span>
               <span className="tabular-nums">
-                {mxn.format(Number(quote.subtotal))}
+                {fmt.format(Number(quote.subtotal))}
               </span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Descuento</span>
               <span className="tabular-nums">
-                −{mxn.format(Number(quote.discount))}
+                −{fmt.format(Number(quote.discount))}
               </span>
             </div>
             <div className="flex items-center justify-between border-t pt-2 text-lg font-bold">
               <span>Total</span>
               <span className="tabular-nums">
-                {mxn.format(Number(quote.total))} MXN
+                {fmt.format(Number(quote.total))} {quote.currency || 'MXN'}
               </span>
             </div>
           </div>
@@ -260,7 +284,7 @@ export default async function CotizacionPublicaPage({
             <p className="text-sm text-muted-foreground">
               Enganche de{' '}
               <span className="font-medium text-foreground">
-                {mxn.format(Number(engancheMonto))}
+                {fmt.format(Number(engancheMonto))}
               </span>{' '}
               y {numAbonos} {numAbonos === 1 ? 'abono' : 'abonos'}{' '}
               {FREQ_LABEL[quote.plan.frequency ?? ''] ?? ''}
@@ -289,10 +313,10 @@ export default async function CotizacionPublicaPage({
                         {p.kind === 'enganche' ? 'Enganche' : `Abono ${p.seq}`}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
-                        {mxn.format(Number(p.amount))}
+                        {fmt.format(Number(p.amount))}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
-                        {mxn.format(p.saldo)}
+                        {fmt.format(p.saldo)}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -307,11 +331,15 @@ export default async function CotizacionPublicaPage({
         </Card>
       )}
 
-      <footer className="pb-8 text-center text-sm text-muted-foreground">
-        Contáctanos para confirmar:{' '}
-        {[quote.agency.contact_email, quote.agency.phone]
-          .filter(Boolean)
-          .join(' · ') || quote.agency.name}
+      <footer className="space-y-1 pb-8 text-center text-sm text-muted-foreground">
+        <p>
+          Contáctanos para confirmar:{' '}
+          {[quote.agency.contact_email, quote.agency.phone]
+            .filter(Boolean)
+            .join(' · ') || quote.agency.name}
+        </p>
+        {/* Firma unificada de las 3 superficies compartibles. */}
+        <p className="text-[10px]">Powered by Ketzal</p>
       </footer>
     </main>
   )
