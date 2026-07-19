@@ -1,7 +1,7 @@
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import type { Pack } from '@/lib/domain/packs'
+import { PageHeader } from '@/components/data/page-header'
 import { NuevaVentaForm } from './nueva-venta-form'
 
 export default async function NuevaVentaPage() {
@@ -17,7 +17,8 @@ export default async function NuevaVentaPage() {
     supabase.from('profiles').select('role, supplier_id').eq('id', user.id).single(),
     supabase
       .from('customers')
-      .select('id, full_name')
+      // El teléfono distingue clientes homónimos en el buscador del combobox.
+      .select('id, full_name, phone')
       .order('full_name', { ascending: true }),
   ])
   const profile = profileRes.data
@@ -62,15 +63,11 @@ export default async function NuevaVentaPage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <div>
-        <Link
-          href="/ventas"
-          className="text-sm text-muted-foreground hover:underline"
-        >
-          ← Volver a ventas
-        </Link>
-        <h1 className="mt-1 text-2xl font-semibold">Nueva venta</h1>
-      </div>
+      <PageHeader
+        title="Nueva venta"
+        backHref="/ventas"
+        backLabel="Volver a ventas"
+      />
 
       {(customersRes.error || servicesRes.error) && (
         <p className="text-sm text-destructive">

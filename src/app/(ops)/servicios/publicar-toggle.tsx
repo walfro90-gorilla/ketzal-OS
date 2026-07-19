@@ -4,6 +4,7 @@ import { useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { setServicioPublicado } from './actions'
 import { badgeVariants } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
 
 /**
  * Toggle inline en la lista de Servicios para prender/apagar la publicación en
@@ -34,7 +35,12 @@ export function PublicarToggle({
       onClick={toggle}
       disabled={pending}
       title={publicado ? 'Quitar del catálogo público' : 'Publicar en el catálogo'}
-      className={`${badgeVariants({ variant: publicado ? 'default' : 'outline' })} cursor-pointer disabled:opacity-50`}
+      // cn resuelve h-5/px-2 del badge → blanco táctil en móvil (36px),
+      // compacto en desktop (28px), sin perder la estética de badge.
+      className={cn(
+        badgeVariants({ variant: publicado ? 'default' : 'outline' }),
+        'h-9 px-3 md:h-7 cursor-pointer disabled:opacity-50'
+      )}
     >
       {publicado ? 'Público' : 'Privado'}
     </button>

@@ -13,6 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { Textarea } from '@/components/ui/textarea'
 import type { ClawbotKind, ClawbotReminder } from './data'
 import { descartarRecordatorio, marcarEnviado } from './acciones'
 
@@ -37,12 +38,6 @@ const KIND_CHIP: Record<
   viaje_proximo: { label: 'Viaje próximo', variant: 'default' },
   cotizacion_seguimiento: { label: 'Cotización', variant: 'secondary' },
 }
-
-// Estilo de <textarea> nativo alineado al Input de shadcn (no hay Textarea
-// en components/ui); mismo patrón que clientes/cliente-form.tsx, con
-// `text-base` en móvil para evitar el auto-zoom de iOS al enfocar.
-const textareaClass =
-  'min-h-24 w-full min-w-0 rounded-lg border border-input bg-transparent px-3 md:px-2.5 py-1.5 text-base md:text-sm transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 dark:bg-input/30'
 
 /**
  * Normaliza el teléfono para wa.me: solo dígitos, y si son 10 (número local
@@ -109,10 +104,11 @@ function ReminderCard({ reminder }: { reminder: ClawbotReminder }) {
         </CardAction>
       </CardHeader>
       <CardContent className="space-y-3">
-        <textarea
+        {/* min-h-24: el mensaje de WhatsApp suele ser más largo que una nota. */}
+        <Textarea
           id={`clawbot-msg-${reminder.id}`}
           aria-label="Mensaje del recordatorio"
-          className={textareaClass}
+          className="min-h-24"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           disabled={isPending}

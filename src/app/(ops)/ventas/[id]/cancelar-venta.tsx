@@ -3,12 +3,8 @@
 import { useState, useTransition } from 'react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { cancelarVenta } from './actions'
-
-// Mismo estilo del Input de shadcn, aplicado al textarea nativo
-// (no hay componente Textarea en el proyecto).
-const textareaClass =
-  'w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-sm transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 dark:bg-input/30'
 
 /**
  * Cancelación con confirmación en dos pasos dentro de la página
@@ -39,9 +35,8 @@ export function CancelarVenta({ bookingId }: { bookingId: string }) {
         <div className="space-y-3">
           <div className="space-y-2">
             <Label htmlFor="cancelar-motivo">Motivo (opcional)</Label>
-            <textarea
+            <Textarea
               id="cancelar-motivo"
-              className={textareaClass}
               rows={3}
               value={reason}
               onChange={(e) => setReason(e.target.value)}

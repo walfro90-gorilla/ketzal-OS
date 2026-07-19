@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import {
   Card,
@@ -7,6 +6,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { PageHeader } from '@/components/data/page-header'
 import { ServicioForm } from '../servicio-form'
 import { listarSalidas } from '../actions'
 import { EliminarServicio } from './eliminar-servicio'
@@ -64,32 +64,24 @@ export default async function ServicioDetallePage({
 
   if (servicioRes.error || !servicio) {
     return (
-      <div className="mx-auto max-w-2xl space-y-4">
-        <Link
-          href="/servicios"
-          className="text-sm text-muted-foreground hover:underline"
-        >
-          ← Volver a servicios
-        </Link>
-        <h1 className="text-2xl font-semibold">Servicio no encontrado</h1>
-        <p className="text-sm text-muted-foreground">
-          El servicio no existe o fue eliminado.
-        </p>
+      <div className="mx-auto max-w-2xl">
+        <PageHeader
+          title="Servicio no encontrado"
+          description="El servicio no existe o fue eliminado."
+          backHref="/servicios"
+          backLabel="Volver a servicios"
+        />
       </div>
     )
   }
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <div>
-        <Link
-          href="/servicios"
-          className="text-sm text-muted-foreground hover:underline"
-        >
-          ← Volver a servicios
-        </Link>
-        <h1 className="mt-1 text-2xl font-semibold">{servicio.name}</h1>
-      </div>
+      <PageHeader
+        title={servicio.name}
+        backHref="/servicios"
+        backLabel="Volver a servicios"
+      />
 
       {agenciasRes.error && (
         <p className="text-sm text-destructive">

@@ -3,8 +3,12 @@
 import Link from 'next/link'
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { convertirCotizacion } from './actions'
+
+// Táctil en móvil (40px) sin perder lo compacto del desktop (28px).
+const accionTactil = 'h-10 md:h-7'
 
 export function CotizacionAcciones({
   bookingId,
@@ -64,7 +68,10 @@ export function CotizacionAcciones({
       <div className="flex flex-wrap items-center gap-2">
         <Link
           href={`/ventas/${bookingId}`}
-          className={buttonVariants({ variant: 'outline', size: 'sm' })}
+          className={cn(
+            buttonVariants({ variant: 'outline', size: 'sm' }),
+            accionTactil
+          )}
         >
           Detalle
         </Link>
@@ -72,7 +79,10 @@ export function CotizacionAcciones({
           href={path}
           target="_blank"
           rel="noopener noreferrer"
-          className={buttonVariants({ variant: 'outline', size: 'sm' })}
+          className={cn(
+            buttonVariants({ variant: 'outline', size: 'sm' }),
+            accionTactil
+          )}
         >
           Ver
         </a>
@@ -81,16 +91,26 @@ export function CotizacionAcciones({
           target="_blank"
           rel="noopener noreferrer"
           onClick={handleWhatsAppClick}
-          className={buttonVariants({ variant: 'outline', size: 'sm' })}
+          className={cn(
+            buttonVariants({ variant: 'outline', size: 'sm' }),
+            accionTactil
+          )}
         >
           WhatsApp
         </a>
-        <Button type="button" variant="outline" size="sm" onClick={handleCopy}>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className={accionTactil}
+          onClick={handleCopy}
+        >
           {copied ? '¡Copiado!' : 'Copiar link'}
         </Button>
         <Button
           type="button"
           size="sm"
+          className={accionTactil}
           onClick={handleConvertir}
           disabled={isConverting}
         >

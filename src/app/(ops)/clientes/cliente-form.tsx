@@ -11,11 +11,9 @@ import {
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { PhoneInput } from '@/components/ui/phone-input'
+import { Textarea } from '@/components/ui/textarea'
 import { actualizarCliente, crearCliente, type ClienteInput } from './actions'
-
-// Estilo de <textarea> nativo alineado al Input de shadcn (no hay Textarea en components/ui).
-const textareaClass =
-  'min-h-20 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-sm transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 dark:bg-input/30'
 
 export type ClienteFormInitial = {
   full_name: string
@@ -96,12 +94,10 @@ export function ClienteForm({
             </div>
             <div className="space-y-2">
               <Label htmlFor="cliente-telefono">Teléfono</Label>
-              <Input
+              <PhoneInput
                 id="cliente-telefono"
-                type="tel"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="Ej. 656 123 4567"
+                onChange={setPhone}
               />
             </div>
             <div className="space-y-2">
@@ -125,9 +121,8 @@ export function ClienteForm({
             </div>
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="cliente-notas">Notas</Label>
-              <textarea
+              <Textarea
                 id="cliente-notas"
-                className={textareaClass}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Notas internas del cliente (opcional)"

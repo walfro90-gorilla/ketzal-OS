@@ -11,6 +11,8 @@ import {
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { NativeSelect } from '@/components/ui/native-select'
+import { Textarea } from '@/components/ui/textarea'
 import {
   actualizarServicio,
   crearServicio,
@@ -18,14 +20,6 @@ import {
   type ServicioInput,
 } from './actions'
 import { PACK_TYPES, type Pack, type PackInput } from '@/lib/domain/packs'
-
-// Estilo de <textarea> nativo alineado al Input de shadcn (no hay Textarea en components/ui).
-const textareaClass =
-  'min-h-20 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-sm transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 dark:bg-input/30'
-
-// Estilo de <select> nativo alineado al Input de shadcn (no hay Select en components/ui).
-const selectClass =
-  'h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 dark:bg-input/30'
 
 const TIPO_OPCIONES = [
   { value: 'tour', label: 'Tour' },
@@ -240,9 +234,8 @@ export function ServicioForm({
             </div>
             <div className="space-y-2">
               <Label htmlFor="servicio-agencia">Agencia (dueña) *</Label>
-              <select
+              <NativeSelect
                 id="servicio-agencia"
-                className={selectClass}
                 value={supplierId}
                 onChange={(e) => setSupplierId(e.target.value)}
               >
@@ -254,13 +247,12 @@ export function ServicioForm({
                     {agencia.name}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
             <div className="space-y-2">
               <Label htmlFor="servicio-tipo">Tipo de servicio</Label>
-              <select
+              <NativeSelect
                 id="servicio-tipo"
-                className={selectClass}
                 value={tipo}
                 onChange={(e) => setTipo(e.target.value as ServicioTipo)}
               >
@@ -269,13 +261,12 @@ export function ServicioForm({
                     {opcion.label}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="servicio-descripcion">Descripción</Label>
-              <textarea
+              <Textarea
                 id="servicio-descripcion"
-                className={textareaClass}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Qué incluye la experiencia, duración… (opcional)"
@@ -367,9 +358,8 @@ export function ServicioForm({
             </div>
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="servicio-incluye">Incluye</Label>
-              <textarea
+              <Textarea
                 id="servicio-incluye"
-                className={textareaClass}
                 value={includesText}
                 onChange={(e) => setIncludesText(e.target.value)}
                 placeholder={'Una línea por concepto. Ej.\nTransporte redondo\nDesayuno'}
@@ -377,9 +367,8 @@ export function ServicioForm({
             </div>
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="servicio-no-incluye">No incluye</Label>
-              <textarea
+              <Textarea
                 id="servicio-no-incluye"
-                className={textareaClass}
                 value={excludesText}
                 onChange={(e) => setExcludesText(e.target.value)}
                 placeholder={'Una línea por concepto. Ej.\nPropinas\nComidas no especificadas'}
@@ -421,8 +410,7 @@ export function ServicioForm({
                 onChange={(e) => actualizarDia(i, { title: e.target.value })}
                 placeholder="Título del día. Ej. Llegada a Creel y recorrido"
               />
-              <textarea
-                className={textareaClass}
+              <Textarea
                 value={dia.description}
                 onChange={(e) =>
                   actualizarDia(i, { description: e.target.value })

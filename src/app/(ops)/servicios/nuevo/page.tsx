@@ -1,6 +1,6 @@
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { PageHeader } from '@/components/data/page-header'
 import { ServicioForm } from '../servicio-form'
 
 export default async function NuevoServicioPage() {
@@ -21,15 +21,11 @@ export default async function NuevoServicioPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <div>
-        <Link
-          href="/servicios"
-          className="text-sm text-muted-foreground hover:underline"
-        >
-          ← Volver a servicios
-        </Link>
-        <h1 className="mt-1 text-2xl font-semibold">Nuevo servicio</h1>
-      </div>
+      <PageHeader
+        title="Nuevo servicio"
+        backHref="/servicios"
+        backLabel="Volver a servicios"
+      />
 
       {agenciasRes.error && (
         <p className="text-sm text-destructive">

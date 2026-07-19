@@ -11,19 +11,14 @@ import {
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { NativeSelect } from '@/components/ui/native-select'
+import { PhoneInput } from '@/components/ui/phone-input'
+import { Textarea } from '@/components/ui/textarea'
 import {
   actualizarProveedor,
   crearProveedor,
   type ProveedorInput,
 } from './actions'
-
-// Estilo de <textarea> nativo alineado al Input de shadcn (no hay Textarea en components/ui).
-const textareaClass =
-  'min-h-20 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-sm transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 dark:bg-input/30'
-
-// Estilo de <select> nativo alineado al Input de shadcn (no hay Select en components/ui).
-const selectClass =
-  'h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 dark:bg-input/30'
 
 type ProveedorTipo = 'agency' | 'transporte' | 'hotel' | 'otro'
 
@@ -151,19 +146,16 @@ export function ProveedorForm({
             </div>
             <div className="space-y-2">
               <Label htmlFor="proveedor-telefono">Teléfono</Label>
-              <Input
+              <PhoneInput
                 id="proveedor-telefono"
-                type="tel"
                 value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                placeholder="Ej. 656 123 4567"
+                onChange={setPhoneNumber}
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="proveedor-tipo">Tipo</Label>
-              <select
+              <NativeSelect
                 id="proveedor-tipo"
-                className={selectClass}
                 value={tipo}
                 onChange={(e) => setTipo(e.target.value as ProveedorTipo)}
               >
@@ -171,7 +163,7 @@ export function ProveedorForm({
                 <option value="transporte">Transporte</option>
                 <option value="hotel">Hotel</option>
                 <option value="otro">Otro</option>
-              </select>
+              </NativeSelect>
             </div>
             {tipo === 'agency' && (
               <div className="space-y-2">
@@ -200,9 +192,8 @@ export function ProveedorForm({
             </div>
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="proveedor-descripcion">Descripción</Label>
-              <textarea
+              <Textarea
                 id="proveedor-descripcion"
-                className={textareaClass}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Notas internas del proveedor (opcional)"

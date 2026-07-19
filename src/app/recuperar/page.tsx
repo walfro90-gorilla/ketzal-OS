@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { BrandMark } from '@/components/brand-mark'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -42,6 +43,7 @@ export default function RecuperarPage() {
     <main className="flex min-h-screen items-center justify-center p-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
+          <BrandMark className="size-6 text-primary" />
           <CardTitle className="text-xl">Recuperar contraseña</CardTitle>
           <CardDescription>
             Te enviamos un enlace para crear una nueva contraseña.

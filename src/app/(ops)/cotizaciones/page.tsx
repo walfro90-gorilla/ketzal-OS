@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { buttonVariants } from '@/components/ui/button'
 import { FileTextIcon } from 'lucide-react'
 import { EmptyState } from '@/components/data/empty-state'
+import { PageHeader } from '@/components/data/page-header'
 import { CotizacionesList, type QuoteRow } from './cotizaciones-list'
 
 export default async function CotizacionesPage() {
@@ -43,15 +44,17 @@ export default async function CotizacionesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">Cotizaciones</h1>
-        <Link
-          href="/ventas/nueva"
-          className={buttonVariants({ variant: 'default' })}
-        >
-          Nueva venta
-        </Link>
-      </div>
+      <PageHeader
+        title="Cotizaciones"
+        action={
+          <Link
+            href="/ventas/nueva"
+            className={buttonVariants({ variant: 'default' })}
+          >
+            Nueva venta
+          </Link>
+        }
+      />
 
       {error ? (
         <p className="text-sm text-destructive">

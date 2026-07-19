@@ -3,8 +3,9 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState } from 'react'
-import { MoreHorizontalIcon } from 'lucide-react'
+import { LogOutIcon, MoreHorizontalIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Separator } from '@/components/ui/separator'
 import {
   Sheet,
   SheetContent,
@@ -14,11 +15,28 @@ import {
 } from '@/components/ui/sheet'
 import { navItemsForRole, isNavActive } from './nav-items'
 
-// Bottom tab bar (sólo móvil). Rutas primarias + "Más" que abre un sheet
-// con el resto (solo admin). Respeta el safe-area del home indicator de iOS.
-export function BottomTabs({ role }: { role: string | null }) {
+// Bottom tab bar (sólo móvil). Rutas primarias + "Más" que abre un sheet con
+// el resto de la navegación y la cuenta (email + salir), para no obligar a
+// estirar el pulgar al avatar del header (plan §4: uso a una mano).
+// Respeta el safe-area del home indicator de iOS.
+export function BottomTabs({
+  role,
+  email,
+}: {
+  role: string | null
+  email: string | null
+}) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
+
+  // Mismo mecanismo que UserMenu: el header deja montado el form oculto
+  // #signout-form (POST a /auth/signout); aquí sólo lo disparamos.
+  function handleSignout() {
+    setOpen(false)
+    ;(
+      document.getElementById('signout-form') as HTMLFormElement | null
+    )?.requestSubmit()
+  }
   const items = navItemsForRole(role)
   const primaryItems = items.filter((i) => i.primary)
   const secondaryItems = items.filter((i) => !i.primary)
@@ -91,6 +109,23 @@ export function BottomTabs({ role }: { role: string | null }) {
                   )
                 })}
               </ul>
+              {/* Cuenta: email + salir al alcance del pulgar (plan §4). */}
+              {email && (
+                <div className="px-2 pb-2">
+                  <Separator className="mb-1" />
+                  <p className="truncate px-3 py-2 text-xs text-muted-foreground">
+                    {email}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleSignout}
+                    className="flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <LogOutIcon className="size-5 shrink-0" />
+                    Salir
+                  </button>
+                </div>
+              )}
             </SheetContent>
           </Sheet>
         </li>

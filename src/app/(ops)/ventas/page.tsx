@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { buttonVariants } from '@/components/ui/button'
 import { BanknoteIcon } from 'lucide-react'
 import { EmptyState } from '@/components/data/empty-state'
+import { PageHeader } from '@/components/data/page-header'
 import { VentasList, type SaleRow } from './ventas-list'
 
 export default async function VentasPage() {
@@ -20,15 +21,17 @@ export default async function VentasPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">Ventas</h1>
-        <Link
-          href="/ventas/nueva"
-          className={buttonVariants({ variant: 'default' })}
-        >
-          Nueva venta
-        </Link>
-      </div>
+      <PageHeader
+        title="Ventas"
+        action={
+          <Link
+            href="/ventas/nueva"
+            className={buttonVariants({ variant: 'default' })}
+          >
+            Nueva venta
+          </Link>
+        }
+      />
 
       {error ? (
         <p className="text-sm text-destructive">

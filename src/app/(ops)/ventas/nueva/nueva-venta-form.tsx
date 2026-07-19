@@ -1,14 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import {
-  useRef,
-  useState,
-  useTransition,
-  type ComponentProps,
-  type ReactNode,
-} from 'react'
-import { ChevronDownIcon, PlusIcon, Trash2Icon } from 'lucide-react'
+import { useRef, useState, useTransition, type ReactNode } from 'react'
+import { PlusIcon, Trash2Icon } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -19,8 +13,11 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { Combobox } from '@/components/ui/combobox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { NativeSelect } from '@/components/ui/native-select'
+import { PhoneInput } from '@/components/ui/phone-input'
 import {
   Table,
   TableBody,
@@ -42,7 +39,11 @@ import {
 import { ITEM_TYPE_LABELS, PASSENGER_TYPE_LABELS, mxn } from '../ui'
 import type { Pack } from '@/lib/domain/packs'
 
-export type CustomerOption = { id: string; full_name: string }
+export type CustomerOption = {
+  id: string
+  full_name: string
+  phone: string | null
+}
 // packs = precios por ocupación (sencilla/doble/triple/cuádruple). PRESET:
 // al elegir un paquete, autollena el `unit_price` de las líneas de PASAJERO
 // (no crear línea `room` suelta, o num_pax=0 y el cupo no baja). El precio
@@ -75,23 +76,6 @@ type LineDraft = {
   description: string
   qty: string
   unit_price: string
-}
-
-// <select> nativo (en móvil el picker del SO es mejor UX que un dropdown custom).
-// Táctil en móvil (44px), compacto en desktop; el `text-base` móvil evita el zoom de iOS.
-const selectClass =
-  'h-11 md:h-9 w-full min-w-0 appearance-none rounded-lg border border-input bg-transparent px-3 md:px-2.5 py-1 pr-9 text-base md:text-sm transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 dark:bg-input/30'
-
-// El <select> con appearance-none pierde la flecha nativa: la reponemos con un chevron.
-function NativeSelect({ className, children, ...props }: ComponentProps<'select'>) {
-  return (
-    <div className="relative">
-      <select className={cn(selectClass, className)} {...props}>
-        {children}
-      </select>
-      <ChevronDownIcon className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground" />
-    </div>
-  )
 }
 
 // Campo con etiqueta visible (para las tarjetas móviles; los controles ya traen aria-label).
@@ -416,31 +400,34 @@ export function NuevaVentaForm({
               </div>
               <div className="space-y-2">
                 <Label htmlFor="new-customer-phone">Teléfono</Label>
-                <Input
+                <PhoneInput
                   id="new-customer-phone"
-                  type="tel"
-                  inputMode="tel"
                   value={newPhone}
-                  onChange={(e) => setNewPhone(e.target.value)}
-                  placeholder="Ej. 656 123 4567"
+                  onChange={setNewPhone}
                 />
               </div>
             </div>
           ) : (
             <div className="space-y-2">
               <Label htmlFor="customer-select">Cliente</Label>
-              <NativeSelect
+              <Combobox
                 id="customer-select"
+                options={customers.map((c) => ({
+                  value: c.id,
+                  label: c.full_name,
+                  detail: c.phone,
+                }))}
                 value={customerId}
-                onChange={(e) => setCustomerId(e.target.value)}
-              >
-                <option value="">— Selecciona un cliente —</option>
-                {customers.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.full_name}
-                  </option>
-                ))}
-              </NativeSelect>
+                onChange={setCustomerId}
+                placeholder="Busca por nombre o teléfono…"
+                emptyHint="Ningún cliente coincide."
+                emptyActionLabel={(q) => `Dar de alta a “${q}”`}
+                onEmptyAction={(q) => {
+                  // Atajo: lo escrito pasa directo al alta de cliente nuevo.
+                  setNewCustomerMode(true)
+                  setNewName(q)
+                }}
+              />
             </div>
           )}
         </CardContent>
