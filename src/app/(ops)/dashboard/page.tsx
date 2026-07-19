@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/card'
 import { DataList, type DataColumn } from '@/components/data/data-list'
 import { EmptyState } from '@/components/data/empty-state'
+import { PageHeader } from '@/components/data/page-header'
 import {
   formatTravelDate,
   mxn,
@@ -650,20 +651,18 @@ export default async function DashboardPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Panel</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {agencia ? `Resumen operativo de ${agencia}` : 'Resumen operativo'}
-          </p>
-        </div>
-        <Link
-          href="/ventas/nueva"
-          className={buttonVariants({ variant: 'default' })}
-        >
-          Nueva venta
-        </Link>
-      </div>
+      <PageHeader
+        title="Panel"
+        description={agencia ? `Resumen operativo de ${agencia}` : 'Resumen operativo'}
+        action={
+          <Link
+            href="/ventas/nueva"
+            className={buttonVariants({ variant: 'default' })}
+          >
+            Nueva venta
+          </Link>
+        }
+      />
 
       {summaryRes.error && (
         <p className="text-sm text-destructive">

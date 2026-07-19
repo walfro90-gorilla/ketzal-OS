@@ -21,6 +21,7 @@ import {
   StatusBadge,
   type BookingStatus,
 } from '../../ventas/ui'
+import { PageHeader } from '@/components/data/page-header'
 import { ClienteForm } from '../cliente-form'
 
 type VentaCliente = {
@@ -50,17 +51,13 @@ export default async function ClienteDetallePage({
 
   if (error || !customer) {
     return (
-      <div className="mx-auto max-w-2xl space-y-4">
-        <Link
-          href="/clientes"
-          className="text-sm text-muted-foreground hover:underline"
-        >
-          ← Volver a clientes
-        </Link>
-        <h1 className="text-2xl font-semibold">Cliente no encontrado</h1>
-        <p className="text-sm text-muted-foreground">
-          El cliente no existe o no pertenece a tu agencia.
-        </p>
+      <div className="mx-auto max-w-2xl">
+        <PageHeader
+          title="Cliente no encontrado"
+          description="El cliente no existe o no pertenece a tu agencia."
+          backHref="/clientes"
+          backLabel="Volver a clientes"
+        />
       </div>
     )
   }
@@ -79,15 +76,11 @@ export default async function ClienteDetallePage({
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <div>
-        <Link
-          href="/clientes"
-          className="text-sm text-muted-foreground hover:underline"
-        >
-          ← Volver a clientes
-        </Link>
-        <h1 className="mt-1 text-2xl font-semibold">{customer.full_name}</h1>
-      </div>
+      <PageHeader
+        title={customer.full_name}
+        backHref="/clientes"
+        backLabel="Volver a clientes"
+      />
 
       <ClienteForm
         customerId={customer.id}

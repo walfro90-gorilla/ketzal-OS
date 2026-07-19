@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import { MapPinIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import {
@@ -10,6 +9,7 @@ import {
 } from '@/components/ui/card'
 import { DataList, type DataColumn } from '@/components/data/data-list'
 import { EmptyState } from '@/components/data/empty-state'
+import { PageHeader } from '@/components/data/page-header'
 import { ProveedorForm } from '../proveedor-form'
 import { EliminarProveedor } from './eliminar-proveedor'
 
@@ -115,32 +115,24 @@ export default async function ProveedorDetallePage({
 
   if (error || !proveedor) {
     return (
-      <div className="mx-auto max-w-2xl space-y-4">
-        <Link
-          href="/proveedores"
-          className="text-sm text-muted-foreground hover:underline"
-        >
-          ← Volver a proveedores
-        </Link>
-        <h1 className="text-2xl font-semibold">Proveedor no encontrado</h1>
-        <p className="text-sm text-muted-foreground">
-          El proveedor no existe o fue eliminado.
-        </p>
+      <div className="mx-auto max-w-2xl">
+        <PageHeader
+          title="Proveedor no encontrado"
+          description="El proveedor no existe o fue eliminado."
+          backHref="/proveedores"
+          backLabel="Volver a proveedores"
+        />
       </div>
     )
   }
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <div>
-        <Link
-          href="/proveedores"
-          className="text-sm text-muted-foreground hover:underline"
-        >
-          ← Volver a proveedores
-        </Link>
-        <h1 className="mt-1 text-2xl font-semibold">{proveedor.name}</h1>
-      </div>
+      <PageHeader
+        title={proveedor.name}
+        backHref="/proveedores"
+        backLabel="Volver a proveedores"
+      />
 
       <ProveedorForm
         proveedorId={proveedor.id}

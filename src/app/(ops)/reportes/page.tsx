@@ -7,6 +7,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { DataList, type DataColumn } from '@/components/data/data-list'
+import { PageHeader } from '@/components/data/page-header'
 import { mxn } from '../ventas/ui'
 import { RangoFechas } from './rango-fechas'
 import { ExportarCsv } from './exportar-csv'
@@ -152,15 +153,11 @@ export default async function ReportesPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Reportes</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Ventas y comisiones por periodo.
-          </p>
-        </div>
-        <ExportarCsv reporte={d} from={from} to={to} />
-      </div>
+      <PageHeader
+        title="Reportes"
+        description="Ventas y comisiones por periodo."
+        action={<ExportarCsv reporte={d} from={from} to={to} />}
+      />
 
       <RangoFechas key={`${from}|${to}`} from={from} to={to} />
 

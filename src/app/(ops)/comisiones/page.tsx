@@ -1,3 +1,4 @@
+import { PercentIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import {
   Card,
@@ -7,6 +8,8 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { DataList, type DataColumn } from '@/components/data/data-list'
+import { EmptyState } from '@/components/data/empty-state'
+import { PageHeader } from '@/components/data/page-header'
 import { mxn, StatusBadge, type BookingStatus } from '../ventas/ui'
 import { TasaForm } from './tasa-form'
 
@@ -92,12 +95,10 @@ export default async function ComisionesPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Comisiones</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Lo que ganas por revender viajes de otras agencias.
-        </p>
-      </div>
+      <PageHeader
+        title="Comisiones"
+        description="Lo que ganas por revender viajes de otras agencias."
+      />
 
       <Card>
         <CardHeader>
@@ -170,10 +171,11 @@ export default async function ComisionesPage() {
             getRowKey={(v) => v.id}
             rowHref={(v) => `/ventas/${v.id}`}
             empty={
-              <p className="text-sm text-muted-foreground">
-                Aún no has revendido viajes de otra agencia. Cuando vendas un
-                servicio cuyo dueño es otra agencia, la comisión aparece aquí.
-              </p>
+              <EmptyState
+                icon={PercentIcon}
+                title="Aún no has revendido viajes de otra agencia"
+                description="Cuando vendas un servicio cuyo dueño es otra agencia, la comisión aparece aquí."
+              />
             }
           />
         </CardContent>

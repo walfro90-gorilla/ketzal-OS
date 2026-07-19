@@ -1,3 +1,4 @@
+import { UsersRoundIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import {
   Card,
@@ -6,6 +7,8 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { EmptyState } from '@/components/data/empty-state'
+import { PageHeader } from '@/components/data/page-header'
 import { EquipoList } from './equipo-list'
 import type { Miembro } from './miembro-acciones'
 import { TasaPlataformaForm } from './tasa-plataforma-form'
@@ -56,12 +59,10 @@ export default async function EquipoPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Equipo</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Agentes de venta: de agencia o libres de Ketzal.
-        </p>
-      </div>
+      <PageHeader
+        title="Equipo"
+        description="Agentes de venta: de agencia o libres de Ketzal."
+      />
 
       {isSuperadmin && (
         <Card>
@@ -108,9 +109,11 @@ export default async function EquipoPage() {
             agencias={agencias}
             isSuperadmin={isSuperadmin}
             empty={
-              <p className="text-sm text-muted-foreground">
-                Aún no hay miembros en el equipo.
-              </p>
+              <EmptyState
+                icon={UsersRoundIcon}
+                title="Aún no hay miembros en el equipo"
+                description="Cuando alguien se registre aparecerá aquí para aprobarlo."
+              />
             }
           />
         </CardContent>

@@ -1,6 +1,6 @@
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { PageHeader } from '@/components/data/page-header'
 import { ProveedorForm } from '../proveedor-form'
 
 export default async function NuevoProveedorPage() {
@@ -12,15 +12,11 @@ export default async function NuevoProveedorPage() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
-      <div>
-        <Link
-          href="/proveedores"
-          className="text-sm text-muted-foreground hover:underline"
-        >
-          ← Volver a proveedores
-        </Link>
-        <h1 className="mt-1 text-2xl font-semibold">Nuevo proveedor</h1>
-      </div>
+      <PageHeader
+        title="Nuevo proveedor"
+        backHref="/proveedores"
+        backLabel="Volver a proveedores"
+      />
 
       <ProveedorForm />
     </div>

@@ -10,6 +10,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { DataList, type DataColumn } from '@/components/data/data-list'
 import { EmptyState } from '@/components/data/empty-state'
+import { PageHeader } from '@/components/data/page-header'
 import { formatTravelDate, mxn } from '../ventas/ui'
 import { getCobranza, type CobranzaItem } from './data'
 
@@ -67,13 +68,10 @@ export default async function CobranzaPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Cobranza</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Ventas con saldo pendiente: el próximo pago del plan y cuánto van
-          atrasadas.
-        </p>
-      </div>
+      <PageHeader
+        title="Cobranza"
+        description="Ventas con saldo pendiente: el próximo pago del plan y cuánto van atrasadas."
+      />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Card>

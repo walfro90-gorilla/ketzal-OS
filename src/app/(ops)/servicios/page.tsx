@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { buttonVariants } from '@/components/ui/button'
 import { MapPinIcon } from 'lucide-react'
 import { EmptyState } from '@/components/data/empty-state'
+import { PageHeader } from '@/components/data/page-header'
 import { ServiciosList, type Servicio } from './servicios-list'
 
 type ServicioRow = Omit<Servicio, 'agencia'>
@@ -58,20 +59,18 @@ export default async function ServiciosPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Servicios</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Catálogo de viajes y paquetes que vendes.
-          </p>
-        </div>
-        <Link
-          href="/servicios/nuevo"
-          className={buttonVariants({ variant: 'default' })}
-        >
-          Nuevo servicio
-        </Link>
-      </div>
+      <PageHeader
+        title="Servicios"
+        description="Catálogo de viajes y paquetes que vendes."
+        action={
+          <Link
+            href="/servicios/nuevo"
+            className={buttonVariants({ variant: 'default' })}
+          >
+            Nuevo servicio
+          </Link>
+        }
+      />
 
       {serviciosRes.error ? (
         <p className="text-sm text-destructive">
