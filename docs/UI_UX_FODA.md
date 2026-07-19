@@ -114,6 +114,8 @@ ciclo y qué queda como deuda explícita.
 | # | Acción | Estado |
 |---|---|---|
 | C3-1 | `money`/`fechas` → `components/data/format.ts` y `StatusBadge`/`BookingStatus` → `components/data/status-badge.tsx`. Los 17 importadores migrados; `ventas/ui.tsx` queda solo con las etiquetas de dominio (item/passenger). Mata los imports cross-feature de `ventas/ui` (§4 del plan) | ✅ |
+| C3-2 | Feedback de éxito de formularios unificado a `toast` (sonner): los 7 forms con "Guardado ✓" inline (cliente, proveedor, servicio, tasa comisión, tasa plataforma, miembro, vencimiento) ahora usan `toast.success`, sin estado `saved`/`setTimeout` | ✅ |
+| C3-3 | OG condicional de `servicio/[id]`: `opengraph-image.tsx` usa el banner como foto a sangre (scrim + nombre/destino/precio/marca) si existe, y cae a la tarjeta de marca si no — siempre hay preview al compartir. `generateMetadata` deja de fijar `images` (lo provee el archivo) | ✅ |
 
 ### Aplicado (ciclo 2 — segunda pasada)
 
@@ -141,15 +143,15 @@ ciclo y qué queda como deuda explícita.
 | P2-5 | `loading.tsx` en las 4 rutas públicas; OG de `/explora`; CTA de servicio full-width táctil | ✅ |
 | P2-6 | `salud`: eventos a `DataList`; EmptyState compartido en comisiones/equipo | ✅ |
 
-### Pendiente (próximo ciclo — en orden)
+### Pendiente
 
 1. **⌘K ampliado** a cotizaciones/proveedores/cobranza — requiere ampliar el
    RPC `global_search` (capa backend): coordinar con el agente de backend.
-4. **Unificar el patrón de éxito** de formularios (decidir toast vs inline).
-5. **OG condicional para ficha de servicio sin banner** (ojo: la convención
-   `opengraph-image.tsx` pisa el banner real; debe usar el banner si existe y
-   solo caer al card de marca si no — no romper el caso con banner).
-6. **Logo real** → swap en `brand-icon.tsx`/`BrandMark` (bloqueado por diseño).
+2. **Logo real** → swap en `brand-icon.tsx`/`BrandMark` (bloqueado por diseño).
+
+> Con C3-3 quedan cubiertos todos los pendientes de la capa presentacional que
+> no dependen de backend o de un asset externo. Los 2 restantes están fuera del
+> alcance de UI (RPC / diseño).
 
 ## Verificación de este ciclo
 

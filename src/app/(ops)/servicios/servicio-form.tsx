@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -87,7 +88,6 @@ export function ServicioForm({
 }) {
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
-  const [saved, setSaved] = useState(false)
 
   const [name, setName] = useState(initial?.name ?? '')
   const [supplierId, setSupplierId] = useState(
@@ -172,7 +172,6 @@ export function ServicioForm({
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError(null)
-    setSaved(false)
 
     if (!name.trim()) {
       setError('Escribe el nombre del servicio.')
@@ -237,7 +236,7 @@ export function ServicioForm({
       if (servicioId) {
         const result = await actualizarServicio(servicioId, input)
         if ('error' in result) setError(result.error)
-        else setSaved(true)
+        else toast.success('Servicio actualizado')
       } else {
         // En éxito la acción redirige a /servicios/[id]; solo llega aquí con error.
         const result = await crearServicio(input)
@@ -521,14 +520,6 @@ export function ServicioForm({
               ? 'Guardar cambios'
               : 'Guardar servicio'}
         </Button>
-        {saved && (
-          <span
-            role="status"
-            className="text-sm text-emerald-600 dark:text-emerald-400"
-          >
-            Guardado ✓
-          </span>
-        )}
       </div>
     </form>
   )

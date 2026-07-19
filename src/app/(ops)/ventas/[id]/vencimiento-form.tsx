@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { actualizarVencimiento } from './actions'
@@ -19,19 +20,17 @@ export function VencimientoForm({
   const [isPending, startTransition] = useTransition()
   const [value, setValue] = useState(dueDate?.slice(0, 10) ?? '')
   const [error, setError] = useState<string | null>(null)
-  const [saved, setSaved] = useState(false)
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError(null)
-    setSaved(false)
     startTransition(async () => {
       const result = await actualizarVencimiento(bookingId, value || null)
       if ('error' in result) {
         setError(result.error)
         return
       }
-      setSaved(true)
+      toast.success('Vencimiento actualizado')
     })
   }
 
@@ -42,20 +41,12 @@ export function VencimientoForm({
           type="date"
           aria-label="Fecha límite de pago"
           value={value}
-          onChange={(e) => {
-            setValue(e.target.value)
-            setSaved(false)
-          }}
+          onChange={(e) => setValue(e.target.value)}
           className="w-fit"
         />
         <Button type="submit" variant="outline" size="sm" disabled={isPending}>
           {isPending ? 'Guardando…' : 'Guardar'}
         </Button>
-        {saved && !isPending && (
-          <span className="text-sm text-emerald-600 dark:text-emerald-400">
-            Guardado ✓
-          </span>
-        )}
       </div>
       {error && (
         <p role="alert" className="text-sm text-destructive">
