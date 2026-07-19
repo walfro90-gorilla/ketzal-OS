@@ -136,6 +136,11 @@ export async function leerArchivoServicio(
       body: JSON.stringify({
         model: MODELO,
         temperature: 0,
+        // qwen3.6 es modelo de razonamiento: con el razonamiento activo gasta
+        // la generación pensando y `content` vuelve VACÍO, así que el modo JSON
+        // falla con json_validate_failed. Apagarlo es lo que hace que extraiga.
+        // Extraer campos de un volante no necesita cadena de pensamiento.
+        reasoning_effort: 'none',
         response_format: { type: 'json_object' },
         messages: [
           {
