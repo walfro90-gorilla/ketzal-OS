@@ -169,6 +169,17 @@ end $$;
 ALTER FUNCTION "ketzal"."_compute_payment_plan"("p_total" numeric, "p_start" "date", "p_final" "date", "p_frequency" "text", "p_down_pct" numeric) OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "ketzal"."agency_name"("p_id" "uuid") RETURNS "text"
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'ketzal', 'pg_temp'
+    AS $$
+  select name from ketzal.suppliers where id = p_id and supplier_type = 'agency';
+$$;
+
+
+ALTER FUNCTION "ketzal"."agency_name"("p_id" "uuid") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "ketzal"."assign_user_agency"("p_user" "uuid", "p_supplier" "uuid") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'ketzal', 'pg_temp'
@@ -988,6 +999,18 @@ $$;
 
 
 ALTER FUNCTION "ketzal"."is_superadmin"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "ketzal"."list_agency_names"() RETURNS "jsonb"
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'ketzal', 'pg_temp'
+    AS $$
+  select coalesce(jsonb_agg(jsonb_build_object('id', id, 'name', name) order by name), '[]'::jsonb)
+  from ketzal.suppliers where supplier_type = 'agency';
+$$;
+
+
+ALTER FUNCTION "ketzal"."list_agency_names"() OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "ketzal"."list_customers"() RETURNS "jsonb"
@@ -2129,11 +2152,16 @@ CREATE TABLE IF NOT EXISTS "ketzal"."suppliers" (
     "info" "jsonb",
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "commission_rate" numeric(5,2) DEFAULT 0 NOT NULL
+    "commission_rate" numeric(5,2) DEFAULT 0 NOT NULL,
+    "owner_supplier_id" "uuid"
 );
 
 
 ALTER TABLE "ketzal"."suppliers" OWNER TO "postgres";
+
+
+COMMENT ON COLUMN "ketzal"."suppliers"."owner_supplier_id" IS 'Agencia dueña de este proveedor operativo. NULL en las agencias (son de primer nivel).';
+
 
 
 CREATE TABLE IF NOT EXISTS "ketzal"."system_log" (
@@ -2509,6 +2537,10 @@ CREATE INDEX "services_published_idx" ON "ketzal"."services" USING "btree" ("pub
 
 
 
+CREATE INDEX "suppliers_owner_idx" ON "ketzal"."suppliers" USING "btree" ("owner_supplier_id");
+
+
+
 CREATE INDEX "system_log_ts_idx" ON "ketzal"."system_log" USING "btree" ("ts" DESC);
 
 
@@ -2790,6 +2822,11 @@ ALTER TABLE ONLY "ketzal"."services"
 
 ALTER TABLE ONLY "ketzal"."services"
     ADD CONSTRAINT "services_transport_provider_id_fkey" FOREIGN KEY ("transport_provider_id") REFERENCES "ketzal"."suppliers"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "ketzal"."suppliers"
+    ADD CONSTRAINT "suppliers_owner_supplier_id_fkey" FOREIGN KEY ("owner_supplier_id") REFERENCES "ketzal"."suppliers"("id") ON DELETE SET NULL;
 
 
 
@@ -3081,19 +3118,19 @@ CREATE POLICY "services_update" ON "ketzal"."services" FOR UPDATE USING (("ketza
 ALTER TABLE "ketzal"."suppliers" ENABLE ROW LEVEL SECURITY;
 
 
-CREATE POLICY "suppliers_delete" ON "ketzal"."suppliers" FOR DELETE USING ("ketzal"."is_superadmin"());
+CREATE POLICY "suppliers_delete" ON "ketzal"."suppliers" FOR DELETE USING (("ketzal"."is_superadmin"() OR ("owner_supplier_id" = "ketzal"."my_supplier_id"())));
 
 
 
-CREATE POLICY "suppliers_insert" ON "ketzal"."suppliers" FOR INSERT WITH CHECK ("ketzal"."is_superadmin"());
+CREATE POLICY "suppliers_insert" ON "ketzal"."suppliers" FOR INSERT WITH CHECK (("ketzal"."is_superadmin"() OR ("ketzal"."is_active"() AND ("owner_supplier_id" = "ketzal"."my_supplier_id"()))));
 
 
 
-CREATE POLICY "suppliers_read" ON "ketzal"."suppliers" FOR SELECT USING (true);
+CREATE POLICY "suppliers_read" ON "ketzal"."suppliers" FOR SELECT USING (("ketzal"."is_superadmin"() OR ("id" = "ketzal"."my_supplier_id"()) OR ("owner_supplier_id" = "ketzal"."my_supplier_id"())));
 
 
 
-CREATE POLICY "suppliers_update" ON "ketzal"."suppliers" FOR UPDATE USING (("ketzal"."is_superadmin"() OR ("id" = "ketzal"."my_supplier_id"()))) WITH CHECK (("ketzal"."is_superadmin"() OR ("id" = "ketzal"."my_supplier_id"())));
+CREATE POLICY "suppliers_update" ON "ketzal"."suppliers" FOR UPDATE USING (("ketzal"."is_superadmin"() OR ("id" = "ketzal"."my_supplier_id"()) OR ("owner_supplier_id" = "ketzal"."my_supplier_id"())));
 
 
 
@@ -3166,6 +3203,11 @@ GRANT USAGE ON SCHEMA "ketzal" TO "service_role";
 
 
 GRANT ALL ON FUNCTION "ketzal"."_compute_payment_plan"("p_total" numeric, "p_start" "date", "p_final" "date", "p_frequency" "text", "p_down_pct" numeric) TO "authenticated";
+
+
+
+REVOKE ALL ON FUNCTION "ketzal"."agency_name"("p_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "ketzal"."agency_name"("p_id" "uuid") TO "authenticated";
 
 
 
@@ -3286,6 +3328,11 @@ GRANT ALL ON FUNCTION "ketzal"."get_statement_by_token"("p_token" "uuid") TO "au
 
 
 GRANT ALL ON FUNCTION "ketzal"."global_search"("p_q" "text") TO "authenticated";
+
+
+
+REVOKE ALL ON FUNCTION "ketzal"."list_agency_names"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "ketzal"."list_agency_names"() TO "authenticated";
 
 
 

@@ -99,6 +99,10 @@ for (const [fn, arg] of [
   ['clawbot_bandeja', {}],
   ['reports_summary', { p_from: '2020-01-01', p_to: '2030-01-01' }],
   ['global_search', { p_q: 'a' }],
+  // Superficie nueva de la migración 006: son SECURITY DEFINER, así que si el
+  // grant quedara flojo servirían el directorio de agencias a cualquiera.
+  ['list_agency_names', {}],
+  ['agency_name', { p_id: '00000000-0000-4000-8000-00000000a001' }],
 ]) {
   const r = await anonRpc(fn, arg)
   const filas = Array.isArray(r.body) ? r.body.length : (r.body && typeof r.body === 'object' ? 1 : 0)
