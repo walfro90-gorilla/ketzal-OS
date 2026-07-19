@@ -36,13 +36,19 @@ export default async function ServiciosPage() {
     serviciosQuery = serviciosQuery.eq('supplier_id', profile.supplier_id)
   }
 
+  // Vía RPC y no `from('suppliers')`: desde la migración 006 la RLS sólo deja
+  // ver tu agencia y tus proveedores, así que la tabla ya no sirve para resolver
+  // nombres ajenos. `list_agency_names` es SECURITY DEFINER y devuelve
+  // únicamente id + nombre — sin comisión ni datos de contacto.
   const [serviciosRes, agenciasRes] = await Promise.all([
     serviciosQuery,
-    supabase.from('suppliers').select('id, name'),
+    supabase.rpc('list_agency_names' as never),
   ])
 
   const agenciaPorId = new Map(
-    (agenciasRes.data ?? []).map((agencia) => [agencia.id, agencia.name])
+    ((agenciasRes.data ?? []) as { id: string; name: string }[]).map(
+      (agencia) => [agencia.id, agencia.name]
+    )
   )
 
   // Se aplana el nombre de la agencia en la fila: el Map no cruza al cliente.

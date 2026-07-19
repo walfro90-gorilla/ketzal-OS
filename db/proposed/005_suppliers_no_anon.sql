@@ -1,0 +1,35 @@
+-- 005 — `suppliers` deja de ser legible por `anon`.
+--
+-- HALLAZGO (hard testing 2026-07-19, `supabase/tests/superficie_anonima.mjs`):
+-- con sólo la anon key —que NO es un secreto, va en el bundle de JS de cada
+-- página por diseño— un tercero obtenía la tabla `suppliers` completa:
+--
+--   Wanderlust Travels · wanderlust.travels@gorillabs.dev · +52656… · comisión 3
+--   Border Travels     · contacto@bordertravels.mx        · 656…    · comisión 10
+--
+-- Causa: `anon` tenía GRANT SELECT y la policy `suppliers_read` es `qual = true`.
+--
+-- QUÉ SE FILTRABA DE VERDAD. La info de contacto de una agencia con tours
+-- publicados ya es pública a propósito — `get_public_service` la incluye para
+-- que el viajero pueda escribirle. Lo que NO debía salir nunca:
+--   · `commission_rate` — término comercial. Que una agencia vea que otra paga
+--     3% mientras ella paga 10% es un problema de negociación.
+--   · los proveedores OPERATIVOS (hotel, transporte): no son agencias, nunca
+--     aparecen en la vitrina, y estaban expuestos con correo y teléfono. Eso es
+--     la red de proveedores completa — el activo que un competidor querría.
+--
+-- POR QUÉ REVOCAR ENTERO Y NO GRANTS POR COLUMNA: se auditaron los 14 usos de
+-- `from('suppliers')` en la app y **los 14 viven bajo `src/app/(ops)/`**, el
+-- back-office autenticado. La vitrina pública no toca la tabla: usa
+-- `list_public_services()` y `get_public_service()`, ambos SECURITY DEFINER, que
+-- corren como owner y no dependen de este grant. Revocar no rompe nada, y un
+-- grant por columna sería superficie que hay que recordar mantener.
+
+revoke select on ketzal.suppliers from anon;
+
+-- NOTA — pendiente de decisión de negocio, NO se toca aquí:
+-- la policy `suppliers_read` sigue en `qual = true` para `authenticated`, así que
+-- cualquier agente autenticado lee `commission_rate` de las demás agencias. Puede
+-- ser deliberado (el modelo de reventa exige ver el catálogo ajeno) o puede ser
+-- el mismo descuido un nivel más adentro. Cerrarlo requiere saber si la comisión
+-- es un término compartido o privado entre agencias — no es una decisión técnica.

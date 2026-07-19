@@ -169,6 +169,17 @@ end $$;
 ALTER FUNCTION "ketzal"."_compute_payment_plan"("p_total" numeric, "p_start" "date", "p_final" "date", "p_frequency" "text", "p_down_pct" numeric) OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "ketzal"."agency_name"("p_id" "uuid") RETURNS "text"
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'ketzal', 'pg_temp'
+    AS $$
+  select name from ketzal.suppliers where id = p_id and supplier_type = 'agency';
+$$;
+
+
+ALTER FUNCTION "ketzal"."agency_name"("p_id" "uuid") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "ketzal"."assign_user_agency"("p_user" "uuid", "p_supplier" "uuid") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'ketzal', 'pg_temp'
@@ -990,6 +1001,18 @@ $$;
 ALTER FUNCTION "ketzal"."is_superadmin"() OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "ketzal"."list_agency_names"() RETURNS "jsonb"
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'ketzal', 'pg_temp'
+    AS $$
+  select coalesce(jsonb_agg(jsonb_build_object('id', id, 'name', name) order by name), '[]'::jsonb)
+  from ketzal.suppliers where supplier_type = 'agency';
+$$;
+
+
+ALTER FUNCTION "ketzal"."list_agency_names"() OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "ketzal"."list_customers"() RETURNS "jsonb"
     LANGUAGE "plpgsql"
     SET "search_path" TO 'ketzal', 'pg_temp'
@@ -1169,18 +1192,42 @@ CREATE OR REPLACE FUNCTION "ketzal"."register_payment"("p_booking_id" "uuid", "p
     LANGUAGE "plpgsql"
     SET "search_path" TO 'ketzal', 'pg_temp'
     AS $$
-declare v_uid uuid := auth.uid(); v_supplier uuid; v_balance numeric;
+declare
+  v_uid uuid := auth.uid();
+  v_supplier uuid; v_balance numeric; v_total numeric; v_pagado numeric;
+  v_type ketzal.payment_type := coalesce(p_type, 'payment');
+  v_monto numeric := round(coalesce(p_amount, 0), 2);
 begin
   if v_uid is null then raise exception 'No autenticado'; end if;
   if not ketzal.is_active() then raise exception 'Tu cuenta está pendiente de aprobación.'; end if;
-  if coalesce(p_amount,0) <= 0 then raise exception 'El monto debe ser mayor a 0'; end if;
+  if v_monto <= 0 then raise exception 'El monto debe ser mayor a 0'; end if;
 
-  select selling_supplier_id into v_supplier from ketzal.bookings where id = p_booking_id;
+  select selling_supplier_id, total into v_supplier, v_total
+    from ketzal.bookings where id = p_booking_id for update;
   if not found then raise exception 'Venta no encontrada o sin acceso'; end if;
+
+  select coalesce(sum(case when type = 'payment' then amount_mxn
+                           when type = 'refund'  then -amount_mxn
+                           else 0 end), 0)
+    into v_pagado
+    from ketzal.payments
+   where booking_id = p_booking_id and status = 'COMPLETED';
+
+  if v_type = 'payment' then
+    if v_monto > round(v_total - v_pagado, 2) then
+      raise exception 'El monto (%) excede el saldo pendiente (%).',
+        v_monto, round(v_total - v_pagado, 2);
+    end if;
+  elsif v_type = 'refund' then
+    if v_monto > round(v_pagado, 2) then
+      raise exception 'El reembolso (%) excede lo abonado (%).',
+        v_monto, round(v_pagado, 2);
+    end if;
+  end if;
 
   insert into ketzal.payments(booking_id, supplier_id, user_id, amount_mxn, status, type,
                               payment_method, paid_at, installments, current_installment)
-  values (p_booking_id, v_supplier, v_uid, round(p_amount,2), 'COMPLETED', coalesce(p_type,'payment'),
+  values (p_booking_id, v_supplier, v_uid, v_monto, 'COMPLETED', v_type,
           nullif(trim(coalesce(p_method,'')),''), coalesce(p_paid_at, now()), 1, 1);
 
   select balance into v_balance from ketzal.bookings_with_balance where id = p_booking_id;
@@ -1373,6 +1420,21 @@ $$;
 
 
 ALTER FUNCTION "ketzal"."tg_booking_capacity"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "ketzal"."tg_ledger_inmutable"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+begin
+  raise exception
+    'ledger append-only: % sobre % está prohibido. Las correcciones son asientos nuevos (payment tipo refund).',
+    tg_op, tg_table_name
+    using errcode = 'P0001';
+end $$;
+
+
+ALTER FUNCTION "ketzal"."tg_ledger_inmutable"() OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "ketzal"."touch_updated_at"() RETURNS "trigger"
@@ -2090,11 +2152,16 @@ CREATE TABLE IF NOT EXISTS "ketzal"."suppliers" (
     "info" "jsonb",
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    "commission_rate" numeric(5,2) DEFAULT 0 NOT NULL
+    "commission_rate" numeric(5,2) DEFAULT 0 NOT NULL,
+    "owner_supplier_id" "uuid"
 );
 
 
 ALTER TABLE "ketzal"."suppliers" OWNER TO "postgres";
+
+
+COMMENT ON COLUMN "ketzal"."suppliers"."owner_supplier_id" IS 'Agencia dueña de este proveedor operativo. NULL en las agencias (son de primer nivel).';
+
 
 
 CREATE TABLE IF NOT EXISTS "ketzal"."system_log" (
@@ -2458,11 +2525,19 @@ CREATE INDEX "payments_booking_idx" ON "ketzal"."payments" USING "btree" ("booki
 
 
 
+CREATE UNIQUE INDEX "receipts_payment_id_uidx" ON "ketzal"."receipts" USING "btree" ("payment_id");
+
+
+
 CREATE INDEX "service_departures_service_idx" ON "ketzal"."service_departures" USING "btree" ("service_id");
 
 
 
 CREATE INDEX "services_published_idx" ON "ketzal"."services" USING "btree" ("published") WHERE "published";
+
+
+
+CREATE INDEX "suppliers_owner_idx" ON "ketzal"."suppliers" USING "btree" ("owner_supplier_id");
 
 
 
@@ -2509,6 +2584,22 @@ CREATE OR REPLACE VIEW "ketzal"."bookings_with_balance" WITH ("security_invoker"
    FROM ("ketzal"."bookings" "b"
      LEFT JOIN "ketzal"."payments" "p" ON ((("p"."booking_id" = "b"."id") AND ("p"."status" = 'COMPLETED'::"ketzal"."payment_status"))))
   GROUP BY "b"."id";
+
+
+
+CREATE OR REPLACE TRIGGER "no_mutar" BEFORE DELETE OR TRUNCATE ON "ketzal"."payments" FOR EACH STATEMENT EXECUTE FUNCTION "ketzal"."tg_ledger_inmutable"();
+
+
+
+CREATE OR REPLACE TRIGGER "no_mutar" BEFORE DELETE OR TRUNCATE ON "ketzal"."receipt_counters" FOR EACH STATEMENT EXECUTE FUNCTION "ketzal"."tg_ledger_inmutable"();
+
+
+
+CREATE OR REPLACE TRIGGER "no_mutar" BEFORE DELETE OR TRUNCATE ON "ketzal"."receipts" FOR EACH STATEMENT EXECUTE FUNCTION "ketzal"."tg_ledger_inmutable"();
+
+
+
+CREATE OR REPLACE TRIGGER "no_mutar" BEFORE DELETE OR TRUNCATE ON "ketzal"."system_log" FOR EACH STATEMENT EXECUTE FUNCTION "ketzal"."tg_ledger_inmutable"();
 
 
 
@@ -2731,6 +2822,11 @@ ALTER TABLE ONLY "ketzal"."services"
 
 ALTER TABLE ONLY "ketzal"."services"
     ADD CONSTRAINT "services_transport_provider_id_fkey" FOREIGN KEY ("transport_provider_id") REFERENCES "ketzal"."suppliers"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "ketzal"."suppliers"
+    ADD CONSTRAINT "suppliers_owner_supplier_id_fkey" FOREIGN KEY ("owner_supplier_id") REFERENCES "ketzal"."suppliers"("id") ON DELETE SET NULL;
 
 
 
@@ -3022,19 +3118,19 @@ CREATE POLICY "services_update" ON "ketzal"."services" FOR UPDATE USING (("ketza
 ALTER TABLE "ketzal"."suppliers" ENABLE ROW LEVEL SECURITY;
 
 
-CREATE POLICY "suppliers_delete" ON "ketzal"."suppliers" FOR DELETE USING ("ketzal"."is_superadmin"());
+CREATE POLICY "suppliers_delete" ON "ketzal"."suppliers" FOR DELETE USING (("ketzal"."is_superadmin"() OR ("owner_supplier_id" = "ketzal"."my_supplier_id"())));
 
 
 
-CREATE POLICY "suppliers_insert" ON "ketzal"."suppliers" FOR INSERT WITH CHECK ("ketzal"."is_superadmin"());
+CREATE POLICY "suppliers_insert" ON "ketzal"."suppliers" FOR INSERT WITH CHECK (("ketzal"."is_superadmin"() OR ("ketzal"."is_active"() AND ("owner_supplier_id" = "ketzal"."my_supplier_id"()))));
 
 
 
-CREATE POLICY "suppliers_read" ON "ketzal"."suppliers" FOR SELECT USING (true);
+CREATE POLICY "suppliers_read" ON "ketzal"."suppliers" FOR SELECT USING (("ketzal"."is_superadmin"() OR ("id" = "ketzal"."my_supplier_id"()) OR ("owner_supplier_id" = "ketzal"."my_supplier_id"())));
 
 
 
-CREATE POLICY "suppliers_update" ON "ketzal"."suppliers" FOR UPDATE USING (("ketzal"."is_superadmin"() OR ("id" = "ketzal"."my_supplier_id"()))) WITH CHECK (("ketzal"."is_superadmin"() OR ("id" = "ketzal"."my_supplier_id"())));
+CREATE POLICY "suppliers_update" ON "ketzal"."suppliers" FOR UPDATE USING (("ketzal"."is_superadmin"() OR ("id" = "ketzal"."my_supplier_id"()) OR ("owner_supplier_id" = "ketzal"."my_supplier_id"())));
 
 
 
@@ -3107,6 +3203,11 @@ GRANT USAGE ON SCHEMA "ketzal" TO "service_role";
 
 
 GRANT ALL ON FUNCTION "ketzal"."_compute_payment_plan"("p_total" numeric, "p_start" "date", "p_final" "date", "p_frequency" "text", "p_down_pct" numeric) TO "authenticated";
+
+
+
+REVOKE ALL ON FUNCTION "ketzal"."agency_name"("p_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "ketzal"."agency_name"("p_id" "uuid") TO "authenticated";
 
 
 
@@ -3227,6 +3328,11 @@ GRANT ALL ON FUNCTION "ketzal"."get_statement_by_token"("p_token" "uuid") TO "au
 
 
 GRANT ALL ON FUNCTION "ketzal"."global_search"("p_q" "text") TO "authenticated";
+
+
+
+REVOKE ALL ON FUNCTION "ketzal"."list_agency_names"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "ketzal"."list_agency_names"() TO "authenticated";
 
 
 
@@ -3382,8 +3488,8 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "ketzal"."payment_schedule" TO "servi
 
 
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "ketzal"."payments" TO "authenticated";
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "ketzal"."payments" TO "service_role";
+GRANT SELECT,INSERT,UPDATE ON TABLE "ketzal"."payments" TO "authenticated";
+GRANT SELECT,INSERT,UPDATE ON TABLE "ketzal"."payments" TO "service_role";
 
 
 
@@ -3403,13 +3509,13 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "ketzal"."profiles" TO "service_role"
 
 
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "ketzal"."receipt_counters" TO "authenticated";
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "ketzal"."receipt_counters" TO "service_role";
+GRANT SELECT,INSERT,UPDATE ON TABLE "ketzal"."receipt_counters" TO "authenticated";
+GRANT SELECT,INSERT,UPDATE ON TABLE "ketzal"."receipt_counters" TO "service_role";
 
 
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "ketzal"."receipts" TO "authenticated";
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "ketzal"."receipts" TO "service_role";
+GRANT SELECT,INSERT,UPDATE ON TABLE "ketzal"."receipts" TO "authenticated";
+GRANT SELECT,INSERT,UPDATE ON TABLE "ketzal"."receipts" TO "service_role";
 
 
 
@@ -3432,12 +3538,11 @@ GRANT SELECT ON TABLE "ketzal"."services" TO "anon";
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "ketzal"."suppliers" TO "authenticated";
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "ketzal"."suppliers" TO "service_role";
-GRANT SELECT ON TABLE "ketzal"."suppliers" TO "anon";
 
 
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "ketzal"."system_log" TO "authenticated";
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "ketzal"."system_log" TO "service_role";
+GRANT SELECT,INSERT,UPDATE ON TABLE "ketzal"."system_log" TO "authenticated";
+GRANT SELECT,INSERT,UPDATE ON TABLE "ketzal"."system_log" TO "service_role";
 
 
 

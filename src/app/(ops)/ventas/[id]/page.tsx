@@ -74,14 +74,16 @@ export default async function VentaDetallePage({
   const booking = data as unknown as BookingDetail
 
   // Reventa: el dueño del servicio es otra agencia → la venta genera comisión.
+  // Vía RPC y no `from('suppliers')`: desde la migración 006 la RLS sólo deja
+  // ver tu agencia y tus proveedores, así que leer la tabla aquí devolvería
+  // null. `agency_name` es SECURITY DEFINER y sólo puede devolver el nombre —
+  // la comisión de la otra agencia sigue siendo privada.
   let ownerName: string | null = null
   if (booking.owner_supplier_id !== booking.selling_supplier_id) {
-    const { data: owner } = await supabase
-      .from('suppliers')
-      .select('name')
-      .eq('id', booking.owner_supplier_id)
-      .single()
-    ownerName = owner?.name ?? null
+    const { data: owner } = await supabase.rpc('agency_name' as never, {
+      p_id: booking.owner_supplier_id,
+    } as never)
+    ownerName = (owner as string | null) ?? null
   }
 
   const { data: items, error: itemsError } = await supabase
