@@ -45,15 +45,17 @@ const STATUS_LABELS: Record<BookingStatus, string> = {
 const STATUS_BADGE: Record<
   BookingStatus,
   {
-    variant: 'default' | 'secondary' | 'destructive' | 'outline' | 'success'
+    variant:
+      | 'default'
+      | 'secondary'
+      | 'destructive'
+      | 'outline'
+      | 'success'
+      | 'warning'
     className?: string
   }
 > = {
-  draft: {
-    variant: 'outline',
-    className:
-      'border-amber-500/50 bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400',
-  },
+  draft: { variant: 'warning' },
   reserved: { variant: 'secondary' },
   confirmed: { variant: 'default' },
   paid: { variant: 'success' },

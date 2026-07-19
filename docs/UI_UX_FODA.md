@@ -117,6 +117,7 @@ ciclo y qué queda como deuda explícita.
 | C2-2 | Historial de `clientes/[id]` a `DataList` con `rowHref` (tarjetas en móvil, fila enlaza a la venta) — cierra la deuda de tablas con scroll horizontal | ✅ |
 | C2-3 | Búsqueda + orden en `cobranza` (con filtro Atrasadas/Al corriente) y `comisiones` vía `FilterableList` (componentes cliente `cobranza-list`/`comisiones-list`) | ✅ |
 | C2-4 | Skeletons bespoke (`components/data/skeletons.tsx` + `loading.tsx` en dashboard/reportes/cobranza/ventas·[id]) → el fallback ya se parece al layout real, sin salto al hidratar | ✅ |
+| C2-5 | `Badge variant="warning"` (ámbar): consolida las 3 copias hardcodeadas del string ámbar (StatusBadge `draft`, `equipo-list`, `clawbot-list`) — misma deuda que `success` | ✅ |
 
 ### Aplicado (ciclo 1)
 
