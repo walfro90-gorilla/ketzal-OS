@@ -3491,7 +3491,6 @@ GRANT SELECT ON TABLE "ketzal"."services" TO "anon";
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "ketzal"."suppliers" TO "authenticated";
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "ketzal"."suppliers" TO "service_role";
-GRANT SELECT ON TABLE "ketzal"."suppliers" TO "anon";
 
 
 

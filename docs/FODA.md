@@ -237,6 +237,38 @@ Archivos: `supabase/tests/{qa_setup,hard_testing_dinero,volumen_y_clawbot}.sql` 
 `DO` block hay una sola sesión, así que un test de concurrencia en SQL da verde por
 construcción).
 
+**Superficie anónima** (`supabase/tests/superficie_anonima.mjs`, caja negra con sólo la anon
+key — que **no es un secreto**: va en el bundle de JS de cada página por diseño). 23 pruebas.
+
+**1 hueco, cerrado (`005`):** `anon` leía la tabla `suppliers` **completa** (GRANT SELECT +
+policy `qual = true`), con `contact_email`, `phone_number`, `address` y **`commission_rate`**.
+Salida real: `Wanderlust · …@gorillabs.dev · +52656… · comisión 3` / `Border · … · comisión 10`.
+Lo grave no es el correo de una agencia con tours publicados (eso ya es público a propósito:
+`get_public_service` lo incluye para que el viajero escriba), sino (a) la **comisión pactada**
+— que una agencia vea que otra paga 3% mientras ella paga 10% es un problema de negociación —
+y (b) los proveedores **operativos** (hotel, transporte), que nunca aparecen en la vitrina y
+estaban expuestos con sus datos: la red de proveedores completa. Se revocó entero tras
+auditar los 14 usos de `from('suppliers')` en la app: **los 14 están bajo `(ops)/`**,
+autenticado; la vitrina usa RPCs `SECURITY DEFINER` que corren como owner y no dependen del
+grant. Verificado post-fix: 23/23 cerradas **y** el catálogo público sigue resolviendo
+(`list_public_services` y `get_public_service` devuelven la agencia con un servicio publicado
+de prueba).
+
+**Sin hallazgos:** `anon` contra `bookings`, `payments`, `customers`, `receipts`, `profiles`,
+`payment_schedule`, `clawbot_reminders`, `system_log`, `payment_intents` → **401** en las 9 ·
+servicios no publicados invisibles sin sesión · `get_statement_by_token` /
+`get_quote_by_token` / `get_receipt_public` / `get_public_service` con uuid inventado → `null`
+(sin enumeración) · `dashboard_summary`, `cobranza`, `list_customers`, `salud_sistema`,
+`commissions_summary`, `clawbot_bandeja`, `reports_summary` → `42501 permission denied` ·
+todas las policies de **escritura** correctamente ceñidas (`is_active()` + `auth.uid()` +
+`my_supplier_id()` en cada INSERT).
+
+**⏳ Abierto — decisión de negocio, no técnica.** La policy `suppliers_read` sigue en
+`qual = true` para `authenticated`: cualquier agente lee el `commission_rate` de las demás
+agencias. Puede ser deliberado (el modelo de reventa exige ver catálogo ajeno) o el mismo
+descuido un nivel más adentro. Cerrarlo requiere decidir si la comisión es un término
+compartido o privado entre agencias.
+
 ### P1 — De-riesgo estructural + el loop de medición B2C
 4. **Higiene de seguridad de advisors** (barato). Advisor: 91 hallazgos, **0 ERROR**.
    **✅ Hecho (2026-07-12, migraciones `ketzal_p1_security_hygiene` + `_2`):**
