@@ -37,7 +37,7 @@ function formatMes(mes: string, fmt: Intl.DateTimeFormat): string {
 }
 
 /** Paso "bonito" (1/2/2.5/5 × 10^k) para los ticks del eje Y. */
-function pasoBonito(bruto: number): number {
+export function pasoBonito(bruto: number): number {
   const pow = Math.pow(10, Math.floor(Math.log10(bruto)))
   const frac = bruto / pow
   if (frac <= 1) return pow
@@ -47,10 +47,10 @@ function pasoBonito(bruto: number): number {
   return 10 * pow
 }
 
-const r1 = (n: number) => Math.round(n * 10) / 10
+export const r1 = (n: number) => Math.round(n * 10) / 10
 
 /** Barra vertical con extremo superior redondeado (4px) y base recta. */
-function barraPath(x: number, yTop: number, w: number, h: number): string {
+export function barraPath(x: number, yTop: number, w: number, h: number): string {
   const r = Math.min(4, w / 2, h)
   const yBase = r1(yTop + h)
   return [
