@@ -109,6 +109,12 @@ ciclo y qué queda como deuda explícita.
 
 ## Plan de acción
 
+### Aplicado (ciclo 4 — con visto bueno para cruzar a backend)
+
+| # | Acción | Estado |
+|---|---|---|
+| C4-1 | **⌘K ampliado** a **cotizaciones** (bookings `draft`) y **proveedores** (`suppliers`), además de clientes/ventas/servicios. Requirió extender el RPC `ketzal.global_search` (migración `ketzal_global_search_cotizaciones_proveedores`, `SECURITY INVOKER` → RLS intacta, solo-lectura) + cablear los 2 grupos nuevos en `global-search.tsx`. Snapshot de schema re-sincronizado. Verificado contra la BD viva (búsqueda de proveedor devuelve href correcto) | ✅ |
+
 ### Aplicado (ciclo 3 — tras integrar `services/new` del otro agente)
 
 | # | Acción | Estado |
@@ -145,13 +151,14 @@ ciclo y qué queda como deuda explícita.
 
 ### Pendiente
 
-1. **⌘K ampliado** a cotizaciones/proveedores/cobranza — requiere ampliar el
-   RPC `global_search` (capa backend): coordinar con el agente de backend.
-2. **Logo real** → swap en `brand-icon.tsx`/`BrandMark` (bloqueado por diseño).
+1. **Logo real** → swap en `brand-icon.tsx`/`BrandMark` (bloqueado por diseño:
+   falta el vector transparente). Único pendiente, y no es de código.
 
-> Con C3-3 quedan cubiertos todos los pendientes de la capa presentacional que
-> no dependen de backend o de un asset externo. Los 2 restantes están fuera del
-> alcance de UI (RPC / diseño).
+> Con C4-1 se cerró el ⌘K (el último item que dependía de backend). Lo que
+> queda es solo el logo, bloqueado por un asset de diseño externo. Nota: la
+> "cobranza" no se agregó al ⌘K a propósito — no es una entidad buscable (es
+> una vista derivada de las ventas con saldo); buscar el cliente ya lleva a su
+> venta, que enlaza a cobranza.
 
 ## Verificación de este ciclo
 

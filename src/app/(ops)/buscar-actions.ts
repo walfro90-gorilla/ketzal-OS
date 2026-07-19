@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 
 export type ResultadoBusqueda = {
-  type: 'cliente' | 'venta' | 'servicio'
+  type: 'cliente' | 'venta' | 'cotizacion' | 'servicio' | 'proveedor'
   id: string
   label: string
   sublabel: string
