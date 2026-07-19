@@ -1,7 +1,6 @@
 'use client'
 
-import { useState, useTransition, type ComponentProps } from 'react'
-import { ChevronDownIcon } from 'lucide-react'
+import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -12,17 +11,10 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { DataList, type DataColumn } from '@/components/data/data-list'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import { cn } from '@/lib/utils'
+import { NativeSelect } from '@/components/ui/native-select'
 import { balance } from '@/lib/domain/balance'
 import { mxn } from '../ui'
 import {
@@ -45,23 +37,6 @@ export type ReciboRow = {
   id: string
   payment_id: string | null
   folio: number
-}
-
-// Mismo estilo de <select> nativo alineado al Input de shadcn que en nueva-venta-form.
-const selectClass =
-  'h-11 md:h-9 w-full min-w-0 appearance-none rounded-lg border border-input bg-transparent px-3 md:px-2.5 py-1 pr-9 text-base md:text-sm transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 dark:bg-input/30'
-
-// Mismo NativeSelect que en nueva-venta-form (no está exportado allá):
-// <select> nativo con chevron repuesto — en móvil el picker del SO es mejor UX.
-function NativeSelect({ className, children, ...props }: ComponentProps<'select'>) {
-  return (
-    <div className="relative">
-      <select className={cn(selectClass, className)} {...props}>
-        {children}
-      </select>
-      <ChevronDownIcon className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-muted-foreground" />
-    </div>
-  )
 }
 
 const METODOS = [
@@ -228,6 +203,69 @@ export function AbonosSection({
     })
   }
 
+  // Columnas del ledger: tabla en desktop / tarjetas en móvil (sin scroll
+  // horizontal). Se definen aquí para cerrar sobre los recibos y el emisor.
+  const abonoColumns: DataColumn<AbonoRow>[] = [
+    {
+      header: 'Fecha',
+      primary: true,
+      cell: (p) => formatPaidAt(p.paid_at),
+    },
+    {
+      header: 'Tipo',
+      cell: (p) => (
+        <Badge variant={p.type === 'refund' ? 'destructive' : 'secondary'}>
+          {p.type === 'refund' ? 'Reembolso' : 'Abono'}
+        </Badge>
+      ),
+    },
+    {
+      header: 'Método',
+      cell: (p) =>
+        p.payment_method
+          ? METHOD_LABELS[p.payment_method] ?? p.payment_method
+          : '—',
+    },
+    {
+      header: 'Monto',
+      align: 'right',
+      cell: (p) => (
+        <span className="tabular-nums">
+          {p.type === 'refund' ? '−' : ''}
+          {mxn.format(Number(p.amount_mxn))}
+        </span>
+      ),
+    },
+    {
+      header: 'Recibo',
+      fullWidthOnCard: true,
+      cell: (p) => {
+        const recibo = reciboByPayment.get(p.id)
+        return recibo != null ? (
+          <a
+            href={`/recibo/${recibo.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm underline underline-offset-2 hover:no-underline"
+          >
+            Recibo #{recibo.folio}
+          </a>
+        ) : (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-10 w-full md:h-7 md:w-auto"
+            onClick={() => handleEmitir(p.id)}
+            disabled={isEmitting}
+          >
+            {isEmitting && emittingId === p.id ? 'Emitiendo…' : 'Emitir recibo'}
+          </Button>
+        )
+      },
+    },
+  ]
+
   return (
     <Card>
       <CardHeader>
@@ -251,9 +289,7 @@ export function AbonosSection({
             <p className="text-sm text-muted-foreground">Saldo</p>
             <div className="mt-1 flex flex-wrap items-center gap-2">
               <p className="text-2xl font-bold tabular-nums">{mxn.format(saldo)}</p>
-              {liquidada && (
-                <Badge className="bg-emerald-600 text-white">Liquidada</Badge>
-              )}
+              {liquidada && <Badge variant="success">Liquidada</Badge>}
             </div>
           </div>
         </div>
@@ -314,68 +350,11 @@ export function AbonosSection({
         {payments.length === 0 ? (
           <p className="text-sm text-muted-foreground">Sin abonos todavía.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Fecha</TableHead>
-                  <TableHead>Método</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead className="text-right">Monto</TableHead>
-                  <TableHead>Recibo</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {payments.map((p) => {
-                  const recibo = reciboByPayment.get(p.id)
-                  const isRefund = p.type === 'refund'
-                  return (
-                    <TableRow key={p.id}>
-                      <TableCell>{formatPaidAt(p.paid_at)}</TableCell>
-                      <TableCell>
-                        {p.payment_method
-                          ? METHOD_LABELS[p.payment_method] ?? p.payment_method
-                          : '—'}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={isRefund ? 'destructive' : 'secondary'}>
-                          {isRefund ? 'Reembolso' : 'Abono'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {isRefund ? '−' : ''}
-                        {mxn.format(Number(p.amount_mxn))}
-                      </TableCell>
-                      <TableCell>
-                        {recibo != null ? (
-                          <a
-                            href={`/recibo/${recibo.id}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm underline underline-offset-2 hover:no-underline"
-                          >
-                            Recibo #{recibo.folio}
-                          </a>
-                        ) : (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleEmitir(p.id)}
-                            disabled={isEmitting}
-                          >
-                            {isEmitting && emittingId === p.id
-                              ? 'Emitiendo…'
-                              : 'Emitir recibo'}
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          </div>
+          <DataList
+            columns={abonoColumns}
+            rows={payments}
+            getRowKey={(p) => p.id}
+          />
         )}
         {receiptError && (
           <p role="alert" className="text-sm text-destructive">

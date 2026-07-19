@@ -109,7 +109,13 @@ ciclo y qué queda como deuda explícita.
 
 ## Plan de acción
 
-### Aplicado en esta rama (este ciclo)
+### Aplicado (ciclo 2 — segunda pasada)
+
+| # | Acción | Estado |
+|---|---|---|
+| C2-1 | Detalle de venta: las 3 tablas (líneas, plan de pagos, abonos) a `DataList` → tarjetas apiladas en móvil, sin scroll horizontal. Abonos además adopta el `NativeSelect` compartido, badge "Liquidada" a `variant="success"` y botón "Emitir recibo" táctil | ✅ |
+
+### Aplicado (ciclo 1)
 
 | # | Acción | Estado |
 |---|---|---|
@@ -127,10 +133,7 @@ ciclo y qué queda como deuda explícita.
 
 ### Pendiente (próximo ciclo — en orden)
 
-1. **Detalle de venta: 3 tablas (líneas, abonos, plan) a tarjetas móviles**
-   con `DataList`. Era P1 de este ciclo; quedó fuera por límite de sesión del
-   agente asignado. Es la pantalla más usada en campo — prioridad alta.
-2. **Extraer `money`/`status`/`fechas` a `components/data/`** y matar los
+1. **Extraer `money`/`status`/`fechas` a `components/data/`** y matar los
    imports cross-feature de `ventas/ui` (§4 del plan).
 2. **Skeletons bespoke** para dashboard/detalle/formularios.
 3. **Búsqueda en cobranza y comisiones** (FilterableList) y **⌘K ampliado** a

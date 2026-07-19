@@ -14,15 +14,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { NativeSelect } from '@/components/ui/native-select'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
-import { cn } from '@/lib/utils'
+import { DataList, type DataColumn } from '@/components/data/data-list'
 import { formatTravelDate, mxn } from '../ui'
 import {
   crearPlanPagos,
@@ -97,50 +89,57 @@ function PlanTable({
       items.slice(0, i + 1).reduce((sum, it) => sum + Number(it.amount), 0),
   }))
 
+  // Columnas dentro del componente para cerrar sobre `nextSeq` (resaltado del
+  // próximo pago). El tinte de fila del desktop lo reemplaza el badge "Próximo",
+  // que en las tarjetas móviles también marca la fila accionable.
+  const columns: DataColumn<(typeof rows)[number]>[] = [
+    {
+      header: 'Concepto',
+      primary: true,
+      cell: (row) =>
+        row.kind === 'enganche' ? 'Enganche' : `Abono ${row.seq}`,
+    },
+    {
+      header: 'Fecha',
+      cell: (row) => {
+        const esProximo = nextSeq != null && row.seq === nextSeq
+        return (
+          <span className="inline-flex items-center whitespace-nowrap">
+            {formatTravelDate(row.due_date)}
+            {esProximo && (
+              <Badge
+                variant="outline"
+                className="ml-2 border-primary/30 bg-primary/10 text-primary"
+              >
+                Próximo
+              </Badge>
+            )}
+          </span>
+        )
+      },
+    },
+    {
+      header: 'Monto',
+      align: 'right',
+      cell: (row) => (
+        <span className="tabular-nums">{mxn.format(Number(row.amount))}</span>
+      ),
+    },
+    {
+      header: 'Saldo restante',
+      align: 'right',
+      cell: (row) => (
+        <span className="tabular-nums">{mxn.format(row.saldo)}</span>
+      ),
+    },
+  ]
+
   return (
-    <div className="overflow-x-auto">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>#</TableHead>
-            <TableHead>Fecha</TableHead>
-            <TableHead>Concepto</TableHead>
-            <TableHead className="text-right">Monto</TableHead>
-            <TableHead className="text-right">Saldo restante</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((row) => {
-            const esProximo = nextSeq != null && row.seq === nextSeq
-            return (
-              <TableRow key={row.seq} className={cn(esProximo && 'bg-primary/5')}>
-                <TableCell className="tabular-nums">{row.seq}</TableCell>
-                <TableCell className="whitespace-nowrap">
-                  {formatTravelDate(row.due_date)}
-                  {esProximo && (
-                    <Badge
-                      variant="outline"
-                      className="ml-2 border-primary/30 bg-primary/10 text-primary"
-                    >
-                      Próximo
-                    </Badge>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {row.kind === 'enganche' ? 'Enganche' : `Abono ${row.seq}`}
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {mxn.format(Number(row.amount))}
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {mxn.format(row.saldo)}
-                </TableCell>
-              </TableRow>
-            )
-          })}
-        </TableBody>
-      </Table>
-    </div>
+    <DataList
+      columns={columns}
+      rows={rows}
+      getRowKey={(row) => String(row.seq)}
+    />
   )
 }
 

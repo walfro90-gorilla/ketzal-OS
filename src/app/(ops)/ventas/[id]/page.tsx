@@ -8,14 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { DataList, type DataColumn } from '@/components/data/data-list'
 import {
   formatTravelDate,
   ITEM_TYPE_LABELS,
@@ -28,6 +21,59 @@ import { AbonosSection } from './abonos'
 import { PlanPagosSection, type PlanItem } from './plan-pagos'
 import { CancelarVenta } from './cancelar-venta'
 import { VencimientoForm } from './vencimiento-form'
+
+type LineItem = {
+  id: string
+  item_type: string
+  passenger_type: string | null
+  description: string | null
+  qty: number
+  unit_price: number | string
+  line_total: number | string
+}
+
+// Columnas de las líneas: tabla en desktop / tarjetas en móvil (sin scroll
+// horizontal). El pie de subtotal/descuento/total va aparte del DataList.
+const lineColumns: DataColumn<LineItem>[] = [
+  {
+    header: 'Concepto',
+    primary: true,
+    cell: (item) => (
+      <>
+        {ITEM_TYPE_LABELS[item.item_type] ?? item.item_type}
+        {item.passenger_type && (
+          <span className="ml-1 text-muted-foreground">
+            ·{' '}
+            {PASSENGER_TYPE_LABELS[item.passenger_type] ?? item.passenger_type}
+          </span>
+        )}
+      </>
+    ),
+  },
+  {
+    header: 'Descripción',
+    cell: (item) => item.description ?? '—',
+  },
+  {
+    header: 'Cant.',
+    align: 'right',
+    cell: (item) => <span className="tabular-nums">{item.qty}</span>,
+  },
+  {
+    header: 'P. unitario',
+    align: 'right',
+    cell: (item) => (
+      <span className="tabular-nums">{mxn.format(Number(item.unit_price))}</span>
+    ),
+  },
+  {
+    header: 'Importe',
+    align: 'right',
+    cell: (item) => (
+      <span className="tabular-nums">{mxn.format(Number(item.line_total))}</span>
+    ),
+  },
+]
 
 type BookingDetail = {
   id: string
@@ -219,45 +265,11 @@ export default async function VentaDetallePage({
               Esta venta no tiene líneas registradas.
             </p>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Concepto</TableHead>
-                    <TableHead>Descripción</TableHead>
-                    <TableHead className="text-right">Cant.</TableHead>
-                    <TableHead className="text-right">P. unitario</TableHead>
-                    <TableHead className="text-right">Importe</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {items.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell>
-                        {ITEM_TYPE_LABELS[item.item_type] ?? item.item_type}
-                        {item.passenger_type && (
-                          <span className="ml-1 text-muted-foreground">
-                            ·{' '}
-                            {PASSENGER_TYPE_LABELS[item.passenger_type] ??
-                              item.passenger_type}
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell>{item.description ?? '—'}</TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {item.qty}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {mxn.format(Number(item.unit_price))}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {mxn.format(Number(item.line_total))}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+            <DataList
+              columns={lineColumns}
+              rows={items as unknown as LineItem[]}
+              getRowKey={(item) => item.id}
+            />
           )}
 
           <div className="ml-auto w-full max-w-xs space-y-2 text-sm">
