@@ -56,7 +56,7 @@ Detalle completo del modelo objetivo en **`docs/DATA_MODEL.md`**. SQL propuesto 
 
 1. **RLS por `supplier_id` (la agencia) en todo.** Un agente jamás ve datos de otra agencia. Riesgo #1.
 2. **Saldo derivado**, nunca campo mutable suelto: `total − Σ(pagos) + Σ(reembolsos)`.
-3. **Ledger append-only**: cancelaciones/correcciones son asientos nuevos (`payment` tipo `refund`), no updates/deletes.
+3. **Ledger append-only**: cancelaciones/correcciones son asientos nuevos (`payment` tipo `refund`), no updates/deletes. **Desde 2026-07-19 se aplica en la BD, no sólo en la app**: trigger `no_mutar` (BEFORE DELETE OR TRUNCATE) + `REVOKE DELETE,TRUNCATE` sobre `payments`, `receipts`, `receipt_counters`, `system_log`. `bookings` queda fuera a propósito (se actualiza legítimamente). Ver `db/proposed/002_ledger_inmutable.sql`.
 4. **Folio de recibo atómico**: secuencia por agencia, sin `count(*)+1`.
 5. **Cupos transaccionales**: `current_bookings` vs `max_capacity` dentro de transacción.
 6. **No sobre-ingeniería.** Monolito Next.js + Supabase. Nada de microservicios/Kafka/sharding.
@@ -72,7 +72,9 @@ Detalle completo del modelo objetivo en **`docs/DATA_MODEL.md`**. SQL propuesto 
 
 ## Construido — estado real (actualizado 2026-07-09)
 
-> El checklist de arriba quedó corto: el OS ya está **en uso real en producción**. Resumen aditivo de lo construido. Detalle vivo en la memoria del proyecto (`ketzal-project`).
+> El checklist de arriba quedó corto. Resumen aditivo de lo construido. Detalle vivo en la memoria del proyecto (`ketzal-project`).
+>
+> **Estado real (corregido 2026-07-19):** el OS está **desplegado en producción y en fase de pruebas — todavía NO hay operación real**. Verificado contra la BD: `bookings`, `payments`, `customers`, `receipts` en **cero**. Sigue en pruebas hasta que esté 100% probado. No confundir "desplegado y funcional" con "en uso": el FODA pesa distinto según cuál sea (ej. los 8 días de Clawbot caído tuvieron daño real cero porque no había nada que cobrar).
 
 **Infra/deploy:** Next.js 16 (App Router) · React 19 · TS · Tailwind 4 · shadcn base-nova (sobre `@base-ui/react`, no radix) · pnpm. Repo `walfro90-gorilla/ketzal-OS` (SSH) → Vercel `ketzal-os` (push a `main` auto-despliega). Prod: **https://ketzal-os.vercel.app**. Migraciones NO versionadas en el repo (Supabase es la fuente, vía `apply_migration`). `middleware.ts`→`proxy.ts` en Next 16; `next build` no falla por lint.
 

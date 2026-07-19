@@ -1375,6 +1375,21 @@ $$;
 ALTER FUNCTION "ketzal"."tg_booking_capacity"() OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "ketzal"."tg_ledger_inmutable"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+begin
+  raise exception
+    'ledger append-only: % sobre % está prohibido. Las correcciones son asientos nuevos (payment tipo refund).',
+    tg_op, tg_table_name
+    using errcode = 'P0001';
+end $$;
+
+
+ALTER FUNCTION "ketzal"."tg_ledger_inmutable"() OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "ketzal"."touch_updated_at"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     SET "search_path" TO 'ketzal', 'pg_temp'
@@ -2512,6 +2527,22 @@ CREATE OR REPLACE VIEW "ketzal"."bookings_with_balance" WITH ("security_invoker"
 
 
 
+CREATE OR REPLACE TRIGGER "no_mutar" BEFORE DELETE OR TRUNCATE ON "ketzal"."payments" FOR EACH STATEMENT EXECUTE FUNCTION "ketzal"."tg_ledger_inmutable"();
+
+
+
+CREATE OR REPLACE TRIGGER "no_mutar" BEFORE DELETE OR TRUNCATE ON "ketzal"."receipt_counters" FOR EACH STATEMENT EXECUTE FUNCTION "ketzal"."tg_ledger_inmutable"();
+
+
+
+CREATE OR REPLACE TRIGGER "no_mutar" BEFORE DELETE OR TRUNCATE ON "ketzal"."receipts" FOR EACH STATEMENT EXECUTE FUNCTION "ketzal"."tg_ledger_inmutable"();
+
+
+
+CREATE OR REPLACE TRIGGER "no_mutar" BEFORE DELETE OR TRUNCATE ON "ketzal"."system_log" FOR EACH STATEMENT EXECUTE FUNCTION "ketzal"."tg_ledger_inmutable"();
+
+
+
 CREATE OR REPLACE TRIGGER "trg_booking_capacity" AFTER INSERT OR UPDATE ON "ketzal"."bookings" FOR EACH ROW EXECUTE FUNCTION "ketzal"."tg_booking_capacity"();
 
 
@@ -3382,8 +3413,8 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "ketzal"."payment_schedule" TO "servi
 
 
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "ketzal"."payments" TO "authenticated";
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "ketzal"."payments" TO "service_role";
+GRANT SELECT,INSERT,UPDATE ON TABLE "ketzal"."payments" TO "authenticated";
+GRANT SELECT,INSERT,UPDATE ON TABLE "ketzal"."payments" TO "service_role";
 
 
 
@@ -3403,13 +3434,13 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "ketzal"."profiles" TO "service_role"
 
 
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "ketzal"."receipt_counters" TO "authenticated";
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "ketzal"."receipt_counters" TO "service_role";
+GRANT SELECT,INSERT,UPDATE ON TABLE "ketzal"."receipt_counters" TO "authenticated";
+GRANT SELECT,INSERT,UPDATE ON TABLE "ketzal"."receipt_counters" TO "service_role";
 
 
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "ketzal"."receipts" TO "authenticated";
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "ketzal"."receipts" TO "service_role";
+GRANT SELECT,INSERT,UPDATE ON TABLE "ketzal"."receipts" TO "authenticated";
+GRANT SELECT,INSERT,UPDATE ON TABLE "ketzal"."receipts" TO "service_role";
 
 
 
@@ -3436,8 +3467,8 @@ GRANT SELECT ON TABLE "ketzal"."suppliers" TO "anon";
 
 
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "ketzal"."system_log" TO "authenticated";
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "ketzal"."system_log" TO "service_role";
+GRANT SELECT,INSERT,UPDATE ON TABLE "ketzal"."system_log" TO "authenticated";
+GRANT SELECT,INSERT,UPDATE ON TABLE "ketzal"."system_log" TO "service_role";
 
 
 
