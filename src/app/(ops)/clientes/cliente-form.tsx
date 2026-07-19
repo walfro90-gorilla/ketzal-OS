@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { PhoneInput } from '@/components/ui/phone-input'
 import { actualizarCliente, crearCliente, type ClienteInput } from './actions'
 
 // Estilo de <textarea> nativo alineado al Input de shadcn (no hay Textarea en components/ui).
@@ -96,12 +97,10 @@ export function ClienteForm({
             </div>
             <div className="space-y-2">
               <Label htmlFor="cliente-telefono">Teléfono</Label>
-              <Input
+              <PhoneInput
                 id="cliente-telefono"
-                type="tel"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="Ej. 656 123 4567"
+                onChange={setPhone}
               />
             </div>
             <div className="space-y-2">

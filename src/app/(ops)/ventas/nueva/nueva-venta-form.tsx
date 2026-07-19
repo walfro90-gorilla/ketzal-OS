@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { PhoneInput } from '@/components/ui/phone-input'
 import {
   Table,
   TableBody,
@@ -416,13 +417,10 @@ export function NuevaVentaForm({
               </div>
               <div className="space-y-2">
                 <Label htmlFor="new-customer-phone">Teléfono</Label>
-                <Input
+                <PhoneInput
                   id="new-customer-phone"
-                  type="tel"
-                  inputMode="tel"
                   value={newPhone}
-                  onChange={(e) => setNewPhone(e.target.value)}
-                  placeholder="Ej. 656 123 4567"
+                  onChange={setNewPhone}
                 />
               </div>
             </div>

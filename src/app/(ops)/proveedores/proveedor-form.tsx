@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { PhoneInput } from '@/components/ui/phone-input'
 import {
   actualizarProveedor,
   crearProveedor,
@@ -151,12 +152,10 @@ export function ProveedorForm({
             </div>
             <div className="space-y-2">
               <Label htmlFor="proveedor-telefono">Teléfono</Label>
-              <Input
+              <PhoneInput
                 id="proveedor-telefono"
-                type="tel"
                 value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                placeholder="Ej. 656 123 4567"
+                onChange={setPhoneNumber}
               />
             </div>
             <div className="space-y-2">
