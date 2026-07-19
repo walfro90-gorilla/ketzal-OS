@@ -6,6 +6,10 @@ import { ogCardResponse } from '@/lib/og-card'
 // servicio tuviera banner (generateMetadata) → sin banner no había preview al
 // compartir por WhatsApp. Ahora SIEMPRE hay imagen: la foto del banner a sangre
 // (con scrim + datos del viaje) si existe, o la tarjeta de marca si no.
+//
+// Estilos inline a propósito: next/og (Satori) NO soporta clases de Tailwind;
+// solo un subconjunto de CSS vía `style`. Es el mismo patrón de todos los OG
+// del repo (lib/og-card.tsx y los opengraph-image de cotización/estado/recibo).
 export const alt = 'Viaje — Ketzal'
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
@@ -22,6 +26,20 @@ const clamp = (s: string, n: number) =>
 function destino(s: PublicService): string | null {
   const partes = [s.city_to, s.state_to].filter(Boolean)
   return partes.length ? partes.join(', ') : s.location
+}
+
+// El banner solo se usa si es una URL http(s) absoluta y válida: next/og lo
+// fetchea server-side y una URL relativa/malformada tiraría la generación de la
+// imagen (dejando la ficha SIN preview, ya que generateMetadata dejó de fijar
+// images). Ante cualquier duda, se cae a la tarjeta de marca.
+function validBannerUrl(raw: string | undefined): string | null {
+  if (!raw) return null
+  try {
+    const u = new URL(raw)
+    return u.protocol === 'http:' || u.protocol === 'https:' ? raw : null
+  } catch {
+    return null
+  }
 }
 
 export default async function Image({
@@ -45,10 +63,10 @@ export default async function Image({
 
   const lugar = destino(s)
   const precio = s.price != null ? mxn.format(Number(s.price)) : 'Consultar'
-  const banner = s.images?.imgBanner
+  const banner = validBannerUrl(s.images?.imgBanner)
 
-  // Sin banner: tarjeta de marca (mismo lenguaje que cotización/estado/recibo)
-  // con los datos del viaje.
+  // Sin banner válido: tarjeta de marca (mismo lenguaje que cotización/estado/
+  // recibo) con los datos del viaje.
   if (!banner) {
     return ogCardResponse({
       eyebrow: lugar ? `Viaje · ${lugar}` : 'Viaje',
