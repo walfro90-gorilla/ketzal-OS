@@ -129,36 +129,69 @@ otro extremo: son pocos movimientos de alto apalancamiento, no una re-arquitectu
    148 grants). Superó y reemplazó los 2 snapshots parciales stale. **Workflow going
    forward:** re-correr el dump tras cada cambio de BD y commitear; el `git diff` del
    dump es el historial de schema. Detalle en `supabase/README.md`.
-2. **Firmar el webhook de MP. ⚠️ Código hecho (commit `842bca6`), INERTE en producción.**
+2. **Firmar el webhook de MP. ✅ Cerrado y VERIFICADO EN PROD (2026-07-19).**
    `src/lib/mp-signature.ts` valida el HMAC `x-signature`/`x-request-id`; el webhook rechaza
    con **401** si falta o no cuadra, en vez de responder 200 a ciegas. (La integridad de
    fondos ya estaba protegida por re-consulta a la API de MP; esto cierra el
    abuso/enumeración del endpoint.)
-   **PERO (detectado 2026-07-18):** el enforcement es **fail-open por diseño** — sin
-   `MP_WEBHOOK_SECRET` configurado el webhook deja pasar todo (`route.ts:41-56`, rollout
-   no-rompedor deliberado). Esa variable **nunca se agregó a Vercel**, así que la firma
-   lleva sin validar desde que se desplegó (2026-07-11). Se cierra de verdad al poner el
-   secret. Ver P0 #3-bis.
+   Código: commit `842bca6`. **Estuvo INERTE del 2026-07-11 al 2026-07-19** porque el
+   enforcement es **fail-open por diseño** (`route.ts:41-56`, rollout no-rompedor) y
+   `MP_WEBHOOK_SECRET` nunca se había agregado a Vercel. Ver P0 #3-bis.
+   **Verificación (no basta con desplegar):** sonda `POST /api/mp/webhook?type=payment&data.id=999999999`
+   sin header `x-signature` → **401 `invalid_signature`** + fila en `system_log`
+   (`mp_webhook / error / "firma inválida" / {hasSignature: false}`). Antes del deploy ese
+   mismo POST daba 200.
+   **Cabo suelto menor:** la sonda prueba que el enforcement corre y que el secret está en el
+   deployment, no que el *valor* sea el del panel de MP (el fundador confirma que sí lo es).
+   La prueba definitiva es el próximo cobro real: si sale `pago confirmado` y no
+   `firma inválida`, cerrado del todo.
 3. **Tests mínimos de invariantes de dinero. ✅ Hecho (commit `d0a2391`).** Harness ligero
    en SQL `supabase/tests/money_invariants.sql` (sin framework) sobre las invariantes de
    dinero (saldo derivado, plan suma=total, folio). Red que falla si la lógica se rompe.
 
-3-bis. **⚠️ ABIERTO — Dos env vars nunca agregadas a Vercel (detectado 2026-07-18).**
-   Auditoría `process.env` del código vs `vercel env ls production`. En Vercel solo existen
-   `MP_ACCESS_TOKEN`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`,
-   `NEXT_PUBLIC_SUPABASE_URL`. Faltan dos, con consecuencias opuestas:
+3-bis. **✅ Cerrado y VERIFICADO EN PROD (2026-07-19) — dos env vars que nunca se agregaron
+   a Vercel (detectado 2026-07-18).** Auditoría `process.env` del código vs
+   `vercel env ls production`: en Vercel solo existían `MP_ACCESS_TOKEN`,
+   `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_SUPABASE_URL`.
+   Faltaban dos, con consecuencias opuestas:
    - **`CRON_SECRET` — outage silencioso.** `api/clawbot/tick/route.ts:10-14` es
      **fail-closed**: sin el secret devuelve **401 siempre**. `vercel.json` agenda el cron
      `0 14 * * *` desde el 2026-07-10. **Confirmado en `ketzal.system_log`: cero filas
-     `clawbot_tick`, nunca.** ⇒ Clawbot lleva **8 días muerto**: ningún recordatorio de
+     `clawbot_tick`, nunca.** ⇒ Clawbot estuvo **8 días muerto**: ningún recordatorio de
      cobranza generado y ningún chequeo diario de invariantes de dinero corrido. El panel
-     de `/salud` reporta "0 violaciones" porque **nadie está midiendo**, no porque esté sano.
-   - **`MP_WEBHOOK_SECRET` — seguridad inerte.** Fail-open (ver P0 #2): el webhook acepta
+     de `/salud` reportaba "0 violaciones" porque **nadie estaba midiendo**, no porque
+     estuviera sano.
+   - **`MP_WEBHOOK_SECRET` — seguridad inerte.** Fail-open (ver P0 #2): el webhook aceptaba
      sin firma. 7 días así.
    `NEXT_PUBLIC_APP_URL` y `NEXT_PUBLIC_SITE_URL` también faltan pero **tienen fallback**
    (`?? https://${host}` y `VERCEL_PROJECT_PRODUCTION_URL`): no se agregan, YAGNI.
+
+   **Cierre (2026-07-19).** Ambas agregadas a Production + **redeploy** (las env vars se
+   congelan en el snapshot del deployment: agregarlas sin redesplegar no hace nada — el
+   deploy vigente seguía sin ellas). Verificado con evidencia, no por inspección:
+   - Webhook: sonda sin firma → 401 + `firma inválida` en `system_log` (ver P0 #2).
+   - Clawbot: **primer tick de la historia**, `2026-07-19 02:35:04Z` →
+     `clawbot_tick / info / "recordatorios generados" {pendientes: 0}` +
+     `invariantes / info / "invariantes OK" {violaciones: 0}`. Ese `violaciones: 0` es el
+     **primero medido de verdad**.
+   **Gotcha operativo:** ambos secrets se guardaron como `--sensitive`, así que
+   `vercel env pull` los devuelve **vacíos** (longitud 0) y no se pueden leer de vuelta.
+   No importa y **no hay que rotarlos**: Vercel inyecta el `Authorization: Bearer` solo.
+   Para disparar el cron a mano sin conocer el valor: **`vercel crons run /api/clawbot/tick`**
+   (`vercel crons ls` para listarlos). Si el secret no estuviera en el deployment, el
+   trigger daría 401 y no habría filas — o sea, el trigger exitoso *es* la verificación.
    **Lección:** un item marcado ✅ por código commiteado no está hecho hasta que su
-   configuración vive en prod. Verificar env vars al cerrar, no al escribirlo.
+   configuración vive en prod **y algo en prod lo demuestra**. Verificar env vars al cerrar,
+   no al escribirlo.
+
+3-ter. **⏳ ABIERTO (pendiente de confirmación, 2026-07-19) — validar `clawbot_generar_recordatorios`
+   contra `/cobranza`.** El primer tick devolvió `{pendientes: 0}`. Es plausible (puede que
+   nada venza hoy), pero **no está confirmado**: nunca se ha visto a Clawbot generar un
+   recordatorio real, porque nunca había corrido. **Cómo cerrarlo:** abrir `/cobranza` y
+   comparar. Si ahí hay abonos atrasados/por vencer y el tick sigue devolviendo
+   `pendientes: 0`, el bug está en el RPC `clawbot_generar_recordatorios`, **no** en la
+   infra (que ya quedó probada). Si `/cobranza` también sale vacío, no hay nada que cobrar
+   y el 0 es correcto.
 
 ### P1 — De-riesgo estructural + el loop de medición B2C
 4. **Higiene de seguridad de advisors** (barato). Advisor: 91 hallazgos, **0 ERROR**.
