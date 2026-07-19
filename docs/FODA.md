@@ -184,14 +184,58 @@ otro extremo: son pocos movimientos de alto apalancamiento, no una re-arquitectu
    configuración vive en prod **y algo en prod lo demuestra**. Verificar env vars al cerrar,
    no al escribirlo.
 
-3-ter. **⏳ ABIERTO (pendiente de confirmación, 2026-07-19) — validar `clawbot_generar_recordatorios`
-   contra `/cobranza`.** El primer tick devolvió `{pendientes: 0}`. Es plausible (puede que
-   nada venza hoy), pero **no está confirmado**: nunca se ha visto a Clawbot generar un
-   recordatorio real, porque nunca había corrido. **Cómo cerrarlo:** abrir `/cobranza` y
-   comparar. Si ahí hay abonos atrasados/por vencer y el tick sigue devolviendo
-   `pendientes: 0`, el bug está en el RPC `clawbot_generar_recordatorios`, **no** en la
-   infra (que ya quedó probada). Si `/cobranza` también sale vacío, no hay nada que cobrar
-   y el 0 es correcto.
+3-ter. **✅ Cerrado (2026-07-19) — `clawbot_generar_recordatorios` SÍ funciona.** El primer
+   tick devolvió `{pendientes: 0}`, y la causa resultó ser trivial: **la BD estaba vacía**
+   (0 bookings, 0 payments, 0 customers). Las 4 reglas del motor exigen
+   `payment_type='abonos'` y `balance > 0`, así que 0 era la única respuesta posible. No
+   hacía falta `/cobranza`: se cerró dándole datos. Con 28 ventas QA que califican, el
+   motor generó **28 recordatorios y las 4 reglas dispararon con el conteo exacto**
+   (`abono_vencido` 12, `abono_por_vencer` 6, `cotizacion_seguimiento` 5, `viaje_proximo` 5).
+   Ver `supabase/tests/volumen_y_clawbot.sql`.
+
+### P0-bis — Hard testing del motor de dinero (2026-07-19)
+
+Rama `claude/hard-testing-dinero`. Harness de rutas de ESCRITURA: el "siguiente incremento"
+que `money_invariants.sql` (read-only) dejó anotado como pendiente. Maneja los **RPCs
+reales** bajo dos agencias QA y suplanta identidad con `request.jwt.claims` — sin eso uno es
+superusuario en el SQL editor, **la RLS ni se evalúa** y el harness da verde siempre.
+
+**Contexto que cambió el encuadre:** la BD estaba **vacía**. Forensics de
+`pg_stat_user_tables` mostró que la data previa se borró con **TRUNCATE**, no DELETE
+(`payment_intents` −15 filas con `n_tup_del`=0), llevándose `receipt_counters` ⇒ **los folios
+reiniciaron en 1**. De ahí salió la regla del fundador (huella inborrable) y la migración
+`002_ledger_inmutable.sql`.
+
+**Huecos encontrados y cerrados:**
+1. **Sobrepago** (`003`). Abonar 50,000 sobre saldo de 3,000 era **aceptado** ⇒ saldo −47,000.
+2. **Reembolso inflado** (`003`). Reembolsar 9,000 habiendo recibido 500 era **aceptado** ⇒
+   saldo 11,500 sobre un viaje de 3,000: **dinero inventado**. La única validación de monto
+   era `<= 0`. Notablemente `create_payment_intent` **ya tenía** esta guarda para el camino
+   en línea; nunca se portó al manual, que es el que los agentes usan a diario.
+   *Dónde va la guarda importa:* NO en un trigger sobre `payments`, porque el webhook de MP
+   (`confirm_online_payment`) inserta directo y ahí **el dinero ya se movió** — rechazar ese
+   asiento dejaría dinero real sin registrar y a MP reintentando en bucle. Regla asimétrica:
+   antes de que el dinero se mueva, prevenir; después, registrar siempre.
+3. **Recibo duplicado** (`004`). `emit_receipt` usaba check-then-insert sin índice único en
+   `receipts.payment_id`. La carrera **no se reprodujo** (la primera sesión comiteaba a
+   tiempo), pero la ventana existe en el código: se cerró por estructura con un índice único
+   en vez de pelear con el timing.
+
+**Sin hallazgos** (probado, no supuesto): RLS entre inquilinos (Beta ni lee ni escribe sobre
+Alfa) · abono negativo · saldo derivado con centavos · **10 abonos simultáneos que juntos
+exceden el total → 5 aceptados, saldo exacto 0** (valida el `FOR UPDATE` de la 003) ·
+**10 ventas simultáneas sobre 5 lugares → 5 aceptadas** (el cupo resuelto dentro del propio
+`UPDATE` es correcto) · 18 planes de pago con Σ = total, desviación 0.00 ·
+`verificar_invariantes` = 0 violaciones, ahora **medido sobre 56 ventas reales**, no sobre
+una BD vacía.
+
+**Regresión explícita:** liquidación exacta (saldo 0, estado `paid`) y reembolso legítimo
+exacto siguen funcionando. Una guarda que bloquea el cobro normal habría sido peor que el bug.
+
+Archivos: `supabase/tests/{qa_setup,hard_testing_dinero,volumen_y_clawbot}.sql` y
+`concurrencia.mjs` (las carreras van por HTTP contra PostgREST con JWT real: dentro de un
+`DO` block hay una sola sesión, así que un test de concurrencia en SQL da verde por
+construcción).
 
 ### P1 — De-riesgo estructural + el loop de medición B2C
 4. **Higiene de seguridad de advisors** (barato). Advisor: 91 hallazgos, **0 ERROR**.

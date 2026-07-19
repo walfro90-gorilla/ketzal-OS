@@ -2497,6 +2497,10 @@ CREATE INDEX "payments_booking_idx" ON "ketzal"."payments" USING "btree" ("booki
 
 
 
+CREATE UNIQUE INDEX "receipts_payment_id_uidx" ON "ketzal"."receipts" USING "btree" ("payment_id");
+
+
+
 CREATE INDEX "service_departures_service_idx" ON "ketzal"."service_departures" USING "btree" ("service_id");
 
 
