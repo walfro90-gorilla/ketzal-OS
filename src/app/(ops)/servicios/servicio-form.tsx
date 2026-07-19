@@ -20,6 +20,8 @@ import {
   type ServicioInput,
 } from './actions'
 import { PACK_TYPES, type Pack, type PackInput } from '@/lib/domain/packs'
+import { ImportarArchivo } from './importar-archivo'
+import type { ServicioLeido } from '@/lib/ai/servicio-leido'
 
 const TIPO_OPCIONES = [
   { value: 'tour', label: 'Tour' },
@@ -135,6 +137,37 @@ export function ServicioForm({
     )
   }
 
+  /**
+   * Vuelca lo leído de un PDF/imagen en los campos. Solo pisa lo que el
+   * lector sí encontró: las claves ausentes no llegan (ver `normalizarLeido`),
+   * así que un segundo archivo completa en vez de borrar lo ya capturado.
+   * La agencia dueña NUNCA se toca: es decisión del agente, no del archivo.
+   */
+  function aplicarLeido(d: ServicioLeido) {
+    if (d.name) setName(d.name)
+    if (d.description) setDescription(d.description)
+    if (d.price != null) setPrice(String(d.price))
+    const tipoLeido = normalizarTipo(d.service_type)
+    if (tipoLeido) setTipo(tipoLeido)
+    if (d.state_from) setStateFrom(d.state_from)
+    if (d.city_from) setCityFrom(d.city_from)
+    if (d.state_to) setStateTo(d.state_to)
+    if (d.city_to) setCityTo(d.city_to)
+    if (d.max_capacity != null) setMaxCapacity(String(d.max_capacity))
+    if (d.available_from) setAvailableFrom(d.available_from)
+    if (d.available_to) setAvailableTo(d.available_to)
+    if (d.includes?.length) setIncludesText(d.includes.join('\n'))
+    if (d.excludes?.length) setExcludesText(d.excludes.join('\n'))
+    if (d.itinerary?.length) setItinerary(d.itinerary)
+    if (d.packs) {
+      const leidos = Object.fromEntries(
+        Object.entries(d.packs).map(([k, v]) => [k, String(v)])
+      )
+      setPackPrices((prev) => ({ ...prev, ...leidos }))
+    }
+    setError(null)
+  }
+
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError(null)
@@ -214,6 +247,9 @@ export function ServicioForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Solo al crear: editando, el atajo confundiría más de lo que ayuda. */}
+      {!servicioId && <ImportarArchivo onDatos={aplicarLeido} />}
+
       <Card>
         <CardHeader>
           <CardTitle>Datos del servicio</CardTitle>
