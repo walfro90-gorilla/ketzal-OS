@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import {
   Card,
@@ -7,14 +6,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+import { DataList, type DataColumn } from '@/components/data/data-list'
 import {
   formatTravelDate,
   mxn,
@@ -33,6 +25,40 @@ type VentaCliente = {
   created_at: string
   service: { name: string } | null
 }
+
+// Historial del cliente: tabla en desktop / tarjetas en móvil. La fila enlaza
+// a la venta (rowHref: columna primaria en desktop, tarjeta completa en móvil).
+const ventaColumns: DataColumn<VentaCliente>[] = [
+  {
+    header: 'Servicio',
+    primary: true,
+    cell: (venta) => (
+      <>
+        {venta.service?.name ?? 'A medida'}
+        {venta.folio && (
+          <span className="ml-2 text-xs text-muted-foreground">
+            {venta.folio}
+          </span>
+        )}
+      </>
+    ),
+  },
+  {
+    header: 'Fecha de viaje',
+    cell: (venta) => formatTravelDate(venta.travel_date),
+  },
+  {
+    header: 'Total',
+    align: 'right',
+    cell: (venta) => (
+      <span className="tabular-nums">{mxn.format(Number(venta.total))}</span>
+    ),
+  },
+  {
+    header: 'Estado',
+    cell: (venta) => <StatusBadge status={venta.status} />,
+  },
+]
 
 export default async function ClienteDetallePage({
   params,
@@ -108,44 +134,12 @@ export default async function ClienteDetallePage({
           ) : sales.length === 0 ? (
             <p className="text-sm text-muted-foreground">Sin ventas todavía.</p>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Servicio</TableHead>
-                    <TableHead>Fecha de viaje</TableHead>
-                    <TableHead className="text-right">Total</TableHead>
-                    <TableHead>Estado</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sales.map((venta) => (
-                    <TableRow key={venta.id}>
-                      <TableCell>
-                        <Link
-                          href={`/ventas/${venta.id}`}
-                          className="font-medium hover:underline"
-                        >
-                          {venta.service?.name ?? 'A medida'}
-                        </Link>
-                        {venta.folio && (
-                          <span className="ml-2 text-xs text-muted-foreground">
-                            {venta.folio}
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell>{formatTravelDate(venta.travel_date)}</TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {mxn.format(Number(venta.total))}
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge status={venta.status} />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+            <DataList
+              columns={ventaColumns}
+              rows={sales}
+              getRowKey={(venta) => venta.id}
+              rowHref={(venta) => `/ventas/${venta.id}`}
+            />
           )}
         </CardContent>
       </Card>
