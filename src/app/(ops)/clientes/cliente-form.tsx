@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -33,7 +34,6 @@ export function ClienteForm({
 }) {
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
-  const [saved, setSaved] = useState(false)
 
   const [fullName, setFullName] = useState(initial?.full_name ?? '')
   const [phone, setPhone] = useState(initial?.phone ?? '')
@@ -44,7 +44,6 @@ export function ClienteForm({
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError(null)
-    setSaved(false)
 
     if (!fullName.trim()) {
       setError('Escribe el nombre completo del cliente.')
@@ -63,7 +62,7 @@ export function ClienteForm({
       if (customerId) {
         const result = await actualizarCliente(customerId, input)
         if ('error' in result) setError(result.error)
-        else setSaved(true)
+        else toast.success('Cliente actualizado')
       } else {
         // En éxito la acción redirige a /clientes/[id]; solo llega aquí con error.
         const result = await crearCliente(input)
@@ -146,14 +145,6 @@ export function ClienteForm({
               ? 'Guardar cambios'
               : 'Guardar cliente'}
         </Button>
-        {saved && (
-          <span
-            role="status"
-            className="text-sm text-emerald-600 dark:text-emerald-400"
-          >
-            Guardado ✓
-          </span>
-        )}
       </div>
     </form>
   )

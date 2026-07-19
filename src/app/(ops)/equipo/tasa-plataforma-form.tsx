@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { guardarTarifaPlataforma } from './actions'
@@ -9,13 +10,11 @@ import { guardarTarifaPlataforma } from './actions'
 export function TasaPlataformaForm({ initialRate }: { initialRate: number }) {
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
-  const [saved, setSaved] = useState(false)
   const [rate, setRate] = useState(String(initialRate))
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError(null)
-    setSaved(false)
 
     const parsed = Number(rate)
     if (rate.trim() === '' || !Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
@@ -28,8 +27,7 @@ export function TasaPlataformaForm({ initialRate }: { initialRate: number }) {
       if ('error' in result) {
         setError(result.error)
       } else {
-        setSaved(true)
-        setTimeout(() => setSaved(false), 2500)
+        toast.success('Tasa de plataforma actualizada')
       }
     })
   }
@@ -55,14 +53,6 @@ export function TasaPlataformaForm({ initialRate }: { initialRate: number }) {
       <Button type="submit" variant="outline" size="sm" disabled={isPending}>
         {isPending ? 'Guardando…' : 'Guardar'}
       </Button>
-      {saved && (
-        <span
-          role="status"
-          className="text-sm text-emerald-600 dark:text-emerald-400"
-        >
-          Guardado ✓
-        </span>
-      )}
       {error && (
         <span role="alert" className="text-sm text-destructive">
           {error}

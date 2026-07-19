@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 import { Badge } from '@/components/ui/badge'
 import type { DataColumn } from '@/components/data/data-list'
 import { FilterableList } from '@/components/data/filterable-list'
-import { formatTravelDate, mxn } from '../ventas/ui'
+import { formatTravelDate, mxn } from '@/components/data/format'
 import type { CobranzaItem } from './data'
 
 const columns: DataColumn<CobranzaItem>[] = [

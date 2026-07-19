@@ -43,23 +43,14 @@ export async function generateMetadata({
   const description =
     s.description?.slice(0, 160) ??
     `${s.name} con ${s.agency.name}. Desde ${mxn.format(Number(s.price ?? 0))}.`
-  const banner = s.images?.imgBanner
 
+  // El og:image/twitter:image los provee opengraph-image.tsx (banner-como-foto
+  // si existe, o tarjeta de marca si no) — por eso aquí no se fija `images`.
   return {
     title,
     description,
-    openGraph: {
-      title,
-      description,
-      type: 'website',
-      images: banner ? [banner] : undefined,
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title,
-      description,
-      images: banner ? [banner] : undefined,
-    },
+    openGraph: { title, description, type: 'website' },
+    twitter: { card: 'summary_large_image', title, description },
   }
 }
 

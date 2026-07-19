@@ -3,7 +3,8 @@
 import type { ReactNode } from 'react'
 import type { DataColumn } from '@/components/data/data-list'
 import { FilterableList, type ListFilter } from '@/components/data/filterable-list'
-import { formatTravelDate, mxn, StatusBadge, type BookingStatus } from './ui'
+import { formatTravelDate, mxn } from '@/components/data/format'
+import { StatusBadge, type BookingStatus } from '@/components/data/status-badge'
 
 export type SaleRow = {
   id: string

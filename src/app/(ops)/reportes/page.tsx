@@ -8,7 +8,7 @@ import {
 } from '@/components/ui/card'
 import { DataList, type DataColumn } from '@/components/data/data-list'
 import { PageHeader } from '@/components/data/page-header'
-import { mxn } from '../ventas/ui'
+import { mxn } from '@/components/data/format'
 import { RangoFechas } from './rango-fechas'
 import { ExportarCsv } from './exportar-csv'
 import { BarrasTop, GraficaMensual } from './graficas'

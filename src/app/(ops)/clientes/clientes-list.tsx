@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react'
 import type { DataColumn } from '@/components/data/data-list'
 import { FilterableList } from '@/components/data/filterable-list'
-import { formatTravelDate, mxn } from '../ventas/ui'
+import { formatTravelDate, mxn } from '@/components/data/format'
 
 export type Cliente = {
   id: string

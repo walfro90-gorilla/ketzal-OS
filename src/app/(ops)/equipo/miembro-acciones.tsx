@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { NativeSelect } from '@/components/ui/native-select'
 import type { Database } from '@/lib/db/database.types'
@@ -45,7 +46,6 @@ export function MiembroAcciones({
 }) {
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
-  const [saved, setSaved] = useState(false)
 
   // Estado local de los selects para reflejar el cambio de inmediato;
   // si la acción falla se revierte al valor del servidor.
@@ -57,15 +57,13 @@ export function MiembroAcciones({
     revert?: () => void
   ) {
     setError(null)
-    setSaved(false)
     startTransition(async () => {
       const result = await action()
       if ('error' in result) {
         setError(result.error)
         revert?.()
       } else {
-        setSaved(true)
-        setTimeout(() => setSaved(false), 2000)
+        toast.success('Cambios guardados')
       }
     })
   }
@@ -131,14 +129,6 @@ export function MiembroAcciones({
         </NativeSelect>
       )}
 
-      {saved && (
-        <span
-          role="status"
-          className="text-sm text-emerald-600 dark:text-emerald-400"
-        >
-          ✓
-        </span>
-      )}
       {error && (
         <span role="alert" className="text-sm text-destructive">
           {error}

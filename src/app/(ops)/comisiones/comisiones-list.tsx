@@ -3,7 +3,8 @@
 import type { ReactNode } from 'react'
 import type { DataColumn } from '@/components/data/data-list'
 import { FilterableList } from '@/components/data/filterable-list'
-import { mxn, StatusBadge, type BookingStatus } from '../ventas/ui'
+import { mxn } from '@/components/data/format'
+import { StatusBadge, type BookingStatus } from '@/components/data/status-badge'
 
 // Forma del jsonb que devuelve ketzal.commissions_summary() (subconjunto usado).
 export type ComisionVenta = {

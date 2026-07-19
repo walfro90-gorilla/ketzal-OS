@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -49,7 +50,6 @@ export function ProveedorForm({
 }) {
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
-  const [saved, setSaved] = useState(false)
 
   const [name, setName] = useState(initial?.name ?? '')
   const [contactEmail, setContactEmail] = useState(initial?.contact_email ?? '')
@@ -66,7 +66,6 @@ export function ProveedorForm({
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError(null)
-    setSaved(false)
 
     if (!name.trim()) {
       setError('Escribe el nombre del proveedor.')
@@ -105,7 +104,7 @@ export function ProveedorForm({
       if (proveedorId) {
         const result = await actualizarProveedor(proveedorId, input)
         if ('error' in result) setError(result.error)
-        else setSaved(true)
+        else toast.success('Proveedor actualizado')
       } else {
         // En éxito la acción redirige a /proveedores/[id]; solo llega aquí con error.
         const result = await crearProveedor(input)
@@ -217,14 +216,6 @@ export function ProveedorForm({
               ? 'Guardar cambios'
               : 'Guardar proveedor'}
         </Button>
-        {saved && (
-          <span
-            role="status"
-            className="text-sm text-emerald-600 dark:text-emerald-400"
-          >
-            Guardado ✓
-          </span>
-        )}
       </div>
     </form>
   )

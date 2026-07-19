@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/card'
 import { EmptyState } from '@/components/data/empty-state'
 import { PageHeader } from '@/components/data/page-header'
-import { mxn } from '../ventas/ui'
+import { mxn } from '@/components/data/format'
 import { getCobranza } from './data'
 import { CobranzaList } from './cobranza-list'
 

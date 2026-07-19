@@ -2,7 +2,7 @@
 // SVG inline autocontenido (CSP-safe), mismo enfoque que /reportes/graficas.
 // Colores validados con el método dataviz (validate_palette) en claro y oscuro;
 // el tema se resuelve con clases fill-*/stroke-* + variante dark:.
-import { mxn } from '../ventas/ui'
+import { mxn } from '@/components/data/format'
 import { barraPath, pasoBonito, r1 } from '../reportes/graficas'
 
 const mxnCompacto = new Intl.NumberFormat('es-MX', {
