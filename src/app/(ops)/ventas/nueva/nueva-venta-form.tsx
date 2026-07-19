@@ -19,6 +19,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { Combobox } from '@/components/ui/combobox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { PhoneInput } from '@/components/ui/phone-input'
@@ -43,7 +44,11 @@ import {
 import { ITEM_TYPE_LABELS, PASSENGER_TYPE_LABELS, mxn } from '../ui'
 import type { Pack } from '@/lib/domain/packs'
 
-export type CustomerOption = { id: string; full_name: string }
+export type CustomerOption = {
+  id: string
+  full_name: string
+  phone: string | null
+}
 // packs = precios por ocupación (sencilla/doble/triple/cuádruple). PRESET:
 // al elegir un paquete, autollena el `unit_price` de las líneas de PASAJERO
 // (no crear línea `room` suelta, o num_pax=0 y el cupo no baja). El precio
@@ -427,18 +432,24 @@ export function NuevaVentaForm({
           ) : (
             <div className="space-y-2">
               <Label htmlFor="customer-select">Cliente</Label>
-              <NativeSelect
+              <Combobox
                 id="customer-select"
+                options={customers.map((c) => ({
+                  value: c.id,
+                  label: c.full_name,
+                  detail: c.phone,
+                }))}
                 value={customerId}
-                onChange={(e) => setCustomerId(e.target.value)}
-              >
-                <option value="">— Selecciona un cliente —</option>
-                {customers.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.full_name}
-                  </option>
-                ))}
-              </NativeSelect>
+                onChange={setCustomerId}
+                placeholder="Busca por nombre o teléfono…"
+                emptyHint="Ningún cliente coincide."
+                emptyActionLabel={(q) => `Dar de alta a “${q}”`}
+                onEmptyAction={(q) => {
+                  // Atajo: lo escrito pasa directo al alta de cliente nuevo.
+                  setNewCustomerMode(true)
+                  setNewName(q)
+                }}
+              />
             </div>
           )}
         </CardContent>

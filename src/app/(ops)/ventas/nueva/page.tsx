@@ -17,7 +17,8 @@ export default async function NuevaVentaPage() {
     supabase.from('profiles').select('role, supplier_id').eq('id', user.id).single(),
     supabase
       .from('customers')
-      .select('id, full_name')
+      // El teléfono distingue clientes homónimos en el buscador del combobox.
+      .select('id, full_name, phone')
       .order('full_name', { ascending: true }),
   ])
   const profile = profileRes.data
