@@ -24,17 +24,12 @@ const KIND_CHIP: Record<
   ClawbotKind,
   {
     label: string
-    variant: 'default' | 'secondary' | 'destructive' | 'outline'
+    variant: 'default' | 'secondary' | 'destructive' | 'outline' | 'warning'
     className?: string
   }
 > = {
   abono_vencido: { label: 'Abono vencido', variant: 'destructive' },
-  abono_por_vencer: {
-    label: 'Abono por vencer',
-    variant: 'outline',
-    className:
-      'border-amber-500/50 bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400',
-  },
+  abono_por_vencer: { label: 'Abono por vencer', variant: 'warning' },
   viaje_proximo: { label: 'Viaje próximo', variant: 'default' },
   cotizacion_seguimiento: { label: 'Cotización', variant: 'secondary' },
 }

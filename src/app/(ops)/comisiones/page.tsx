@@ -7,25 +7,11 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { DataList, type DataColumn } from '@/components/data/data-list'
 import { EmptyState } from '@/components/data/empty-state'
 import { PageHeader } from '@/components/data/page-header'
-import { mxn, StatusBadge, type BookingStatus } from '../ventas/ui'
+import { mxn } from '../ventas/ui'
 import { TasaForm } from './tasa-form'
-
-// Forma del jsonb que devuelve ketzal.commissions_summary().
-// Los tipos generados a mano declaran `Returns: Json`, así que se
-// estrecha aquí con un cast (mismo patrón que en /dashboard).
-type ComisionVenta = {
-  id: string
-  cliente: string | null
-  servicio: string | null
-  owner: string
-  total: number
-  rate: number
-  comision: number
-  status: BookingStatus
-}
+import { ComisionesList, type ComisionVenta } from './comisiones-list'
 
 type CommissionsSummary = {
   total_comision: number
@@ -42,32 +28,6 @@ const EMPTY_SUMMARY: CommissionsSummary = {
 function pluralRevendidas(n: number): string {
   return n === 1 ? '1 venta revendida' : `${n} ventas revendidas`
 }
-
-const columns: DataColumn<ComisionVenta>[] = [
-  { header: 'Cliente', primary: true, cell: (v) => v.cliente ?? 'Sin cliente' },
-  { header: 'Servicio', cell: (v) => v.servicio ?? 'A medida' },
-  { header: 'Agencia dueña', cell: (v) => v.owner },
-  {
-    header: 'Total venta',
-    align: 'right',
-    cell: (v) => <span className="tabular-nums">{mxn.format(Number(v.total))}</span>,
-  },
-  {
-    header: '%',
-    align: 'right',
-    cell: (v) => <span className="tabular-nums">{Number(v.rate)}%</span>,
-  },
-  {
-    header: 'Comisión',
-    align: 'right',
-    cell: (v) => (
-      <span className="font-semibold tabular-nums">
-        {mxn.format(Number(v.comision))}
-      </span>
-    ),
-  },
-  { header: 'Estado', cell: (v) => <StatusBadge status={v.status} /> },
-]
 
 export default async function ComisionesPage() {
   const supabase = await createClient()
@@ -165,11 +125,8 @@ export default async function ComisionesPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <DataList
-            columns={columns}
+          <ComisionesList
             rows={lista}
-            getRowKey={(v) => v.id}
-            rowHref={(v) => `/ventas/${v.id}`}
             empty={
               <EmptyState
                 icon={PercentIcon}

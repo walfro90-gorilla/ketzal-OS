@@ -109,7 +109,17 @@ ciclo y qué queda como deuda explícita.
 
 ## Plan de acción
 
-### Aplicado en esta rama (este ciclo)
+### Aplicado (ciclo 2 — segunda pasada)
+
+| # | Acción | Estado |
+|---|---|---|
+| C2-1 | Detalle de venta: las 3 tablas (líneas, plan de pagos, abonos) a `DataList` → tarjetas apiladas en móvil, sin scroll horizontal. Abonos además adopta el `NativeSelect` compartido, badge "Liquidada" a `variant="success"` y botón "Emitir recibo" táctil | ✅ |
+| C2-2 | Historial de `clientes/[id]` a `DataList` con `rowHref` (tarjetas en móvil, fila enlaza a la venta) — cierra la deuda de tablas con scroll horizontal | ✅ |
+| C2-3 | Búsqueda + orden en `cobranza` (con filtro Atrasadas/Al corriente) y `comisiones` vía `FilterableList` (componentes cliente `cobranza-list`/`comisiones-list`) | ✅ |
+| C2-4 | Skeletons bespoke (`components/data/skeletons.tsx` + `loading.tsx` en dashboard/reportes/cobranza/ventas·[id]) → el fallback ya se parece al layout real, sin salto al hidratar | ✅ |
+| C2-5 | `Badge variant="warning"` (ámbar): consolida las 3 copias hardcodeadas del string ámbar (StatusBadge `draft`, `equipo-list`, `clawbot-list`) — misma deuda que `success` | ✅ |
+
+### Aplicado (ciclo 1)
 
 | # | Acción | Estado |
 |---|---|---|
@@ -127,18 +137,15 @@ ciclo y qué queda como deuda explícita.
 
 ### Pendiente (próximo ciclo — en orden)
 
-1. **Detalle de venta: 3 tablas (líneas, abonos, plan) a tarjetas móviles**
-   con `DataList`. Era P1 de este ciclo; quedó fuera por límite de sesión del
-   agente asignado. Es la pantalla más usada en campo — prioridad alta.
-2. **Extraer `money`/`status`/`fechas` a `components/data/`** y matar los
+1. **Extraer `money`/`status`/`fechas` a `components/data/`** y matar los
    imports cross-feature de `ventas/ui` (§4 del plan).
-2. **Skeletons bespoke** para dashboard/detalle/formularios.
-3. **Búsqueda en cobranza y comisiones** (FilterableList) y **⌘K ampliado** a
-   cotizaciones/proveedores/cobranza.
+2. **⌘K ampliado** a cotizaciones/proveedores/cobranza — requiere ampliar el
+   RPC `global_search` (capa backend): coordinar con el agente de backend.
 4. **Unificar el patrón de éxito** de formularios (decidir toast vs inline).
-5. **`clientes/[id]`: historial a `DataList`.**
-6. **OG condicional para ficha de servicio sin banner.**
-7. **Logo real** → swap en `brand-icon.tsx`/`BrandMark` (bloqueado por diseño).
+5. **OG condicional para ficha de servicio sin banner** (ojo: la convención
+   `opengraph-image.tsx` pisa el banner real; debe usar el banner si existe y
+   solo caer al card de marca si no — no romper el caso con banner).
+6. **Logo real** → swap en `brand-icon.tsx`/`BrandMark` (bloqueado por diseño).
 
 ## Verificación de este ciclo
 

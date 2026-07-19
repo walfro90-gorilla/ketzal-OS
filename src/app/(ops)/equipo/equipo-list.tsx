@@ -29,14 +29,7 @@ function EstadoBadge({ active }: { active: boolean }) {
   if (active) {
     return <Badge variant="success">Activo</Badge>
   }
-  return (
-    <Badge
-      variant="outline"
-      className="border-amber-500/50 bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400"
-    >
-      Pendiente
-    </Badge>
-  )
+  return <Badge variant="warning">Pendiente</Badge>
 }
 
 export function EquipoList({
