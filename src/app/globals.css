@@ -87,6 +87,18 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* El popup del <select> nativo lo pinta el navegador y no siempre respeta
+     color-scheme (Chromium/Windows lo abre claro en dark mode), pero el texto
+     de las opciones sí hereda el foreground del tema → blanco sobre blanco.
+     Colores explícitos por token garantizan contraste en ambos temas. */
+  select option,
+  select optgroup {
+    background-color: var(--popover);
+    color: var(--popover-foreground);
+  }
+  select option:disabled {
+    color: var(--muted-foreground);
+  }
 }
 
 /* Accesibilidad: respeta a quien pide menos movimiento (mareos, vestibular). */
