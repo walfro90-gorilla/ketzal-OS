@@ -1,5 +1,6 @@
 // Self-check de la normalización del lector de PDF/imagen.
-// Correr:  node --test src/lib/ai/
+// Correr:  node --test 'src/lib/ai/*.test.mjs'
+// (con la ruta del directorio Node 24 falla: la resuelve como módulo)
 // Es .mjs a propósito: queda fuera del tsconfig y Node 24 hace el type-stripping
 // del .ts que importa, así que no hace falta test runner ni build.
 

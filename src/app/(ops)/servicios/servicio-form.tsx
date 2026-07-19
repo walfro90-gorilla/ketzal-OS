@@ -21,6 +21,7 @@ import {
 } from './actions'
 import { PACK_TYPES, type Pack, type PackInput } from '@/lib/domain/packs'
 import { ImportarArchivo } from './importar-archivo'
+import { ImportarUrl } from './importar-url'
 import type { ServicioLeido } from '@/lib/ai/servicio-leido'
 
 const TIPO_OPCIONES = [
@@ -248,7 +249,12 @@ export function ServicioForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Solo al crear: editando, el atajo confundiría más de lo que ayuda. */}
-      {!servicioId && <ImportarArchivo onDatos={aplicarLeido} />}
+      {!servicioId && (
+        <>
+          <ImportarArchivo onDatos={aplicarLeido} />
+          <ImportarUrl onDatos={aplicarLeido} />
+        </>
+      )}
 
       <Card>
         <CardHeader>

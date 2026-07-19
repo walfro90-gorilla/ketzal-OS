@@ -9,6 +9,11 @@ import {
   tieneDatos,
   type ServicioLeido,
 } from '@/lib/ai/servicio-leido'
+import {
+  extraerOg,
+  textoDeProducto,
+  urlProductoValida,
+} from '@/lib/ai/wa-producto'
 
 /**
  * Lector de volantes: PDF o imagen → campos del servicio pre-rellenados.
@@ -24,6 +29,13 @@ const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
 // Modelo con visión en Groq. Override por env porque Groq deprecia IDs seguido
 // y no vale un redeploy de código para cambiar un string.
 const MODELO = process.env.GROQ_MODEL || 'qwen/qwen3.6-27b'
+
+/**
+ * WhatsApp sirve los meta de Open Graph al crawler de Meta. Con UA de navegador
+ * la ruta de producto contesta 400; con esta contesta el HTML con los tags.
+ */
+const UA_CRAWLER =
+  'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)'
 
 const TIPOS_ACEPTADOS = [
   'application/pdf',
@@ -72,6 +84,66 @@ function parsearJson(bruto: string): unknown {
   } catch {
     return null
   }
+}
+
+/**
+ * Manda el material al modelo y devuelve los campos ya acotados.
+ * Compartido por las dos fuentes (archivo subido y link de WhatsApp): el prompt,
+ * el modelo y el `reasoning_effort` viven en un solo lugar.
+ *
+ * `sinDatos` lo pone el llamador porque el consejo cambia según la fuente.
+ */
+async function extraerConGroq(
+  contenido: Parte,
+  sinDatos: string
+): Promise<{ error: string } | { datos: ServicioLeido }> {
+  let respuesta: Response
+  try {
+    respuesta = await fetch(GROQ_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: MODELO,
+        temperature: 0,
+        // qwen3.6 es modelo de razonamiento: con el razonamiento activo gasta
+        // la generación pensando y `content` vuelve VACÍO, así que el modo JSON
+        // falla con json_validate_failed. Apagarlo es lo que hace que extraiga.
+        // Extraer campos de un volante no necesita cadena de pensamiento.
+        reasoning_effort: 'none',
+        response_format: { type: 'json_object' },
+        messages: [
+          {
+            role: 'user',
+            content: [{ type: 'text', text: INSTRUCCION }, contenido],
+          },
+        ],
+      }),
+      signal: AbortSignal.timeout(90_000),
+    })
+  } catch (e) {
+    console.error('[lector] red', e)
+    return { error: 'El lector no respondió a tiempo. Intenta de nuevo.' }
+  }
+
+  if (!respuesta.ok) {
+    // El detalle solo al log del servidor: puede traer eco del request.
+    console.error('[lector] groq', respuesta.status, await respuesta.text().catch(() => ''))
+    return { error: 'El lector falló. Captura los datos a mano o intenta de nuevo.' }
+  }
+
+  const cuerpo = (await respuesta.json().catch(() => null)) as
+    | { choices?: { message?: { content?: string } }[] }
+    | null
+  const bruto = cuerpo?.choices?.[0]?.message?.content
+  if (!bruto) return { error: 'El lector no devolvió nada. Intenta de nuevo.' }
+
+  const datos = normalizarLeido(parsearJson(bruto))
+  if (!tieneDatos(datos)) return { error: sinDatos }
+
+  return { datos }
 }
 
 export async function leerArchivoServicio(
@@ -126,56 +198,90 @@ export async function leerArchivoServicio(
     contenido = { type: 'image_url', image_url: { url: dataUri } }
   }
 
-  let respuesta: Response
-  try {
-    respuesta = await fetch(GROQ_URL, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: MODELO,
-        temperature: 0,
-        // qwen3.6 es modelo de razonamiento: con el razonamiento activo gasta
-        // la generación pensando y `content` vuelve VACÍO, así que el modo JSON
-        // falla con json_validate_failed. Apagarlo es lo que hace que extraiga.
-        // Extraer campos de un volante no necesita cadena de pensamiento.
-        reasoning_effort: 'none',
-        response_format: { type: 'json_object' },
-        messages: [
-          {
-            role: 'user',
-            content: [{ type: 'text', text: INSTRUCCION }, contenido],
-          },
-        ],
-      }),
-      signal: AbortSignal.timeout(90_000),
-    })
-  } catch (e) {
-    console.error('[lector] red', e)
-    return { error: 'El lector no respondió a tiempo. Intenta de nuevo.' }
+  return extraerConGroq(
+    contenido,
+    'No reconocí datos de un tour en ese archivo. Revisa que sea el volante correcto.'
+  )
+}
+
+/**
+ * Lector de un link de producto del catálogo de WhatsApp Business.
+ *
+ * Solo productos individuales: el link de CATÁLOGO (`wa.me/c/…`) no sirve, su
+ * página pública es un interstitial sin un solo producto (ver `wa-producto.ts`).
+ *
+ * WhatsApp entrega los datos del producto en meta tags Open Graph — los mismos
+ * con los que arma la previsualización cuando compartes el link en un chat — así
+ * que se piden con UA de crawler y el texto resultante entra al MISMO extractor
+ * que el volante.
+ */
+export async function leerProductoWhatsApp(
+  url: string
+): Promise<{ error: string } | { datos: ServicioLeido }> {
+  // Puerta de autenticación antes de gastar tokens: el lector cuesta dinero.
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: 'Inicia sesión para usar el lector.' }
+
+  if (!process.env.GROQ_API_KEY) {
+    return { error: 'El lector no está configurado (falta GROQ_API_KEY).' }
   }
 
-  if (!respuesta.ok) {
-    // El detalle solo al log del servidor: puede traer eco del request.
-    console.error('[lector] groq', respuesta.status, await respuesta.text().catch(() => ''))
-    return { error: 'El lector falló. Captura los datos a mano o intenta de nuevo.' }
-  }
-
-  const cuerpo = (await respuesta.json().catch(() => null)) as
-    | { choices?: { message?: { content?: string } }[] }
-    | null
-  const bruto = cuerpo?.choices?.[0]?.message?.content
-  if (!bruto) return { error: 'El lector no devolvió nada. Intenta de nuevo.' }
-
-  const datos = normalizarLeido(parsearJson(bruto))
-  if (!tieneDatos(datos)) {
+  // Frontera de confianza: el server hace fetch de lo que teclee el usuario.
+  // Sin whitelist esto es un SSRF. Ver `urlProductoValida`.
+  const limpia = urlProductoValida(url)
+  if (!limpia) {
     return {
       error:
-        'No reconocí datos de un tour en ese archivo. Revisa que sea el volante correcto.',
+        'Ese link no es de un producto de WhatsApp. Copia el link de un artículo del catálogo (se ve así: wa.me/p/…).',
     }
   }
 
-  return { datos }
+  let respuesta: Response
+  try {
+    respuesta = await fetch(limpia, {
+      // Los meta de Open Graph se sirven al crawler, que es justo lo que somos.
+      headers: { 'User-Agent': UA_CRAWLER, 'Accept-Language': 'es-MX,es;q=0.9' },
+      redirect: 'follow',
+      signal: AbortSignal.timeout(20_000),
+    })
+  } catch (e) {
+    console.error('[lector] wa red', e)
+    return { error: 'No se pudo abrir el link. Revisa tu conexión e intenta de nuevo.' }
+  }
+
+  // wa.me redirige a whatsapp.com; que el destino final siga siendo de la casa.
+  // Un redirect a otro host convertiría la whitelist en decorativa.
+  if (!urlProductoValida(respuesta.url)) {
+    console.error('[lector] wa redirect fuera de whitelist', respuesta.url)
+    return { error: 'Ese link no llevó a un producto de WhatsApp.' }
+  }
+
+  // Un producto que ya no existe da 404 (verificado contra el servicio real).
+  // El 200 con og:title "Page Not Found" también pasa: Meta a veces sirve la
+  // página de error con status bueno. Los dos son el mismo problema para el
+  // agente, así que dicen lo mismo.
+  const MUERTO =
+    'Ese producto ya no existe en el catálogo, o el link es de otro país. Pide el link actualizado.'
+
+  if (!respuesta.ok) {
+    console.error('[lector] wa http', respuesta.status, limpia)
+    return {
+      error:
+        respuesta.status === 404
+          ? MUERTO
+          : 'WhatsApp no devolvió ese producto. Puede que el catálogo sea privado.',
+    }
+  }
+
+  const og = extraerOg(await respuesta.text())
+  const texto = textoDeProducto(og)
+  if (!texto) return { error: MUERTO }
+
+  return extraerConGroq(
+    { type: 'text', text: texto },
+    'Ese producto no trae suficiente información para llenar un servicio. Captura los datos a mano.'
+  )
 }
