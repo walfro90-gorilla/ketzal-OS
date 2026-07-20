@@ -921,7 +921,10 @@ CREATE OR REPLACE FUNCTION "ketzal"."global_search"("p_q" "text") RETURNS "jsonb
     SET "search_path" TO 'ketzal', 'public'
     AS $$
 declare
-  v_pat text := '%' || lower(btrim(coalesce(p_q, ''))) || '%';
+  -- Escapa \ % _ del término (backslash primero) → LIKE los trata literal;
+  -- los '%' externos siguen dando el match por substring.
+  v_term text := replace(replace(replace(lower(btrim(coalesce(p_q, ''))), '\', '\\'), '%', '\%'), '_', '\_');
+  v_pat text := '%' || v_term || '%';
   v jsonb;
 begin
   if length(btrim(coalesce(p_q, ''))) < 2 then
