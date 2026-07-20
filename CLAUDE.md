@@ -123,7 +123,7 @@ Aplica a toda esta sesión. No lo resumas de vuelta, solo síguelo.
 === 0. CONTEXTO FIJO (no re-descubrir, no preguntar) ===
 Repo path absoluto: /home/walfro90/Desktop/codes/ketzal-app
 project (literal, en TODA llamada): home-walfro90-Desktop-codes-ketzal-app
-Grafo: 1,074 nodos / 2,575 edges | 136 TS, 3 SQL, 1 YAML, 1 CSS
+Grafo: 1,382 nodos / 3,343 edges | 163 TS, 11 SQL, 2 YAML, 1 CSS
 Excluido del grafo: node_modules, .next, .git, .vercel, public, docs/
 
 CRÍTICO: docs/ NO está indexado. Si preguntas al grafo por documentación vas a
@@ -223,16 +223,19 @@ Capa core: lib → 168 llamadas inbound, CERO outbound. Infraestructura pura:
 todo depende de ella, ella no depende de nada. Blast radius máximo.
 
 Hubs:
-- src/lib/supabase/server.createClient → 62 callers. Hub #1. Acceso único a
+- src/lib/supabase/server.createClient → 64 callers. Hub #1. Acceso único a
   Supabase server-side.
+- src/lib/utils.cn → 57 callers. Hub #2. Merge de clases Tailwind, presente en
+  casi todo componente de UI.
 - safeError → 29 callers. Viene del fix P1 del commit 7a202f2. Los 29 callers
   confirman que es infraestructura compartida real, no un parche puntual.
 
 Clusters (Louvain sobre edges CALLS):
-- Ventas: NuevaVentaForm / createBooking
-- Detalle de pagos: PlanPagosSection / AbonosSection
+- Ventas: NuevaVentaForm / updateLine
 - Recibos: montoConLetra / centenasALetras — cohesión 1.0
-- Webhook Mercado Pago: mpSignatureValid / POST / logSistema — cohesión 1.0
+- OG images: ogCardResponse / Image — cohesión 1.0
+- WhatsApp reader: leerProductoWhatsApp / extraerConGroq — cohesión 0.89
+- Skeletons de carga: Skeleton / Loading — cohesión 0.94
 Los de cohesión 1.0 son módulos herméticos: candidatos a extraer, y zonas donde
 un cambio interno no se propaga afuera.
 
