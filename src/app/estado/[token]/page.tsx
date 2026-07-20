@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import { getStatement } from './data'
+import { getBrandLogo } from '@/lib/brand'
 import { BrandMark } from '@/components/brand-mark'
+import { PoweredByKetzal } from '@/components/data/powered-by-ketzal'
 import { CompartirWhatsApp } from '@/components/data/compartir-whatsapp'
 import { ImprimirBoton } from '@/components/imprimir-boton'
 import { Badge } from '@/components/ui/badge'
@@ -111,6 +113,8 @@ export default async function EstadoCuentaPublicoPage({
   const { token } = await params
   const statement = await getStatement(token)
   if (!statement) return <NotFound />
+
+  const logo = await getBrandLogo()
 
   const money = new Intl.NumberFormat('es-MX', {
     style: 'currency',
@@ -311,7 +315,9 @@ export default async function EstadoCuentaPublicoPage({
 
       <footer className="space-y-1 pb-8 text-center text-xs text-muted-foreground">
         <p>Documento generado el {emitidoFmt.format(new Date(statement.emitido))}</p>
-        <p>Powered by Ketzal</p>
+        <p>
+          <PoweredByKetzal logoUrl={logo} />
+        </p>
       </footer>
     </main>
   )

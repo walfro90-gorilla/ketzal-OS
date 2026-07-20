@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react'
 import type { Metadata } from 'next'
 import { getReceipt } from './data'
+import { getBrandLogo } from '@/lib/brand'
 import { BrandMark } from '@/components/brand-mark'
+import { PoweredByKetzal } from '@/components/data/powered-by-ketzal'
 import { ImprimirBoton } from '@/components/imprimir-boton'
 import { CompartirWhatsApp } from '@/components/data/compartir-whatsapp'
 
@@ -169,6 +171,8 @@ export default async function ReciboPage({
   const r = await getReceipt(receiptId)
   if (!r) return <NotFound />
 
+  const logo = await getBrandLogo()
+
   const money = new Intl.NumberFormat('es-MX', {
     style: 'currency',
     currency: r.moneda || 'MXN',
@@ -307,7 +311,9 @@ export default async function ReciboPage({
             Comprobante interno — no es una factura fiscal (CFDI).
           </p>
           {/* Firma unificada de las 3 superficies compartibles. */}
-          <p className="mt-1 text-[10px] text-neutral-400">Powered by Ketzal</p>
+          <p className="mt-1 text-[10px] text-neutral-400">
+            <PoweredByKetzal logoUrl={logo} />
+          </p>
         </footer>
       </article>
     </main>
