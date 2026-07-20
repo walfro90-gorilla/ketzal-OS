@@ -75,6 +75,8 @@ Detalle completo del modelo objetivo en **`docs/DATA_MODEL.md`**. SQL propuesto 
 > El checklist de arriba quedó corto. Resumen aditivo de lo construido. Detalle vivo en la memoria del proyecto (`ketzal-project`).
 >
 > **Estado real (corregido 2026-07-19):** el OS está **desplegado en producción y en fase de pruebas — todavía NO hay operación real**. Verificado contra la BD: `bookings`, `payments`, `customers`, `receipts` en **cero**. Sigue en pruebas hasta que esté 100% probado. No confundir "desplegado y funcional" con "en uso": el FODA pesa distinto según cuál sea (ej. los 8 días de Clawbot caído tuvieron daño real cero porque no había nada que cobrar).
+>
+> **Catálogo público — primer slice vivo (2026-07-20):** el flag `services.published` ya se prende/apaga desde la UI (toggle en la lista de servicios **y** en el formulario de edición, tarjeta "Publicación"). Las rutas públicas `/explora` (`ketzal.list_public_services`) y `/servicio/[id]` (`ketzal.get_public_service`, fail-closed) sirven solo lo publicado. El fundador publicó **2 servicios** (Brasil, Dunas Mágicas Samalayuca) — verificado end-to-end, 0 errores de advisors. Sigue siendo **fase de pruebas** (sin ventas ni operación real); es el primer paso hacia el marketplace B2C 🅰️.
 
 **Infra/deploy:** Next.js 16 (App Router) · React 19 · TS · Tailwind 4 · shadcn base-nova (sobre `@base-ui/react`, no radix) · pnpm. Repo `walfro90-gorilla/ketzal-OS` (SSH) → Vercel `ketzal-os` (push a `main` auto-despliega). Prod: **https://ketzal-os.vercel.app**. Migraciones NO versionadas en el repo (Supabase es la fuente, vía `apply_migration`). `middleware.ts`→`proxy.ts` en Next 16; `next build` no falla por lint.
 
