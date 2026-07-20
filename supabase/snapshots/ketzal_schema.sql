@@ -2072,6 +2072,42 @@ COMMENT ON TABLE "ketzal"."profiles" IS 'Datos de usuario especificos de Ketzal.
 
 
 
+-- Terreno del marketplace (Fase B.0): comprador B2C, aislado de profiles.
+CREATE TABLE IF NOT EXISTS "ketzal"."marketplace_customers" (
+    "id" "uuid" NOT NULL,
+    "full_name" "text" NOT NULL,
+    "phone" "text",
+    "email" "text",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "ketzal"."marketplace_customers" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "ketzal"."marketplace_customers" IS 'Compradores B2C del marketplace (Fase B). Aislada de profiles (agentes). id = auth.users.id.';
+
+
+ALTER TABLE ONLY "ketzal"."marketplace_customers"
+    ADD CONSTRAINT "marketplace_customers_pkey" PRIMARY KEY ("id");
+
+
+ALTER TABLE ONLY "ketzal"."marketplace_customers"
+    ADD CONSTRAINT "marketplace_customers_id_fkey" FOREIGN KEY ("id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+ALTER TABLE "ketzal"."marketplace_customers" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "mc_select_own" ON "ketzal"."marketplace_customers" FOR SELECT TO "authenticated" USING (("id" = "auth"."uid"()));
+CREATE POLICY "mc_insert_own" ON "ketzal"."marketplace_customers" FOR INSERT TO "authenticated" WITH CHECK (("id" = "auth"."uid"()));
+CREATE POLICY "mc_update_own" ON "ketzal"."marketplace_customers" FOR UPDATE TO "authenticated" USING (("id" = "auth"."uid"())) WITH CHECK (("id" = "auth"."uid"()));
+
+
+GRANT SELECT,INSERT,UPDATE ON TABLE "ketzal"."marketplace_customers" TO "authenticated";
+
+
+
 CREATE TABLE IF NOT EXISTS "ketzal"."receipt_counters" (
     "supplier_id" "uuid" NOT NULL,
     "last_folio" bigint DEFAULT 0 NOT NULL
