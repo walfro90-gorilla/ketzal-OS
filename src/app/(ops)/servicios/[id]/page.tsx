@@ -109,6 +109,8 @@ export default async function ServicioDetallePage({
           excludes: jsonbALineas(servicio.excludes),
           itinerary: jsonbAItinerario(servicio.itinerary),
           packs: jsonbAPacks(servicio.packs),
+          // `published` es columna nueva no tipada aún ⇒ cast (convención multi-agente).
+          published: Boolean((servicio as { published?: boolean }).published),
         }}
       />
 

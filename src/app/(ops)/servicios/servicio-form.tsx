@@ -13,10 +13,12 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { NativeSelect } from '@/components/ui/native-select'
+import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import {
   actualizarServicio,
   crearServicio,
+  setServicioPublicado,
   type ItineraryDay,
   type ServicioInput,
 } from './actions'
@@ -70,6 +72,8 @@ export type ServicioFormInitial = {
   itinerary: ItineraryDay[]
   /** Paquetes por ocupación (solo tours/paquetes). */
   packs: Pack[]
+  /** Si está en el catálogo público (marketplace). */
+  published: boolean
 }
 
 export function ServicioForm({
@@ -122,9 +126,28 @@ export function ServicioForm({
     for (const p of initial?.packs ?? []) m[p.key] = String(p.price)
     return m
   })
+  // Publicación en el catálogo público. Al editar se persiste al instante
+  // (acción propia, independiente de "Guardar cambios"); al crear queda de
+  // solo lectura hasta que el servicio exista.
+  const [published, setPublished] = useState(initial?.published ?? false)
+  const [publishing, startPublishing] = useTransition()
 
   // Los paquetes por ocupación solo aplican a tours y paquetes.
   const muestraPaquetes = tipo === 'tour' || tipo === 'paquete'
+
+  function togglePublicado(next: boolean) {
+    if (!servicioId) return
+    setPublished(next) // optimista: se revierte si la acción falla
+    startPublishing(async () => {
+      const res = await setServicioPublicado(servicioId, next)
+      if ('error' in res) {
+        setPublished(!next)
+        toast.error(res.error)
+      } else {
+        toast.success(next ? 'Servicio publicado' : 'Servicio ocultado')
+      }
+    })
+  }
 
   function agregarDia() {
     setItinerary((prev) => [...prev, { title: '', description: '' }])
@@ -505,6 +528,43 @@ export function ServicioForm({
           </CardContent>
         </Card>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Publicación</CardTitle>
+          <CardDescription>
+            Un servicio público aparece en el catálogo del sitio; uno privado
+            solo lo ven tu agencia y tú para venderlo directo.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
+            <div className="space-y-0.5">
+              <Label htmlFor="servicio-publicado" className="cursor-pointer">
+                {published ? 'Público' : 'Privado'}
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                {!servicioId
+                  ? 'Guarda el servicio primero; después podrás publicarlo.'
+                  : published
+                    ? 'Visible en el catálogo público.'
+                    : 'Oculto del catálogo público.'}
+              </p>
+            </div>
+            <Switch
+              id="servicio-publicado"
+              checked={published}
+              onCheckedChange={togglePublicado}
+              disabled={!servicioId || publishing}
+              aria-label={
+                published
+                  ? 'Quitar del catálogo público'
+                  : 'Publicar en el catálogo'
+              }
+            />
+          </div>
+        </CardContent>
+      </Card>
 
       {error && (
         <p role="alert" className="text-sm text-destructive">
