@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { buttonVariants } from '@/components/ui/button'
 import { CheckIcon, XIcon, MapPinIcon } from 'lucide-react'
 import { videoEmbedUrl } from '@/lib/video'
+import { marketplaceActivo } from '@/lib/marketplace'
 
 // Ficha pública de un servicio (marketplace). Indexable (vitrina SEO).
 // El CTA "Reservar" apunta hoy a WhatsApp de la agencia; la tajada 3
@@ -89,6 +90,7 @@ export default async function ServicioPublicoPage({
   ]
   const embed = videoEmbedUrl(s.yt_link)
   const wa = waLink(s.agency.phone)
+  const comprarOnline = marketplaceActivo()
   const cupoLibre =
     s.max_capacity != null ? Math.max(0, s.max_capacity - s.current_bookings) : null
 
@@ -131,24 +133,36 @@ export default async function ServicioPublicoPage({
               </p>
             )}
           </div>
-          {wa ? (
-            // CTA de conversión: full-width y táctil (44px) en el teléfono.
-            <a
-              href={`${wa}?text=${encodeURIComponent(`Hola, me interesa el viaje "${s.name}".`)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`${buttonVariants({ variant: 'default', size: 'touch' })} w-full sm:w-auto`}
-            >
-              Reservar por WhatsApp
-            </a>
-          ) : s.agency.email ? (
-            <a
-              href={`mailto:${s.agency.email}?subject=${encodeURIComponent(`Reserva: ${s.name}`)}`}
-              className={`${buttonVariants({ variant: 'default', size: 'touch' })} w-full sm:w-auto`}
-            >
-              Pedir informes
-            </a>
-          ) : null}
+          {/* CTA de conversión: full-width y táctil (44px) en el teléfono. Con
+              el flag del marketplace, "Comprar en línea" es la acción primaria y
+              WhatsApp pasa a secundaria. */}
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            {comprarOnline && (
+              <Link
+                href={`/comprar/${s.id}`}
+                className={`${buttonVariants({ variant: 'default', size: 'touch' })} w-full sm:w-auto`}
+              >
+                Comprar en línea
+              </Link>
+            )}
+            {wa ? (
+              <a
+                href={`${wa}?text=${encodeURIComponent(`Hola, me interesa el viaje "${s.name}".`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`${buttonVariants({ variant: comprarOnline ? 'outline' : 'default', size: 'touch' })} w-full sm:w-auto`}
+              >
+                Reservar por WhatsApp
+              </a>
+            ) : s.agency.email ? (
+              <a
+                href={`mailto:${s.agency.email}?subject=${encodeURIComponent(`Reserva: ${s.name}`)}`}
+                className={`${buttonVariants({ variant: comprarOnline ? 'outline' : 'default', size: 'touch' })} w-full sm:w-auto`}
+              >
+                Pedir informes
+              </a>
+            ) : null}
+          </div>
         </CardContent>
       </Card>
 
