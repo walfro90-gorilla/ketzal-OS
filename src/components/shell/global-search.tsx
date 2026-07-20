@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import { Dialog } from '@base-ui/react/dialog'
 import {
   BanknoteIcon,
+  Building2Icon,
+  FileTextIcon,
   MapPinIcon,
   SearchIcon,
   UsersIcon,
@@ -13,13 +15,17 @@ import { buscarGlobal, type ResultadoBusqueda } from '@/app/(ops)/buscar-actions
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 
-// Paleta de búsqueda global (⌘K / Ctrl+K): clientes, ventas y servicios.
-// El backend (`buscarGlobal`) ya agrupa, ordena y acota por RLS.
+// Paleta de búsqueda global (⌘K / Ctrl+K): clientes, ventas, cotizaciones,
+// servicios y proveedores. El backend (`buscarGlobal` → RPC `global_search`)
+// ya agrupa, ordena y acota por RLS. El orden de `GRUPOS` fija el orden de
+// despliegue por sección.
 
 const GRUPOS = [
   { type: 'cliente', label: 'Clientes', Icon: UsersIcon },
   { type: 'venta', label: 'Ventas', Icon: BanknoteIcon },
+  { type: 'cotizacion', label: 'Cotizaciones', Icon: FileTextIcon },
   { type: 'servicio', label: 'Servicios', Icon: MapPinIcon },
+  { type: 'proveedor', label: 'Proveedores', Icon: Building2Icon },
 ] as const
 
 const LISTBOX_ID = 'busqueda-global-resultados'
@@ -211,7 +217,7 @@ export function GlobalSearch() {
             <Input
               ref={inputRef}
               role="combobox"
-              aria-label="Buscar clientes, ventas o servicios"
+              aria-label="Buscar clientes, ventas, cotizaciones, servicios y proveedores"
               aria-expanded={flat.length > 0}
               aria-controls={LISTBOX_ID}
               aria-activedescendant={
@@ -220,7 +226,7 @@ export function GlobalSearch() {
               autoComplete="off"
               autoCapitalize="none"
               spellCheck={false}
-              placeholder="Buscar clientes, ventas o servicios…"
+              placeholder="Buscar clientes, ventas, servicios…"
               value={query}
               onChange={(e) => buscar(e.target.value)}
               onKeyDown={onInputKeyDown}
@@ -237,8 +243,8 @@ export function GlobalSearch() {
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1.5">
             {q.length < 2 ? (
               <p className="px-2.5 py-6 text-center text-sm text-muted-foreground">
-                Escribe al menos 2 letras para buscar clientes, ventas o
-                servicios.
+                Escribe al menos 2 letras para buscar clientes, ventas,
+                cotizaciones, servicios o proveedores.
               </p>
             ) : flat.length > 0 ? (
               <div

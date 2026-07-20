@@ -921,7 +921,10 @@ CREATE OR REPLACE FUNCTION "ketzal"."global_search"("p_q" "text") RETURNS "jsonb
     SET "search_path" TO 'ketzal', 'public'
     AS $$
 declare
-  v_pat text := '%' || lower(btrim(coalesce(p_q, ''))) || '%';
+  -- Escapa \ % _ del término (backslash primero) → LIKE los trata literal;
+  -- los '%' externos siguen dando el match por substring.
+  v_term text := replace(replace(replace(lower(btrim(coalesce(p_q, ''))), '\', '\\'), '%', '\%'), '_', '\_');
+  v_pat text := '%' || v_term || '%';
   v jsonb;
 begin
   if length(btrim(coalesce(p_q, ''))) < 2 then
@@ -960,7 +963,23 @@ begin
 
     union all
 
-    (select 2 as ord, s.name as label,
+    -- Cotizaciones: bookings en borrador (status = 'draft'). Detalle en /ventas/[id].
+    (select 2 as ord, coalesce(cu.full_name, 'Cotización') as label,
+            jsonb_build_object(
+              'type', 'cotizacion', 'id', b.id, 'label', coalesce(cu.full_name, 'Cotización'),
+              'sublabel', coalesce(s.name, 'A medida'),
+              'href', '/ventas/' || b.id) as r
+     from ketzal.bookings b
+     left join ketzal.customers cu on cu.id = b.customer_id
+     left join ketzal.services  s  on s.id  = b.service_id
+     where b.status = 'draft'
+       and (lower(coalesce(cu.full_name, '')) like v_pat
+         or lower(coalesce(s.name, '')) like v_pat)
+     limit 6)
+
+    union all
+
+    (select 3 as ord, s.name as label,
             jsonb_build_object(
               'type', 'servicio', 'id', s.id, 'label', s.name,
               'sublabel', coalesce(nullif(s.city_to, ''), nullif(s.location, ''), 'Servicio'),
@@ -968,6 +987,20 @@ begin
      from ketzal.services s
      where lower(s.name) like v_pat
         or lower(coalesce(s.city_to, '')) like v_pat
+     limit 6)
+
+    union all
+
+    -- Proveedores: suppliers (RLS acota a los visibles para el agente).
+    (select 4 as ord, sup.name as label,
+            jsonb_build_object(
+              'type', 'proveedor', 'id', sup.id, 'label', sup.name,
+              'sublabel', coalesce(nullif(sup.contact_email, ''), nullif(sup.phone_number, ''), 'Proveedor'),
+              'href', '/proveedores/' || sup.id) as r
+     from ketzal.suppliers sup
+     where lower(sup.name) like v_pat
+        or lower(coalesce(sup.contact_email, '')) like v_pat
+        or lower(coalesce(sup.phone_number, '')) like v_pat
      limit 6)
   ) t(ord, label, r);
 

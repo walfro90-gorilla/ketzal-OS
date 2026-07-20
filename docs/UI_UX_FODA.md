@@ -109,6 +109,18 @@ ciclo y qué queda como deuda explícita.
 
 ## Plan de acción
 
+### Aplicado (ciclo 5 — publicar servicio desde el formulario)
+
+| # | Acción | Estado |
+|---|---|---|
+| C5-1 | **Toggle publicar/privado en el formulario de servicio.** El agente ya no depende de la lista para publicar: `servicio-form.tsx` (modo edición) tiene una tarjeta **Publicación** con un interruptor que prende/apaga el catálogo público al instante (reusa la acción `setServicioPublicado` ya existente → toast + reversión optimista si falla). Nuevo primitivo `Switch` (base-nova sobre `@base-ui/react/switch`, tokens de marca, táctil). Al **crear** el interruptor queda deshabilitado con la nota de que se publica una vez guardado (aún no hay `id`). `[id]/page.tsx` pasa `published` al form (cast, columna no tipada). **Sin cambios de backend** | ✅ |
+
+### Aplicado (ciclo 4 — con visto bueno para cruzar a backend)
+
+| # | Acción | Estado |
+|---|---|---|
+| C4-1 | **⌘K ampliado** a **cotizaciones** (bookings `draft`) y **proveedores** (`suppliers`), además de clientes/ventas/servicios. Requirió extender el RPC `ketzal.global_search` (migración `ketzal_global_search_cotizaciones_proveedores`, `SECURITY INVOKER` → RLS intacta, solo-lectura) + cablear los 2 grupos nuevos en `global-search.tsx`. Snapshot de schema re-sincronizado. Verificado contra la BD viva (búsqueda de proveedor devuelve href correcto) | ✅ |
+
 ### Aplicado (ciclo 3 — tras integrar `services/new` del otro agente)
 
 | # | Acción | Estado |
@@ -145,13 +157,14 @@ ciclo y qué queda como deuda explícita.
 
 ### Pendiente
 
-1. **⌘K ampliado** a cotizaciones/proveedores/cobranza — requiere ampliar el
-   RPC `global_search` (capa backend): coordinar con el agente de backend.
-2. **Logo real** → swap en `brand-icon.tsx`/`BrandMark` (bloqueado por diseño).
+1. **Logo real** → swap en `brand-icon.tsx`/`BrandMark` (bloqueado por diseño:
+   falta el vector transparente). Único pendiente, y no es de código.
 
-> Con C3-3 quedan cubiertos todos los pendientes de la capa presentacional que
-> no dependen de backend o de un asset externo. Los 2 restantes están fuera del
-> alcance de UI (RPC / diseño).
+> Con C4-1 se cerró el ⌘K (el último item que dependía de backend). Lo que
+> queda es solo el logo, bloqueado por un asset de diseño externo. Nota: la
+> "cobranza" no se agregó al ⌘K a propósito — no es una entidad buscable (es
+> una vista derivada de las ventas con saldo); buscar el cliente ya lleva a su
+> venta, que enlaza a cobranza.
 
 ## Verificación de este ciclo
 
@@ -159,3 +172,22 @@ ciclo y qué queda como deuda explícita.
 oscuro, móvil 390px) de dashboard, combobox y documentos públicos; la
 impresión se verificó emulando `print` con dark mode activo (texto oscuro
 sobre blanco). Detalle por commit en el historial de la rama.
+
+### Cierre de testing — publicación de servicios (2026-07-20)
+
+El fundador publicó **2 servicios reales** con el toggle nuevo; verificado
+end-to-end contra la BD viva (`ketzal`, proyecto Gorilla-Labs):
+
+- **Escritura del toggle:** `services.published = true` en *Brasil* y *Dunas
+  Mágicas Samalayuca 2026* (marcados 2026-07-20 13:32–13:33). El interruptor
+  persiste correctamente.
+- **Catálogo público** (`ketzal.list_public_services`): devuelve **exactamente
+  esos 2** y nada más.
+- **Ficha pública** (`ketzal.get_public_service`): el publicado devuelve datos;
+  un servicio **privado** y un **uuid inexistente** devuelven `null`
+  (fail-closed, como diseñado).
+- **Advisors de seguridad:** **0 errores** (78 lints, todos WARN/INFO de
+  baseline preexistente; el ciclo no introdujo DDL). Sin regresión.
+
+Testing cerrado. El catálogo público queda **en fase de pruebas con 2
+servicios vivos** (aún no operación real).
