@@ -65,10 +65,17 @@ function Select({
   )
 }
 
+const ORDEN_OPCIONES = [
+  { value: 'nombre', label: 'Nombre (A–Z)' },
+  { value: 'precio-asc', label: 'Precio: menor a mayor' },
+  { value: 'precio-desc', label: 'Precio: mayor a menor' },
+]
+
 export function Catalogo({ servicios }: { servicios: PublicServiceCard[] }) {
   const [query, setQuery] = useState('')
   const [estado, setEstado] = useState('')
   const [tipo, setTipo] = useState('')
+  const [orden, setOrden] = useState('nombre')
 
   // Opciones derivadas de los datos (distintos, ordenados).
   const estadoOpts = useMemo(() => {
@@ -95,6 +102,18 @@ export function Catalogo({ servicios }: { servicios: PublicServiceCard[] }) {
     })
   }, [servicios, query, estado, tipo])
 
+  const ordenados = useMemo(() => {
+    const arr = [...filtrados]
+    if (orden === 'precio-asc') {
+      arr.sort((a, b) => Number(a.price ?? 0) - Number(b.price ?? 0))
+    } else if (orden === 'precio-desc') {
+      arr.sort((a, b) => Number(b.price ?? 0) - Number(a.price ?? 0))
+    } else {
+      arr.sort((a, b) => a.name.localeCompare(b.name, 'es'))
+    }
+    return arr
+  }, [filtrados, orden])
+
   const clear = () => {
     setQuery('')
     setEstado('')
@@ -119,13 +138,28 @@ export function Catalogo({ servicios }: { servicios: PublicServiceCard[] }) {
         {tipoOpts.length > 1 && (
           <Select label="Tipo" value={tipo} onChange={setTipo} options={tipoOpts} />
         )}
+        {servicios.length > 1 && (
+          <div className="w-full sm:ml-auto sm:w-56">
+            <NativeSelect
+              aria-label="Ordenar"
+              value={orden}
+              onChange={(e) => setOrden(e.target.value)}
+            >
+              {ORDEN_OPCIONES.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </NativeSelect>
+          </div>
+        )}
       </div>
 
       <p className="text-xs text-muted-foreground" aria-live="polite">
-        {filtrados.length === 1 ? '1 viaje' : `${filtrados.length} viajes`}
+        {ordenados.length === 1 ? '1 viaje' : `${ordenados.length} viajes`}
       </p>
 
-      {filtrados.length === 0 ? (
+      {ordenados.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed px-6 py-10 text-center">
           <p className="text-sm text-muted-foreground">
             Ningún viaje coincide con tu búsqueda.
@@ -136,7 +170,7 @@ export function Catalogo({ servicios }: { servicios: PublicServiceCard[] }) {
         </div>
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {filtrados.map((s) => {
+          {ordenados.map((s) => {
             const lugar = destino(s.city_to, s.state_to) ?? s.location
             return (
               <Link key={s.id} href={`/servicio/${s.id}`} className="group">

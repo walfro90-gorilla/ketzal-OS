@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from 'react'
 import { toast } from 'sonner'
-import { ImageIcon } from 'lucide-react'
+import { ImageIcon, XIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -19,12 +19,15 @@ import { Textarea } from '@/components/ui/textarea'
 import {
   actualizarServicio,
   crearServicio,
+  setServicioAlbum,
   setServicioImagen,
   setServicioPublicado,
+  setServicioVideo,
   type ItineraryDay,
   type ServicioInput,
 } from './actions'
-import { subirBannerServicio } from './subir-banner'
+import { subirImagenServicio } from './subir-imagen'
+import { videoEmbedUrl } from '@/lib/video'
 import { PACK_TYPES, type Pack, type PackInput } from '@/lib/domain/packs'
 import { ImportarArchivo } from './importar-archivo'
 import { ImportarUrl } from './importar-url'
@@ -79,6 +82,10 @@ export type ServicioFormInitial = {
   published: boolean
   /** URL del banner (foto del catálogo público), o null. */
   banner: string | null
+  /** URLs de la galería de fotos (hasta 20). */
+  album: string[]
+  /** Link de video (YouTube/Vimeo), o null. */
+  video: string | null
 }
 
 export function ServicioForm({
@@ -141,6 +148,13 @@ export function ServicioForm({
   const [banner, setBanner] = useState(initial?.banner ?? null)
   const [subiendo, startSubiendo] = useTransition()
   const fileRef = useRef<HTMLInputElement>(null)
+  // Galería (hasta 20) y video: también persisten al instante en edición.
+  const [album, setAlbum] = useState<string[]>(initial?.album ?? [])
+  const [subiendoAlbum, startSubiendoAlbum] = useTransition()
+  const albumRef = useRef<HTMLInputElement>(null)
+  const MAX_FOTOS = 20
+  const [video, setVideo] = useState(initial?.video ?? '')
+  const [guardandoVideo, startGuardandoVideo] = useTransition()
 
   // Los paquetes por ocupación solo aplican a tours y paquetes.
   const muestraPaquetes = tipo === 'tour' || tipo === 'paquete'
@@ -164,7 +178,7 @@ export function ServicioForm({
     e.target.value = '' // permite re-elegir el mismo archivo
     if (!file || !servicioId) return
     startSubiendo(async () => {
-      const subida = await subirBannerServicio(servicioId, file)
+      const subida = await subirImagenServicio(servicioId, file, 'banner')
       if ('error' in subida) {
         toast.error(subida.error)
         return
@@ -189,6 +203,67 @@ export function ServicioForm({
       }
       setBanner(null)
       toast.success('Imagen quitada')
+    })
+  }
+
+  function agregarFotos(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? [])
+    e.target.value = ''
+    if (!files.length || !servicioId) return
+    const espacio = MAX_FOTOS - album.length
+    if (espacio <= 0) {
+      toast.error(`Máximo ${MAX_FOTOS} fotos.`)
+      return
+    }
+    const aSubir = files.slice(0, espacio)
+    startSubiendoAlbum(async () => {
+      const nuevas: string[] = []
+      for (const f of aSubir) {
+        const r = await subirImagenServicio(servicioId, f, 'album')
+        if ('error' in r) toast.error(r.error)
+        else nuevas.push(r.url)
+      }
+      if (!nuevas.length) return
+      const lista = [...album, ...nuevas]
+      const res = await setServicioAlbum(servicioId, lista)
+      if ('error' in res) {
+        toast.error(res.error)
+        return
+      }
+      setAlbum(lista)
+      toast.success(
+        nuevas.length === 1 ? 'Foto agregada' : `${nuevas.length} fotos agregadas`
+      )
+    })
+  }
+
+  function quitarFoto(url: string) {
+    if (!servicioId) return
+    const lista = album.filter((u) => u !== url)
+    startSubiendoAlbum(async () => {
+      const res = await setServicioAlbum(servicioId, lista)
+      if ('error' in res) {
+        toast.error(res.error)
+        return
+      }
+      setAlbum(lista)
+    })
+  }
+
+  function guardarVideo() {
+    if (!servicioId) return
+    const v = video.trim()
+    if (v && !videoEmbedUrl(v)) {
+      toast.error('El video debe ser un link de YouTube o Vimeo.')
+      return
+    }
+    startGuardandoVideo(async () => {
+      const res = await setServicioVideo(servicioId, v || null)
+      if ('error' in res) {
+        toast.error(res.error)
+        return
+      }
+      toast.success(v ? 'Video guardado' : 'Video quitado')
     })
   }
 
@@ -576,9 +651,9 @@ export function ServicioForm({
         <CardHeader>
           <CardTitle>Imágenes</CardTitle>
           <CardDescription>
-            La foto que se muestra en el catálogo público, en la ficha del viaje
-            y al compartir por WhatsApp. Usa una imagen horizontal (JPG, PNG o
-            WebP).
+            El <strong>banner</strong> es la foto principal (catálogo, ficha y al
+            compartir por WhatsApp) — usa una horizontal. La <strong>galería</strong>{' '}
+            (hasta {MAX_FOTOS}) se muestra en un carrusel en la ficha del viaje.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -632,6 +707,98 @@ export function ServicioForm({
           ) : (
             <p className="text-sm text-muted-foreground">
               Guarda el servicio primero; después podrás subir su imagen.
+            </p>
+          )}
+
+          {servicioId && (
+            <div className="space-y-2 border-t pt-3">
+              <div className="flex items-center justify-between gap-3">
+                <Label>
+                  Galería ({album.length}/{MAX_FOTOS})
+                </Label>
+                <input
+                  ref={albumRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  multiple
+                  className="hidden"
+                  onChange={agregarFotos}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={subiendoAlbum || album.length >= MAX_FOTOS}
+                  onClick={() => albumRef.current?.click()}
+                >
+                  {subiendoAlbum ? 'Subiendo…' : 'Agregar fotos'}
+                </Button>
+              </div>
+              {album.length > 0 ? (
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+                  {album.map((url) => (
+                    <div
+                      key={url}
+                      className="group relative overflow-hidden rounded-md border"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={url}
+                        alt=""
+                        className="aspect-square w-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => quitarFoto(url)}
+                        disabled={subiendoAlbum}
+                        aria-label="Quitar foto"
+                        className="absolute right-1 top-1 rounded-full bg-background/80 p-1 text-foreground shadow-sm transition-colors hover:bg-background disabled:opacity-50"
+                      >
+                        <XIcon className="size-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Sin fotos en la galería. Puedes subir hasta {MAX_FOTOS}.
+                </p>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Video (opcional)</CardTitle>
+          <CardDescription>
+            Un link de YouTube o Vimeo. Se muestra en la ficha del viaje.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {servicioId ? (
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <Input
+                type="url"
+                inputMode="url"
+                value={video}
+                onChange={(e) => setVideo(e.target.value)}
+                placeholder="https://youtu.be/…"
+                className="sm:flex-1"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                disabled={guardandoVideo}
+                onClick={guardarVideo}
+              >
+                {guardandoVideo ? 'Guardando…' : 'Guardar video'}
+              </Button>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Guarda el servicio primero; después podrás agregar un video.
             </p>
           )}
         </CardContent>

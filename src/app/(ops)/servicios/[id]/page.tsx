@@ -114,6 +114,10 @@ export default async function ServicioDetallePage({
           banner:
             (servicio as { images?: { imgBanner?: string } | null }).images
               ?.imgBanner ?? null,
+          album:
+            (servicio as { images?: { imgAlbum?: string[] } | null }).images
+              ?.imgAlbum ?? [],
+          video: (servicio as { yt_link?: string | null }).yt_link ?? null,
         }}
       />
 

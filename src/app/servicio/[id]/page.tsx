@@ -1,9 +1,11 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { getPublicService } from './data'
+import { Carrusel } from './carrusel'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { buttonVariants } from '@/components/ui/button'
 import { CheckIcon, XIcon, MapPinIcon } from 'lucide-react'
+import { videoEmbedUrl } from '@/lib/video'
 
 // Ficha pública de un servicio (marketplace). Indexable (vitrina SEO).
 // El CTA "Reservar" apunta hoy a WhatsApp de la agencia; la tajada 3
@@ -80,7 +82,12 @@ export default async function ServicioPublicoPage({
   if (!s) return <NotFound />
 
   const lugar = destino(s)
-  const banner = s.images?.imgBanner
+  // Banner primero, luego la galería (sin duplicar el banner si se repite).
+  const fotos = [
+    ...(s.images?.imgBanner ? [s.images.imgBanner] : []),
+    ...(s.images?.imgAlbum ?? []).filter((u) => u !== s.images?.imgBanner),
+  ]
+  const embed = videoEmbedUrl(s.yt_link)
   const wa = waLink(s.agency.phone)
   const cupoLibre =
     s.max_capacity != null ? Math.max(0, s.max_capacity - s.current_bookings) : null
@@ -94,12 +101,7 @@ export default async function ServicioPublicoPage({
         ← Todos los viajes
       </Link>
 
-      {banner && (
-        <div className="mt-4 aspect-[2/1] w-full overflow-hidden rounded-xl bg-muted">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={banner} alt={s.name} className="h-full w-full object-cover" />
-        </div>
-      )}
+      <Carrusel images={fotos} alt={s.name} />
 
       <header className="mt-6 space-y-2">
         <h1 className="text-2xl font-bold sm:text-3xl">{s.name}</h1>
@@ -155,6 +157,21 @@ export default async function ServicioPublicoPage({
           <p className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
             {s.description}
           </p>
+        </section>
+      )}
+
+      {embed && (
+        <section className="mt-6">
+          <div className="aspect-video w-full overflow-hidden rounded-xl bg-muted">
+            <iframe
+              src={embed}
+              title={`Video de ${s.name}`}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+              loading="lazy"
+              className="h-full w-full"
+            />
+          </div>
         </section>
       )}
 

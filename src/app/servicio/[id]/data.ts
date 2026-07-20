@@ -17,6 +17,8 @@ export type PublicService = {
   max_capacity: number | null
   current_bookings: number
   images: { imgBanner?: string; imgAlbum?: string[] } | null
+  /** Link de video (YouTube/Vimeo), o null. */
+  yt_link: string | null
   includes: string[] | null
   excludes: string[] | null
   faqs: { question?: string; answer?: string }[] | null
