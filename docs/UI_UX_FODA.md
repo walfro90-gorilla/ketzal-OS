@@ -183,12 +183,19 @@ ciclo y qué queda como deuda explícita.
 |---|---|---|
 | C9-1 | **Logo de Ketzal como co-marca en documentos.** Recibo, cotización y estado de cuenta llevan el logo oficial en el pie **"Powered by Ketzal"** (componente `PoweredByKetzal`, server, con fallback al SVG). Decisión de marca del fundador: el logo de la **agencia** sigue siendo el principal (arriba); Ketzal es solo la firma de plataforma. Reusa `getBrandLogo()` (RPC público) | ✅ |
 
+### Aplicado (ciclo 10 — logo en previews OG; favicon se queda con el símbolo)
+
+| # | Acción | Estado |
+|---|---|---|
+| C10-1 | **Wordmark en el pie de los previews OG** (recibo/cotización/estado/servicio/explora). `og-card` carga el logo oficial (`getBrandLogo` + fetch a data-URI, dimensiones leídas del header PNG porque Satori las exige) y lo pinta en una **pastilla blanca** en el pie —contraste garantizado sobre el fondo teal— en lugar del texto "Powered by Ketzal". Ante cualquier fallo (sin logo, fetch falla, no-PNG) **cae al texto** (nunca imagen rota). Sin `edge` runtime (usa `Buffer`) | ✅ |
+| C10-2 | **Favicon/PWA icons se quedan con el quetzal a propósito** (decisión del fundador, opción 2): el logo oficial es un **wordmark**, ilegible en un cuadrado de 16–32px. Cuando exista un **símbolo cuadrado** de la marca se agrega un 2º slot en `/ajustes` y se cablea a favicon/PWA + el cuadrado del OG | ⏸️ (bloqueado por asset) |
+
+> Nota: los OG no se pudieron verificar visualmente desde el entorno (proxy bloquea el host de Storage y no se ven imágenes renderizadas); el fallback a texto hace el cambio seguro, y el fundador confirma compartiendo un link.
+
 ### Pendiente
 
-1. **Logo — Fase 3**: **preview OG** (al compartir por WhatsApp) y
-   **favicon/PWA icons**. Se generan con `next/og` a build/request y el favicon
-   lo cachea fuerte el navegador, así que van en su propia pasada. Header, login
-   y documentos ya llevan el logo.
+1. **Símbolo cuadrado de marca** → favicon/PWA + cuadrado del OG (bloqueado:
+   falta el asset del ícono aislado, sin la palabra "Ketzal").
 
 > El ⌘K se cerró en C4-1. La "cobranza" no se agregó al ⌘K a propósito — no es
 > una entidad buscable (vista derivada de las ventas con saldo); buscar el
