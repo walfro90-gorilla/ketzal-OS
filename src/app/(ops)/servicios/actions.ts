@@ -204,6 +204,59 @@ export async function setServicioPublicado(
   return { ok: true }
 }
 
+/**
+ * Guarda / quita el banner del servicio (la foto del catálogo público).
+ * Recibe la URL pública ya subida a Storage (la subida ocurre en el cliente,
+ * directo al bucket, para no toparse con el límite de 4.5 MB de los actions).
+ * Merge no destructivo: preserva cualquier otra clave de `images` (p. ej. un
+ * álbum futuro). `null` quita el banner.
+ */
+export async function setServicioImagen(
+  id: string,
+  imgBanner: string | null
+): Promise<{ error: string } | { ok: true }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const url = imgBanner?.trim() || null
+  // Misma regla que el OG: solo URL http(s) absoluta (evita XSS/rutas raras).
+  if (url && !/^https?:\/\//i.test(url)) {
+    return { error: 'La imagen no es una URL válida.' }
+  }
+
+  // Lee el jsonb actual para no pisar otras claves al escribir imgBanner.
+  // `images` no está en los types generados ⇒ select('*') + cast (como published).
+  const { data: actual } = await supabase
+    .from('services')
+    .select('*')
+    .eq('id', id)
+    .single()
+  const actualImages = (actual as { images?: unknown } | null)?.images
+  const base =
+    actualImages && typeof actualImages === 'object' && !Array.isArray(actualImages)
+      ? (actualImages as Record<string, unknown>)
+      : {}
+  const next = { ...base }
+  if (url) next.imgBanner = url
+  else delete next.imgBanner
+
+  // RLS: solo la agencia dueña (o superadmin) edita su servicio.
+  const { error } = await supabase
+    .from('services')
+    .update({ images: next } as never)
+    .eq('id', id)
+  if (error) return { error: safeError(error) }
+
+  revalidatePath('/servicios')
+  revalidatePath(`/servicios/${id}`)
+  revalidatePath('/explora')
+  revalidatePath(`/servicio/${id}`)
+  return { ok: true }
+}
+
 export async function eliminarServicio(
   id: string
 ): Promise<{ error: string } | void> {

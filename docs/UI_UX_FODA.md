@@ -109,6 +109,12 @@ ciclo y qué queda como deuda explícita.
 
 ## Plan de acción
 
+### Aplicado (ciclo 6 — imagen del servicio para el catálogo público)
+
+| # | Acción | Estado |
+|---|---|---|
+| C6-1 | **Subida del banner del servicio.** Cierra el hueco que dejó publicar: los servicios vivos no tenían foto y el form no dejaba subir una. Tarjeta **Imágenes** en `servicio-form.tsx` (modo edición): preview + subir/cambiar/quitar. La subida es **directa del navegador al bucket público `gorilla-assets`** (`subir-banner.ts`, browser client) para esquivar el tope de 4.5 MB de los server actions; la URL se guarda con la acción nueva `setServicioImagen` (RLS solo-dueño, merge no destructivo de `images`). Enciende de un tiro la ficha (`images.imgBanner`), el catálogo (`list_public_services.image`) y el OG. **Sin policies nuevas** (el bucket ya permite insert autenticado + lectura pública). Verificado escritura→lectura en TX con rollback | ✅ |
+
 ### Aplicado (ciclo 5 — publicar servicio desde el formulario)
 
 | # | Acción | Estado |
