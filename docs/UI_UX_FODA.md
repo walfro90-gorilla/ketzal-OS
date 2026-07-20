@@ -109,6 +109,16 @@ ciclo y qué queda como deuda explícita.
 
 ## Plan de acción
 
+### Aplicado (ciclo 7 — galería, video y orden en el catálogo público)
+
+| # | Acción | Estado |
+|---|---|---|
+| C7-1 | **Galería (hasta 20 fotos) + carrusel.** El form de servicio permite subir varias fotos (grid con quitar) además del banner; en la ficha `/servicio/[id]` se muestran en un carrusel ligero sin dependencias (banner + `imgAlbum`, flechas/puntos/miniaturas). Acción `setServicioAlbum` (mismo gate anti-SSRF que el banner, cap 20, merge no destructivo). Sin cambios de BD (imgAlbum ya viajaba en `images`). Subida directa a Storage (multi) | ✅ |
+| C7-2 | **Video opcional (YouTube/Vimeo).** Campo de link en el form (`setServicioVideo`) + embed responsivo (`youtube-nocookie`) en la ficha. Validador/normalizador único `lib/video.ts` (valida al guardar y arma el embed; rechaza no-videos y `javascript:`). Requirió extender `get_public_service` con `yt_link` (migración `ketzal_get_public_service_ytlink`, snapshot re-sincronizado) | ✅ |
+| C7-3 | **Pulido de `/explora`.** Orden por nombre / precio ↑ / precio ↓ (en memoria, cliente) sumado a la búsqueda + filtros existentes | ✅ |
+
+> Verificado: `tsc`/`build` limpios; escritura→lectura de album+video contra la BD viva en TX con rollback (RPC devuelve `imgAlbum` y `yt_link`); parser de video probado en 7 casos. Nota de prod: el fundador ya subió **banners reales** a Brasil y Dunas con el ciclo 6 — el flujo de subida funciona en producción.
+
 ### Aplicado (ciclo 6 — imagen del servicio para el catálogo público)
 
 | # | Acción | Estado |

@@ -777,7 +777,7 @@ CREATE OR REPLACE FUNCTION "ketzal"."get_public_service"("p_id" "uuid") RETURNS 
     select s.id, s.name, s.description, s.price, s.service_type, s.service_category,
            s.location, s.city_from, s.state_from, s.city_to, s.state_to,
            s.size_tour, s.max_capacity, s.current_bookings,
-           s.images, s.includes, s.excludes, s.faqs, s.itinerary,
+           s.images, s.yt_link, s.includes, s.excludes, s.faqs, s.itinerary,
            s.packs, s.add_ons, s.dates,
            jsonb_build_object(
              'name', sup.name, 'logo', sup.img_logo,

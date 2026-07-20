@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { safeError } from '@/lib/errors'
 import { esBannerValido } from '@/lib/storage/banner-url'
+import { videoEmbedUrl } from '@/lib/video'
 import { limpiarPacks, type PackInput, type Pack } from '@/lib/domain/packs'
 
 export type ItineraryDay = { title: string; description: string }
@@ -259,6 +260,103 @@ export async function setServicioImagen(
   if (error || !updated) {
     return {
       error: safeError(error, 'No se pudo actualizar la imagen o no tienes acceso.'),
+    }
+  }
+
+  revalidatePath('/servicios')
+  revalidatePath(`/servicios/${id}`)
+  revalidatePath('/explora')
+  revalidatePath(`/servicio/${id}`)
+  return { ok: true }
+}
+
+/**
+ * Guarda / reemplaza la galería de fotos (hasta 20). Recibe las URLs ya subidas
+ * a Storage. Cada foto debe ser una URL pública de NUESTRO bucket (mismo gate
+ * anti-SSRF que el banner). Merge no destructivo sobre `images` (preserva el
+ * banner). Lista vacía = quita la galería.
+ */
+export async function setServicioAlbum(
+  id: string,
+  urls: string[]
+): Promise<{ error: string } | { ok: true }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const limpio: string[] = []
+  for (const raw of urls ?? []) {
+    const u = raw?.trim()
+    if (!u) continue
+    if (!esBannerValido(u)) return { error: 'Una de las imágenes no es válida.' }
+    if (!limpio.includes(u)) limpio.push(u)
+    if (limpio.length >= 20) break
+  }
+
+  const { data: actual, error: readError } = await supabase
+    .from('services')
+    .select('*')
+    .eq('id', id)
+    .single()
+  if (readError || !actual) {
+    return { error: 'Servicio no encontrado o sin acceso.' }
+  }
+  const actualImages = (actual as { images?: unknown }).images
+  const base =
+    actualImages && typeof actualImages === 'object' && !Array.isArray(actualImages)
+      ? (actualImages as Record<string, unknown>)
+      : {}
+  const next = { ...base }
+  if (limpio.length) next.imgAlbum = limpio
+  else delete next.imgAlbum
+
+  const { data: updated, error } = await supabase
+    .from('services')
+    .update({ images: next } as never)
+    .eq('id', id)
+    .select('id')
+    .single()
+  if (error || !updated) {
+    return {
+      error: safeError(error, 'No se pudo actualizar la galería o no tienes acceso.'),
+    }
+  }
+
+  revalidatePath('/servicios')
+  revalidatePath(`/servicios/${id}`)
+  revalidatePath('/explora')
+  revalidatePath(`/servicio/${id}`)
+  return { ok: true }
+}
+
+/** Guarda / quita el video (link de YouTube o Vimeo) del servicio. */
+export async function setServicioVideo(
+  id: string,
+  ytLink: string | null
+): Promise<{ error: string } | { ok: true }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const raw = ytLink?.trim() || null
+  if (raw && !videoEmbedUrl(raw)) {
+    return { error: 'El video debe ser un link de YouTube o Vimeo.' }
+  }
+
+  // `yt_link` no está en los types generados ⇒ cast (convención multi-agente).
+  const { data: updated, error } = await supabase
+    .from('services')
+    .update({ yt_link: raw } as never)
+    .eq('id', id)
+    .select('id')
+    .single()
+  if (error || !updated) {
+    return {
+      error: safeError(error, 'No se pudo actualizar el video o no tienes acceso.'),
     }
   }
 
