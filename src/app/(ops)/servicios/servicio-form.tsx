@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useRef, useState, useTransition } from 'react'
 import { toast } from 'sonner'
+import { ImageIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -18,10 +19,12 @@ import { Textarea } from '@/components/ui/textarea'
 import {
   actualizarServicio,
   crearServicio,
+  setServicioImagen,
   setServicioPublicado,
   type ItineraryDay,
   type ServicioInput,
 } from './actions'
+import { subirBannerServicio } from './subir-banner'
 import { PACK_TYPES, type Pack, type PackInput } from '@/lib/domain/packs'
 import { ImportarArchivo } from './importar-archivo'
 import { ImportarUrl } from './importar-url'
@@ -74,6 +77,8 @@ export type ServicioFormInitial = {
   packs: Pack[]
   /** Si está en el catálogo público (marketplace). */
   published: boolean
+  /** URL del banner (foto del catálogo público), o null. */
+  banner: string | null
 }
 
 export function ServicioForm({
@@ -131,6 +136,11 @@ export function ServicioForm({
   // solo lectura hasta que el servicio exista.
   const [published, setPublished] = useState(initial?.published ?? false)
   const [publishing, startPublishing] = useTransition()
+  // Banner (foto del catálogo). La subida es directa a Storage; guardar la URL
+  // es una acción propia al instante (como la publicación), en modo edición.
+  const [banner, setBanner] = useState(initial?.banner ?? null)
+  const [subiendo, startSubiendo] = useTransition()
+  const fileRef = useRef<HTMLInputElement>(null)
 
   // Los paquetes por ocupación solo aplican a tours y paquetes.
   const muestraPaquetes = tipo === 'tour' || tipo === 'paquete'
@@ -146,6 +156,39 @@ export function ServicioForm({
       } else {
         toast.success(next ? 'Servicio publicado' : 'Servicio ocultado')
       }
+    })
+  }
+
+  function elegirImagen(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = '' // permite re-elegir el mismo archivo
+    if (!file || !servicioId) return
+    startSubiendo(async () => {
+      const subida = await subirBannerServicio(servicioId, file)
+      if ('error' in subida) {
+        toast.error(subida.error)
+        return
+      }
+      const res = await setServicioImagen(servicioId, subida.url)
+      if ('error' in res) {
+        toast.error(res.error)
+        return
+      }
+      setBanner(subida.url)
+      toast.success('Imagen actualizada')
+    })
+  }
+
+  function quitarImagen() {
+    if (!servicioId) return
+    startSubiendo(async () => {
+      const res = await setServicioImagen(servicioId, null)
+      if ('error' in res) {
+        toast.error(res.error)
+        return
+      }
+      setBanner(null)
+      toast.success('Imagen quitada')
     })
   }
 
@@ -528,6 +571,71 @@ export function ServicioForm({
           </CardContent>
         </Card>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Imágenes</CardTitle>
+          <CardDescription>
+            La foto que se muestra en el catálogo público, en la ficha del viaje
+            y al compartir por WhatsApp. Usa una imagen horizontal (JPG, PNG o
+            WebP).
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {banner ? (
+            <div className="overflow-hidden rounded-lg border">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={banner}
+                alt="Banner del servicio"
+                className="aspect-[2/1] w-full object-cover"
+              />
+            </div>
+          ) : (
+            <div className="flex aspect-[2/1] w-full items-center justify-center rounded-lg border border-dashed bg-muted text-muted-foreground">
+              <ImageIcon className="size-8" />
+            </div>
+          )}
+
+          {servicioId ? (
+            <div className="flex flex-wrap items-center gap-3">
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={elegirImagen}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                disabled={subiendo}
+                onClick={() => fileRef.current?.click()}
+              >
+                {subiendo
+                  ? 'Subiendo…'
+                  : banner
+                    ? 'Cambiar imagen'
+                    : 'Subir imagen'}
+              </Button>
+              {banner && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  disabled={subiendo}
+                  onClick={quitarImagen}
+                >
+                  Quitar
+                </Button>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Guarda el servicio primero; después podrás subir su imagen.
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

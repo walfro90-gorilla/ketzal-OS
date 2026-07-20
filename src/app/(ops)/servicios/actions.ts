@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { safeError } from '@/lib/errors'
+import { esBannerValido } from '@/lib/storage/banner-url'
 import { limpiarPacks, type PackInput, type Pack } from '@/lib/domain/packs'
 
 export type ItineraryDay = { title: string; description: string }
@@ -199,6 +200,70 @@ export async function setServicioPublicado(
   if (error) return { error: safeError(error) }
 
   revalidatePath('/servicios')
+  revalidatePath('/explora')
+  revalidatePath(`/servicio/${id}`)
+  return { ok: true }
+}
+
+/**
+ * Guarda / quita el banner del servicio (la foto del catálogo público).
+ * Recibe la URL pública ya subida a Storage (la subida ocurre en el cliente,
+ * directo al bucket, para no toparse con el límite de 4.5 MB de los actions).
+ * Merge no destructivo: preserva cualquier otra clave de `images` (p. ej. un
+ * álbum futuro). `null` quita el banner.
+ */
+export async function setServicioImagen(
+  id: string,
+  imgBanner: string | null
+): Promise<{ error: string } | { ok: true }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const url = imgBanner?.trim() || null
+  // El banner solo puede ser una URL pública de NUESTRO Storage: cierra el SSRF
+  // (esta acción es invocable directo y el OG fetchea la URL server-side).
+  if (url && !esBannerValido(url)) {
+    return { error: 'La imagen no es una URL válida.' }
+  }
+
+  // Lee el jsonb actual para no pisar otras claves al escribir imgBanner.
+  // `images` no está en los types generados ⇒ select('*') + cast (como published).
+  const { data: actual, error: readError } = await supabase
+    .from('services')
+    .select('*')
+    .eq('id', id)
+    .single()
+  if (readError || !actual) {
+    return { error: 'Servicio no encontrado o sin acceso.' }
+  }
+  const actualImages = (actual as { images?: unknown }).images
+  const base =
+    actualImages && typeof actualImages === 'object' && !Array.isArray(actualImages)
+      ? (actualImages as Record<string, unknown>)
+      : {}
+  const next = { ...base }
+  if (url) next.imgBanner = url
+  else delete next.imgBanner
+
+  // RLS: solo la agencia dueña (o superadmin). El select tras el update confirma
+  // que tocó una fila: si la RLS lo bloquea son 0 filas ⇒ error (sin ok:true falso).
+  const { data: updated, error } = await supabase
+    .from('services')
+    .update({ images: next } as never)
+    .eq('id', id)
+    .select('id')
+    .single()
+  if (error || !updated) {
+    return {
+      error: safeError(error, 'No se pudo actualizar la imagen o no tienes acceso.'),
+    }
+  }
+
+  revalidatePath('/servicios')
+  revalidatePath(`/servicios/${id}`)
   revalidatePath('/explora')
   revalidatePath(`/servicio/${id}`)
   return { ok: true }

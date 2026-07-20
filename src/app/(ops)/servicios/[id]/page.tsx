@@ -111,6 +111,9 @@ export default async function ServicioDetallePage({
           packs: jsonbAPacks(servicio.packs),
           // `published` es columna nueva no tipada aún ⇒ cast (convención multi-agente).
           published: Boolean((servicio as { published?: boolean }).published),
+          banner:
+            (servicio as { images?: { imgBanner?: string } | null }).images
+              ?.imgBanner ?? null,
         }}
       />
 
