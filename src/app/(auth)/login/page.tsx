@@ -4,7 +4,7 @@ import { Suspense, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { BrandMark } from '@/components/brand-mark'
+import { BrandLogo } from '@/components/brand-logo'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -111,7 +111,7 @@ function LoginForm() {
     <Card className="w-full max-w-sm">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-xl">
-          <BrandMark className="size-6 text-primary" />
+          <BrandLogo className="size-6" />
           <span>
             <span className="text-primary">Ketzal</span> OS
           </span>

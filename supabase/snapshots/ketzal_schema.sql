@@ -769,6 +769,15 @@ end $$;
 ALTER FUNCTION "ketzal"."generate_payment_plan"("p_booking_id" "uuid", "p_frequency" "text", "p_final_date" "date", "p_down_pct" numeric) OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "ketzal"."get_brand_logo"() RETURNS "text"
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'ketzal', 'public'
+    AS $$ select logo_url from ketzal.app_settings where id = 1 $$;
+
+
+ALTER FUNCTION "ketzal"."get_brand_logo"() OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "ketzal"."get_public_service"("p_id" "uuid") RETURNS "jsonb"
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'ketzal', 'public'
@@ -1818,6 +1827,7 @@ CREATE TABLE IF NOT EXISTS "ketzal"."app_settings" (
     "id" integer DEFAULT 1 NOT NULL,
     "platform_commission_rate" numeric(5,2) DEFAULT 10 NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "logo_url" "text",
     CONSTRAINT "app_settings_single_row" CHECK (("id" = 1))
 );
 
@@ -3371,6 +3381,11 @@ GRANT ALL ON FUNCTION "ketzal"."ensure_statement_token"("p_booking_id" "uuid") T
 REVOKE ALL ON FUNCTION "ketzal"."generate_payment_plan"("p_booking_id" "uuid", "p_frequency" "text", "p_final_date" "date", "p_down_pct" numeric) FROM PUBLIC;
 GRANT ALL ON FUNCTION "ketzal"."generate_payment_plan"("p_booking_id" "uuid", "p_frequency" "text", "p_final_date" "date", "p_down_pct" numeric) TO "authenticated";
 
+
+
+REVOKE ALL ON FUNCTION "ketzal"."get_brand_logo"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "ketzal"."get_brand_logo"() TO "anon";
+GRANT ALL ON FUNCTION "ketzal"."get_brand_logo"() TO "authenticated";
 
 
 REVOKE ALL ON FUNCTION "ketzal"."get_public_service"("p_id" "uuid") FROM PUBLIC;

@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { AppShell } from '@/components/shell/app-shell'
+import { getBrandLogo } from '@/lib/brand'
 
 export default async function OpsLayout({
   children,
@@ -28,11 +29,14 @@ export default async function OpsLayout({
     role = profile?.role ?? null
   }
 
+  const logoUrl = await getBrandLogo()
+
   return (
     <AppShell
       email={user?.email ?? null}
       displayName={displayName}
       role={role}
+      logoUrl={logoUrl}
       sidebarCollapsed={sidebarCollapsed}
     >
       {children}
