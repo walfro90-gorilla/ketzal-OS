@@ -1,11 +1,44 @@
 import { ImageResponse } from 'next/og'
+import { getBrandLogo } from '@/lib/brand'
 
 // Tarjeta social 1200×630 para previews ricos al compartir links públicos por
 // WhatsApp / Telegram / Twitter. Generada con next/og (Satori) — sin assets
 // binarios ni dependencias. Reusa la marca (quetzal) de brand-icon.tsx.
 //
-// ponytail: usa la fuente por defecto de next/og (sin pesos variables). Si se
-// quiere tipografía más fina, embeber una fuente vía `fonts:` es el upgrade.
+// El pie muestra el logo oficial (wordmark) en una pastilla blanca —para que
+// contraste sobre el fondo teal— si está configurado; si no se puede cargar,
+// cae al texto "Powered by Ketzal". Satori exige dimensiones explícitas en
+// <img>, así que se leen del header PNG (el logo se sube como PNG).
+
+/** Carga el logo como data-URI + dimensiones (solo PNG raster; Satori no hace
+ *  bien SVG). Devuelve null ante cualquier problema → el pie cae al texto. */
+async function cargarLogo(): Promise<{ src: string; w: number; h: number } | null> {
+  let url: string | null = null
+  try {
+    url = await getBrandLogo()
+  } catch {
+    return null
+  }
+  if (!url) return null
+  try {
+    const res = await fetch(url)
+    if (!res.ok) return null
+    const ct = res.headers.get('content-type') || ''
+    if (!ct.startsWith('image/') || ct.includes('svg')) return null
+    const buf = await res.arrayBuffer()
+    const bytes = new Uint8Array(buf)
+    // Dimensiones del IHDR del PNG (bytes 16-24).
+    if (bytes.length < 24 || bytes[0] !== 0x89 || bytes[1] !== 0x50) return null
+    const dv = new DataView(buf)
+    const w = dv.getUint32(16)
+    const h = dv.getUint32(20)
+    if (!w || !h) return null
+    const b64 = Buffer.from(buf).toString('base64')
+    return { src: `data:${ct};base64,${b64}`, w, h }
+  } catch {
+    return null
+  }
+}
 
 type OgCard = {
   eyebrow: string // "Cotización de viaje" — kicker en mayúsculas
@@ -22,8 +55,11 @@ type OgCard = {
 const clamp = (s: string, n: number) =>
   s.length > n ? `${s.slice(0, n - 1).trimEnd()}…` : s
 
-export function ogCardResponse(c: OgCard) {
+export async function ogCardResponse(c: OgCard) {
   const accent = c.accent ?? '#3DDE1C' // verde hoja de marca
+  const logo = await cargarLogo()
+  const logoH = 40
+  const logoW = logo ? Math.round(logoH * (logo.w / logo.h)) : 0
   return new ImageResponse(
     (
       <div
@@ -127,9 +163,34 @@ export function ogCardResponse(c: OgCard) {
               <span style={{ fontSize: 74, fontWeight: 700 }}>{c.figure}</span>
             </div>
           </div>
-          <span style={{ fontSize: 26, color: 'rgba(255,255,255,0.7)' }}>
-            Powered by Ketzal
-          </span>
+          {logo ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <span style={{ fontSize: 22, color: 'rgba(255,255,255,0.6)' }}>
+                Powered by
+              </span>
+              {/* Pastilla blanca: garantiza contraste del wordmark sobre el teal. */}
+              <div
+                style={{
+                  display: 'flex',
+                  background: '#ffffff',
+                  borderRadius: 12,
+                  padding: '12px 18px',
+                }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={logo.src}
+                  width={logoW}
+                  height={logoH}
+                  style={{ objectFit: 'contain' }}
+                />
+              </div>
+            </div>
+          ) : (
+            <span style={{ fontSize: 26, color: 'rgba(255,255,255,0.7)' }}>
+              Powered by Ketzal
+            </span>
+          )}
         </div>
       </div>
     ),
