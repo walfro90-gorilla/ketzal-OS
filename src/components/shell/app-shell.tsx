@@ -14,12 +14,15 @@ export function AppShell({
   email,
   displayName,
   role,
+  logoUrl = null,
   sidebarCollapsed = false,
   children,
 }: {
   email: string | null
   displayName: string | null
   role: string | null
+  /** Logo oficial configurado (o null → cae al ícono de marca por defecto). */
+  logoUrl?: string | null
   sidebarCollapsed?: boolean
   children: React.ReactNode
 }) {
@@ -40,10 +43,14 @@ export function AppShell({
           href="/dashboard"
           className="flex items-center gap-2 text-lg font-semibold"
         >
-          {/* Mark de marca: lo sirve /icons/192 (generado en lib/brand-icon,
-              swappable por el logo real sin tocar este header). */}
+          {/* Logo oficial si está configurado (Ajustes); si no, el ícono de
+              marca por defecto que sirve /icons/192 (lib/brand-icon). */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/icons/192" alt="" className="size-6" />
+          <img
+            src={logoUrl ?? '/icons/192'}
+            alt=""
+            className="size-6 object-contain"
+          />
           <span>
             {/* Wordmark teal según BRAND.md §4. */}
             <span className="text-primary">Ketzal</span>{' '}

@@ -14,6 +14,7 @@ import {
   ChartColumnIcon,
   HandCoinsIcon,
   ActivityIcon,
+  SettingsIcon,
 } from 'lucide-react'
 
 export type NavIcon = ComponentType<{ className?: string }>
@@ -43,6 +44,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Servicios', href: '/servicios', icon: MapPinIcon, primary: false, adminOnly: true },
   { label: 'Proveedores', href: '/proveedores', icon: Building2Icon, primary: false, adminOnly: true },
   { label: 'Salud', href: '/salud', icon: ActivityIcon, primary: false, adminOnly: true },
+  { label: 'Ajustes', href: '/ajustes', icon: SettingsIcon, primary: false, adminOnly: true },
 ]
 
 export const PRIMARY_ITEMS = NAV_ITEMS.filter((i) => i.primary)

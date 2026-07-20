@@ -171,16 +171,22 @@ ciclo y qué queda como deuda explícita.
 | P2-5 | `loading.tsx` en las 4 rutas públicas; OG de `/explora`; CTA de servicio full-width táctil | ✅ |
 | P2-6 | `salud`: eventos a `DataList`; EmptyState compartido en comisiones/equipo | ✅ |
 
+### Aplicado (ciclo 8 — logo oficial configurable)
+
+| # | Acción | Estado |
+|---|---|---|
+| C8-1 | **Logo oficial gestionable desde la app** (destraba el único pendiente del FODA). En vez de un swap a mano del SVG, se hizo un **sistema**: config admin **`/ajustes`** (solo superadmin) para subir/cambiar/quitar el logo → **Storage** (`gorilla-assets/brand/`), URL en **`app_settings.logo_url`**. Lectura vía RPC público `get_brand_logo` (para páginas anónimas). El logo se muestra en el **header de la app** (server, `app-shell`) y en **login** (`BrandLogo` cliente), con **fallback al SVG** si no hay logo. Migración `ketzal_app_settings_logo`; snapshot re-sincronizado; advisors 0 errores | ✅ |
+
 ### Pendiente
 
-1. **Logo real** → swap en `brand-icon.tsx`/`BrandMark` (bloqueado por diseño:
-   falta el vector transparente). Único pendiente, y no es de código.
+1. **Logo — Fase 2**: llevar el logo configurado también a **documentos**
+   (recibo/cotización/estado), **preview OG** y **favicon/PWA icons**. Estos se
+   generan con `next/og` a build/request y el favicon lo cachea fuerte el
+   navegador, así que van en su propia pasada. Fase 1 (header + login) ya vive.
 
-> Con C4-1 se cerró el ⌘K (el último item que dependía de backend). Lo que
-> queda es solo el logo, bloqueado por un asset de diseño externo. Nota: la
-> "cobranza" no se agregó al ⌘K a propósito — no es una entidad buscable (es
-> una vista derivada de las ventas con saldo); buscar el cliente ya lleva a su
-> venta, que enlaza a cobranza.
+> El ⌘K se cerró en C4-1. La "cobranza" no se agregó al ⌘K a propósito — no es
+> una entidad buscable (vista derivada de las ventas con saldo); buscar el
+> cliente ya lleva a su venta, que enlaza a cobranza.
 
 ## Verificación de este ciclo
 

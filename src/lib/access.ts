@@ -18,6 +18,7 @@ export const ADMIN_HREFS = [
   '/proveedores',
   '/reportes',
   '/salud',
+  '/ajustes',
 ] as const
 
 /** ¿La ruta requiere rol admin? (coincidencia exacta o subruta). */
