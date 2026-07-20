@@ -43,19 +43,26 @@ export function AppShell({
           href="/dashboard"
           className="flex items-center gap-2 text-lg font-semibold"
         >
-          {/* Logo oficial si está configurado (Ajustes); si no, el ícono de
-              marca por defecto que sirve /icons/192 (lib/brand-icon). */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={logoUrl ?? '/icons/192'}
-            alt=""
-            className="size-6 object-contain"
-          />
-          <span>
-            {/* Wordmark teal según BRAND.md §4. */}
-            <span className="text-primary">Ketzal</span>{' '}
-            <span className="text-foreground">OS</span>
-          </span>
+          {logoUrl ? (
+            // Logo oficial (Ajustes): es la marca completa (wordmark), así que
+            // va solo, más grande y SIN el texto "Ketzal OS" (sería redundante).
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={logoUrl}
+              alt="Ketzal"
+              className="h-7 w-auto max-w-[160px] object-contain"
+            />
+          ) : (
+            <>
+              {/* Sin logo: ícono de marca por defecto (/icons/192) + wordmark. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/icons/192" alt="" className="size-6 object-contain" />
+              <span>
+                <span className="text-primary">Ketzal</span>{' '}
+                <span className="text-foreground">OS</span>
+              </span>
+            </>
+          )}
         </Link>
         <div className="flex items-center gap-1 sm:gap-2">
           <GlobalSearch />

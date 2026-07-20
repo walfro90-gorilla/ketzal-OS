@@ -6,10 +6,11 @@ import { BrandMark } from '@/components/brand-mark'
 import { cn } from '@/lib/utils'
 
 /**
- * Logo oficial para contextos CLIENTE/anónimos (login, etc.): lee la URL con el
- * RPC público `get_brand_logo` y muestra el `<img>`; mientras tanto (o si no hay
- * logo) cae a la marca SVG. En contextos server pásale la URL a mano (ver el
- * header en app-shell) para evitar el swap.
+ * Marca completa para contextos CLIENTE/anónimos (login, recuperación…): lee la
+ * URL con el RPC público `get_brand_logo`. Si hay logo oficial, lo muestra solo
+ * (es el wordmark completo → más grande, sin el texto "Ketzal OS"). Si no, cae
+ * al símbolo SVG + "Ketzal OS". En contextos server pásale la URL a mano (ver
+ * el header en app-shell) para evitar el swap.
  */
 export function BrandLogo({ className }: { className?: string }) {
   const [url, setUrl] = useState<string | null>(null)
@@ -32,9 +33,17 @@ export function BrandLogo({ className }: { className?: string }) {
       <img
         src={url}
         alt="Ketzal"
-        className={cn('size-6 object-contain', className)}
+        className={cn('h-7 w-auto max-w-[160px] object-contain', className)}
       />
     )
   }
-  return <BrandMark className={cn('size-6 text-primary', className)} />
+  return (
+    <span className="inline-flex items-center gap-2">
+      <BrandMark className="size-6 text-primary" />
+      <span>
+        <span className="text-primary">Ketzal</span>{' '}
+        <span className="text-foreground">OS</span>
+      </span>
+    </span>
+  )
 }

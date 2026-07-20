@@ -111,10 +111,7 @@ function LoginForm() {
     <Card className="w-full max-w-sm">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-xl">
-          <BrandLogo className="size-6" />
-          <span>
-            <span className="text-primary">Ketzal</span> OS
-          </span>
+          <BrandLogo />
         </CardTitle>
         <CardDescription>
           Back-office de ventas. Inicia sesión para continuar.
