@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { safeError } from '@/lib/errors'
+import { esBannerValido } from '@/lib/storage/banner-url'
 import { limpiarPacks, type PackInput, type Pack } from '@/lib/domain/packs'
 
 export type ItineraryDay = { title: string; description: string }
@@ -222,19 +223,23 @@ export async function setServicioImagen(
   if (!user) redirect('/login')
 
   const url = imgBanner?.trim() || null
-  // Misma regla que el OG: solo URL http(s) absoluta (evita XSS/rutas raras).
-  if (url && !/^https?:\/\//i.test(url)) {
+  // El banner solo puede ser una URL pública de NUESTRO Storage: cierra el SSRF
+  // (esta acción es invocable directo y el OG fetchea la URL server-side).
+  if (url && !esBannerValido(url)) {
     return { error: 'La imagen no es una URL válida.' }
   }
 
   // Lee el jsonb actual para no pisar otras claves al escribir imgBanner.
   // `images` no está en los types generados ⇒ select('*') + cast (como published).
-  const { data: actual } = await supabase
+  const { data: actual, error: readError } = await supabase
     .from('services')
     .select('*')
     .eq('id', id)
     .single()
-  const actualImages = (actual as { images?: unknown } | null)?.images
+  if (readError || !actual) {
+    return { error: 'Servicio no encontrado o sin acceso.' }
+  }
+  const actualImages = (actual as { images?: unknown }).images
   const base =
     actualImages && typeof actualImages === 'object' && !Array.isArray(actualImages)
       ? (actualImages as Record<string, unknown>)
@@ -243,12 +248,19 @@ export async function setServicioImagen(
   if (url) next.imgBanner = url
   else delete next.imgBanner
 
-  // RLS: solo la agencia dueña (o superadmin) edita su servicio.
-  const { error } = await supabase
+  // RLS: solo la agencia dueña (o superadmin). El select tras el update confirma
+  // que tocó una fila: si la RLS lo bloquea son 0 filas ⇒ error (sin ok:true falso).
+  const { data: updated, error } = await supabase
     .from('services')
     .update({ images: next } as never)
     .eq('id', id)
-  if (error) return { error: safeError(error) }
+    .select('id')
+    .single()
+  if (error || !updated) {
+    return {
+      error: safeError(error, 'No se pudo actualizar la imagen o no tienes acceso.'),
+    }
+  }
 
   revalidatePath('/servicios')
   revalidatePath(`/servicios/${id}`)

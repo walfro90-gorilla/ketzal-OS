@@ -1,6 +1,7 @@
 import { ImageResponse } from 'next/og'
 import { getPublicService, type PublicService } from './data'
 import { ogCardResponse } from '@/lib/og-card'
+import { esBannerValido } from '@/lib/storage/banner-url'
 
 // Preview social de la ficha de servicio. Antes el og:image dependía de que el
 // servicio tuviera banner (generateMetadata) → sin banner no había preview al
@@ -28,18 +29,13 @@ function destino(s: PublicService): string | null {
   return partes.length ? partes.join(', ') : s.location
 }
 
-// El banner solo se usa si es una URL http(s) absoluta y válida: next/og lo
-// fetchea server-side y una URL relativa/malformada tiraría la generación de la
-// imagen (dejando la ficha SIN preview, ya que generateMetadata dejó de fijar
-// images). Ante cualquier duda, se cae a la tarjeta de marca.
+// El banner solo se usa si es una URL pública de nuestro Storage: next/og lo
+// fetchea server-side, así que restringir host+prefijo (no solo "es http(s)")
+// evita un SSRF a destinos no confiables además de la imagen rota. Ante
+// cualquier duda, se cae a la tarjeta de marca (defensa en profundidad: la
+// escritura ya se valida igual en setServicioImagen).
 function validBannerUrl(raw: string | undefined): string | null {
-  if (!raw) return null
-  try {
-    const u = new URL(raw)
-    return u.protocol === 'http:' || u.protocol === 'https:' ? raw : null
-  } catch {
-    return null
-  }
+  return esBannerValido(raw) ? raw! : null
 }
 
 export default async function Image({
