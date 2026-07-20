@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import { getQuote } from './data'
+import { getBrandLogo } from '@/lib/brand'
 import { BrandMark } from '@/components/brand-mark'
+import { PoweredByKetzal } from '@/components/data/powered-by-ketzal'
 import { CompartirWhatsApp } from '@/components/data/compartir-whatsapp'
 import { ImprimirBoton } from '@/components/imprimir-boton'
 import {
@@ -108,6 +110,7 @@ export default async function CotizacionPublicaPage({
   const quote = await getQuote(token)
   if (!quote) return <NotFound />
 
+  const logo = await getBrandLogo()
   const fmt = moneyFormatter(quote.currency)
 
   // Plan de pagos: filas con saldo restante (suma pura, sin acumulador mutable).
@@ -339,7 +342,9 @@ export default async function CotizacionPublicaPage({
             .join(' · ') || quote.agency.name}
         </p>
         {/* Firma unificada de las 3 superficies compartibles. */}
-        <p className="text-[10px]">Powered by Ketzal</p>
+        <p className="text-[10px]">
+          <PoweredByKetzal logoUrl={logo} />
+        </p>
       </footer>
     </main>
   )

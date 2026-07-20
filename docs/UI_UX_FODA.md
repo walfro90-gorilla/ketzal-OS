@@ -177,12 +177,18 @@ ciclo y qué queda como deuda explícita.
 |---|---|---|
 | C8-1 | **Logo oficial gestionable desde la app** (destraba el único pendiente del FODA). En vez de un swap a mano del SVG, se hizo un **sistema**: config admin **`/ajustes`** (solo superadmin) para subir/cambiar/quitar el logo → **Storage** (`gorilla-assets/brand/`), URL en **`app_settings.logo_url`**. Lectura vía RPC público `get_brand_logo` (para páginas anónimas). El logo se muestra en el **header de la app** (server, `app-shell`) y en **login** (`BrandLogo` cliente), con **fallback al SVG** si no hay logo. Migración `ketzal_app_settings_logo`; snapshot re-sincronizado; advisors 0 errores | ✅ |
 
+### Aplicado (ciclo 9 — logo en documentos)
+
+| # | Acción | Estado |
+|---|---|---|
+| C9-1 | **Logo de Ketzal como co-marca en documentos.** Recibo, cotización y estado de cuenta llevan el logo oficial en el pie **"Powered by Ketzal"** (componente `PoweredByKetzal`, server, con fallback al SVG). Decisión de marca del fundador: el logo de la **agencia** sigue siendo el principal (arriba); Ketzal es solo la firma de plataforma. Reusa `getBrandLogo()` (RPC público) | ✅ |
+
 ### Pendiente
 
-1. **Logo — Fase 2**: llevar el logo configurado también a **documentos**
-   (recibo/cotización/estado), **preview OG** y **favicon/PWA icons**. Estos se
-   generan con `next/og` a build/request y el favicon lo cachea fuerte el
-   navegador, así que van en su propia pasada. Fase 1 (header + login) ya vive.
+1. **Logo — Fase 3**: **preview OG** (al compartir por WhatsApp) y
+   **favicon/PWA icons**. Se generan con `next/og` a build/request y el favicon
+   lo cachea fuerte el navegador, así que van en su propia pasada. Header, login
+   y documentos ya llevan el logo.
 
 > El ⌘K se cerró en C4-1. La "cobranza" no se agregó al ⌘K a propósito — no es
 > una entidad buscable (vista derivada de las ventas con saldo); buscar el
