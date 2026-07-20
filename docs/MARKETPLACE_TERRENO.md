@@ -40,9 +40,43 @@ Abre el camino y la cuenta de comprador, **sin tocar dinero**:
 comprador (email+password) no lo dispara. `marketplace_customers` no tiene policy
 de agente/superadmin. Advisors: 0 errores.
 
-### B.1 — Pedido de marketplace (pendiente)
+**Hard testing B.0 (2026-07-20):**
+- **Grants** — la migración concede `SELECT/INSERT/UPDATE` solo a `authenticated`
+  (sin `PUBLIC`/`anon`) ⇒ un anónimo no lee ni escribe la tabla.
+- **Policies** — las 3 son `id = auth.uid()` (SELECT/INSERT/UPDATE); ninguna
+  referencia helpers de agente ⇒ un comprador solo ve/edita su fila; un agente
+  no ve filas de compradores.
+- **No-forge** — `registrarComprador` inserta con el `id` que devuelve `signUp`
+  (no forjable); `guardarComprador` va por RLS (`id = auth.uid()`); el `INSERT`
+  con check `id = auth.uid()` bloquea crear la fila de otro por PostgREST.
+- **Escalada** — aun si el caso email-confirm creara un `profiles`, nace
+  `active=false` sin `supplier_id` ⇒ cero acceso al lado de agentes
+  (`is_active()` lo corta). Cierre en B.1-0.
+- **Inyección** — las acciones usan el cliente Supabase parametrizado (sin SQL
+  por concatenación).
+- *Pendiente por tooling:* la simulación viva de RLS entre dos compradores
+  (`set role` + jwt claims) no se pudo correr por abortos del MCP en esta
+  sesión; la aislación se sostiene en la estructura de arriba. Repetir en B.1
+  con `set local request.jwt.claims` cuando el tooling coopere.
 
-`/comprar/[serviceId]` crea un **pedido** (booking en estado nuevo,
+### B.1 — Pedido de marketplace + endurecer confirmación (pendiente)
+
+> **Se continúa en Claude console** (esta sesión sigue con UI/UX).
+
+**B.1-0 (asignado, primero):** **Ruta de confirmación propia del comprador.**
+Hoy el registro usa email+password para no pasar por `/auth/callback` (lo único
+que llama a `ensure_profile`). Falta cerrar el caso en que el proyecto exija
+**confirmar el correo**: el link de Supabase podría caer en `/auth/callback` y
+crear un `profiles` **inactivo** para el comprador (inofensivo —sin agencia y
+sin aprobar no ve nada— pero saldría en "agentes pendientes"). Endurecer:
+- `emailRedirectTo` a una ruta propia (p. ej. `/comprar/confirmado`) que haga
+  `exchangeCodeForSession` **sin** llamar `ensure_profile`, y
+- agregar esa URL a los **Redirect URLs** permitidos en el dashboard de Supabase
+  (Auth → URL Configuration), y/o
+- hacer `ensure_profile` "buyer-aware" (saltar si el uid está en
+  `marketplace_customers`).
+
+**B.1-1:** `/comprar/[serviceId]` crea un **pedido** (booking en estado nuevo,
 `selling_supplier_id` = plataforma / agencia dueña) ligado al comprador,
 respetando **cupo** (`service_departures`, transaccional).
 
