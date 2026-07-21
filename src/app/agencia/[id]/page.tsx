@@ -154,10 +154,10 @@ export default async function AgenciaPublicaPage({
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6 sm:py-10">
       <Link
-        href="/explora"
+        href="/agencias"
         className="text-sm text-muted-foreground hover:text-foreground"
       >
-        ← Todos los viajes
+        ← Todas las agencias
       </Link>
 
       {/* Encabezado: logo + nombre + ubicación */}
