@@ -111,9 +111,9 @@ function LoginForm() {
   return (
     <Card className="relative w-full max-w-sm overflow-hidden">
       <BorderBeam />
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-xl">
-          <BrandLogo />
+      <CardHeader className="text-center">
+        <CardTitle className="flex justify-center">
+          <BrandLogo className="h-18 max-w-[360px]" />
         </CardTitle>
         <CardDescription>
           Back-office de ventas. Inicia sesión para continuar.
