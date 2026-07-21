@@ -136,9 +136,13 @@ export function Catalogo({
     setPrecioMax('')
   }
 
+  const hayFiltros = Boolean(
+    query || estado || tipo || precioMin || precioMax
+  )
+
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+      <div className="flex flex-col gap-2 rounded-2xl border bg-card p-3 sm:flex-row sm:flex-wrap sm:items-center sm:p-4">
         <Input
           type="search"
           inputMode="search"
@@ -196,9 +200,20 @@ export function Catalogo({
         )}
       </div>
 
-      <p className="text-xs text-muted-foreground" aria-live="polite">
-        {ordenados.length === 1 ? '1 viaje' : `${ordenados.length} viajes`}
-      </p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground" aria-live="polite">
+          {hayFiltros
+            ? `${ordenados.length} de ${servicios.length} viajes`
+            : ordenados.length === 1
+              ? '1 viaje'
+              : `${ordenados.length} viajes`}
+        </p>
+        {hayFiltros && (
+          <Button variant="ghost" size="sm" onClick={clear}>
+            Limpiar filtros
+          </Button>
+        )}
+      </div>
 
       {ordenados.length === 0 ? (
         <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed px-6 py-10 text-center">
@@ -225,7 +240,12 @@ export function Catalogo({
                   href={`/servicio/${s.id}`}
                   className="group flex flex-1 flex-col"
                 >
-                  <div className="aspect-[3/2] w-full overflow-hidden bg-muted">
+                  <div className="relative aspect-[3/2] w-full overflow-hidden bg-muted">
+                    {s.service_type && (
+                      <span className="absolute left-2 top-2 z-10 rounded-full bg-background/90 px-2 py-0.5 text-[11px] font-medium shadow-sm backdrop-blur">
+                        {tipoLabel(s.service_type)}
+                      </span>
+                    )}
                     {s.image ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
