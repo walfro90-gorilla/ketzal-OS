@@ -123,7 +123,7 @@ Aplica a toda esta sesión. No lo resumas de vuelta, solo síguelo.
 === 0. CONTEXTO FIJO (no re-descubrir, no preguntar) ===
 Repo path absoluto: /home/walfro90/Desktop/codes/ketzal-app
 project (literal, en TODA llamada): home-walfro90-Desktop-codes-ketzal-app
-Grafo: 1,478 nodos / 3,460 edges | 179 TS, 11 SQL, 2 YAML, 1 CSS
+Grafo: 1,494 nodos / 3,400 edges | 180 TS, 11 SQL, 2 YAML, 1 CSS
 Excluido del grafo: node_modules, .next, .git, .vercel, public, docs/
 
 CRÍTICO: docs/ NO está indexado. Si preguntas al grafo por documentación vas a
@@ -222,22 +222,21 @@ Punto de partida del índice inicial. Verifica contra el grafo si algo depende d
 Capa core: lib → 168 llamadas inbound, CERO outbound. Infraestructura pura:
 todo depende de ella, ella no depende de nada. Blast radius máximo.
 
-Hubs:
-- src/lib/utils.cn → 61 callers. Hub #1. Merge de clases Tailwind, presente en
-  casi todo componente de UI.
-- src/lib/supabase/server.createClient → 52 callers. Hub #2. Acceso único a
-  Supabase server-side. El cliente de browser (src/lib/supabase/client.createClient)
-  es hub aparte, ~29 callers.
-- safeError → 35 callers. Viene del fix P1 del commit 7a202f2. Confirma que es
-  infraestructura compartida real, no un parche puntual.
+Hubs (el orden cn↔server.createClient y el split del cliente de browser varían
+por corrida — resolución LSP; NO re-sincronizar por ±pocos callers):
+- src/lib/supabase/server.createClient → ~52–75 callers. Acceso único a Supabase
+  server-side. Blast radius máximo.
+- src/lib/utils.cn → ~61 callers. Merge de clases Tailwind, en casi todo componente.
+- safeError → ~36 callers. Infraestructura compartida (fix P1 del commit 7a202f2).
+- src/lib/supabase/client.createClient → hub aparte del cliente de browser (~7–29).
 
 Clusters (Louvain sobre edges CALLS):
 - Ventas: NuevaVentaForm / createBooking / updateLine
 - Recibos: montoConLetra / centenasALetras — cohesión 1.0 (hermético)
-- Webhook MP: mpSignatureValid / POST / logSistema — cohesión 1.0 (hermético)
 - Reportes/Panel: DashboardPage / GraficaMensual / ReportesPage — cohesión 0.89
 - WhatsApp reader: leerProductoWhatsApp / extraerConGroq — cohesión 0.89
-- Marketplace/ficha pública: ServicioPublicoPage / Catalogo / ServicioForm
+- Marketplace/comprador: ComprarPage / ServicioPublicoPage / PedidoForm (B.1-1)
+- Servicios/OG/imágenes: ServicioForm / ogCardResponse / setServicioImagen
 Nota: Louvain reordena qué módulo hermético (Recibos/Webhook MP) sale al tope
 por corrida; ambos son reales a cohesión 1.0.
 Los de cohesión 1.0 son módulos herméticos: candidatos a extraer, y zonas donde
