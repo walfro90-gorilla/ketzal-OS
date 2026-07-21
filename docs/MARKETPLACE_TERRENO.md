@@ -210,6 +210,26 @@ efecto en prod). Buscan romper RLS / dinero / cupo / calificaciones.
   aplica el pago; se registra `pago_cancelado` en `system_log` para reembolso
   manual. Verificado + sin regresión (D1, contado, enganche). (E1 plan degenerado
   y E3 intent forjado: bloqueados ok.)
+- **Batería 5 (3/3 ok):** RLS de `ratings` entre agencias — la agencia vendedora ve
+  la calificación de su viajero, otra agencia NO la ve, y el viajero no ve su propia
+  calificación (privada, Uber).
+- **Batería 6 — 1 HALLAZGO REAL (F, corregido):** el fix D1 no era race-safe.
+  `confirm_online_payment` bloqueaba solo la fila del *intent*, no la del *booking*;
+  dos webhooks concurrentes de dos intents leían el saldo antes de insertar ⇒ doble
+  cobro de nuevo. Fix: `select … from bookings … for update` al confirmar (patrón de
+  `register_payment`), serializa confirmaciones del mismo pedido. Folio de recibo:
+  atómico (`update … +1 returning`). Refund del agente: guarda `refund ≤ pagado`.
+- **Batería 7:** dedup (índice único impide 2 customers) + regenerar plan (reemplaza
+  limpio, suma=total) ok. Nit menor G3: `create_marketplace_order` permite `travel_date`
+  en el pasado (no alcanzable por UI; hardening opcional: rechazar < hoy).
+- **Batería 8 (4/4 ok):** rating en cancelado bloqueado, reviews de servicio inexistente
+  vacío, lista de compras anon bloqueada, trigger de cupo revalida capacidad en el
+  update (race-safe).
+- **Loop-until-dry (2026-07-20):** 8 baterías, **3 bugs de dinero cazados y cerrados**
+  (D1 doble-gasto secuencial, F doble-gasto concurrente, E5 pago-en-cancelado) — todos
+  en la función compartida `confirm_online_payment` ⇒ protegen agente + marketplace.
+  Resto (RLS directo/RPC/cross-agency, ledger append-only, folio, cupo, ratings, plan,
+  inyección, anon, idempotencia, refund) aguantó. Superficie agotada.
 
 ## Reglas de oro que respeta
 
