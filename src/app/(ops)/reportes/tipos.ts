@@ -32,4 +32,8 @@ export type Reporte = {
   por_agente: PorAgente[]
   por_servicio: PorServicio[]
   por_mes: PorMes[]
+  // F2: se enriquecen en la página desde ketzal.expenses_summary (no vienen de
+  // reports_summary). Utilidad = vendido − gastos del rango, siempre derivada.
+  total_gastos?: number
+  utilidad?: number
 }

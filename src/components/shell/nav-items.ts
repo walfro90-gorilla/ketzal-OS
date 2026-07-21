@@ -13,6 +13,7 @@ import {
   UsersRoundIcon,
   ChartColumnIcon,
   HandCoinsIcon,
+  ReceiptTextIcon,
   ActivityIcon,
   SettingsIcon,
 } from 'lucide-react'
@@ -37,6 +38,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Clientes', href: '/clientes', icon: UsersIcon, primary: true },
   { label: 'Cotizaciones', href: '/cotizaciones', icon: FileTextIcon, primary: true },
   { label: 'Cobranza', href: '/cobranza', icon: HandCoinsIcon, primary: false },
+  { label: 'Gastos', href: '/gastos', icon: ReceiptTextIcon, primary: false, adminOnly: true },
   { label: 'Clawbot', href: '/clawbot', icon: BotIcon, primary: false },
   { label: 'Comisiones', href: '/comisiones', icon: PercentIcon, primary: false, adminOnly: true },
   { label: 'Reportes', href: '/reportes', icon: ChartColumnIcon, primary: false, adminOnly: true },

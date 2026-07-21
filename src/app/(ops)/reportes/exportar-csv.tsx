@@ -28,6 +28,8 @@ function construirCsv(r: Reporte, from: string, to: string): string {
     fila('Cobrado (MXN)', monto(r.total_cobrado)),
     fila('Por cobrar (MXN)', monto(r.saldo_por_cobrar)),
     fila('Comisión (MXN)', monto(r.total_comision)),
+    fila('Gastos (MXN)', monto(r.total_gastos)),
+    fila('Utilidad (MXN)', monto(r.utilidad)),
     fila('Ventas', Number(r.num_ventas ?? 0)),
     fila('Ticket promedio (MXN)', monto(r.ticket_promedio)),
     '',
