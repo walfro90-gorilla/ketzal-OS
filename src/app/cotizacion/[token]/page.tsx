@@ -142,7 +142,7 @@ export default async function CotizacionPublicaPage({
         )}
         <p className="text-2xl font-bold">{quote.agency.name}</p>
         <h1 className="text-[11px] font-semibold tracking-[0.22em] text-primary uppercase">
-          Cotización
+          Cotización{quote.folio != null ? ` COT-${quote.folio}` : ''}
         </h1>
         <div className="mx-auto h-1 w-16 rounded-full bg-primary" />
       </header>
