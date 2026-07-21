@@ -144,10 +144,31 @@ del agente (webhook, preferencia Checkout Pro, `mp-signature`), sin tocarla.
 `commissions_summary` es derivado). Hoy `selling = owner = agencia` ⇒ sin comisión
 de plataforma capturada; se calcula cuando se decida el modelo.
 
-### B.3 — Post-venta (pendiente)
+### B.3 — Post-venta (pendiente, scopeado)
 
-Área "Mis compras" del comprador + bandeja de pedidos de marketplace para la
-agencia.
+Área "Mis compras" del comprador (lista vía RPC SECURITY DEFINER `list_my_
+marketplace_orders` — el comprador no tiene RLS sobre bookings — + pagar los
+abonos siguientes reusando `crearLinkPagoMarketplace`) + bandeja de pedidos de
+marketplace para la agencia (**decidido: filtro + badge "Marketplace" en la lista
+de ventas existente**, no página aparte) + dedup de `customers`
+(`customers.marketplace_customer_id` + find-or-create en `create_marketplace_order`).
+
+### Calificaciones post-viaje (🅰️ social — terreno dormido tras flag)
+
+Sistema polimórfico de 3 direcciones, atado a un booking completado (`paid` + fecha
+pasada / sin fecha). Visibilidad **estilo Uber**.
+- Tabla `ratings` (`booking_id, kind, author_id, rating 1-5, comment`, único por
+  booking+kind+autor); sujeto derivado del booking. RLS: agencia ve sus reseñas +
+  calificaciones de sus viajeros; superadmin todo; autor lo suyo.
+- `kind`: `traveler_to_provider` (**pública**, ficha) · `traveler_to_app` (interna,
+  superadmin) · `provider_to_traveler` (privada, agencias).
+- RPC `submit_rating` (SECURITY DEFINER, valida autor por dirección + elegibilidad;
+  fix de fails-open null-safe en el authz) + `get_service_reviews` (anon, ficha).
+- **UI hecha:** reseñas públicas en la ficha `/servicio/[id]` (lectura), tras el flag.
+- **UI pendiente:** formulario del viajero (proveedor + app) en "Mis compras" (B.3);
+  agente califica al viajero en el detalle de venta. Backend ya listo para ambas.
+- Verificado: self-test (3 direcciones, autor rechazado, elegibilidad, público,
+  upsert), advisors 0 errores.
 
 ## Reglas de oro que respeta
 

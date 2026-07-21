@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { getPublicService } from './data'
+import { getPublicService, getServiceReviews } from './data'
 import { Carrusel } from './carrusel'
+import { Resenas } from './resenas'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { buttonVariants } from '@/components/ui/button'
 import { CheckIcon, XIcon, MapPinIcon } from 'lucide-react'
@@ -91,6 +92,8 @@ export default async function ServicioPublicoPage({
   const embed = videoEmbedUrl(s.yt_link)
   const wa = waLink(s.agency.phone)
   const comprarOnline = marketplaceActivo()
+  // Reseñas: parte del sistema de calificaciones (🅰️ social), tras el mismo flag.
+  const reviews = comprarOnline ? await getServiceReviews(id) : null
   const cupoLibre =
     s.max_capacity != null ? Math.max(0, s.max_capacity - s.current_bookings) : null
 
@@ -279,6 +282,8 @@ export default async function ServicioPublicoPage({
           </CardContent>
         </Card>
       )}
+
+      {reviews && <Resenas reviews={reviews} />}
     </main>
   )
 }

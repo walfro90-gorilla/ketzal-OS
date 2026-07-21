@@ -49,3 +49,21 @@ export const getPublicService = cache(
     return data as unknown as PublicService
   }
 )
+
+export type ServiceReviews = {
+  count: number
+  avg: number
+  items: { rating: number; comment: string | null; autor: string; created_at: string }[]
+}
+
+// Reseñas públicas del servicio (viajero→proveedor) vía get_service_reviews (anon).
+export const getServiceReviews = cache(
+  async (id: string): Promise<ServiceReviews> => {
+    const supabase = await createClient()
+    const { data, error } = await supabase.rpc('get_service_reviews' as never, {
+      p_service_id: id,
+    } as never)
+    if (error || data == null) return { count: 0, avg: 0, items: [] }
+    return data as unknown as ServiceReviews
+  }
+)
