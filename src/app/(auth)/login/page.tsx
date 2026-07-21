@@ -113,7 +113,7 @@ function LoginForm() {
       <BorderBeam />
       <CardHeader className="text-center">
         <CardTitle className="flex justify-center">
-          <BrandLogo className="h-18 max-w-[360px]" />
+          <BrandLogo className="h-27 max-w-[360px]" />
         </CardTitle>
         <CardDescription>
           Back-office de ventas. Inicia sesión para continuar.
