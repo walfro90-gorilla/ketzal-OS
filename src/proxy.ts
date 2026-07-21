@@ -33,6 +33,7 @@ export async function proxy(request: NextRequest) {
     path === '/explora' ||
     path.startsWith('/explora/') || // catálogo público (marketplace)
     path.startsWith('/servicio/') || // ficha pública de un servicio (marketplace)
+    path.startsWith('/agencia/') || // perfil público de una agencia (marketplace)
     path.startsWith('/recuperar') ||
     path.startsWith('/api/') // endpoints (p.ej. webhook de Mercado Pago) manejan su propia auth
   if (!user && !isPublic) {
