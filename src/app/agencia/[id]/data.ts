@@ -49,35 +49,68 @@ export const getPublicSupplier = cache(
   }
 )
 
-/** Rating agregado de la agencia (promedio ponderado de las reseñas públicas de
- *  sus viajes). Reusa get_service_reviews (RPC del sistema de calificaciones)
- *  por servicio → hereda exacto sus reglas de visibilidad. Sin cambios de BD.
- *  A escala conviene un RPC agregado; con pocos viajes por agencia esto basta. */
-export type SupplierRating = { count: number; avg: number }
+/** Reseña individual (viajero→proveedor) más el viaje al que pertenece. */
+export type SupplierReviewItem = {
+  rating: number
+  comment: string | null
+  autor: string
+  created_at: string
+  serviceId: string
+  serviceName: string
+}
 
-export const getSupplierRating = cache(
-  async (serviceIds: string[]): Promise<SupplierRating> => {
-    if (serviceIds.length === 0) return { count: 0, avg: 0 }
+/** Rating agregado + reseñas recientes de la agencia. Reusa get_service_reviews
+ *  (RPC del sistema de calificaciones) por servicio → hereda exacto sus reglas
+ *  de visibilidad. Sin cambios de BD. A escala conviene un RPC agregado; con
+ *  pocos viajes por agencia esto basta. */
+export type SupplierReviews = {
+  count: number
+  avg: number
+  recent: SupplierReviewItem[]
+}
+
+type RpcServiceReviews = {
+  count?: number
+  avg?: number
+  items?: {
+    rating: number
+    comment: string | null
+    autor: string
+    created_at: string
+  }[]
+}
+
+export const getSupplierReviews = cache(
+  async (
+    trips: { id: string; name: string }[]
+  ): Promise<SupplierReviews> => {
+    if (trips.length === 0) return { count: 0, avg: 0, recent: [] }
     const supabase = await createClient()
     const porServicio = await Promise.all(
-      serviceIds.map(async (sid) => {
+      trips.map(async (t) => {
         const { data } = await supabase.rpc('get_service_reviews' as never, {
-          p_service_id: sid,
+          p_service_id: t.id,
         } as never)
-        return (data as unknown as { count?: number; avg?: number } | null) ?? null
+        return { trip: t, r: (data as unknown as RpcServiceReviews | null) ?? null }
       })
     )
     let total = 0
     let ponderado = 0
-    for (const r of porServicio) {
+    const recent: SupplierReviewItem[] = []
+    for (const { trip, r } of porServicio) {
       if (r && r.count && r.count > 0) {
         total += r.count
         ponderado += (r.avg ?? 0) * r.count
+        for (const it of r.items ?? []) {
+          recent.push({ ...it, serviceId: trip.id, serviceName: trip.name })
+        }
       }
     }
+    recent.sort((a, b) => b.created_at.localeCompare(a.created_at))
     return {
       count: total,
       avg: total ? Math.round((ponderado / total) * 10) / 10 : 0,
+      recent: recent.slice(0, 6),
     }
   }
 )

@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import {
   getPublicSupplier,
-  getSupplierRating,
+  getSupplierReviews,
   type PublicSupplierTrip,
 } from './data'
 import { Card, CardContent } from '@/components/ui/card'
@@ -25,6 +25,11 @@ const mxn = new Intl.NumberFormat('es-MX', {
   currency: 'MXN',
 })
 const num = new Intl.NumberFormat('es-MX')
+const fechaCorta = new Intl.DateTimeFormat('es-MX', {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+})
 
 // Glifos de marca inline: lucide dejó de exportar Instagram/Facebook. Trazo
 // simple, hereda color del botón (currentColor). Uso nominativo (enlace).
@@ -165,10 +170,10 @@ export default async function AgenciaPublicaPage({
   const a = await getPublicSupplier(id)
   if (!a) return <NotFound />
 
-  // Rating agregado: solo tras el flag del marketplace (sistema de reseñas
-  // dormido hasta que se prenda), consistente con la ficha de servicio.
-  const rating = marketplaceActivo()
-    ? await getSupplierRating(a.trips.map((t) => t.id))
+  // Reseñas (rating + recientes): solo tras el flag del marketplace (sistema de
+  // reseñas dormido hasta que se prenda), consistente con la ficha de servicio.
+  const reviews = marketplaceActivo()
+    ? await getSupplierReviews(a.trips.map((t) => ({ id: t.id, name: t.name })))
     : null
 
   const info = a.info
@@ -216,12 +221,12 @@ export default async function AgenciaPublicaPage({
               {info.city_zone}
             </p>
           )}
-          {rating && rating.count > 0 && (
+          {reviews && reviews.count > 0 && (
             <p className="mt-1.5 flex items-center gap-1.5 text-sm">
-              <Estrellas value={rating.avg} />
-              <span className="font-semibold tabular-nums">{rating.avg}</span>
+              <Estrellas value={reviews.avg} />
+              <span className="font-semibold tabular-nums">{reviews.avg}</span>
               <span className="text-muted-foreground">
-                ({rating.count} {rating.count === 1 ? 'reseña' : 'reseñas'})
+                ({reviews.count} {reviews.count === 1 ? 'reseña' : 'reseñas'})
               </span>
             </p>
           )}
@@ -366,6 +371,31 @@ export default async function AgenciaPublicaPage({
                 </Link>
               )
             })}
+          </div>
+        </section>
+      )}
+
+      {/* Reseñas de viajeros */}
+      {reviews && reviews.recent.length > 0 && (
+        <section className="mt-8">
+          <h2 className="text-base font-semibold">Reseñas de viajeros</h2>
+          <div className="mt-3 space-y-3">
+            {reviews.recent.map((r, i) => (
+              <div key={i} className="rounded-xl border bg-card p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <Estrellas value={r.rating} />
+                  <span className="text-xs text-muted-foreground">
+                    {fechaCorta.format(new Date(r.created_at))}
+                  </span>
+                </div>
+                {r.comment && (
+                  <p className="mt-2 text-sm leading-relaxed">{r.comment}</p>
+                )}
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {r.autor} · {r.serviceName}
+                </p>
+              </div>
+            ))}
           </div>
         </section>
       )}

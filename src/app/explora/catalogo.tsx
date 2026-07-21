@@ -71,11 +71,20 @@ const ORDEN_OPCIONES = [
   { value: 'precio-desc', label: 'Precio: mayor a menor' },
 ]
 
-export function Catalogo({ servicios }: { servicios: PublicServiceCard[] }) {
+export function Catalogo({
+  servicios,
+  agenciaIds,
+}: {
+  servicios: PublicServiceCard[]
+  /** Mapa nombre de agencia → id, para enlazar al perfil público. */
+  agenciaIds: Record<string, string>
+}) {
   const [query, setQuery] = useState('')
   const [estado, setEstado] = useState('')
   const [tipo, setTipo] = useState('')
   const [orden, setOrden] = useState('nombre')
+  const [precioMin, setPrecioMin] = useState('')
+  const [precioMax, setPrecioMax] = useState('')
 
   // Opciones derivadas de los datos (distintos, ordenados).
   const estadoOpts = useMemo(() => {
@@ -89,9 +98,14 @@ export function Catalogo({ servicios }: { servicios: PublicServiceCard[] }) {
 
   const filtrados = useMemo(() => {
     const tokens = normalize(query).split(/\s+/).filter(Boolean)
+    const min = precioMin.trim() ? Number(precioMin) : null
+    const max = precioMax.trim() ? Number(precioMax) : null
     return servicios.filter((s) => {
       if (estado && s.state_to !== estado) return false
       if (tipo && s.service_type !== tipo) return false
+      const precio = Number(s.price ?? 0)
+      if (min != null && Number.isFinite(min) && precio < min) return false
+      if (max != null && Number.isFinite(max) && precio > max) return false
       if (tokens.length) {
         const heno = normalize(
           [s.name, s.city_to, s.state_to, s.location, s.agency].filter(Boolean).join(' ')
@@ -100,7 +114,7 @@ export function Catalogo({ servicios }: { servicios: PublicServiceCard[] }) {
       }
       return true
     })
-  }, [servicios, query, estado, tipo])
+  }, [servicios, query, estado, tipo, precioMin, precioMax])
 
   const ordenados = useMemo(() => {
     const arr = [...filtrados]
@@ -118,6 +132,8 @@ export function Catalogo({ servicios }: { servicios: PublicServiceCard[] }) {
     setQuery('')
     setEstado('')
     setTipo('')
+    setPrecioMin('')
+    setPrecioMax('')
   }
 
   return (
@@ -137,6 +153,31 @@ export function Catalogo({ servicios }: { servicios: PublicServiceCard[] }) {
         )}
         {tipoOpts.length > 1 && (
           <Select label="Tipo" value={tipo} onChange={setTipo} options={tipoOpts} />
+        )}
+        {servicios.length > 1 && (
+          <div className="flex items-center gap-1.5">
+            <Input
+              type="number"
+              inputMode="numeric"
+              aria-label="Precio mínimo"
+              placeholder="Mín $"
+              value={precioMin}
+              onChange={(e) => setPrecioMin(e.target.value)}
+              min={0}
+              className="w-24"
+            />
+            <span className="text-muted-foreground">–</span>
+            <Input
+              type="number"
+              inputMode="numeric"
+              aria-label="Precio máximo"
+              placeholder="Máx $"
+              value={precioMax}
+              onChange={(e) => setPrecioMax(e.target.value)}
+              min={0}
+              className="w-24"
+            />
+          </div>
         )}
         {servicios.length > 1 && (
           <div className="w-full sm:ml-auto sm:w-56">
@@ -172,9 +213,18 @@ export function Catalogo({ servicios }: { servicios: PublicServiceCard[] }) {
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {ordenados.map((s) => {
             const lugar = destino(s.city_to, s.state_to) ?? s.location
+            const agenciaId = agenciaIds[s.agency]
             return (
-              <Link key={s.id} href={`/servicio/${s.id}`} className="group">
-                <Card className="h-full overflow-hidden py-0 transition-shadow hover:shadow-md">
+              // Card como contenedor (no Link): el cuerpo enlaza al servicio y la
+              // agencia es un link aparte → sin anidar <a> dentro de <a>.
+              <Card
+                key={s.id}
+                className="flex h-full flex-col overflow-hidden py-0 transition-shadow hover:shadow-md"
+              >
+                <Link
+                  href={`/servicio/${s.id}`}
+                  className="group flex flex-1 flex-col"
+                >
                   <div className="aspect-[3/2] w-full overflow-hidden bg-muted">
                     {s.image ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -189,8 +239,10 @@ export function Catalogo({ servicios }: { servicios: PublicServiceCard[] }) {
                       </div>
                     )}
                   </div>
-                  <CardContent className="space-y-1 p-4">
-                    <h2 className="line-clamp-2 font-semibold">{s.name}</h2>
+                  <CardContent className="flex-1 space-y-1 p-4 pb-2">
+                    <h2 className="line-clamp-2 font-semibold group-hover:text-primary">
+                      {s.name}
+                    </h2>
                     {lugar && (
                       <p className="flex items-center gap-1 text-sm text-muted-foreground">
                         <MapPinIcon className="size-3.5" />
@@ -203,10 +255,23 @@ export function Catalogo({ servicios }: { servicios: PublicServiceCard[] }) {
                         {mxn.format(Number(s.price ?? 0))}
                       </span>
                     </p>
-                    <p className="text-xs text-muted-foreground">{s.agency}</p>
                   </CardContent>
-                </Card>
-              </Link>
+                </Link>
+                <div className="px-4 pb-4">
+                  {agenciaId ? (
+                    <Link
+                      href={`/agencia/${agenciaId}`}
+                      className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+                    >
+                      {s.agency}
+                    </Link>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">
+                      {s.agency}
+                    </span>
+                  )}
+                </div>
+              </Card>
             )
           })}
         </div>
