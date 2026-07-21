@@ -4,32 +4,12 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { safeError } from '@/lib/errors'
+import { CATEGORIAS, type GastoInput } from './constants'
 
 // Gastos (F2). El dinero vive en RPCs de Postgres (ledger append-only): estas
 // acciones solo validan UX y llaman al RPC. Los RPCs no están en los types
-// generados ⇒ cast `as never`.
-
-export const CATEGORIAS = [
-  'operacion',
-  'transporte',
-  'hospedaje',
-  'alimentos',
-  'mayorista',
-  'marketing',
-  'otro',
-] as const
-export type CategoriaGasto = (typeof CATEGORIAS)[number]
-
-export type GastoInput = {
-  concept: string
-  category: string
-  amount: number
-  method?: string
-  spent_at: string
-  provider_supplier_id?: string | null
-  booking_id?: string | null
-  notes?: string
-}
+// generados ⇒ cast `as never`. Las constantes/tipos viven en ./constants
+// (este módulo es 'use server': solo puede exportar funciones async).
 
 export async function crearGasto(
   input: GastoInput

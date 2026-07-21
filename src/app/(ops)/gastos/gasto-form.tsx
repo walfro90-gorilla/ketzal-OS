@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { NativeSelect } from '@/components/ui/native-select'
-import { crearGasto, CATEGORIAS } from './actions'
+import { crearGasto } from './actions'
+import { CATEGORIAS } from './constants'
 
 const CATEGORIA_LABELS: Record<string, string> = {
   operacion: 'Operación',
