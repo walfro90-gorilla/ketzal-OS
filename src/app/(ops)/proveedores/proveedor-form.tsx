@@ -87,6 +87,9 @@ export function ProveedorForm({
   const [specialties, setSpecialties] = useState(
     (info?.specialties ?? []).join(', ')
   )
+  const [kmTraveled, setKmTraveled] = useState(
+    info?.km_traveled != null ? String(info.km_traveled) : ''
+  )
 
   // Logo y fotos: suben directo a Storage y persisten al instante (modo edición).
   const [logo, setLogo] = useState(initial?.img_logo ?? null)
@@ -211,6 +214,7 @@ export function ProveedorForm({
         .split(',')
         .map((t) => t.trim())
         .filter(Boolean),
+      km_traveled: kmTraveled.trim() ? Number(kmTraveled) : undefined,
     }
 
     const input: ProveedorInput = {
@@ -425,6 +429,19 @@ export function ProveedorForm({
                 value={foundedYear}
                 onChange={(e) => setFoundedYear(e.target.value)}
                 placeholder="Ej. 2017"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="prov-km">Kilómetros recorridos (estimado)</Label>
+              <Input
+                id="prov-km"
+                type="number"
+                inputMode="numeric"
+                min={0}
+                step="1000"
+                value={kmTraveled}
+                onChange={(e) => setKmTraveled(e.target.value)}
+                placeholder="Ej. 250000"
               />
             </div>
             <div className="space-y-2">
