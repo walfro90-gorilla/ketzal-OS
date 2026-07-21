@@ -1,9 +1,20 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { MapPinIcon, GlobeIcon, CalendarIcon, RouteIcon } from 'lucide-react'
-import { getPublicSupplier, type PublicSupplierTrip } from './data'
+import {
+  MapPinIcon,
+  GlobeIcon,
+  CalendarIcon,
+  RouteIcon,
+  StarIcon,
+} from 'lucide-react'
+import {
+  getPublicSupplier,
+  getSupplierRating,
+  type PublicSupplierTrip,
+} from './data'
 import { Card, CardContent } from '@/components/ui/card'
 import { buttonVariants } from '@/components/ui/button'
+import { marketplaceActivo } from '@/lib/marketplace'
 
 // Perfil público de una agencia/proveedor (marketplace, vitrina SEO). Igual que
 // la ficha de servicio: página pública autocontenida, sin el shell de la app.
@@ -112,6 +123,21 @@ function NotFound() {
   )
 }
 
+// Estrellas 1-5 (llenas hasta `value`, redondeado). Presentacional.
+function Estrellas({ value }: { value: number }) {
+  const llenas = Math.round(value)
+  return (
+    <span className="inline-flex" aria-label={`${value} de 5`}>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <StarIcon
+          key={n}
+          className={`size-4 ${n <= llenas ? 'fill-primary text-primary' : 'text-muted-foreground/40'}`}
+        />
+      ))}
+    </span>
+  )
+}
+
 function StatTile({
   icon: Icon,
   value,
@@ -138,6 +164,12 @@ export default async function AgenciaPublicaPage({
   const { id } = await params
   const a = await getPublicSupplier(id)
   if (!a) return <NotFound />
+
+  // Rating agregado: solo tras el flag del marketplace (sistema de reseñas
+  // dormido hasta que se prenda), consistente con la ficha de servicio.
+  const rating = marketplaceActivo()
+    ? await getSupplierRating(a.trips.map((t) => t.id))
+    : null
 
   const info = a.info
   const anioActual = new Date().getFullYear()
@@ -182,6 +214,15 @@ export default async function AgenciaPublicaPage({
             <p className="mt-1 flex items-center gap-1.5 text-muted-foreground">
               <MapPinIcon className="size-4" />
               {info.city_zone}
+            </p>
+          )}
+          {rating && rating.count > 0 && (
+            <p className="mt-1.5 flex items-center gap-1.5 text-sm">
+              <Estrellas value={rating.avg} />
+              <span className="font-semibold tabular-nums">{rating.avg}</span>
+              <span className="text-muted-foreground">
+                ({rating.count} {rating.count === 1 ? 'reseña' : 'reseñas'})
+              </span>
             </p>
           )}
         </div>

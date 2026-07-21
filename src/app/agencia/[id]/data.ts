@@ -48,3 +48,36 @@ export const getPublicSupplier = cache(
     return data as unknown as PublicSupplier
   }
 )
+
+/** Rating agregado de la agencia (promedio ponderado de las reseñas públicas de
+ *  sus viajes). Reusa get_service_reviews (RPC del sistema de calificaciones)
+ *  por servicio → hereda exacto sus reglas de visibilidad. Sin cambios de BD.
+ *  A escala conviene un RPC agregado; con pocos viajes por agencia esto basta. */
+export type SupplierRating = { count: number; avg: number }
+
+export const getSupplierRating = cache(
+  async (serviceIds: string[]): Promise<SupplierRating> => {
+    if (serviceIds.length === 0) return { count: 0, avg: 0 }
+    const supabase = await createClient()
+    const porServicio = await Promise.all(
+      serviceIds.map(async (sid) => {
+        const { data } = await supabase.rpc('get_service_reviews' as never, {
+          p_service_id: sid,
+        } as never)
+        return (data as unknown as { count?: number; avg?: number } | null) ?? null
+      })
+    )
+    let total = 0
+    let ponderado = 0
+    for (const r of porServicio) {
+      if (r && r.count && r.count > 0) {
+        total += r.count
+        ponderado += (r.avg ?? 0) * r.count
+      }
+    }
+    return {
+      count: total,
+      avg: total ? Math.round((ponderado / total) * 10) / 10 : 0,
+    }
+  }
+)
