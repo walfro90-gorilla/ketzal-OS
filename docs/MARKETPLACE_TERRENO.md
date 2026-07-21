@@ -63,18 +63,20 @@ de agente/superadmin. Advisors: 0 errores.
 
 > **Se continúa en Claude console** (esta sesión sigue con UI/UX).
 
-**B.1-0 (asignado, primero):** **Ruta de confirmación propia del comprador.**
-Hoy el registro usa email+password para no pasar por `/auth/callback` (lo único
-que llama a `ensure_profile`). Falta cerrar el caso en que el proyecto exija
-**confirmar el correo**: el link de Supabase podría caer en `/auth/callback` y
-crear un `profiles` **inactivo** para el comprador (inofensivo —sin agencia y
-sin aprobar no ve nada— pero saldría en "agentes pendientes"). Endurecer:
-- `emailRedirectTo` a una ruta propia (p. ej. `/comprar/confirmado`) que haga
-  `exchangeCodeForSession` **sin** llamar `ensure_profile`, y
-- agregar esa URL a los **Redirect URLs** permitidos en el dashboard de Supabase
-  (Auth → URL Configuration), y/o
-- hacer `ensure_profile` "buyer-aware" (saltar si el uid está en
-  `marketplace_customers`).
+**B.1-0 ✅ APLICADO (2026-07-20) — `ensure_profile` buyer-aware.**
+Se cerró por la opción (c): un guard en la **función compartida** en vez de una
+ruta nueva + config de dashboard. Cierra el hoyo por **todos** los caminos a
+`ensure_profile`, no solo el link de correo. Migración `ensure_profile_buyer_aware`:
+```sql
+where u.id = auth.uid()
+  and not exists (select 1 from ketzal.marketplace_customers m where m.id = auth.uid())
+```
+Así, aunque el link de confirmación caiga en `/auth/callback`, un comprador
+(fila en `marketplace_customers`) **nunca** nace como `profiles`/agente pendiente.
+Verificado: self-check del predicado (no-comprador→inserta, comprador→salta) OK;
+advisors de seguridad **0 errores**. Migración no versionada en repo (Supabase es
+la fuente, per convención). Descartadas (a) ruta `/comprar/confirmado` y (b)
+Redirect URLs por más diff y menos cobertura.
 
 **B.1-1:** `/comprar/[serviceId]` crea un **pedido** (booking en estado nuevo,
 `selling_supplier_id` = plataforma / agencia dueña) ligado al comprador,
