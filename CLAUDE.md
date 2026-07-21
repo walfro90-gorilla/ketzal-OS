@@ -123,7 +123,7 @@ Aplica a toda esta sesión. No lo resumas de vuelta, solo síguelo.
 === 0. CONTEXTO FIJO (no re-descubrir, no preguntar) ===
 Repo path absoluto: /home/walfro90/Desktop/codes/ketzal-app
 project (literal, en TODA llamada): home-walfro90-Desktop-codes-ketzal-app
-Grafo: 1,558 nodos / 3,609 edges | 187 TS, 11 SQL, 2 YAML, 1 CSS
+Grafo: 1,581 nodos / 3,657 edges | 190 TS, 11 SQL, 2 YAML, 1 CSS
 Excluido del grafo: node_modules, .next, .git, .vercel, public, docs/
 
 CRÍTICO: docs/ NO está indexado. Si preguntas al grafo por documentación vas a
