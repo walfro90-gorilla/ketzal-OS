@@ -33,7 +33,7 @@ export function BrandLogo({ className }: { className?: string }) {
       <img
         src={url}
         alt="Ketzal"
-        className={cn('h-7 w-auto max-w-[160px] object-contain', className)}
+        className={cn('h-9 w-auto max-w-[180px] object-contain', className)}
       />
     )
   }

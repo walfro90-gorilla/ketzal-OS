@@ -50,7 +50,7 @@ export function AppShell({
             <img
               src={logoUrl}
               alt="Ketzal"
-              className="h-7 w-auto max-w-[160px] object-contain"
+              className="h-9 w-auto max-w-[180px] object-contain"
             />
           ) : (
             <>
