@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { NativeSelect } from '@/components/ui/native-select'
-import { crearPedido } from '../actions'
+import { crearPedido, crearLinkPagoMarketplace } from '../actions'
 
 // Pedido de marketplace (B.1-1). El comprador elige tipo(s) de lugar (packs) y,
 // si el viaje se vende por cupo, la fecha de salida. Al confirmar se crea un
@@ -63,7 +63,8 @@ export function PedidoForm({
 }) {
   const [qty, setQty] = useState<Record<string, number>>({})
   const [depId, setDepId] = useState(departures[0]?.id ?? '')
-  const [ref, setRef] = useState<string | null>(null)
+  const [orderId, setOrderId] = useState<string | null>(null)
+  const [paying, setPaying] = useState(false)
   const [pending, start] = useTransition()
 
   const total = useMemo(
@@ -94,8 +95,20 @@ export function PedidoForm({
         toast.error(res.error)
         return
       }
-      setRef(res.bookingId.slice(0, 8))
+      setOrderId(res.bookingId)
     })
+  }
+
+  async function pagar() {
+    if (!orderId) return
+    setPaying(true)
+    const res = await crearLinkPagoMarketplace(orderId, serviceId)
+    if ('error' in res) {
+      toast.error(res.error)
+      setPaying(false)
+      return
+    }
+    window.location.href = res.url // redirige a Mercado Pago
   }
 
   // Servicio sin packs configurados: no hay pedido self-service; handoff directo.
@@ -114,7 +127,8 @@ export function PedidoForm({
     )
   }
 
-  if (ref) {
+  if (orderId) {
+    const ref = orderId.slice(0, 8)
     const msg =
       `Hola, soy ${buyerName}. Hice el pedido ${ref} de "${serviceName}" ` +
       `(${totalPax} ${totalPax === 1 ? 'persona' : 'personas'}, ${mxn.format(total)}). ` +
@@ -124,11 +138,18 @@ export function PedidoForm({
         <div className="rounded-lg border bg-muted/40 p-4 text-sm">
           <p className="font-medium">¡Pedido creado! Ref {ref}</p>
           <p className="mt-1 text-muted-foreground">
-            Aún no es una compra pagada. El{' '}
-            <strong>pago en línea llega muy pronto</strong>; por ahora coordina
-            con la agencia para apartar tu lugar.
+            Paga en línea para apartar tu lugar, o coordina con la agencia.
           </p>
         </div>
+        <Button
+          type="button"
+          size="touch"
+          className="w-full"
+          disabled={paying}
+          onClick={pagar}
+        >
+          {paying ? 'Abriendo pago…' : `Pagar en línea ${mxn.format(total)}`}
+        </Button>
         <WaButton phone={agencyPhone} text={msg} />
       </div>
     )

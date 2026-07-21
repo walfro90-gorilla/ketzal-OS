@@ -103,11 +103,35 @@ Redirect URLs por más diff y menos cobertura.
   (sin dedup por comprador) y los pedidos `draft` aparecen en las listas de la
   agencia mezclados con ventas de agente hasta que B.3 agregue la bandeja.
 
-### B.2 — Pago en línea (pendiente)
+### B.2 — Pago en línea
 
-MP Checkout Pro para el pedido → webhook `approved` → confirma, baja el cupo,
-registra el **abono en el ledger** y la **comisión de plataforma**, y **avisa a
-la agencia** (Clawbot/WhatsApp).
+**B.2a ✅ APLICADO (2026-07-20) — contado (pago total).** Reusa toda la infra MP
+del agente (webhook, preferencia Checkout Pro, `mp-signature`), sin tocarla.
+- Migración `payment_intents_marketplace_customer_id`: columna nueva (el comprador
+  no está en `profiles`; `created_by` va null, se liga por `marketplace_customer_id`).
+- RPC `create_marketplace_payment_intent(booking_id, amount=null)` → `{id, amount}`
+  (SECURITY DEFINER, solo `authenticated`): valida que el pedido sea del comprador,
+  monto = saldo (contado) o `p_amount` (B.2b), **decidido server-side** (la
+  preferencia MP cobra ese monto, no el del cliente).
+- Parche `confirm_online_payment` (solo afecta pedidos `draft`; agente intacto):
+  `payments.user_id = coalesce(created_by, marketplace_customer_id)`; el pedido
+  `draft` **toma asiento** (`draft→reserved`, dispara el trigger de cupo) antes de
+  `→paid`; **carrera de cupo** → subtransacción conserva el pago + log
+  `pagado_sin_cupo` (resolución manual), el pedido se queda `draft` pagado.
+- Frontend: botón "Pagar en línea" en el pedido → RPC intent → preferencia MP →
+  redirect. El webhook confirma (abono al ledger, cupo, `paid`).
+- Verificado: self-test end-to-end (contado→paid+idempotente · cupo 0→2 al pagar
+  no al pedir · carrera→pago registrado+draft+log), revertido; `tsc`+`eslint` limpios.
+
+**B.2b — enganche + abonos (pendiente).** Encima de B.2a: elegir contado/plan
+(reusa `payment_schedule` + `preview/generate/clear_payment_plan`, enganche %
+default 20%), pagar el enganche/abono en línea. `confirm_online_payment` ya maneja
+pagos parciales (mantiene `reserved` hasta saldar → `paid`). Pagar los abonos
+siguientes necesita "Mis compras" ⇒ cae junto con B.3.
+
+**Comisión de plataforma:** diferida (campos `owner/selling_supplier_id` listos;
+`commissions_summary` es derivado). Hoy `selling = owner = agencia` ⇒ sin comisión
+de plataforma capturada; se calcula cuando se decida el modelo.
 
 ### B.3 — Post-venta (pendiente)
 

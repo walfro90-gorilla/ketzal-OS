@@ -1,5 +1,6 @@
 'use server'
 
+import { headers } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { safeError } from '@/lib/errors'
@@ -109,4 +110,60 @@ export async function crearPedido(input: {
   } as never)
   if (error) return { error: safeError(error, 'No se pudo crear el pedido.') }
   return { ok: true, bookingId: data as unknown as string }
+}
+
+// B.2a: link de pago en línea (contado) para un pedido del comprador. Crea el
+// payment_intent vía RPC (monto autoritativo = saldo, decidido server-side) y una
+// preferencia de Checkout Pro. El webhook /api/mp/webhook confirma el pago
+// (registra el abono, toma cupo, marca pagado). Reusa la infra MP ya validada.
+export async function crearLinkPagoMarketplace(
+  bookingId: string,
+  serviceId: string,
+): Promise<{ error: string } | { url: string }> {
+  const token = process.env.MP_ACCESS_TOKEN
+  if (!token) {
+    return { error: 'El pago en línea aún no está disponible. Coordina con la agencia.' }
+  }
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: 'Inicia sesión para pagar.' }
+
+  const { data, error } = await supabase.rpc('create_marketplace_payment_intent' as never, {
+    p_booking_id: bookingId,
+  } as never)
+  if (error || !data) return { error: safeError(error, 'No se pudo iniciar el pago.') }
+  const intent = data as unknown as { id: string; amount: number }
+
+  const h = await headers()
+  const origin = process.env.NEXT_PUBLIC_APP_URL ?? `https://${h.get('host')}`
+
+  const res = await fetch('https://api.mercadopago.com/checkout/preferences', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({
+      items: [
+        {
+          title: `Pedido ${bookingId.slice(0, 8)}`,
+          quantity: 1,
+          unit_price: Number(intent.amount),
+          currency_id: 'MXN',
+        },
+      ],
+      external_reference: intent.id,
+      notification_url: `${origin}/api/mp/webhook`,
+      back_urls: {
+        success: `${origin}/servicio/${serviceId}`,
+        failure: `${origin}/servicio/${serviceId}`,
+        pending: `${origin}/servicio/${serviceId}`,
+      },
+    }),
+  })
+  if (!res.ok) return { error: 'Mercado Pago rechazó la solicitud. Intenta de nuevo.' }
+  const pref = (await res.json()) as { init_point?: string }
+  if (!pref.init_point) return { error: 'Mercado Pago no devolvió un link de pago.' }
+
+  return { url: pref.init_point }
 }
