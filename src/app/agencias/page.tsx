@@ -1,8 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { MapPinIcon, RouteIcon, Building2Icon, StarIcon } from 'lucide-react'
-import { listPublicSuppliers, getAgencyRatings } from './data'
-import { listPublicServices } from '../explora/data'
+import { listPublicSuppliers } from './data'
 import { marketplaceActivo } from '@/lib/marketplace'
 import { PublicHeader } from '@/components/public/public-header'
 import { PublicFooter } from '@/components/public/public-footer'
@@ -36,27 +35,10 @@ function RatingChip({ value, count }: { value: number; count: number }) {
 }
 
 export default async function AgenciasPage() {
+  // El rating ya viene en list_public_suppliers (RPC get_supplier_rating), sin
+  // N+1 app-side. El flag solo decide si se muestra (consistente con la ficha).
   const conRating = marketplaceActivo()
-  const [agencias, servicios] = await Promise.all([
-    listPublicSuppliers(),
-    conRating ? listPublicServices() : Promise.resolve([]),
-  ])
-
-  // Rating por agencia (tras el flag): agrupo los servicios del catálogo por
-  // agencia (nombre → id) y agrego sus reseñas. Sin cambios de BD.
-  let ratings: Record<string, { count: number; avg: number }> = {}
-  if (conRating && agencias.length > 0) {
-    const nombreAId: Record<string, string> = {}
-    for (const a of agencias) nombreAId[a.name] = a.id
-    const serviciosPorAgencia: Record<string, string[]> = {}
-    for (const s of servicios) {
-      const aid = nombreAId[s.agency]
-      if (aid) (serviciosPorAgencia[aid] ??= []).push(s.id)
-    }
-    ratings = await getAgencyRatings(
-      agencias.map((a) => ({ id: a.id, serviceIds: serviciosPorAgencia[a.id] ?? [] }))
-    )
-  }
+  const agencias = await listPublicSuppliers()
 
   return (
     <>
@@ -85,7 +67,7 @@ export default async function AgenciasPage() {
       ) : (
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           {agencias.map((a) => {
-            const rating = ratings[a.id]
+            const rating = a.rating
             return (
             <Link
               key={a.id}
@@ -123,7 +105,7 @@ export default async function AgenciasPage() {
                     {a.active_trips}{' '}
                     {a.active_trips === 1 ? 'viaje activo' : 'viajes activos'}
                   </span>
-                  {rating && rating.count > 0 && (
+                  {conRating && rating.count > 0 && (
                     <RatingChip value={rating.avg} count={rating.count} />
                   )}
                 </div>
