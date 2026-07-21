@@ -1,7 +1,9 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { MapPinIcon, RouteIcon, Building2Icon } from 'lucide-react'
-import { listPublicSuppliers } from './data'
+import { MapPinIcon, RouteIcon, Building2Icon, StarIcon } from 'lucide-react'
+import { listPublicSuppliers, getAgencyRatings } from './data'
+import { listPublicServices } from '../explora/data'
+import { marketplaceActivo } from '@/lib/marketplace'
 
 // Directorio público de agencias (vitrina SEO). Complementa /explora: allí se
 // ven los viajes, aquí quién los opera. Página pública autocontenida, sin el
@@ -20,8 +22,39 @@ export const metadata: Metadata = {
   twitter: { card: 'summary_large_image', title: 'Agencias de viajes — Ketzal' },
 }
 
+// Indicador compacto de rating para las tarjetas (una estrella + promedio).
+function RatingChip({ value, count }: { value: number; count: number }) {
+  return (
+    <span className="flex items-center gap-1">
+      <StarIcon className="size-3.5 fill-primary text-primary" />
+      <span className="font-semibold tabular-nums text-foreground">{value}</span>
+      <span>({count})</span>
+    </span>
+  )
+}
+
 export default async function AgenciasPage() {
-  const agencias = await listPublicSuppliers()
+  const conRating = marketplaceActivo()
+  const [agencias, servicios] = await Promise.all([
+    listPublicSuppliers(),
+    conRating ? listPublicServices() : Promise.resolve([]),
+  ])
+
+  // Rating por agencia (tras el flag): agrupo los servicios del catálogo por
+  // agencia (nombre → id) y agrego sus reseñas. Sin cambios de BD.
+  let ratings: Record<string, { count: number; avg: number }> = {}
+  if (conRating && agencias.length > 0) {
+    const nombreAId: Record<string, string> = {}
+    for (const a of agencias) nombreAId[a.name] = a.id
+    const serviciosPorAgencia: Record<string, string[]> = {}
+    for (const s of servicios) {
+      const aid = nombreAId[s.agency]
+      if (aid) (serviciosPorAgencia[aid] ??= []).push(s.id)
+    }
+    ratings = await getAgencyRatings(
+      agencias.map((a) => ({ id: a.id, serviceIds: serviciosPorAgencia[a.id] ?? [] }))
+    )
+  }
 
   return (
     <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-6 sm:py-10">
@@ -54,7 +87,9 @@ export default async function AgenciasPage() {
         </div>
       ) : (
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          {agencias.map((a) => (
+          {agencias.map((a) => {
+            const rating = ratings[a.id]
+            return (
             <Link
               key={a.id}
               href={`/agencia/${a.id}`}
@@ -91,6 +126,9 @@ export default async function AgenciasPage() {
                     {a.active_trips}{' '}
                     {a.active_trips === 1 ? 'viaje activo' : 'viajes activos'}
                   </span>
+                  {rating && rating.count > 0 && (
+                    <RatingChip value={rating.avg} count={rating.count} />
+                  )}
                 </div>
                 {a.specialties.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1.5">
@@ -106,7 +144,8 @@ export default async function AgenciasPage() {
                 )}
               </div>
             </Link>
-          ))}
+            )
+          })}
         </div>
       )}
     </main>

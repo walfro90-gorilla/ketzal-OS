@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Building2Icon } from 'lucide-react'
 import { listPublicServices } from './data'
+import { listPublicSuppliers } from '../agencias/data'
 import { Catalogo } from './catalogo'
 
 // Catálogo público (marketplace). SÍ indexable (a diferencia de las páginas por
@@ -21,7 +22,14 @@ export const metadata: Metadata = {
 }
 
 export default async function ExploraPage() {
-  const servicios = await listPublicServices()
+  const [servicios, agencias] = await Promise.all([
+    listPublicServices(),
+    listPublicSuppliers(),
+  ])
+  // Mapa nombre→id para enlazar la agencia de cada tarjeta a su perfil, sin
+  // tener que modificar list_public_services (el catálogo solo trae el nombre).
+  const agenciaIds: Record<string, string> = {}
+  for (const a of agencias) agenciaIds[a.name] = a.id
 
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:py-12">
@@ -46,7 +54,7 @@ export default async function ExploraPage() {
           Todavía no hay viajes publicados. Vuelve pronto.
         </p>
       ) : (
-        <Catalogo servicios={servicios} />
+        <Catalogo servicios={servicios} agenciaIds={agenciaIds} />
       )}
     </main>
   )
