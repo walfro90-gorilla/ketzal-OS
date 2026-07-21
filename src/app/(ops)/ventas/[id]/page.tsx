@@ -11,6 +11,7 @@ import {
 import { DataList, type DataColumn } from '@/components/data/data-list'
 import { formatTravelDate, mxn } from '@/components/data/format'
 import { StatusBadge, type BookingStatus } from '@/components/data/status-badge'
+import { CalificarViajero } from './calificar-viajero'
 import { ITEM_TYPE_LABELS, PASSENGER_TYPE_LABELS } from '../ui'
 import { AbonosSection } from './abonos'
 import { PlanPagosSection, type PlanItem } from './plan-pagos'
@@ -89,6 +90,7 @@ type BookingDetail = {
   created_at: string
   owner_supplier_id: string
   selling_supplier_id: string
+  marketplace_customer_id: string | null
   customer: { full_name: string; phone: string | null } | null
   service: { name: string } | null
 }
@@ -104,7 +106,7 @@ export default async function VentaDetallePage({
   const { data, error } = await supabase
     .from('bookings')
     .select(
-      'id, folio, travel_date, due_date, num_pax, subtotal, discount, total, currency, status, payment_type, plan_frequency, plan_final_date, notes, cancel_reason, created_at, owner_supplier_id, selling_supplier_id, customer:customers(full_name, phone), service:services(name)'
+      'id, folio, travel_date, due_date, num_pax, subtotal, discount, total, currency, status, payment_type, plan_frequency, plan_final_date, notes, cancel_reason, created_at, owner_supplier_id, selling_supplier_id, marketplace_customer_id, customer:customers(full_name, phone), service:services(name)'
     )
     .eq('id', id)
     .single()
@@ -152,6 +154,25 @@ export default async function VentaDetallePage({
     .eq('booking_id', id)
     .order('seq')
 
+  // Marketplace: la agencia puede calificar al viajero en pedidos completados.
+  const esMarketplace = booking.marketplace_customer_id != null
+  const hoy = new Date().toISOString().slice(0, 10)
+  const puedeCalificarViajero =
+    esMarketplace &&
+    booking.status === 'paid' &&
+    (!booking.travel_date || booking.travel_date <= hoy)
+  let yaCalificoViajero = false
+  if (puedeCalificarViajero) {
+    // ratings no está en database.types.ts (tabla nueva): cast puntual.
+    const { data: rt } = await supabase
+      .from('ratings' as never)
+      .select('id')
+      .eq('booking_id' as never, id as never)
+      .eq('kind' as never, 'provider_to_traveler' as never)
+      .limit(1)
+    yaCalificoViajero = Array.isArray(rt) && rt.length > 0
+  }
+
   const createdAt = new Intl.DateTimeFormat('es-MX', {
     dateStyle: 'long',
   }).format(new Date(booking.created_at))
@@ -174,6 +195,11 @@ export default async function VentaDetallePage({
             Venta {booking.folio ?? `#${booking.id.slice(0, 8)}`}
           </h1>
           <StatusBadge status={booking.status} />
+          {esMarketplace && (
+            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+              Marketplace
+            </span>
+          )}
         </div>
         {ownerName && (
           <p className="mt-1 text-sm text-muted-foreground">
@@ -186,6 +212,13 @@ export default async function VentaDetallePage({
           </p>
         )}
       </div>
+
+      {puedeCalificarViajero && (
+        <CalificarViajero
+          bookingId={booking.id}
+          yaCalificado={yaCalificoViajero}
+        />
+      )}
 
       <Card>
         <CardHeader>

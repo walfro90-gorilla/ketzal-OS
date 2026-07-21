@@ -299,3 +299,28 @@ export async function quitarPlanPagos(
   revalidatePath('/ventas/' + bookingId)
   return { ok: true }
 }
+
+// La agencia califica al viajero (marketplace, post-viaje). RPC submit_rating
+// valida que sea la agencia vendedora + viaje completado.
+export async function calificarViajero(
+  bookingId: string,
+  rating: number,
+  comment?: string
+): Promise<{ error: string } | { ok: true }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const { error } = await supabase.rpc('submit_rating' as never, {
+    p_booking_id: bookingId,
+    p_kind: 'provider_to_traveler',
+    p_rating: rating,
+    p_comment: comment ?? null,
+  } as never)
+  if (error) return { error: safeError(error, 'No se pudo calificar al viajero.') }
+
+  revalidatePath('/ventas/' + bookingId)
+  return { ok: true }
+}

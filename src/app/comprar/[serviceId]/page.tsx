@@ -65,7 +65,17 @@ export default async function ComprarPage({
       >
         ← Volver al viaje
       </Link>
-      <h1 className="mt-4 text-2xl font-bold tracking-tight">Comprar en línea</h1>
+      <div className="mt-4 flex items-baseline justify-between gap-3">
+        <h1 className="text-2xl font-bold tracking-tight">Comprar en línea</h1>
+        {user && (
+          <Link
+            href="/mis-compras"
+            className="shrink-0 text-sm text-primary underline-offset-2 hover:underline"
+          >
+            Mis compras →
+          </Link>
+        )}
+      </div>
 
       <Card className="mt-4">
         <CardContent className="space-y-1 p-4">

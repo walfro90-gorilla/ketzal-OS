@@ -222,3 +222,26 @@ export async function generarPlanMarketplace(
   if (error || !data) return { error: safeError(error, 'No se pudo crear el plan.') }
   return { plan: data as unknown as PlanPreview }
 }
+
+// B.3: calificación post-viaje del comprador (viajero→proveedor / →app).
+export async function calificar(
+  bookingId: string,
+  kind: 'traveler_to_provider' | 'traveler_to_app',
+  rating: number,
+  comment?: string,
+): Promise<{ error: string } | { ok: true }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: 'Inicia sesión para calificar.' }
+
+  const { error } = await supabase.rpc('submit_rating' as never, {
+    p_booking_id: bookingId,
+    p_kind: kind,
+    p_rating: rating,
+    p_comment: comment ?? null,
+  } as never)
+  if (error) return { error: safeError(error, 'No se pudo enviar tu calificación.') }
+  return { ok: true }
+}

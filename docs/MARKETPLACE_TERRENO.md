@@ -144,14 +144,23 @@ del agente (webhook, preferencia Checkout Pro, `mp-signature`), sin tocarla.
 `commissions_summary` es derivado). Hoy `selling = owner = agencia` ⇒ sin comisión
 de plataforma capturada; se calcula cuando se decida el modelo.
 
-### B.3 — Post-venta (pendiente, scopeado)
+### B.3 — Post-venta ✅ APLICADO (2026-07-20)
 
-Área "Mis compras" del comprador (lista vía RPC SECURITY DEFINER `list_my_
-marketplace_orders` — el comprador no tiene RLS sobre bookings — + pagar los
-abonos siguientes reusando `crearLinkPagoMarketplace`) + bandeja de pedidos de
-marketplace para la agencia (**decidido: filtro + badge "Marketplace" en la lista
-de ventas existente**, no página aparte) + dedup de `customers`
-(`customers.marketplace_customer_id` + find-or-create en `create_marketplace_order`).
+- **Dedup de customers**: `customers.marketplace_customer_id` (+ índice único por
+  supplier+comprador) y `create_marketplace_order` ahora hace find-or-create —
+  un comprador que pide varias veces a la misma agencia reusa su fila de cliente.
+- **RPC `list_my_marketplace_orders`** (SECURITY DEFINER; el comprador no tiene
+  RLS sobre bookings): sus pedidos con saldo, **próximo abono** (siguiente cuota
+  del `payment_schedule` no cubierta por lo pagado) y elegibilidad/estado de reseña.
+- **`/mis-compras`** (comprador, tras flag): lista + "Pagar siguiente abono" /
+  "Liquidar" (reusa `crearLinkPagoMarketplace`) + **formulario de calificación**
+  del viaje (proveedor + app) para viajes completados. Link desde `/comprar`.
+- **Lado agencia**: badge "Marketplace" + **"Calificar al viajero"** en el detalle
+  de venta `/ventas/[id]` (RPC `submit_rating`, cierra la 3ª dirección).
+- Verificado: self-test (dedup=1 customer, lista, próximo abono correcto) + `tsc`
+  + `eslint`.
+- **Pendiente menor**: filtro/badge "Marketplace" en la *lista* `/ventas` (hoy el
+  badge está en el detalle); backend ya lo soporta (`marketplace_customer_id`).
 
 ### Calificaciones post-viaje (🅰️ social — terreno dormido tras flag)
 
