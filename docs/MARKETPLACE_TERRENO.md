@@ -179,6 +179,29 @@ pasada / sin fecha). Visibilidad **estilo Uber**.
 - Verificado: self-test (3 direcciones, autor rechazado, elegibilidad, público,
   upsert), advisors 0 errores.
 
+## Hard testing (adversarial, capa BD — 2026-07-20)
+
+Baterías hostiles contra el schema real, en transacciones que revierten (cero
+efecto en prod). Buscan romper RLS / dinero / cupo / calificaciones.
+
+- **Batería 1 (14/14 ok):** anon, sobre-pago, monto negativo, escalada de
+  comprador (pagar/calificar pedido ajeno), elegibilidad de reseña, rango de
+  rating, dirección de rating, idempotencia del webhook, overbook al pedir,
+  cupo ≤ max tras carrera, dedup, invariante suma-plan = total.
+- **Batería 2A (6/6 ok):** RLS **directo a tabla** con rol `authenticated` real +
+  jwt (cierra la simulación viva pendiente desde B.0): comprador no lee bookings
+  (ni propios; van por RPC), no lee/escribe filas de otro tenant, no inserta
+  rating directo, no fuerza `paid`, no spoofea comprador.
+- **Batería 2B:** ledger append-only (delete pago/recibo bloqueado por `no_mutar`),
+  inyección jsonb (qty float / pack inválido rechazados), plan adversarial
+  (frecuencia inválida / fecha pasada) — **y 1 HALLAZGO REAL:**
+  - **D1 doble-gasto (corregido):** dos `payment_intents` por el saldo completo se
+    confirmaban ambos ⇒ saldo negativo (doble cobro). Fix en la función compartida
+    `confirm_online_payment` (agente + marketplace): **guard anti-sobrepago** —
+    recorta el pago al saldo restante y registra el excedente como evento
+    `sobrepago` en `system_log` (reembolso manual; el dinero está en MP). El saldo
+    nunca queda negativo. Verificado: fix + sin regresión (contado, enganche).
+
 ## Reglas de oro que respeta
 
 - **Aislamiento RLS:** comprador ≠ agente; la RLS por agencia no se toca.
