@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { Badge } from '@/components/ui/badge'
+import { BorderBeam } from '@/components/ui/border-beam'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import {
@@ -297,6 +298,12 @@ const KPI_TONES = {
   },
 } as const
 
+// El haz tiñe según el tono; sin tono usa el teal de marca (defaults de BorderBeam).
+const KPI_BEAM: Record<keyof typeof KPI_TONES, { from: string; to: string }> = {
+  amber: { from: '#f59e0b', to: '#fbbf24' },
+  destructive: { from: '#ef4444', to: '#f87171' },
+}
+
 function Kpi({
   label,
   value,
@@ -309,8 +316,13 @@ function Kpi({
   tone?: keyof typeof KPI_TONES
 }) {
   const t = tone ? KPI_TONES[tone] : null
+  const beam = tone ? KPI_BEAM[tone] : null
   return (
-    <Card className={t?.card}>
+    <Card className={cn('relative', t?.card)}>
+      <BorderBeam
+        duration={9}
+        {...(beam ? { colorFrom: beam.from, colorTo: beam.to } : {})}
+      />
       <CardHeader>
         <CardDescription className={t?.text}>{label}</CardDescription>
         <CardTitle className={cn('text-2xl tabular-nums', t?.text)}>
@@ -351,6 +363,12 @@ const ATENCION_TONES: Record<AtencionTone, { card: string; text: string }> = {
   },
 }
 
+const ATENCION_BEAM: Record<AtencionTone, { from: string; to: string }> = {
+  danger: { from: '#ef4444', to: '#f87171' },
+  pendiente: { from: '#f59e0b', to: '#fbbf24' },
+  bot: { from: '#009E7E', to: '#00E0A8' },
+}
+
 function AtencionCard({
   tone,
   icon: Icon,
@@ -378,7 +396,14 @@ function AtencionCard({
 }) {
   const t = ATENCION_TONES[tone]
   return (
-    <Card className={active ? t.card : undefined}>
+    <Card className={cn('relative', active && t.card)}>
+      {active && (
+        <BorderBeam
+          duration={9}
+          colorFrom={ATENCION_BEAM[tone].from}
+          colorTo={ATENCION_BEAM[tone].to}
+        />
+      )}
       <CardHeader>
         <CardDescription
           className={cn('flex items-center gap-1.5', active && t.text)}

@@ -78,6 +78,13 @@
   --radius-xl: calc(var(--radius) + 4px);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --animate-border-beam: border-beam calc(var(--duration) * 1s) infinite linear;
+}
+
+@keyframes border-beam {
+  to {
+    offset-distance: 100%;
+  }
 }
 
 @layer base {

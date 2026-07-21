@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { BorderBeam } from '@/components/ui/border-beam'
 
 type Mode = 'magic' | 'password'
 
@@ -108,7 +109,8 @@ function LoginForm() {
   }
 
   return (
-    <Card className="w-full max-w-sm">
+    <Card className="relative w-full max-w-sm overflow-hidden">
+      <BorderBeam />
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-xl">
           <BrandLogo />
