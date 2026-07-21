@@ -11,6 +11,7 @@ import { DataList, type DataColumn } from '@/components/data/data-list'
 import { EmptyState } from '@/components/data/empty-state'
 import { PageHeader } from '@/components/data/page-header'
 import { ProveedorForm } from '../proveedor-form'
+import { type ProveedorInfo } from '../actions'
 import { EliminarProveedor } from './eliminar-proveedor'
 
 // Formatter local (mismo criterio que el resto de páginas: autocontenidas).
@@ -144,6 +145,14 @@ export default async function ProveedorDetallePage({
           description: proveedor.description ?? '',
           supplier_type: proveedor.supplier_type,
           commission_rate: Number(proveedor.commission_rate ?? 0),
+          // img_logo / photos / info no están en los types generados ⇒ cast.
+          img_logo: (proveedor as { img_logo?: string | null }).img_logo ?? null,
+          photos: Array.isArray((proveedor as { photos?: unknown }).photos)
+            ? ((proveedor as { photos?: string[] }).photos as string[])
+            : [],
+          info:
+            ((proveedor as { info?: ProveedorInfo | null }).info as ProveedorInfo) ??
+            {},
         }}
       />
 
