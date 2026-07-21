@@ -123,11 +123,22 @@ del agente (webhook, preferencia Checkout Pro, `mp-signature`), sin tocarla.
 - Verificado: self-test end-to-end (contado→paid+idempotente · cupo 0→2 al pagar
   no al pedir · carrera→pago registrado+draft+log), revertido; `tsc`+`eslint` limpios.
 
-**B.2b — enganche + abonos (pendiente).** Encima de B.2a: elegir contado/plan
-(reusa `payment_schedule` + `preview/generate/clear_payment_plan`, enganche %
-default 20%), pagar el enganche/abono en línea. `confirm_online_payment` ya maneja
-pagos parciales (mantiene `reserved` hasta saldar → `paid`). Pagar los abonos
-siguientes necesita "Mis compras" ⇒ cae junto con B.3.
+**B.2b ✅ APLICADO (2026-07-20) — enganche + abonos.** Encima de B.2a.
+- RPC `generate_marketplace_payment_plan(booking, frequency, final_date)` (SECURITY
+  DEFINER, valida dueño-comprador): espeja `generate_payment_plan` reusando el core
+  `_compute_payment_plan` + `payment_schedule` + `bookings.payment_type='abonos'`.
+  Fecha límite = la salida si hay (`booking.travel_date`), si no la que elige el
+  comprador. Enganche fijo **20%**.
+- `create_marketplace_payment_intent` acepta `p_amount` (el enganche); el frontend
+  paga el enganche → `confirm_online_payment` registra el abono parcial, toma cupo
+  (`draft→reserved`) y **deja `reserved`** hasta saldar (no pasa a `paid`).
+- Frontend: `PagoBloque` (contado / en abonos): frecuencia (semanal/quincenal/
+  mensual) + fecha límite (si no hay salida) → preview (`preview_payment_plan`) →
+  "Pagar enganche". `WaButton` extraído a componente compartido.
+- Verificado: self-test (plan enganche=20%, suma schedule = total invariante,
+  payment_type='abonos'; enganche pagado → reserved + saldo restante + cupo), revertido.
+
+**Abonos siguientes (pagar el 2º, 3º…):** requieren "Mis compras" ⇒ **B.3**.
 
 **Comisión de plataforma:** diferida (campos `owner/selling_supplier_id` listos;
 `commissions_summary` es derivado). Hoy `selling = owner = agencia` ⇒ sin comisión

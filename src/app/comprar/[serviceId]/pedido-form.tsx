@@ -2,9 +2,11 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import { toast } from 'sonner'
-import { Button, buttonVariants } from '@/components/ui/button'
+import { Button } from '@/components/ui/button'
 import { NativeSelect } from '@/components/ui/native-select'
-import { crearPedido, crearLinkPagoMarketplace } from '../actions'
+import { crearPedido } from '../actions'
+import { WaButton } from './wa-button'
+import { PagoBloque } from './pago-bloque'
 
 // Pedido de marketplace (B.1-1). El comprador elige tipo(s) de lugar (packs) y,
 // si el viaje se vende por cupo, la fecha de salida. Al confirmar se crea un
@@ -25,27 +27,6 @@ function fechaLarga(iso: string) {
   })
 }
 
-/** Botón de handoff a WhatsApp; si la agencia no tiene número, cae a un aviso. */
-function WaButton({ phone, text }: { phone: string | null; text: string }) {
-  const digits = phone?.replace(/\D/g, '')
-  if (!digits)
-    return (
-      <p className="text-sm text-muted-foreground">
-        La agencia no tiene WhatsApp configurado; te contactará por correo.
-      </p>
-    )
-  return (
-    <a
-      href={`https://wa.me/${digits}?text=${encodeURIComponent(text)}`}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={`${buttonVariants({ variant: 'default', size: 'touch' })} w-full`}
-    >
-      Coordinar por WhatsApp
-    </a>
-  )
-}
-
 export function PedidoForm({
   serviceId,
   serviceName,
@@ -64,7 +45,6 @@ export function PedidoForm({
   const [qty, setQty] = useState<Record<string, number>>({})
   const [depId, setDepId] = useState(departures[0]?.id ?? '')
   const [orderId, setOrderId] = useState<string | null>(null)
-  const [paying, setPaying] = useState(false)
   const [pending, start] = useTransition()
 
   const total = useMemo(
@@ -99,18 +79,6 @@ export function PedidoForm({
     })
   }
 
-  async function pagar() {
-    if (!orderId) return
-    setPaying(true)
-    const res = await crearLinkPagoMarketplace(orderId, serviceId)
-    if ('error' in res) {
-      toast.error(res.error)
-      setPaying(false)
-      return
-    }
-    window.location.href = res.url // redirige a Mercado Pago
-  }
-
   // Servicio sin packs configurados: no hay pedido self-service; handoff directo.
   if (packs.length === 0) {
     return (
@@ -129,6 +97,7 @@ export function PedidoForm({
 
   if (orderId) {
     const ref = orderId.slice(0, 8)
+    const dep = departures.find((d) => d.id === depId)
     const msg =
       `Hola, soy ${buyerName}. Hice el pedido ${ref} de "${serviceName}" ` +
       `(${totalPax} ${totalPax === 1 ? 'persona' : 'personas'}, ${mxn.format(total)}). ` +
@@ -141,16 +110,14 @@ export function PedidoForm({
             Paga en línea para apartar tu lugar, o coordina con la agencia.
           </p>
         </div>
-        <Button
-          type="button"
-          size="touch"
-          className="w-full"
-          disabled={paying}
-          onClick={pagar}
-        >
-          {paying ? 'Abriendo pago…' : `Pagar en línea ${mxn.format(total)}`}
-        </Button>
-        <WaButton phone={agencyPhone} text={msg} />
+        <PagoBloque
+          bookingId={orderId}
+          serviceId={serviceId}
+          total={total}
+          travelDate={dep?.departs_on ?? null}
+          waText={msg}
+          agencyPhone={agencyPhone}
+        />
       </div>
     )
   }

@@ -119,6 +119,7 @@ export async function crearPedido(input: {
 export async function crearLinkPagoMarketplace(
   bookingId: string,
   serviceId: string,
+  amount?: number,
 ): Promise<{ error: string } | { url: string }> {
   const token = process.env.MP_ACCESS_TOKEN
   if (!token) {
@@ -131,8 +132,10 @@ export async function crearLinkPagoMarketplace(
   } = await supabase.auth.getUser()
   if (!user) return { error: 'Inicia sesión para pagar.' }
 
+  // amount undefined ⇒ null ⇒ saldo completo (contado). B.2b pasa el enganche.
   const { data, error } = await supabase.rpc('create_marketplace_payment_intent' as never, {
     p_booking_id: bookingId,
+    p_amount: amount ?? null,
   } as never)
   if (error || !data) return { error: safeError(error, 'No se pudo iniciar el pago.') }
   const intent = data as unknown as { id: string; amount: number }
@@ -166,4 +169,56 @@ export async function crearLinkPagoMarketplace(
   if (!pref.init_point) return { error: 'Mercado Pago no devolvió un link de pago.' }
 
   return { url: pref.init_point }
+}
+
+// B.2b: plan de pagos (enganche + abonos) para el comprador.
+export type PlanPreview = {
+  total: number
+  enganche: number
+  resto: number
+  num_abonos: number
+  monto_abono: number
+  final: string
+}
+
+/** Preview del plan (cálculo puro, no persiste). finalDate = salida o la que eligió. */
+export async function previewPlan(
+  total: number,
+  finalDate: string,
+  frequency: string,
+): Promise<{ error: string } | { plan: PlanPreview }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: 'Inicia sesión para continuar.' }
+
+  const { data, error } = await supabase.rpc('preview_payment_plan' as never, {
+    p_total: total,
+    p_final: finalDate,
+    p_frequency: frequency,
+  } as never)
+  if (error || !data) return { error: safeError(error, 'No se pudo calcular el plan.') }
+  return { plan: data as unknown as PlanPreview }
+}
+
+/** Genera y persiste el plan del pedido del comprador. finalDate null ⇒ usa la salida. */
+export async function generarPlanMarketplace(
+  bookingId: string,
+  frequency: string,
+  finalDate: string | null,
+): Promise<{ error: string } | { plan: PlanPreview }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: 'Inicia sesión para continuar.' }
+
+  const { data, error } = await supabase.rpc('generate_marketplace_payment_plan' as never, {
+    p_booking_id: bookingId,
+    p_frequency: frequency,
+    p_final_date: finalDate,
+  } as never)
+  if (error || !data) return { error: safeError(error, 'No se pudo crear el plan.') }
+  return { plan: data as unknown as PlanPreview }
 }
