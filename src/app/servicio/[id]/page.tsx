@@ -8,6 +8,7 @@ import { buttonVariants } from '@/components/ui/button'
 import { CheckIcon, XIcon, MapPinIcon } from 'lucide-react'
 import { videoEmbedUrl } from '@/lib/video'
 import { marketplaceActivo } from '@/lib/marketplace'
+import { esDemoReviews, demoServiceReviews } from '@/lib/demo/reviews'
 import { PublicHeader } from '@/components/public/public-header'
 import { PublicFooter } from '@/components/public/public-footer'
 
@@ -82,8 +83,10 @@ function NotFound() {
 
 export default async function ServicioPublicoPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ [k: string]: string | string[] | undefined }>
 }) {
   const { id } = await params
   const s = await getPublicService(id)
@@ -99,7 +102,13 @@ export default async function ServicioPublicoPage({
   const wa = waLink(s.agency.phone)
   const comprarOnline = marketplaceActivo()
   // Reseñas: parte del sistema de calificaciones (🅰️ social), tras el mismo flag.
-  const reviews = comprarOnline ? await getServiceReviews(id) : null
+  // `?preview=reviews` pinta datos de ejemplo sin BD ni flag (demo).
+  const demo = esDemoReviews((await searchParams).preview)
+  const reviews = demo
+    ? demoServiceReviews()
+    : comprarOnline
+      ? await getServiceReviews(id)
+      : null
   const cupoLibre =
     s.max_capacity != null ? Math.max(0, s.max_capacity - s.current_bookings) : null
 

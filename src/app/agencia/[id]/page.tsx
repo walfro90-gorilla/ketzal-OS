@@ -15,6 +15,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card'
 import { buttonVariants } from '@/components/ui/button'
 import { marketplaceActivo } from '@/lib/marketplace'
+import { esDemoReviews, demoSupplierReviews } from '@/lib/demo/reviews'
 import { PublicHeader } from '@/components/public/public-header'
 import { PublicFooter } from '@/components/public/public-footer'
 
@@ -165,8 +166,10 @@ function StatTile({
 
 export default async function AgenciaPublicaPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ [k: string]: string | string[] | undefined }>
 }) {
   const { id } = await params
   const a = await getPublicSupplier(id)
@@ -174,9 +177,13 @@ export default async function AgenciaPublicaPage({
 
   // Reseñas (rating + recientes): solo tras el flag del marketplace (sistema de
   // reseñas dormido hasta que se prenda), consistente con la ficha de servicio.
-  const reviews = marketplaceActivo()
-    ? await getSupplierReviews(a.trips.map((t) => ({ id: t.id, name: t.name })))
-    : null
+  // `?preview=reviews` pinta datos de ejemplo sin BD ni flag (demo).
+  const demo = esDemoReviews((await searchParams).preview)
+  const reviews = demo
+    ? demoSupplierReviews(a.trips.map((t) => ({ id: t.id, name: t.name })))
+    : marketplaceActivo()
+      ? await getSupplierReviews(a.trips.map((t) => ({ id: t.id, name: t.name })))
+      : null
 
   const info = a.info
   const anioActual = new Date().getFullYear()
