@@ -15,6 +15,8 @@ import {
 import { Card, CardContent } from '@/components/ui/card'
 import { buttonVariants } from '@/components/ui/button'
 import { marketplaceActivo } from '@/lib/marketplace'
+import { PublicHeader } from '@/components/public/public-header'
+import { PublicFooter } from '@/components/public/public-footer'
 
 // Perfil público de una agencia/proveedor (marketplace, vitrina SEO). Igual que
 // la ficha de servicio: página pública autocontenida, sin el shell de la app.
@@ -189,7 +191,9 @@ export default async function AgenciaPublicaPage({
   const tieneRedes = Boolean(web || ig || fb)
 
   return (
-    <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6 sm:py-10">
+    <>
+      <PublicHeader />
+      <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6 sm:py-10">
       <Link
         href="/agencias"
         className="text-sm text-muted-foreground hover:text-foreground"
@@ -438,6 +442,8 @@ export default async function AgenciaPublicaPage({
           )}
         </section>
       )}
-    </main>
+      </main>
+      <PublicFooter />
+    </>
   )
 }

@@ -1,9 +1,9 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
-import { Building2Icon } from 'lucide-react'
 import { listPublicServices } from './data'
 import { listPublicSuppliers } from '../agencias/data'
 import { Catalogo } from './catalogo'
+import { PublicHeader } from '@/components/public/public-header'
+import { PublicFooter } from '@/components/public/public-footer'
 
 // Catálogo público (marketplace). SÍ indexable (a diferencia de las páginas por
 // token): es la vitrina SEO. Página autocontenida (sin la shell de /ops).
@@ -32,30 +32,25 @@ export default async function ExploraPage() {
   for (const a of agencias) agenciaIds[a.name] = a.id
 
   return (
-    <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:py-12">
-      <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
-        <div className="space-y-2">
+    <>
+      <PublicHeader />
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:py-12">
+        <header className="mb-8 space-y-2">
           <h1 className="text-3xl font-bold tracking-tight">Explora viajes</h1>
           <p className="text-muted-foreground">
             Tours, paquetes y experiencias de agencias locales.
           </p>
-        </div>
-        <Link
-          href="/agencias"
-          className="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-        >
-          <Building2Icon className="size-4" />
-          Ver agencias
-        </Link>
-      </header>
+        </header>
 
-      {servicios.length === 0 ? (
-        <p className="py-16 text-center text-muted-foreground">
-          Todavía no hay viajes publicados. Vuelve pronto.
-        </p>
-      ) : (
-        <Catalogo servicios={servicios} agenciaIds={agenciaIds} />
-      )}
-    </main>
+        {servicios.length === 0 ? (
+          <p className="py-16 text-center text-muted-foreground">
+            Todavía no hay viajes publicados. Vuelve pronto.
+          </p>
+        ) : (
+          <Catalogo servicios={servicios} agenciaIds={agenciaIds} />
+        )}
+      </main>
+      <PublicFooter />
+    </>
   )
 }

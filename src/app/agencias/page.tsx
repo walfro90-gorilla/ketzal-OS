@@ -4,6 +4,8 @@ import { MapPinIcon, RouteIcon, Building2Icon, StarIcon } from 'lucide-react'
 import { listPublicSuppliers, getAgencyRatings } from './data'
 import { listPublicServices } from '../explora/data'
 import { marketplaceActivo } from '@/lib/marketplace'
+import { PublicHeader } from '@/components/public/public-header'
+import { PublicFooter } from '@/components/public/public-footer'
 
 // Directorio público de agencias (vitrina SEO). Complementa /explora: allí se
 // ven los viajes, aquí quién los opera. Página pública autocontenida, sin el
@@ -57,15 +59,10 @@ export default async function AgenciasPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-6 sm:py-10">
-      <Link
-        href="/explora"
-        className="text-sm text-muted-foreground hover:text-foreground"
-      >
-        ← Explorar viajes
-      </Link>
-
-      <header className="mt-4 space-y-2">
+    <>
+      <PublicHeader />
+      <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-6 sm:py-10">
+      <header className="space-y-2">
         <h1 className="text-2xl font-bold sm:text-3xl">Agencias de viajes</h1>
         <p className="text-muted-foreground">
           Conoce a quién opera cada viaje. Toca una agencia para ver su perfil.
@@ -148,6 +145,8 @@ export default async function AgenciasPage() {
           })}
         </div>
       )}
-    </main>
+      </main>
+      <PublicFooter />
+    </>
   )
 }

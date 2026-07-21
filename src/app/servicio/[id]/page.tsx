@@ -8,6 +8,8 @@ import { buttonVariants } from '@/components/ui/button'
 import { CheckIcon, XIcon, MapPinIcon } from 'lucide-react'
 import { videoEmbedUrl } from '@/lib/video'
 import { marketplaceActivo } from '@/lib/marketplace'
+import { PublicHeader } from '@/components/public/public-header'
+import { PublicFooter } from '@/components/public/public-footer'
 
 // Ficha pública de un servicio (marketplace). Indexable (vitrina SEO).
 // El CTA "Reservar" apunta hoy a WhatsApp de la agencia; la tajada 3
@@ -60,17 +62,21 @@ export async function generateMetadata({
 
 function NotFound() {
   return (
-    <main className="flex flex-1 items-center justify-center px-4 py-16">
-      <div className="text-center">
-        <h1 className="text-2xl font-semibold">Viaje no disponible</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Este viaje no existe o ya no está publicado.
-        </p>
-        <Link href="/explora" className={`${buttonVariants({ variant: 'outline' })} mt-4`}>
-          Ver todos los viajes
-        </Link>
-      </div>
-    </main>
+    <>
+      <PublicHeader />
+      <main className="flex flex-1 items-center justify-center px-4 py-16">
+        <div className="text-center">
+          <h1 className="text-2xl font-semibold">Viaje no disponible</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Este viaje no existe o ya no está publicado.
+          </p>
+          <Link href="/explora" className={`${buttonVariants({ variant: 'outline' })} mt-4`}>
+            Ver todos los viajes
+          </Link>
+        </div>
+      </main>
+      <PublicFooter />
+    </>
   )
 }
 
@@ -98,7 +104,9 @@ export default async function ServicioPublicoPage({
     s.max_capacity != null ? Math.max(0, s.max_capacity - s.current_bookings) : null
 
   return (
-    <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6 sm:py-10">
+    <>
+      <PublicHeader />
+      <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6 sm:py-10">
       <Link
         href="/explora"
         className="text-sm text-muted-foreground hover:text-foreground"
@@ -284,6 +292,8 @@ export default async function ServicioPublicoPage({
       )}
 
       {reviews && <Resenas reviews={reviews} />}
-    </main>
+      </main>
+      <PublicFooter />
+    </>
   )
 }
