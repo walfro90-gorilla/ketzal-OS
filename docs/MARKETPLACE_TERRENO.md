@@ -201,6 +201,15 @@ efecto en prod). Buscan romper RLS / dinero / cupo / calificaciones.
     recorta el pago al saldo restante y registra el excedente como evento
     `sobrepago` en `system_log` (reembolso manual; el dinero está en MP). El saldo
     nunca queda negativo. Verificado: fix + sin regresión (contado, enganche).
+- **Batería 3 (4/4 ok):** ciclo de vida del cupo — el pago toma asiento, la
+  cancelación lo repone, la doble-cancelación no lo repone dos veces (ni queda
+  negativo), y cancelar un `draft` no toca el cupo.
+- **Batería 4 — 1 HALLAZGO REAL (E5, corregido):** un webhook tardío confirmaba un
+  pago contra un pedido ya **cancelado** ⇒ dinero registrado sin viaje y **sin
+  flag**. Fix en `confirm_online_payment`: si el booking está `cancelled`, no se
+  aplica el pago; se registra `pago_cancelado` en `system_log` para reembolso
+  manual. Verificado + sin regresión (D1, contado, enganche). (E1 plan degenerado
+  y E3 intent forjado: bloqueados ok.)
 
 ## Reglas de oro que respeta
 
