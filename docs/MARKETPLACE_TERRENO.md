@@ -78,9 +78,30 @@ advisors de seguridad **0 errores**. Migración no versionada en repo (Supabase 
 la fuente, per convención). Descartadas (a) ruta `/comprar/confirmado` y (b)
 Redirect URLs por más diff y menos cobertura.
 
-**B.1-1:** `/comprar/[serviceId]` crea un **pedido** (booking en estado nuevo,
-`selling_supplier_id` = plataforma / agencia dueña) ligado al comprador,
-respetando **cupo** (`service_departures`, transaccional).
+**B.1-1 ✅ APLICADO (2026-07-20) — pedido de marketplace.**
+- Migración `bookings_marketplace_customer_id`: columna nullable
+  `bookings.marketplace_customer_id` (FK → `marketplace_customers`). Liga el
+  pedido al comprador **y** marca origen-marketplace para la bandeja de B.3.
+- Migración `get_public_service_departures`: la ficha pública ahora expone
+  `departures` (salidas futuras con cupo libre) para el selector de fecha.
+- Migración `create_marketplace_order(p_service_id, p_travel_date, p_items)`
+  (RPC SECURITY DEFINER, `grant execute` solo a `authenticated`): valida
+  comprador ∈ `marketplace_customers`, servicio `published` (fail-closed),
+  **precio autoritativo desde `services.packs`** (no confía en el cliente),
+  **cupo bloqueante sin decrementar** (si hay `service_departures`), espeja una
+  fila en `customers` bajo la agencia dueña (`created_by=null` porque el uid del
+  comprador no está en `profiles`), e inserta el booking **`status='draft'`** +
+  líneas de pasajero. `draft` ⇒ el trigger de capacidad **no consume cupo**
+  todavía (eso es B.2, al pasar a `reserved`). `selling = owner = services.supplier_id`.
+- Frontend: `/comprar/[serviceId]` con sesión+ficha completa muestra `PedidoForm`
+  (selector de packs + fecha de salida si aplica) → crea el pedido → confirmación
+  + handoff WhatsApp para coordinar el pago.
+- Verificado: self-test del RPC (caso feliz total/status/pax/espejo + negativos
+  pack-inválido/servicio-inexistente), revertido sin dejar datos; `tsc --noEmit`
+  y `eslint` limpios.
+- **Simplificaciones deliberadas:** cada pedido crea una fila `customers` nueva
+  (sin dedup por comprador) y los pedidos `draft` aparecen en las listas de la
+  agencia mezclados con ventas de agente hasta que B.3 agregue la bandeja.
 
 ### B.2 — Pago en línea (pendiente)
 

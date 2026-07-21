@@ -84,3 +84,29 @@ export async function guardarComprador(input: {
   if (error) return { error: safeError(error) }
   return { ok: true }
 }
+
+// Pedido de marketplace (B.1-1). Crea un booking 'draft' ligado al comprador vía
+// el RPC create_marketplace_order (precio y cupo se validan server-side; no se
+// confía en el precio del cliente). Sin pago aún: el checkout en línea es B.2.
+export type PedidoItem = { pack_key: string; label: string; qty: number }
+
+export async function crearPedido(input: {
+  serviceId: string
+  travelDate: string | null
+  items: PedidoItem[]
+}): Promise<{ error: string } | { ok: true; bookingId: string }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: 'Inicia sesión para continuar.' }
+  if (!input.items?.length) return { error: 'Selecciona al menos una opción.' }
+
+  const { data, error } = await supabase.rpc('create_marketplace_order' as never, {
+    p_service_id: input.serviceId,
+    p_travel_date: input.travelDate,
+    p_items: input.items,
+  } as never)
+  if (error) return { error: safeError(error, 'No se pudo crear el pedido.') }
+  return { ok: true, bookingId: data as unknown as string }
+}

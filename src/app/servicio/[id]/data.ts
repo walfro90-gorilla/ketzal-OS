@@ -26,6 +26,8 @@ export type PublicService = {
   packs: unknown
   add_ons: unknown
   dates: unknown
+  /** Salidas futuras con cupo libre (para el pedido de marketplace). */
+  departures: { id: string; departs_on: string; free: number }[]
   agency: {
     name: string
     logo: string | null

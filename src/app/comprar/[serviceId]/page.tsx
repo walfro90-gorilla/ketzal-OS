@@ -4,8 +4,8 @@ import { getPublicService } from '@/app/servicio/[id]/data'
 import { createClient } from '@/lib/supabase/server'
 import { marketplaceActivo } from '@/lib/marketplace'
 import { Card, CardContent } from '@/components/ui/card'
-import { buttonVariants } from '@/components/ui/button'
 import { RegistroComprador, CompletarComprador } from './comprador-forms'
+import { PedidoForm, type Pack } from './pedido-form'
 
 // Terreno del marketplace (Fase B.0). Compra en línea: el visitante crea una
 // cuenta rápido y se lo encamina a adquirir el servicio. Por ahora SIN pago:
@@ -56,7 +56,6 @@ export default async function ComprarPage({
   }
 
   const lugar = destino(s)
-  const waDigits = s.agency.phone?.replace(/\D/g, '')
 
   return (
     <main className="mx-auto w-full max-w-lg flex-1 px-4 py-8 sm:py-12">
@@ -90,34 +89,14 @@ export default async function ComprarPage({
       ) : !mc ? (
         <CompletarComprador />
       ) : (
-        <div className="mt-6 space-y-4">
-          <div className="rounded-lg border bg-muted/40 p-4 text-sm">
-            <p className="font-medium">¡Listo, {mc.full_name}!</p>
-            <p className="mt-1 text-muted-foreground">
-              El <strong>pago en línea llega muy pronto</strong>. Por ahora
-              coordina tu compra directo con la agencia y aparta tu lugar.
-            </p>
-          </div>
-          {waDigits ? (
-            <a
-              href={`https://wa.me/${waDigits}?text=${encodeURIComponent(
-                `Hola, soy ${mc.full_name}. Quiero comprar en línea "${s.name}"` +
-                  (mc.phone ? `. Mi teléfono: ${mc.phone}` : '') +
-                  '.'
-              )}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={`${buttonVariants({ variant: 'default', size: 'touch' })} w-full`}
-            >
-              Coordinar mi compra por WhatsApp
-            </a>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              La agencia no tiene WhatsApp configurado. Vuelve a la ficha del
-              viaje para ver cómo contactarla.
-            </p>
-          )}
-        </div>
+        <PedidoForm
+          serviceId={s.id}
+          serviceName={s.name}
+          packs={(s.packs as Pack[] | null) ?? []}
+          departures={s.departures ?? []}
+          buyerName={mc.full_name}
+          agencyPhone={s.agency.phone}
+        />
       )}
     </main>
   )
