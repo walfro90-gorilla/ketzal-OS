@@ -13,6 +13,7 @@ import { PageHeader } from '@/components/data/page-header'
 import { ProveedorForm } from '../proveedor-form'
 import { type ProveedorInfo } from '../actions'
 import { EliminarProveedor } from './eliminar-proveedor'
+import { AccionesProveedor } from './acciones-proveedor'
 
 // Formatter local (mismo criterio que el resto de páginas: autocontenidas).
 const mxn = new Intl.NumberFormat('es-MX', {
@@ -97,6 +98,14 @@ export default async function ProveedorDetallePage({
         .order('name'),
     ])
 
+  // Fuente de verdad del perfil público (fail-closed, salta RLS igual que la
+  // ruta /agencia/[id]): existe solo si la agencia tiene >=1 servicio publicado.
+  const { data: perfilPublico } = await supabase.rpc(
+    'get_public_supplier' as never,
+    { p_id: id } as never
+  )
+  const tienePerfilPublico = perfilPublico != null
+
   const servicios: ServicioVinculado[] = (serviciosData ?? []).map((s) => ({
     id: s.id,
     name: s.name,
@@ -134,6 +143,26 @@ export default async function ProveedorDetallePage({
         backHref="/proveedores"
         backLabel="Volver a proveedores"
       />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Acciones</CardTitle>
+          <CardDescription>
+            Abre o comparte el perfil público y contacta a la agencia.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <AccionesProveedor
+            proveedorId={proveedor.id}
+            tienePerfilPublico={tienePerfilPublico}
+            phone={proveedor.phone_number}
+            email={proveedor.contact_email}
+            website={
+              (proveedor as { info?: ProveedorInfo | null }).info?.website ?? null
+            }
+          />
+        </CardContent>
+      </Card>
 
       <ProveedorForm
         proveedorId={proveedor.id}
