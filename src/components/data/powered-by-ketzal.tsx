@@ -16,16 +16,16 @@ export function PoweredByKetzal({
   className?: string
 }) {
   return (
-    <span className={cn('inline-flex items-center justify-center gap-1', className)}>
+    <span className={cn('inline-flex items-center justify-center gap-1.5', className)}>
       {logoUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={logoUrl}
           alt=""
-          className="inline-block h-3 w-auto max-w-[48px] object-contain align-middle"
+          className="inline-block h-5 w-auto max-w-[120px] object-contain align-middle"
         />
       ) : (
-        <BrandMark className="size-3 text-primary" />
+        <BrandMark className="size-5 text-primary" />
       )}
       <span>Powered by Ketzal</span>
     </span>

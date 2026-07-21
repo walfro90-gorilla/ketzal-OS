@@ -58,7 +58,7 @@ const clamp = (s: string, n: number) =>
 export async function ogCardResponse(c: OgCard) {
   const accent = c.accent ?? '#3DDE1C' // verde hoja de marca
   const logo = await cargarLogo()
-  const logoH = 40
+  const logoH = 56
   const logoW = logo ? Math.round(logoH * (logo.w / logo.h)) : 0
   return new ImageResponse(
     (
