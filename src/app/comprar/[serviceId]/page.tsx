@@ -6,6 +6,8 @@ import { marketplaceActivo } from '@/lib/marketplace'
 import { Card, CardContent } from '@/components/ui/card'
 import { RegistroComprador, CompletarComprador } from './comprador-forms'
 import { PedidoForm, type Pack } from './pedido-form'
+import { PublicHeader } from '@/components/public/public-header'
+import { PublicFooter } from '@/components/public/public-footer'
 
 // Terreno del marketplace (Fase B.0). Compra en línea: el visitante crea una
 // cuenta rápido y se lo encamina a adquirir el servicio. Por ahora SIN pago:
@@ -58,7 +60,9 @@ export default async function ComprarPage({
   const lugar = destino(s)
 
   return (
-    <main className="mx-auto w-full max-w-lg flex-1 px-4 py-8 sm:py-12">
+    <>
+      <PublicHeader />
+      <main className="mx-auto w-full max-w-lg flex-1 px-4 py-8 sm:py-12">
       <Link
         href={`/servicio/${s.id}`}
         className="text-sm text-muted-foreground hover:text-foreground"
@@ -108,6 +112,8 @@ export default async function ComprarPage({
           agencyPhone={s.agency.phone}
         />
       )}
-    </main>
+      </main>
+      <PublicFooter />
+    </>
   )
 }
