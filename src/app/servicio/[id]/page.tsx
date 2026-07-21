@@ -113,7 +113,15 @@ export default async function ServicioPublicoPage({
             {lugar}
           </p>
         )}
-        <p className="text-sm text-muted-foreground">Ofrecido por {s.agency.name}</p>
+        <p className="text-sm text-muted-foreground">
+          Ofrecido por{' '}
+          <Link
+            href={`/agencia/${s.agency.id}`}
+            className="font-medium text-foreground underline-offset-2 hover:underline"
+          >
+            {s.agency.name}
+          </Link>
+        </p>
       </header>
 
       {/* Precio + CTA */}

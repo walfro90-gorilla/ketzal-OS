@@ -15,6 +15,8 @@ export type ProveedorInfo = {
   instagram?: string
   facebook?: string
   specialties?: string[]
+  /** Kilómetros recorridos — estimado inicial que captura el fundador (seed). */
+  km_traveled?: number
 }
 
 export type ProveedorInput = {
@@ -44,6 +46,10 @@ function limpiarInfo(info?: ProveedorInfo): ProveedorInfo | null {
   if (info.founded_year != null && Number.isFinite(info.founded_year)) {
     const y = Math.trunc(info.founded_year)
     if (y >= 1900 && y <= 2100) out.founded_year = y
+  }
+  if (info.km_traveled != null && Number.isFinite(info.km_traveled)) {
+    const km = Math.trunc(info.km_traveled)
+    if (km > 0 && km <= 100_000_000) out.km_traveled = km
   }
   const tags = (info.specialties ?? [])
     .map((t) => String(t).trim())
