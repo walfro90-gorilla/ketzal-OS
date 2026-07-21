@@ -16,6 +16,7 @@ export const ADMIN_HREFS = [
   '/equipo',
   '/servicios',
   '/proveedores',
+  '/gastos',
   '/reportes',
   '/salud',
   '/ajustes',

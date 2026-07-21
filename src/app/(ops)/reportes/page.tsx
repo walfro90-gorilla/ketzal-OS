@@ -12,6 +12,7 @@ import { mxn } from '@/components/data/format'
 import { RangoFechas } from './rango-fechas'
 import { ExportarCsv } from './exportar-csv'
 import { BarrasTop, GraficaMensual } from './graficas'
+import { getExpensesSummary } from '../gastos/data'
 // Tipos del jsonb de ketzal.reports_summary(p_from, p_to): ver ./tipos.ts.
 import type { PorAgente, PorMes, PorServicio, Reporte } from './tipos'
 
@@ -135,17 +136,22 @@ export default async function ReportesPage({
     return <p className="text-sm text-muted-foreground">Sesión no válida.</p>
   }
 
-  const summaryRes = await supabase.rpc('reports_summary', {
-    p_from: from,
-    p_to: to,
-  })
+  const [summaryRes, gastos] = await Promise.all([
+    supabase.rpc('reports_summary', { p_from: from, p_to: to }),
+    getExpensesSummary(from, to),
+  ])
 
-  const d = (summaryRes.data ?? EMPTY_REPORTE) as unknown as Reporte
+  const base = (summaryRes.data ?? EMPTY_REPORTE) as unknown as Reporte
+  const totalGastos = Number(gastos.total_gastos ?? 0)
+  const utilidad = Number(base.total_vendido ?? 0) - totalGastos
+  // Objeto enriquecido: alimenta tanto las tarjetas como el CSV.
+  const d: Reporte = { ...base, total_gastos: totalGastos, utilidad }
   const porAgente = d.por_agente ?? []
   const porServicio = d.por_servicio ?? []
   const porMes = d.por_mes ?? []
   const saldoPorCobrar = Number(d.saldo_por_cobrar ?? 0)
   const hayPorCobrar = saldoPorCobrar > 0
+  const utilidadNeg = utilidad < 0
 
   const emptyState = (
     <p className="text-sm text-muted-foreground">Sin ventas en el periodo.</p>
@@ -261,6 +267,52 @@ export default async function ReportesPage({
           </CardHeader>
           <CardContent>
             <p className="text-xs text-muted-foreground">Vendido por venta</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardDescription>Gastos</CardDescription>
+            <CardTitle className="text-2xl tabular-nums">
+              {mxn.format(totalGastos)}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground">Egresos del periodo</p>
+          </CardContent>
+        </Card>
+
+        <Card
+          className={
+            utilidadNeg
+              ? 'border-destructive/50 bg-destructive/5'
+              : 'border-emerald-500/40 bg-emerald-500/5'
+          }
+        >
+          <CardHeader>
+            <CardDescription
+              className={
+                utilidadNeg
+                  ? 'text-destructive'
+                  : 'text-emerald-700 dark:text-emerald-400'
+              }
+            >
+              Utilidad
+            </CardDescription>
+            <CardTitle
+              className={`text-2xl tabular-nums ${
+                utilidadNeg
+                  ? 'text-destructive'
+                  : 'text-emerald-700 dark:text-emerald-400'
+              }`}
+            >
+              {mxn.format(utilidad)}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground">Vendido − gastos</p>
           </CardContent>
         </Card>
       </div>

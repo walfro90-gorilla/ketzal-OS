@@ -74,6 +74,10 @@ const lineColumns: DataColumn<LineItem>[] = [
 type BookingDetail = {
   id: string
   folio: string | null
+  // F1: folio de la cotización de origen (display COT-{n}). Opcional: la
+  // columna puede no existir aún en la BD (migración pendiente) — ausente/null
+  // ⇒ no se muestra nada. No está en database.types.ts a propósito.
+  quote_folio?: number | null
   travel_date: string | null
   due_date: string | null
   num_pax: number
@@ -103,13 +107,18 @@ export default async function VentaDetallePage({
   const { id } = await params
   const supabase = await createClient()
 
-  const { data, error } = await supabase
-    .from('bookings')
-    .select(
-      'id, folio, travel_date, due_date, num_pax, subtotal, discount, total, currency, status, payment_type, plan_frequency, plan_final_date, notes, cancel_reason, created_at, owner_supplier_id, selling_supplier_id, marketplace_customer_id, customer:customers(full_name, phone), service:services(name)'
-    )
-    .eq('id', id)
-    .single()
+  // F1 — `quote_folio` puede no existir aún en la BD (migración pendiente). El
+  // primer intento la incluye; si el select falla por la columna, se reintenta
+  // sin ella para no tirar la venta a notFound. Al aplicarse la migración el
+  // origen aparece sin tocar código (entonces se puede quitar el fallback).
+  const selectVenta =
+    'id, folio, travel_date, due_date, num_pax, subtotal, discount, total, currency, status, payment_type, plan_frequency, plan_final_date, notes, cancel_reason, created_at, owner_supplier_id, selling_supplier_id, marketplace_customer_id, customer:customers(full_name, phone), service:services(name)'
+  const fetchBooking = (select: string) =>
+    supabase.from('bookings').select(select as '*').eq('id', id).single()
+
+  let res = await fetchBooking(`quote_folio, ${selectVenta}`)
+  if (res.error) res = await fetchBooking(selectVenta)
+  const { data, error } = res
 
   if (error || !data) notFound()
   // Los tipos generados a mano no describen las relaciones (FK), así que la
@@ -195,6 +204,11 @@ export default async function VentaDetallePage({
             Venta {booking.folio ?? `#${booking.id.slice(0, 8)}`}
           </h1>
           <StatusBadge status={booking.status} />
+          {booking.quote_folio != null && (
+            <span className="text-xs text-muted-foreground">
+              Origen: COT-{booking.quote_folio}
+            </span>
+          )}
           {esMarketplace && (
             <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
               Marketplace

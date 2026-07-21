@@ -14,6 +14,8 @@ export type QuoteItem = {
 export type QuoteData = {
   id: string
   status: string
+  /** Folio secuencial de cotización por agencia (COT-n). Null si aún no existe. */
+  folio?: number | null
   travel_date: string | null
   num_pax: number
   subtotal: number

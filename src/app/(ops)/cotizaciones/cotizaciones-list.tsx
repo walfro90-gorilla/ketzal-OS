@@ -9,6 +9,8 @@ import { CotizacionAcciones } from './cotizacion-acciones'
 export type QuoteRow = {
   id: string
   quote_token: string
+  /** Folio de cotización (COT-n). Opcional: la columna puede no existir aún. */
+  quote_folio?: number | null
   travel_date: string | null
   total: number
   created_at: string
@@ -36,7 +38,16 @@ export function CotizacionesList({
     {
       header: 'Cliente',
       primary: true,
-      cell: (q) => q.customer?.full_name ?? 'Sin cliente',
+      cell: (q) => (
+        <div className="flex flex-col">
+          <span>{q.customer?.full_name ?? 'Sin cliente'}</span>
+          {q.quote_folio != null && (
+            <span className="text-xs font-normal text-muted-foreground">
+              COT-{q.quote_folio}
+            </span>
+          )}
+        </div>
+      ),
       sortValue: (q) => q.customer?.full_name,
     },
     {
@@ -79,9 +90,15 @@ export function CotizacionesList({
       columns={columns}
       getRowKey={(q) => q.id}
       searchText={(q) =>
-        [q.customer?.full_name, q.service?.name].filter(Boolean).join(' ')
+        [
+          q.customer?.full_name,
+          q.service?.name,
+          q.quote_folio != null ? `COT-${q.quote_folio}` : null,
+        ]
+          .filter(Boolean)
+          .join(' ')
       }
-      searchPlaceholder="Buscar por cliente o servicio…"
+      searchPlaceholder="Buscar por cliente, servicio o folio…"
       empty={empty}
     />
   )
