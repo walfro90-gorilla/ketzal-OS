@@ -282,20 +282,24 @@ detalle de venta.
   pago que revierte (+ índice único parcial ⇒ no doble reembolso del mismo pago).
 - RPC `refund_payment(payment_id)` (INVOKER, gate de agente `is_active` + RLS):
   guards (movimiento es pago COMPLETED, no ya reembolsado, refund ≤ pagado, lock del
-  booking), inserta el asiento `refund` ligado y ajusta el estado. **La devolución
-  real en MP la hace la app antes** (`reembolsarPagoMP`: `POST /v1/payments/{id}/refunds`
-  con Idempotency-Key por pago; orden MP→ledger; si el ledger falla tras un refund MP
-  OK, se reporta para reconciliación).
-- UI: en `AbonosSection` (`/ventas/[id]`), cada pago de MP tiene su botón **"Devolver
-  por MP"** en su fila; los ya devueltos muestran "Reembolsado". (Rediseño por
-  feedback del fundador: antes era un botón whole-booking aparte.)
+  booking), inserta el asiento `refund` ligado, **conservando el método del pago
+  original**, y ajusta el estado.
+- Action `reembolsarPago(payment_id)`: si el pago fue **Mercado Pago**, primero
+  devuelve en MP (`POST /v1/payments/{id}/refunds`, Idempotency-Key por pago; orden
+  MP→ledger; si el ledger falla tras un refund MP OK, se reporta para reconciliación)
+  y luego el asiento; si fue **efectivo/otro**, solo el asiento (el dinero se devuelve
+  a mano).
+- UI: en `AbonosSection` (`/ventas/[id]`), **cada pago** tiene su botón en su fila —
+  "Devolver por MP" (regresa a la tarjeta) o "Devolver" (efectivo, ledger-only); los
+  ya devueltos muestran "Reembolsado". Al dejar una venta **totalmente reembolsada**
+  se ofrece **cancelarla** (cierra + libera cupo; ya no queda colgada en `reserved`).
 - **Validado con dinero real (2026-07-21):** se devolvió un pago de $10 (débito) →
-  refund en MP OK, asiento ligado en el ledger, saldo/estado correctos, el otro pago
-  intacto (per-pago), y doble-refund bloqueado sobre el dato real.
-- **Pendientes:** botón per-fila también para pagos **no-MP** (efectivo: hoy se
-  reembolsan por el form "Registrar → Reembolso", no per-fila); refund **parcial**
-  (hoy total); un pago totalmente reembolsado deja el booking en `reserved` — se
-  cancela aparte para cerrarlo/liberar cupo.
+  refund en MP OK, asiento ligado, saldo/estado correctos, el otro pago intacto
+  (per-pago), doble-refund bloqueado sobre el dato real; path efectivo verificado
+  (asiento conserva método) por self-test.
+- **Estado:** capa transaccional **cerrada** (comprar → pagar → devolver MP/efectivo
+  per-pago → cancelar-tras-refund). Pendiente diferido a propósito (YAGNI sin
+  compradores reales): refund **parcial** (hoy total).
 
 ## Reglas de oro que respeta
 
