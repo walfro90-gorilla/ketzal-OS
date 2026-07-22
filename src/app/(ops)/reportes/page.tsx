@@ -181,7 +181,9 @@ export default async function ReportesPage({
       <PageHeader
         title="Reportes"
         description="Ventas y comisiones por periodo."
-        action={<ExportarCsv reporte={d} from={from} to={to} />}
+        action={
+          <ExportarCsv reporte={d} conv={conv} goals={goals} from={from} to={to} />
+        }
       />
 
       <RangoFechas key={`${from}|${to}`} from={from} to={to} />
