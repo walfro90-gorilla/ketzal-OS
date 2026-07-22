@@ -16,6 +16,7 @@ import { ITEM_TYPE_LABELS, PASSENGER_TYPE_LABELS } from '../ui'
 import { AbonosSection } from './abonos'
 import { PlanPagosSection, type PlanItem } from './plan-pagos'
 import { CancelarVenta } from './cancelar-venta'
+import { ReembolsarMP } from './reembolsar-mp'
 import { VencimientoForm } from './vencimiento-form'
 
 type LineItem = {
@@ -189,6 +190,17 @@ export default async function VentaDetallePage({
   const cancelada = booking.status === 'cancelled'
   // La zona de peligro solo aplica a ventas vivas: no pagadas ni ya canceladas.
   const puedeCancelar = !cancelada && booking.status !== 'paid'
+
+  // Devolución real por MP: hay pago(s) de Mercado Pago y aún sin reembolso.
+  const pagosMP = (payments ?? []).filter(
+    (p) =>
+      p.payment_method === 'mercadopago' &&
+      p.type === 'payment' &&
+      p.status === 'COMPLETED'
+  )
+  const montoMP = pagosMP.reduce((s, p) => s + Number(p.amount_mxn), 0)
+  const yaReembolsado = (payments ?? []).some((p) => p.type === 'refund')
+  const puedeReembolsarMP = montoMP > 0 && !yaReembolsado
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -368,6 +380,22 @@ export default async function VentaDetallePage({
           receipts={receipts ?? []}
           cancelled={cancelada}
         />
+      )}
+
+      {puedeReembolsarMP && (
+        <Card className="border-destructive/50">
+          <CardHeader>
+            <CardTitle>Devolución por Mercado Pago</CardTitle>
+            <CardDescription>
+              Regresa el dinero a la tarjeta del comprador vía Mercado Pago y
+              registra el reembolso en el ledger. Devolución total; no se puede
+              deshacer.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ReembolsarMP bookingId={booking.id} monto={montoMP} />
+          </CardContent>
+        </Card>
       )}
 
       {puedeCancelar && (
