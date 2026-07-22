@@ -12,6 +12,7 @@ import { PageHeader } from '@/components/data/page-header'
 import { EquipoList } from './equipo-list'
 import type { Miembro } from './miembro-acciones'
 import { TasaPlataformaForm } from './tasa-plataforma-form'
+import { MetasSection, type MetaRow } from './metas-section'
 
 export default async function EquipoPage() {
   const supabase = await createClient()
@@ -43,7 +44,8 @@ export default async function EquipoPage() {
   // Vía RPC y no `from('suppliers')`: desde la migración 006 la RLS sólo deja
   // ver tu agencia y tus proveedores. `list_agency_names` es SECURITY DEFINER y
   // devuelve sólo id + nombre, que es cuanto necesita el selector de agencia.
-  const [teamRes, agenciasRes, settingsRes] = await Promise.all([
+  const hoyIso = new Date().toISOString().slice(0, 10)
+  const [teamRes, agenciasRes, settingsRes, goalsRes] = await Promise.all([
     supabase.rpc('list_team'),
     supabase.rpc('list_agency_names' as never),
     supabase
@@ -51,11 +53,40 @@ export default async function EquipoPage() {
       .select('platform_commission_rate')
       .eq('id', 1)
       .single(),
+    supabase.rpc('goals_progress' as never, { p_month: hoyIso } as never),
   ])
 
   const miembros = (teamRes.data ?? []) as unknown as Miembro[]
   const agencias = (agenciasRes.data ?? []) as { id: string; name: string }[]
   const platformRate = Number(settingsRes.data?.platform_commission_rate ?? 0)
+
+  // F5: metas del mes. Cruza el equipo (agentes de agencia) con goals_progress.
+  const goals = (goalsRes.data ?? {}) as {
+    agencia?: { goal?: number; vendido?: number }
+    agentes?: { agent_id: string; goal?: number; vendido?: number }[]
+  }
+  const goalById = new Map((goals.agentes ?? []).map((a) => [a.agent_id, a]))
+  const agenciaMeta: MetaRow = {
+    id: null,
+    nombre: 'Meta de la agencia',
+    goal: Number(goals.agencia?.goal ?? 0),
+    vendido: Number(goals.agencia?.vendido ?? 0),
+  }
+  const agentesMeta: MetaRow[] = miembros
+    .filter((m) => m.active && m.supplier_id != null)
+    .map((m) => {
+      const g = goalById.get(m.id)
+      return {
+        id: m.id,
+        nombre: m.name ?? m.email ?? 'Agente',
+        goal: Number(g?.goal ?? 0),
+        vendido: Number(g?.vendido ?? 0),
+      }
+    })
+  const mesLabel = new Intl.DateTimeFormat('es-MX', {
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date())
 
   return (
     <div className="space-y-6">
@@ -118,6 +149,8 @@ export default async function EquipoPage() {
           />
         </CardContent>
       </Card>
+
+      <MetasSection month={mesLabel} agencia={agenciaMeta} agentes={agentesMeta} />
     </div>
   )
 }
