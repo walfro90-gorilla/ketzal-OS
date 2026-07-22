@@ -42,7 +42,8 @@ export async function proxy(request: NextRequest) {
     const url = request.nextUrl.clone(); url.pathname = '/login'; return NextResponse.redirect(url)
   }
   if (user && path.startsWith('/login')) {
-    const url = request.nextUrl.clone(); url.pathname = '/dashboard'; return NextResponse.redirect(url)
+    // '/' resuelve el aterrizaje por persona (agente → dashboard, viajero → mis-compras).
+    const url = request.nextUrl.clone(); url.pathname = '/'; return NextResponse.redirect(url)
   }
   // Rutas de administración (catálogo, comisiones, equipo): solo admin/superadmin.
   // El rol se consulta SOLO al entrar a una ruta admin (no en cada request).

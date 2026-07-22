@@ -31,7 +31,7 @@ export default async function MisComprasPage({
 
   if (!user) {
     return (
-      <main className="mx-auto w-full max-w-lg flex-1 px-4 py-12 text-center">
+      <div className="mx-auto w-full max-w-lg flex-1 px-4 py-12 text-center">
         <h1 className="text-2xl font-bold">Mis compras</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Inicia sesión para ver tus viajes.
@@ -39,7 +39,7 @@ export default async function MisComprasPage({
         <Link href="/explora" className={`${buttonVariants({ variant: 'outline' })} mt-4`}>
           Explorar viajes
         </Link>
-      </main>
+      </div>
     )
   }
 
@@ -47,7 +47,7 @@ export default async function MisComprasPage({
   const orders = (data as unknown as Order[]) ?? []
 
   return (
-    <main className="mx-auto w-full max-w-lg flex-1 px-4 py-8 sm:py-12">
+    <div className="mx-auto w-full max-w-lg flex-1 px-4 py-8 sm:py-12">
       <h1 className="text-2xl font-bold tracking-tight">Mis compras</h1>
       {volviendoDePago && <PagoProcesando />}
       {orders.length === 0 ? (
@@ -65,6 +65,6 @@ export default async function MisComprasPage({
           ))}
         </div>
       )}
-    </main>
+    </div>
   )
 }

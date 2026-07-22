@@ -89,7 +89,8 @@ function LoginForm() {
       setError('Correo o contraseña incorrectos.')
       return
     }
-    router.push('/dashboard')
+    // '/' resuelve el aterrizaje por persona (agente → dashboard, viajero → mis-compras).
+    router.push('/')
     router.refresh()
   }
 

@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers'
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { AppShell } from '@/components/shell/app-shell'
 import { getBrandLogo } from '@/lib/brand'
@@ -24,9 +25,13 @@ export default async function OpsLayout({
       .from('profiles')
       .select('name, role')
       .eq('id', user.id)
-      .single()
-    displayName = profile?.name ?? null
-    role = profile?.role ?? null
+      .maybeSingle()
+    // Sin fila en profiles = viajero (comprador B2C): el back-office no es para él.
+    // Es el gate de persona de toda la superficie (ops) — sin costo extra: el rol
+    // ya se consultaba aquí.
+    if (!profile) redirect('/mis-compras')
+    displayName = profile.name ?? null
+    role = profile.role ?? null
   }
 
   const logoUrl = await getBrandLogo()

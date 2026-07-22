@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { StarIcon } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { crearLinkPagoMarketplace, calificar } from '../comprar/actions'
+import { crearLinkPagoMarketplace, calificar } from '@/app/comprar/actions'
 
 export type Order = {
   booking_id: string
