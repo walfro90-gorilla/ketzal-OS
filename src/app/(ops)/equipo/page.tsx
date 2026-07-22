@@ -1,4 +1,4 @@
-import { UsersRoundIcon, UserRoundIcon } from 'lucide-react'
+import { UsersRoundIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import {
   Card,
@@ -12,7 +12,6 @@ import { PageHeader } from '@/components/data/page-header'
 import { EquipoList } from './equipo-list'
 import type { Miembro } from './miembro-acciones'
 import { TasaPlataformaForm } from './tasa-plataforma-form'
-import { ViajerosList, type Viajero } from './viajeros-list'
 
 export default async function EquipoPage() {
   const supabase = await createClient()
@@ -57,16 +56,6 @@ export default async function EquipoPage() {
   const miembros = (teamRes.data ?? []) as unknown as Miembro[]
   const agencias = (agenciasRes.data ?? []) as { id: string; name: string }[]
   const platformRate = Number(settingsRes.data?.platform_commission_rate ?? 0)
-
-  // Viajeros (compradores B2C): solo el god admin. RPC DEFINER gateado a
-  // superadmin; si aún no existe, degradamos a lista vacía sin romper la página.
-  let viajeros: Viajero[] = []
-  if (isSuperadmin) {
-    const viajerosRes = await supabase.rpc('list_travelers' as never)
-    if (!viajerosRes.error) {
-      viajeros = (viajerosRes.data ?? []) as unknown as Viajero[]
-    }
-  }
 
   return (
     <div className="space-y-6">
@@ -129,30 +118,6 @@ export default async function EquipoPage() {
           />
         </CardContent>
       </Card>
-
-      {isSuperadmin && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Viajeros</CardTitle>
-            <CardDescription>
-              Compradores del marketplace (cuentas B2C). Solo visibles para el
-              god admin.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ViajerosList
-              rows={viajeros}
-              empty={
-                <EmptyState
-                  icon={UserRoundIcon}
-                  title="Aún no hay viajeros"
-                  description="Cuando alguien cree una cuenta de comprador en el marketplace aparecerá aquí."
-                />
-              }
-            />
-          </CardContent>
-        </Card>
-      )}
     </div>
   )
 }

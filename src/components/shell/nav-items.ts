@@ -11,6 +11,7 @@ import {
   MapPinIcon,
   Building2Icon,
   UsersRoundIcon,
+  UserRoundIcon,
   ChartColumnIcon,
   HandCoinsIcon,
   ReceiptTextIcon,
@@ -30,6 +31,8 @@ export type NavItem = {
   primary: boolean
   /** Solo visible para admin/superadmin (catálogo, comisiones, equipo). */
   adminOnly?: boolean
+  /** Solo visible para el god admin (superadmin): viajeros. */
+  superadminOnly?: boolean
 }
 
 export const NAV_ITEMS: NavItem[] = [
@@ -43,6 +46,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Comisiones', href: '/comisiones', icon: PercentIcon, primary: false, adminOnly: true },
   { label: 'Reportes', href: '/reportes', icon: ChartColumnIcon, primary: false, adminOnly: true },
   { label: 'Equipo', href: '/equipo', icon: UsersRoundIcon, primary: false, adminOnly: true },
+  { label: 'Viajeros', href: '/viajeros', icon: UserRoundIcon, primary: false, adminOnly: true, superadminOnly: true },
   { label: 'Servicios', href: '/servicios', icon: MapPinIcon, primary: false, adminOnly: true },
   { label: 'Proveedores', href: '/proveedores', icon: Building2Icon, primary: false, adminOnly: true },
   { label: 'Salud', href: '/salud', icon: ActivityIcon, primary: false, adminOnly: true },
@@ -52,9 +56,13 @@ export const NAV_ITEMS: NavItem[] = [
 export const PRIMARY_ITEMS = NAV_ITEMS.filter((i) => i.primary)
 export const SECONDARY_ITEMS = NAV_ITEMS.filter((i) => !i.primary)
 
-/** Ítems visibles según el rol: oculta las rutas admin a los agentes. */
+/** Ítems visibles según el rol: oculta las rutas admin a los agentes y las
+ *  rutas god-admin (viajeros) a todo el que no sea superadmin. */
 export function navItemsForRole(role: string | null | undefined): NavItem[] {
-  return NAV_ITEMS.filter((i) => !i.adminOnly || isAdminRole(role))
+  return NAV_ITEMS.filter((i) => {
+    if (i.superadminOnly && role !== 'superadmin') return false
+    return !i.adminOnly || isAdminRole(role)
+  })
 }
 
 /** Activo si la ruta es exacta o una subruta (p.ej. /ventas/nueva ⇒ Ventas). */
