@@ -25,13 +25,18 @@ begin
     'total',       b.total,
     'cobrado',     c.cobrado,
     'saldo',       round(b.total - c.cobrado, 2),
+    'ultimo_pago', c.ultimo_pago,   -- fecha del último abono COMPLETED
+    'num_pagos',   c.num_pagos,     -- # de abonos COMPLETED (type=payment)
     'created_at',  b.created_at
   ) order by b.created_at desc), '[]'::jsonb) into v
   from ketzal.bookings b
   cross join lateral (
-    select coalesce(sum(case when p.type = 'payment' then p.amount_mxn
-                             when p.type = 'refund'  then -p.amount_mxn
-                             else 0 end), 0) as cobrado
+    select
+      coalesce(sum(case when p.type = 'payment' then p.amount_mxn
+                        when p.type = 'refund'  then -p.amount_mxn
+                        else 0 end), 0) as cobrado,
+      max(case when p.type = 'payment' then coalesce(p.paid_at, p.created_at) end) as ultimo_pago,
+      count(*) filter (where p.type = 'payment') as num_pagos
     from ketzal.payments p
     where p.booking_id = b.id and p.status = 'COMPLETED'
   ) c

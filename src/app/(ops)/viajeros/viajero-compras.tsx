@@ -1,12 +1,15 @@
+'use client'
+
 import Link from 'next/link'
+import { useMemo, useState } from 'react'
 import { ShoppingBagIcon } from 'lucide-react'
 import { DataList, type DataColumn } from '@/components/data/data-list'
 import { EmptyState } from '@/components/data/empty-state'
 import { mxn } from '@/components/data/format'
 
-// Compras de un viajero (bookings ligados por marketplace_customer_id). Server
-// component de solo lectura; el dinero (cobrado/saldo) viene derivado del RPC
-// list_traveler_purchases. Cada fila enlaza al detalle de la venta.
+// Compras de un viajero (bookings ligados por marketplace_customer_id). Dinero
+// derivado del RPC list_traveler_purchases. Filtro por estado + último abono;
+// cada fila enlaza al detalle de la venta.
 
 export type Compra = {
   id: string
@@ -18,6 +21,8 @@ export type Compra = {
   total: number
   cobrado: number
   saldo: number
+  ultimo_pago: string | null
+  num_pagos: number
   created_at: string
 }
 
@@ -28,12 +33,14 @@ const ESTADO: Record<string, { label: string; cls: string }> = {
   paid: { label: 'Pagada', cls: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400' },
   cancelled: { label: 'Cancelada', cls: 'bg-destructive/10 text-destructive' },
 }
+// Orden canónico de los estados para los chips del filtro.
+const ORDEN = ['draft', 'reserved', 'confirmed', 'paid', 'cancelled']
 
-const fecha = new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium' })
+const fFecha = new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium' })
 const fmtFecha = (d: string | null) => {
   if (!d) return '—'
   const p = new Date(d.length <= 10 ? `${d}T12:00:00` : d)
-  return Number.isNaN(p.getTime()) ? d : fecha.format(p)
+  return Number.isNaN(p.getTime()) ? d : fFecha.format(p)
 }
 
 const columns: DataColumn<Compra>[] = [
@@ -78,6 +85,20 @@ const columns: DataColumn<Compra>[] = [
     ),
   },
   {
+    header: 'Último pago',
+    cell: (c) =>
+      c.num_pagos > 0 ? (
+        <div className="flex flex-col">
+          <span className="whitespace-nowrap">{fmtFecha(c.ultimo_pago)}</span>
+          <span className="text-xs text-muted-foreground">
+            {c.num_pagos === 1 ? '1 abono' : `${c.num_pagos} abonos`}
+          </span>
+        </div>
+      ) : (
+        <span className="text-xs text-muted-foreground">Sin pagos</span>
+      ),
+  },
+  {
     header: 'Estado',
     cell: (c) => {
       const e = ESTADO[c.status] ?? { label: c.status, cls: 'bg-muted text-muted-foreground' }
@@ -91,18 +112,85 @@ const columns: DataColumn<Compra>[] = [
 ]
 
 export function ViajeroCompras({ rows }: { rows: Compra[] }) {
+  const [estado, setEstado] = useState<string>('todos')
+
+  // Solo mostramos chips de estados presentes (+ "Todos"), con su conteo.
+  const conteos = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const c of rows) m.set(c.status, (m.get(c.status) ?? 0) + 1)
+    return m
+  }, [rows])
+
+  const estadosPresentes = useMemo(
+    () => ORDEN.filter((s) => conteos.has(s)),
+    [conteos]
+  )
+
+  const filtradas = useMemo(
+    () => (estado === 'todos' ? rows : rows.filter((c) => c.status === estado)),
+    [rows, estado]
+  )
+
   return (
-    <DataList
-      columns={columns}
-      rows={rows}
-      getRowKey={(c) => c.id}
-      empty={
-        <EmptyState
-          icon={ShoppingBagIcon}
-          title="Aún no tiene compras"
-          description="Cuando este viajero haga un pedido en el marketplace aparecerá aquí."
-        />
-      }
-    />
+    <div className="space-y-3">
+      {estadosPresentes.length > 1 && (
+        <div className="flex flex-wrap gap-2">
+          <FiltroChip
+            activo={estado === 'todos'}
+            onClick={() => setEstado('todos')}
+            label={`Todos (${rows.length})`}
+          />
+          {estadosPresentes.map((s) => (
+            <FiltroChip
+              key={s}
+              activo={estado === s}
+              onClick={() => setEstado(s)}
+              label={`${ESTADO[s]?.label ?? s} (${conteos.get(s)})`}
+            />
+          ))}
+        </div>
+      )}
+      <DataList
+        columns={columns}
+        rows={filtradas}
+        getRowKey={(c) => c.id}
+        empty={
+          <EmptyState
+            icon={ShoppingBagIcon}
+            title={estado === 'todos' ? 'Aún no tiene compras' : 'Sin compras en este estado'}
+            description={
+              estado === 'todos'
+                ? 'Cuando este viajero haga un pedido en el marketplace aparecerá aquí.'
+                : 'Prueba con otro estado o quita el filtro.'
+            }
+          />
+        }
+      />
+    </div>
+  )
+}
+
+function FiltroChip({
+  activo,
+  onClick,
+  label,
+}: {
+  activo: boolean
+  onClick: () => void
+  label: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={activo}
+      className={`rounded-full border px-3 py-1 text-sm transition-colors ${
+        activo
+          ? 'border-primary bg-primary text-primary-foreground'
+          : 'border-input text-muted-foreground hover:bg-muted'
+      }`}
+    >
+      {label}
+    </button>
   )
 }
