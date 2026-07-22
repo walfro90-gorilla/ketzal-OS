@@ -31,6 +31,7 @@ export async function proxy(request: NextRequest) {
     path.startsWith('/cotizacion/') ||
     path.startsWith('/estado/') || // estado de cuenta del cliente (link público por token)
     path.startsWith('/recibo/') || // recibo del cliente (público por uuid del recibo)
+    path.startsWith('/voucher/') || // voucher de servicio (público por uuid del voucher)
     path === '/explora' ||
     path.startsWith('/explora/') || // catálogo público (marketplace)
     path.startsWith('/servicio/') || // ficha pública de un servicio (marketplace)
