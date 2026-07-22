@@ -53,7 +53,13 @@ contabilidad; NO tabla aparte). UI: ruta `/gastos` (admin) + cards
 "Gastos"/"Utilidad" en `/reportes` + CSV. Invariantes:
 `gasto_reverso_incoherente`, `gasto_doble_reverso`, `cxp_sobrepago`.
 
-### F3 — Pasajeros + manifiesto + vista de salida
+### F3 — Pasajeros + manifiesto + vista de salida — ✅ COMPLETA (2026-07-22)
+Aplicada (`ketzal_pasajeros_salidas`, espejo `db/proposed/011`) + hard-testeada
+(guard, aislamiento de dinero cross-tenant, RLS de pasajeros, draft/cancelled
+excluidos, salida vacía, agente libre) + en prod. App: sección Pasajeros en
+`/ventas/[id]`, `/salidas`, `/salidas/[id]`, `/salidas/[id]/manifiesto` (imprimible
+con sesión), nav. Advisors 0 ERROR.
+
 Tabla `booking_passengers` (nombre, tipo, doc opcional; editable — no es
 dinero; captura posterior a la venta). RPC `get_departure_detail` (DEFINER con
 guard: solo agencia dueña del servicio) — cross-tenant deliberado: el
