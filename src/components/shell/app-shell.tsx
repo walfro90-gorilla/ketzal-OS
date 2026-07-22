@@ -50,13 +50,13 @@ export function AppShell({
             <img
               src={logoUrl}
               alt="Ketzal"
-              className="h-9 w-auto max-w-[180px] object-contain"
+              className="h-12 w-auto max-w-[180px] object-contain"
             />
           ) : (
             <>
               {/* Sin logo: ícono de marca por defecto (/icons/192) + wordmark. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/icons/192" alt="" className="size-6 object-contain" />
+              <img src="/icons/192" alt="" className="size-8 object-contain" />
               <span>
                 <span className="text-primary">Ketzal</span>{' '}
                 <span className="text-foreground">OS</span>
