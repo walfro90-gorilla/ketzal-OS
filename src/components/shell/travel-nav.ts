@@ -12,7 +12,9 @@ export type TravelNavItem = {
 
 export const TRAVEL_NAV: TravelNavItem[] = [
   { label: 'Mis viajes', href: '/mis-compras', icon: LuggageIcon },
-  { label: 'Explora', href: '/explora', icon: CompassIcon },
+  // 'Explora' del viajero vive dentro del shell (/descubre reusa el catálogo
+  // público) para no perder la bottom bar. /explora es la vitrina pública/SEO.
+  { label: 'Explora', href: '/descubre', icon: CompassIcon },
   { label: 'Perfil', href: '/perfil', icon: UserIcon },
 ]
 
