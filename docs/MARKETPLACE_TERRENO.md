@@ -274,6 +274,29 @@ form de registro · `/mis-compras` session-gated.
   (hoy el badge está en el detalle); hardening `travel_date < hoy` en
   `create_marketplace_order` (nit G3).
 
+## Devoluciones por Mercado Pago (2026-07-21) — validado con dinero real
+
+Devolución real (regresa el dinero a la tarjeta), **por pago**, desde el ledger del
+detalle de venta.
+- Migración `payments_refunds_payment_id`: columna que liga el asiento `refund` al
+  pago que revierte (+ índice único parcial ⇒ no doble reembolso del mismo pago).
+- RPC `refund_payment(payment_id)` (INVOKER, gate de agente `is_active` + RLS):
+  guards (movimiento es pago COMPLETED, no ya reembolsado, refund ≤ pagado, lock del
+  booking), inserta el asiento `refund` ligado y ajusta el estado. **La devolución
+  real en MP la hace la app antes** (`reembolsarPagoMP`: `POST /v1/payments/{id}/refunds`
+  con Idempotency-Key por pago; orden MP→ledger; si el ledger falla tras un refund MP
+  OK, se reporta para reconciliación).
+- UI: en `AbonosSection` (`/ventas/[id]`), cada pago de MP tiene su botón **"Devolver
+  por MP"** en su fila; los ya devueltos muestran "Reembolsado". (Rediseño por
+  feedback del fundador: antes era un botón whole-booking aparte.)
+- **Validado con dinero real (2026-07-21):** se devolvió un pago de $10 (débito) →
+  refund en MP OK, asiento ligado en el ledger, saldo/estado correctos, el otro pago
+  intacto (per-pago), y doble-refund bloqueado sobre el dato real.
+- **Pendientes:** botón per-fila también para pagos **no-MP** (efectivo: hoy se
+  reembolsan por el form "Registrar → Reembolso", no per-fila); refund **parcial**
+  (hoy total); un pago totalmente reembolsado deja el booking en `reserved` — se
+  cancela aparte para cerrarlo/liberar cupo.
+
 ## Reglas de oro que respeta
 
 - **Aislamiento RLS:** comprador ≠ agente; la RLS por agencia no se toca.
