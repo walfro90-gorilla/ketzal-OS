@@ -87,8 +87,8 @@ la venta, allowlist en `proxy.ts` (no olvidar).
 Aplicada (`ketzal_sales_goals_v1`, espejo `db/proposed/013`) + hard-testeada
 (upsert pisa, guard admin, RLS aislada, goals_progress, conversión 2/1=50%) +
 en prod. App: sección Metas en `/equipo`, cards Conversión + Meta del mes en
-`/reportes`. **Sin re-aplicar `reports_summary`** (conversion_summary aparte).
-Advisors 0 ERROR. Follow-up menor: conversión/meta en el CSV.
+`/reportes`, y **conversión + meta también en el CSV** (2026-07-22). **Sin
+re-aplicar `reports_summary`** (conversion_summary aparte). Advisors 0 ERROR.
 
 Tabla `sales_goals` (meta mensual por agencia y/o agente; escritura solo vía
 RPC con guard admin). RPC `goals_progress`. `reports_summary` gana `conversion`
