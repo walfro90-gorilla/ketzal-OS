@@ -116,7 +116,7 @@ Detalle completo del modelo objetivo en **`docs/DATA_MODEL.md`**. SQL propuesto 
 - **Salud del sistema** (`/salud`, superadmin): chequeo de invariantes de dinero (0 violaciones) + log de eventos (cron, webhook). El cron corre el chequeo a diario.
 
 > **Env vars nuevas:** `CRON_SECRET` (cron de Clawbot). Ya existentes: `MP_ACCESS_TOKEN`, `SUPABASE_SERVICE_ROLE_KEY`.
-> **Multi-agente:** varios agentes editan el árbol en paralelo. Convención: RPCs nuevos se llaman con cast `supabase.rpc('nombre' as never)` para NO tocar `database.types.ts` (un solo dueño); cada quien commitea SOLO sus archivos (`git add` explícito). Ver `docs/WORKTREES.md`.
+> **Multi-agente:** varios agentes editan el árbol en paralelo. Convención: RPCs nuevos se llaman con cast `supabase.rpc('nombre' as never)` para NO tocar `database.types.ts` (un solo dueño); cada quien commitea SOLO sus archivos (`git add` explícito — ojo: rutas con brackets `app/x/[id]/` son glob en pathspecs de git, stagea por directorio y revisa `git status`). **Espejos de migraciones en `db/proposed/` usan prefijo por carril: `bNNN_` (backend/dinero) y `mNNN_` (marketplace/viajero), cada uno con su propio contador — ambos van en 016, el siguiente es `b017_`/`m017_`.** Ver `docs/WORKTREES.md` y `db/proposed/README.md`.
 
 **Modelo de 2 agentes (dev):** UI/UX (Fable) dueño de la capa presentacional; backend (Opus) dueño de `actions.ts`, RPCs, RLS, dinero. Ver `docs/UI_UX_PLAN.md` §7.
 
