@@ -1,0 +1,5 @@
+node_modules/
+.env
+# La sesión Baileys vive en /opt (fuera del repo); si alguien la pone local:
+baileys-state/
+*.session

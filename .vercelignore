@@ -1,0 +1,2 @@
+# Worker de WhatsApp: corre en la box (PM2), no en Vercel. No lo despliegues.
+wa-sender/
