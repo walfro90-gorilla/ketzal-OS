@@ -88,6 +88,7 @@ type BookingDetail = {
   discount: number
   total: number
   currency: string
+  exchange_rate?: number | null
   status: BookingStatus
   payment_type: string
   plan_frequency: string | null
@@ -115,7 +116,7 @@ export default async function VentaDetallePage({
   // sin ella para no tirar la venta a notFound. Al aplicarse la migración el
   // origen aparece sin tocar código (entonces se puede quitar el fallback).
   const selectVenta =
-    'id, folio, travel_date, due_date, num_pax, subtotal, discount, total, currency, status, payment_type, plan_frequency, plan_final_date, notes, cancel_reason, created_at, owner_supplier_id, selling_supplier_id, marketplace_customer_id, customer:customers(full_name, phone), service:services(name)'
+    'id, folio, travel_date, due_date, num_pax, subtotal, discount, total, currency, exchange_rate, status, payment_type, plan_frequency, plan_final_date, notes, cancel_reason, created_at, owner_supplier_id, selling_supplier_id, marketplace_customer_id, customer:customers(full_name, phone), service:services(name)'
   const fetchBooking = (select: string) =>
     supabase.from('bookings').select(select as '*').eq('id', id).single()
 
@@ -290,6 +291,21 @@ export default async function VentaDetallePage({
               <dt className="text-muted-foreground">Pasajeros</dt>
               <dd className="mt-1 font-medium">{booking.num_pax}</dd>
             </div>
+            {booking.currency === 'USD' && booking.exchange_rate ? (
+              <div className="sm:col-span-2">
+                <dt className="text-muted-foreground">Divisa original</dt>
+                <dd className="mt-1 font-medium">
+                  USD · TC {booking.exchange_rate}{' '}
+                  <span className="font-normal text-muted-foreground">
+                    (≈ US$
+                    {(
+                      Number(booking.total) / Number(booking.exchange_rate)
+                    ).toFixed(2)}{' '}
+                    · el MXN es autoritativo)
+                  </span>
+                </dd>
+              </div>
+            ) : null}
             <div className="sm:col-span-2">
               <dt className="text-muted-foreground">Fecha límite de pago</dt>
               <dd className="mt-1">

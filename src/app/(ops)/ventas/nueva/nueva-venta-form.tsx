@@ -67,6 +67,10 @@ function fechaCorta(iso: string): string {
   })
 }
 
+// F6: formateador USD para captura en dólares (el MXN sigue siendo autoritativo).
+const usd = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'USD' })
+const round2 = (n: number) => Math.round(n * 100) / 100
+
 type ItemType = CreateBookingLine['item_type']
 type PassengerType = NonNullable<CreateBookingLine['passenger_type']>
 
@@ -144,6 +148,14 @@ export function NuevaVentaForm({
   const [discount, setDiscount] = useState('0')
   const [notes, setNotes] = useState('')
 
+  // F6: divisa de captura. USD ⇒ los precios se entran en USD; al guardar se
+  // convierten a MXN (× TC) — el motor sigue en MXN (autoritativo).
+  const [currency, setCurrency] = useState<'MXN' | 'USD'>('MXN')
+  const [rate, setRate] = useState('')
+  const esUsd = currency === 'USD'
+  const rateNum = Number(rate) || 0
+  const money = esUsd ? usd : mxn // formatea en la divisa de captura
+
   const parsedLines = lines.map((l) => ({
     qty: Number(l.qty) || 0,
     unitPrice: Number(l.unit_price) || 0,
@@ -151,6 +163,8 @@ export function NuevaVentaForm({
   const discountNum = Number(discount) || 0
   const subtotalNum = calcSubtotal(parsedLines)
   const totalNum = calcTotal(parsedLines, discountNum)
+  // MXN autoritativo (para mostrar en USD): total capturado × TC.
+  const totalMxn = esUsd ? round2(totalNum * rateNum) : totalNum
 
   function handleServiceChange(id: string) {
     setServiceId(id)
@@ -212,6 +226,11 @@ export function NuevaVentaForm({
       return
     }
 
+    if (esUsd && !(rateNum > 0)) {
+      setError('Escribe el tipo de cambio (USD→MXN).')
+      return
+    }
+
     const lineInputs: CreateBookingLine[] = lines.map((l) => ({
       item_type: l.item_type,
       passenger_type: l.item_type === 'passenger' ? l.passenger_type : null,
@@ -239,6 +258,12 @@ export function NuevaVentaForm({
       return
     }
 
+    // F6: USD ⇒ convierte precios y descuento a MXN (motor MXN autoritativo).
+    const factor = esUsd ? rateNum : 1
+    const linesMxn: CreateBookingLine[] = esUsd
+      ? lineInputs.map((l) => ({ ...l, unit_price: round2(l.unit_price * factor) }))
+      : lineInputs
+
     const input: CreateBookingInput = {
       customerId: newCustomerMode ? undefined : customerId,
       newCustomer: newCustomerMode
@@ -246,10 +271,12 @@ export function NuevaVentaForm({
         : undefined,
       serviceId: serviceId || undefined,
       travelDate: travelDate || undefined,
-      discount: discountNum,
+      discount: round2(discountNum * factor),
       notes: notes.trim() || undefined,
-      lines: lineInputs,
+      lines: linesMxn,
       status,
+      currency: esUsd ? 'USD' : undefined,
+      exchangeRate: esUsd ? rateNum : undefined,
     }
 
     startTransition(async () => {
@@ -338,7 +365,7 @@ export function NuevaVentaForm({
   )
 
   const importe = (line: LineDraft) =>
-    mxn.format(
+    money.format(
       lineTotal({
         qty: Number(line.qty) || 0,
         unitPrice: Number(line.unit_price) || 0,
@@ -623,14 +650,47 @@ export function NuevaVentaForm({
           <CardTitle>Totales</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* F6: divisa de captura. USD ⇒ precios en dólares; el MXN queda
+              autoritativo (× TC) al guardar. */}
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="currency">Divisa</Label>
+              <NativeSelect
+                id="currency"
+                className="w-40"
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value as 'MXN' | 'USD')}
+              >
+                <option value="MXN">MXN (pesos)</option>
+                <option value="USD">USD (dólares)</option>
+              </NativeSelect>
+            </div>
+            {esUsd && (
+              <div className="space-y-1.5">
+                <Label htmlFor="rate">Tipo de cambio (USD→MXN) *</Label>
+                <Input
+                  id="rate"
+                  type="number"
+                  inputMode="decimal"
+                  min={0}
+                  step="0.01"
+                  className="w-32"
+                  value={rate}
+                  onChange={(e) => setRate(e.target.value)}
+                  placeholder="Ej. 17.50"
+                />
+              </div>
+            )}
+          </div>
+
           <div className="ml-auto w-full max-w-sm space-y-3">
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Subtotal</span>
-              <span className="tabular-nums">{mxn.format(subtotalNum)}</span>
+              <span className="tabular-nums">{money.format(subtotalNum)}</span>
             </div>
             <div className="flex items-center justify-between gap-4 text-sm">
               <Label htmlFor="discount" className="text-muted-foreground">
-                Descuento
+                Descuento{esUsd ? ' (USD)' : ''}
               </Label>
               <Input
                 id="discount"
@@ -644,9 +704,17 @@ export function NuevaVentaForm({
               />
             </div>
             <div className="flex items-center justify-between border-t pt-3 text-base font-semibold">
-              <span>Total</span>
-              <span className="tabular-nums">{mxn.format(totalNum)}</span>
+              <span>Total{esUsd ? ' (USD)' : ''}</span>
+              <span className="tabular-nums">{money.format(totalNum)}</span>
             </div>
+            {esUsd && (
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>≈ MXN{rateNum > 0 ? ` (TC ${rateNum})` : ''} · autoritativo</span>
+                <span className="tabular-nums">
+                  {rateNum > 0 ? mxn.format(totalMxn) : '—'}
+                </span>
+              </div>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="notes">Notas</Label>
