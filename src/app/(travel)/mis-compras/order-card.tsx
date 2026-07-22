@@ -24,6 +24,9 @@ export type Order = {
   can_rate: boolean
   rated_provider: boolean
   rated_app: boolean
+  provider_rating: number | null
+  provider_comment: string | null
+  app_rating: number | null
 }
 
 const mxn = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' })
@@ -66,26 +69,37 @@ const TONO: Record<'danger' | 'warn' | 'muted', string> = {
   muted: 'text-muted-foreground',
 }
 
-/** Selector de estrellas 1-5. */
+/** Selector de estrellas 1-5. readOnly ⇒ muestra la calificación sin editar. */
 function StarPicker({
   value,
   onChange,
+  readOnly = false,
 }: {
   value: number
-  onChange: (n: number) => void
+  onChange?: (n: number) => void
+  readOnly?: boolean
 }) {
+  const [hover, setHover] = useState(0)
+  const shown = readOnly ? value : hover || value
   return (
-    <div className="flex gap-1">
+    <div className="flex gap-1" role={readOnly ? 'img' : 'radiogroup'} aria-label={readOnly ? `${value} de 5 estrellas` : 'Calificación'}>
       {[1, 2, 3, 4, 5].map((n) => (
         <button
           key={n}
           type="button"
-          onClick={() => onChange(n)}
+          disabled={readOnly}
+          onClick={() => onChange?.(n)}
+          onMouseEnter={() => !readOnly && setHover(n)}
+          onMouseLeave={() => !readOnly && setHover(0)}
           aria-label={`${n} estrella${n > 1 ? 's' : ''}`}
-          className="p-0.5"
+          aria-pressed={!readOnly ? n <= value : undefined}
+          className={cn('p-0.5', readOnly ? 'cursor-default' : 'cursor-pointer')}
         >
           <StarIcon
-            className={`size-7 ${n <= value ? 'fill-primary text-primary' : 'text-muted-foreground/40'}`}
+            className={cn(
+              readOnly ? 'size-5' : 'size-7',
+              n <= shown ? 'fill-primary text-primary' : 'text-muted-foreground/40'
+            )}
           />
         </button>
       ))}
@@ -95,12 +109,19 @@ function StarPicker({
 
 export function OrderCard({ order }: { order: Order }) {
   const [busy, setBusy] = useState(false)
-  // Calificación (viajero→proveedor + →app)
-  const [prov, setProv] = useState(0)
-  const [comentario, setComentario] = useState('')
-  const [app, setApp] = useState(0)
+  // Calificación (viajero→proveedor + →app). Editable: submit_rating hace upsert,
+  // así que se muestra lo ya calificado (read-only) con opción de editar.
+  const [prov, setProv] = useState(order.provider_rating ?? 0)
+  const [comentario, setComentario] = useState(order.provider_comment ?? '')
+  const [app, setApp] = useState(order.app_rating ?? 0)
   const [provListo, setProvListo] = useState(order.rated_provider)
   const [appListo, setAppListo] = useState(order.rated_app)
+  const [editProv, setEditProv] = useState(false)
+  const [editApp, setEditApp] = useState(false)
+  // Baseline de lo guardado (para restaurar al cancelar una edición).
+  const [savedProv, setSavedProv] = useState(order.provider_rating ?? 0)
+  const [savedComentario, setSavedComentario] = useState(order.provider_comment ?? '')
+  const [savedApp, setSavedApp] = useState(order.app_rating ?? 0)
 
   async function pagar(amount?: number) {
     if (!order.service_id) return
@@ -127,6 +148,9 @@ export function OrderCard({ order }: { order: Order }) {
       return
     }
     setProvListo(true)
+    setEditProv(false)
+    setSavedProv(prov)
+    setSavedComentario(comentario)
     toast.success('¡Gracias por tu reseña!')
   }
 
@@ -143,6 +167,8 @@ export function OrderCard({ order }: { order: Order }) {
       return
     }
     setAppListo(true)
+    setEditApp(false)
+    setSavedApp(app)
     toast.success('¡Gracias!')
   }
 
@@ -217,10 +243,22 @@ export function OrderCard({ order }: { order: Order }) {
         {/* Calificación post-viaje */}
         {order.can_rate && (
           <div className="space-y-4 border-t pt-4">
-            {provListo ? (
-              <p className="text-sm text-muted-foreground">
-                Ya calificaste este viaje. ¡Gracias!
-              </p>
+            {/* Viajero → proveedor */}
+            {provListo && !editProv ? (
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Tu reseña</p>
+                <StarPicker value={savedProv} readOnly />
+                {savedComentario && (
+                  <p className="text-sm text-muted-foreground">“{savedComentario}”</p>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setEditProv(true)}
+                  className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                >
+                  Editar
+                </button>
+              </div>
             ) : (
               <div className="space-y-2">
                 <p className="text-sm font-medium">Califica tu viaje</p>
@@ -232,24 +270,65 @@ export function OrderCard({ order }: { order: Order }) {
                   rows={2}
                   className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30"
                 />
-                <Button type="button" disabled={busy} onClick={enviarProveedor}>
-                  Enviar reseña
-                </Button>
+                <div className="flex gap-2">
+                  <Button type="button" disabled={busy} onClick={enviarProveedor}>
+                    {provListo ? 'Guardar' : 'Enviar reseña'}
+                  </Button>
+                  {editProv && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      disabled={busy}
+                      onClick={() => {
+                        setEditProv(false)
+                        setProv(savedProv)
+                        setComentario(savedComentario)
+                      }}
+                    >
+                      Cancelar
+                    </Button>
+                  )}
+                </div>
               </div>
             )}
 
-            {!appListo && (
+            {/* Viajero → app */}
+            {appListo && !editApp ? (
+              <div className="space-y-1">
+                <p className="text-sm font-medium">Calificaste la app Ketzal</p>
+                <div className="flex items-center gap-3">
+                  <StarPicker value={savedApp} readOnly />
+                  <button
+                    type="button"
+                    onClick={() => setEditApp(true)}
+                    className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                  >
+                    Editar
+                  </button>
+                </div>
+              </div>
+            ) : (
               <div className="space-y-2">
                 <p className="text-sm font-medium">¿Y la app Ketzal?</p>
                 <StarPicker value={app} onChange={setApp} />
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={busy}
-                  onClick={enviarApp}
-                >
-                  Enviar
-                </Button>
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" disabled={busy} onClick={enviarApp}>
+                    {appListo ? 'Guardar' : 'Enviar'}
+                  </Button>
+                  {editApp && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      disabled={busy}
+                      onClick={() => {
+                        setEditApp(false)
+                        setApp(savedApp)
+                      }}
+                    >
+                      Cancelar
+                    </Button>
+                  )}
+                </div>
               </div>
             )}
           </div>
