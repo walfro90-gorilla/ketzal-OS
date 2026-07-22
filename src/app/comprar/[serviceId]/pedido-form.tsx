@@ -194,7 +194,8 @@ export function PedidoForm({
         type="button"
         size="touch"
         className="w-full"
-        disabled={pending || totalPax < 1}
+        loading={pending}
+        disabled={totalPax < 1}
         onClick={submit}
       >
         {pending ? 'Creando pedido…' : 'Crear pedido'}

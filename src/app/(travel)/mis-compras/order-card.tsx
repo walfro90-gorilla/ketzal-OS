@@ -218,7 +218,7 @@ export function OrderCard({ order }: { order: Order }) {
               type="button"
               size="touch"
               className="w-full"
-              disabled={busy}
+              loading={busy}
               onClick={() => pagar(conPlan ? order.next_due : undefined)}
             >
               {busy
@@ -231,7 +231,7 @@ export function OrderCard({ order }: { order: Order }) {
               <Button
                 type="button"
                 variant="outline"
-                disabled={busy}
+                loading={busy}
                 onClick={() => pagar(order.balance)}
               >
                 Liquidar todo {mxn.format(order.balance)}
@@ -271,14 +271,14 @@ export function OrderCard({ order }: { order: Order }) {
                   className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30"
                 />
                 <div className="flex gap-2">
-                  <Button type="button" disabled={busy} onClick={enviarProveedor}>
+                  <Button type="button" loading={busy} onClick={enviarProveedor}>
                     {provListo ? 'Guardar' : 'Enviar reseña'}
                   </Button>
                   {editProv && (
                     <Button
                       type="button"
                       variant="ghost"
-                      disabled={busy}
+                      loading={busy}
                       onClick={() => {
                         setEditProv(false)
                         setProv(savedProv)
@@ -312,14 +312,14 @@ export function OrderCard({ order }: { order: Order }) {
                 <p className="text-sm font-medium">¿Y la app Ketzal?</p>
                 <StarPicker value={app} onChange={setApp} />
                 <div className="flex gap-2">
-                  <Button type="button" variant="outline" disabled={busy} onClick={enviarApp}>
+                  <Button type="button" variant="outline" loading={busy} onClick={enviarApp}>
                     {appListo ? 'Guardar' : 'Enviar'}
                   </Button>
                   {editApp && (
                     <Button
                       type="button"
                       variant="ghost"
-                      disabled={busy}
+                      loading={busy}
                       onClick={() => {
                         setEditApp(false)
                         setApp(savedApp)
