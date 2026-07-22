@@ -70,7 +70,13 @@ cobrado/saldo), `/salidas/[id]/manifiesto` (imprimible, CON sesión — PII, sin
 token público), sección captura en `/ventas/[id]`. Invariante:
 `pax_vs_num_pax` (warning).
 
-### F4 — Voucher de servicio foliado
+### F4 — Voucher de servicio foliado — ✅ COMPLETA (2026-07-22)
+Aplicada (`ketzal_vouchers_v1`, espejo `db/proposed/012`) + hard-testeada
+(idempotente, folios consecutivos por agencia, draft bloqueado, público sin
+dinero, cancelada fail-closed) + en prod. App: `/voucher/[id]` público
+imprimible + card emitir/ver/copiar en `/ventas/[id]` + `/voucher/` en proxy.
+Advisors 0 ERROR.
+
 Tabla `vouchers` (uuid = token público, unique por booking, folio serie
 'voucher'). `emit_voucher` idempotente (reserved/confirmed/paid);
 `get_voucher_public` anon fail-closed y **sin montos** (acredita el servicio,
