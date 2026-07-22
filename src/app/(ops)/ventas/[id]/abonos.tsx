@@ -18,6 +18,7 @@ import { NativeSelect } from '@/components/ui/native-select'
 import { balance } from '@/lib/domain/balance'
 import { mxn } from '@/components/data/format'
 import {
+  cancelarVenta,
   compartirEstadoCuenta,
   crearLinkPago,
   emitirRecibo,
@@ -229,14 +230,31 @@ export function AbonosSection({
     setRefundingId(paymentId)
     startRefunding(async () => {
       const res = await reembolsarPago(paymentId)
-      if ('error' in res) toast.error(res.error)
-      else
-        toast.success(
-          esMP
-            ? `Devuelto ${mxn.format(res.refunded)} por Mercado Pago`
-            : `Reembolso de ${mxn.format(res.refunded)} registrado`
-        )
+      if ('error' in res) {
+        toast.error(res.error)
+        setRefundingId(null)
+        return
+      }
+      toast.success(
+        esMP
+          ? `Devuelto ${mxn.format(res.refunded)} por Mercado Pago`
+          : `Reembolso de ${mxn.format(res.refunded)} registrado`
+      )
       setRefundingId(null)
+
+      // Si la venta quedó totalmente reembolsada, ofrecer cancelarla (cierra la
+      // venta y libera el cupo). `pagado` es previo a este reembolso.
+      if (!cancelled && pagado - res.refunded <= 0.005) {
+        const cancelar = window.confirm(
+          'La venta quedó totalmente reembolsada. ¿Cancelarla también? ' +
+            'La cierra y libera el cupo.'
+        )
+        if (cancelar) {
+          const c = await cancelarVenta(bookingId, 'Reembolso total')
+          if ('error' in c) toast.error(c.error)
+          else toast.success('Venta cancelada')
+        }
+      }
     })
   }
 
