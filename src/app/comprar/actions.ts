@@ -159,14 +159,17 @@ export async function crearLinkPagoMarketplace(
       notification_url: `${origin}/api/mp/webhook`,
       // Tras pagar, MP regresa al perfil del comprador ("Mis compras"), donde
       // ve su pedido y espera la validación (el webhook lo pasa a pagado async).
-      // Sin auto_return ni query-strings propios (la combinación es la causa #1
-      // del "/fatal/" en MP); MP agrega sus propios params, que /mis-compras usa
-      // para mostrar el banner de "validando".
+      // `auto_return: 'approved'` hace que MP redirija SOLO (sin clic manual) tras
+      // aprobar. El success URL va limpio (sin query-strings propios): el "/fatal/"
+      // del sandbox venía de auto_return + params en la URL que fijamos nosotros;
+      // MP agrega sus propios params en el redirect, que /mis-compras usa para el
+      // banner de "validando". Validado en prod.
       back_urls: {
         success: `${origin}/mis-compras`,
         failure: `${origin}/mis-compras`,
         pending: `${origin}/mis-compras`,
       },
+      auto_return: 'approved',
     }),
   })
   if (!res.ok) return { error: 'Mercado Pago rechazó la solicitud. Intenta de nuevo.' }
