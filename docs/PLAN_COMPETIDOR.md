@@ -96,7 +96,13 @@ RPC con guard admin). RPC `goals_progress`. `reports_summary` gana `conversion`
 keys aditivas (es hub de dashboard/reportes/CSV). UI: card metas en `/equipo`,
 avance + columnas de conversión en `/reportes`.
 
-### F6 — Divisas: TC manual light (USD)
+### F6 — Divisas: TC manual light (USD) — ✅ COMPLETA (2026-07-22)
+Aplicada (`ketzal_currency_usd`, espejo `db/proposed/014`) + hard-testeada
+(USD $1000@17.5=17500 MXN, guards, RLS, CHECK) + en prod. **Sin tocar
+`create_booking_with_items`**: el form convierte USD→MXN y `set_booking_currency`
+anota divisa+TC. App: selector MXN/USD + TC en `/ventas/nueva`, USD original en
+`/ventas/[id]`. Advisors 0 ERROR. Follow-up: nota USD en documentos públicos.
+
 `bookings.exchange_rate` + checks (MXN ⇔ rate null). **El motor entero sigue
 MXN**: al vender en USD el RPC convierte al registrar (original en
 `booking_items.meta`); payments/reportes/cobranza intactos. Documentos muestran
