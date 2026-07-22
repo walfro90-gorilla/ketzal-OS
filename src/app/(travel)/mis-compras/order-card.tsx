@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { toast } from 'sonner'
-import { StarIcon } from 'lucide-react'
+import { StarIcon, ChevronRightIcon } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { crearLinkPagoMarketplace, calificar } from '@/app/comprar/actions'
@@ -29,6 +30,15 @@ const ESTADO: Record<string, string> = {
   draft: 'Pendiente de pago',
   reserved: 'Apartado (en abonos)',
   paid: 'Pagado',
+}
+
+/** 'YYYY-MM-DD' → '12 mar 2026' (local, sin corrimiento de zona). */
+function fechaCorta(d: string | null): string | null {
+  if (!d) return null
+  const [y, m, day] = d.split('-').map(Number)
+  return new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }).format(
+    new Date(y, m - 1, day)
+  )
 }
 
 /** Selector de estrellas 1-5. */
@@ -118,9 +128,17 @@ export function OrderCard({ order }: { order: Order }) {
       <CardContent className="space-y-4 p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="truncate font-semibold">{order.service_name}</p>
+            <Link
+              href={`/mis-compras/${order.booking_id}`}
+              className="group flex items-center gap-1 font-semibold hover:text-primary"
+            >
+              <span className="truncate">{order.service_name}</span>
+              <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground group-hover:text-primary" />
+            </Link>
             <p className="text-xs text-muted-foreground">
-              {ESTADO[order.status] ?? order.status}
+              {[ESTADO[order.status] ?? order.status, fechaCorta(order.travel_date)]
+                .filter(Boolean)
+                .join(' · ')}
             </p>
           </div>
           <span className="shrink-0 text-right text-sm tabular-nums">
