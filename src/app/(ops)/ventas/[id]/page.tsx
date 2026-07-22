@@ -17,6 +17,8 @@ import { AbonosSection } from './abonos'
 import { PlanPagosSection, type PlanItem } from './plan-pagos'
 import { CancelarVenta } from './cancelar-venta'
 import { VencimientoForm } from './vencimiento-form'
+import { PasajerosSection } from './pasajeros'
+import type { Pasajero } from './pasajeros-actions'
 
 type LineItem = {
   id: string
@@ -158,6 +160,14 @@ export default async function VentaDetallePage({
     .from('receipts')
     .select('id, payment_id, folio')
     .eq('booking_id', id)
+
+  // F3: pasajeros de la venta (tabla nueva, no tipada ⇒ cast). RLS acota.
+  const { data: pasajerosData } = await supabase
+    .from('booking_passengers' as never)
+    .select('id, full_name, passenger_type, doc_id' as never)
+    .eq('booking_id' as never, id as never)
+    .order('created_at' as never)
+  const pasajeros = (pasajerosData ?? []) as unknown as Pasajero[]
 
   // Calendario sugerido del plan de pagos (seq 0 = enganche).
   const { data: schedule } = await supabase
@@ -339,6 +349,13 @@ export default async function VentaDetallePage({
           </div>
         </CardContent>
       </Card>
+
+      <PasajerosSection
+        bookingId={booking.id}
+        numPax={booking.num_pax}
+        initial={pasajeros}
+        canEdit={!cancelada}
+      />
 
       <PlanPagosSection
         bookingId={booking.id}
