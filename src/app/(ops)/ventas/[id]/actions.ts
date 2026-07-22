@@ -330,16 +330,13 @@ export async function calificarViajero(
 // Orden importa: primero MP (mueve el dinero), luego el ledger; si el ledger falla
 // tras un refund MP exitoso, se reporta para reconciliación manual (no se pierde
 // el registro del movimiento — el dinero ya salió de MP).
-// Devolución REAL por Mercado Pago de UN pago específico: devuelve el dinero a la
-// tarjeta (API refund de MP) y registra el asiento ligado (refund_payment). Orden
-// MP→ledger; si el ledger falla tras un refund MP exitoso, se reporta para
-// reconciliación manual (el dinero ya salió de MP).
-export async function reembolsarPagoMP(
+// Devuelve UN pago específico. Si fue por Mercado Pago, primero regresa el dinero a
+// la tarjeta (API refund de MP), luego registra el asiento ligado (refund_payment).
+// Si fue efectivo/transferencia, solo registra el asiento (el dinero se devuelve a
+// mano). Orden MP→ledger; si el ledger falla tras un refund MP OK, se reporta.
+export async function reembolsarPago(
   paymentId: string
 ): Promise<{ error: string } | { ok: true; refunded: number }> {
-  const token = process.env.MP_ACCESS_TOKEN
-  if (!token) return { error: 'Mercado Pago no está configurado.' }
-
   const supabase = await createClient()
   const {
     data: { user },
@@ -365,46 +362,49 @@ export async function reembolsarPagoMP(
     payment_method: string | null
   } | null
   if (!pay) return { error: 'Pago no encontrado o sin acceso.' }
-  if (
-    pay.type !== 'payment' ||
-    pay.status !== 'COMPLETED' ||
-    pay.payment_method !== 'mercadopago'
-  ) {
-    return { error: 'Ese movimiento no es un pago de Mercado Pago reembolsable.' }
-  }
-  if (!pay.transaction_id) {
-    return { error: 'El pago no tiene referencia de Mercado Pago.' }
+  if (pay.type !== 'payment' || pay.status !== 'COMPLETED') {
+    return { error: 'Ese movimiento no es un pago reembolsable.' }
   }
 
-  // Devolución total del pago en MP. Idempotency-Key por pago evita doble refund.
-  const res = await fetch(
-    `https://api.mercadopago.com/v1/payments/${pay.transaction_id}/refunds`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-        'X-Idempotency-Key': `refund-${pay.id}`,
-      },
-      body: JSON.stringify({}),
+  const esMP = pay.payment_method === 'mercadopago'
+
+  // Pago MP: devolución real en la tarjeta antes de tocar el ledger.
+  if (esMP) {
+    const token = process.env.MP_ACCESS_TOKEN
+    if (!token) return { error: 'Mercado Pago no está configurado.' }
+    if (!pay.transaction_id) {
+      return { error: 'El pago no tiene referencia de Mercado Pago.' }
     }
-  )
-  if (!res.ok) {
-    return {
-      error:
-        'Mercado Pago rechazó el reembolso. Reintenta o revisa en el panel de MP.',
+    const res = await fetch(
+      `https://api.mercadopago.com/v1/payments/${pay.transaction_id}/refunds`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+          'X-Idempotency-Key': `refund-${pay.id}`,
+        },
+        body: JSON.stringify({}),
+      }
+    )
+    if (!res.ok) {
+      return {
+        error:
+          'Mercado Pago rechazó el reembolso. Reintenta o revisa en el panel de MP.',
+      }
     }
   }
 
-  // Asiento de reembolso ligado al pago (guards en el RPC: no-doble-refund,
-  // refund ≤ pagado, lock del booking).
+  // Asiento de reembolso ligado al pago (guards en el RPC). Para efectivo, esto es
+  // todo: el dinero se devuelve a mano y aquí queda el registro.
   const { data, error } = await supabase.rpc('refund_payment' as never, {
     p_payment_id: paymentId,
   } as never)
   if (error) {
-    return {
-      error: `El dinero SÍ se devolvió en Mercado Pago, pero falló registrar el asiento (${safeError(error)}). Reconciliar el ledger manualmente.`,
-    }
+    const extra = esMP
+      ? ' El dinero SÍ se devolvió en Mercado Pago; reconciliar el ledger manualmente.'
+      : ''
+    return { error: `No se pudo registrar el reembolso (${safeError(error)}).${extra}` }
   }
 
   revalidatePath('/ventas/' + pay.booking_id)

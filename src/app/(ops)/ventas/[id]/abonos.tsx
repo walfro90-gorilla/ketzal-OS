@@ -21,7 +21,7 @@ import {
   compartirEstadoCuenta,
   crearLinkPago,
   emitirRecibo,
-  reembolsarPagoMP,
+  reembolsarPago,
   registrarAbono,
 } from './actions'
 
@@ -217,17 +217,25 @@ export function AbonosSection({
 
   function handleRefund(paymentId: string) {
     const p = payments.find((x) => x.id === paymentId)
-    const monto = p ? Number(p.amount_mxn) : 0
+    if (!p) return
+    const monto = Number(p.amount_mxn)
+    const esMP = p.payment_method === 'mercadopago'
     const ok = window.confirm(
-      `¿Devolver ${mxn.format(monto)} al comprador por Mercado Pago? ` +
-        'El dinero regresa a su tarjeta. No se puede deshacer.'
+      esMP
+        ? `¿Devolver ${mxn.format(monto)} al comprador por Mercado Pago? El dinero regresa a su tarjeta. No se puede deshacer.`
+        : `¿Registrar la devolución de ${mxn.format(monto)}? Confirma que ya entregaste el dinero al cliente. No se puede deshacer.`
     )
     if (!ok) return
     setRefundingId(paymentId)
     startRefunding(async () => {
-      const res = await reembolsarPagoMP(paymentId)
+      const res = await reembolsarPago(paymentId)
       if ('error' in res) toast.error(res.error)
-      else toast.success(`Devuelto ${mxn.format(res.refunded)} por Mercado Pago`)
+      else
+        toast.success(
+          esMP
+            ? `Devuelto ${mxn.format(res.refunded)} por Mercado Pago`
+            : `Reembolso de ${mxn.format(res.refunded)} registrado`
+        )
       setRefundingId(null)
     })
   }
@@ -297,17 +305,15 @@ export function AbonosSection({
       header: 'Devolver',
       fullWidthOnCard: true,
       cell: (p) => {
-        // Solo pagos de Mercado Pago (devolución real a la tarjeta).
-        const esMP =
-          p.type === 'payment' &&
-          p.status === 'COMPLETED' &&
-          p.payment_method === 'mercadopago'
-        if (!esMP) return null
+        // Cualquier pago completado es reembolsable. MP → devuelve a la tarjeta;
+        // efectivo/otro → asiento en el ledger (el dinero se devuelve a mano).
+        if (p.type !== 'payment' || p.status !== 'COMPLETED') return null
         if (refundedIds.has(p.id)) {
           return (
             <span className="text-xs text-muted-foreground">Reembolsado</span>
           )
         }
+        const esMP = p.payment_method === 'mercadopago'
         return (
           <Button
             type="button"
@@ -319,7 +325,9 @@ export function AbonosSection({
           >
             {isRefunding && refundingId === p.id
               ? 'Devolviendo…'
-              : 'Devolver por MP'}
+              : esMP
+                ? 'Devolver por MP'
+                : 'Devolver'}
           </Button>
         )
       },
