@@ -3,6 +3,7 @@
 import { DownloadIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { Reporte } from './tipos'
+import type { Conversion, GoalsProgress } from './conversion-meta'
 
 /** Campo CSV seguro: siempre entre comillas, comillas internas dobladas. */
 function campo(v: string | number): string {
@@ -18,7 +19,18 @@ function monto(v: unknown): string {
   return Number(v ?? 0).toFixed(2)
 }
 
-function construirCsv(r: Reporte, from: string, to: string): string {
+/** Avance meta = vendido/meta en % con 1 decimal; '' si no hay meta fijada. */
+function avancePct(goal: number, vendido: number): number | string {
+  return goal > 0 ? Math.round((vendido / goal) * 1000) / 10 : ''
+}
+
+function construirCsv(
+  r: Reporte,
+  conv: Conversion,
+  goals: GoalsProgress,
+  from: string,
+  to: string,
+): string {
   const lineas: string[] = [
     fila('Reporte Ketzal', `${from} a ${to}`),
     '',
@@ -51,6 +63,40 @@ function construirCsv(r: Reporte, from: string, to: string): string {
   for (const m of r.por_mes ?? []) {
     lineas.push(fila(m.mes ?? '', Number(m.num ?? 0), monto(m.vendido)))
   }
+
+  // F5 \u2014 Conversi\u00F3n (cotizaci\u00F3n \u2192 venta): global + por agente.
+  lineas.push('', fila('Conversi\u00F3n (cotizaci\u00F3n \u2192 venta)'))
+  lineas.push(fila('Concepto', 'Valor'))
+  lineas.push(fila('Cotizadas', Number(conv.cotizadas ?? 0)))
+  lineas.push(fila('Convertidas', Number(conv.convertidas ?? 0)))
+  lineas.push(fila('Tasa (%)', Number(conv.tasa ?? 0)))
+  lineas.push('', fila('Conversi\u00F3n por agente'))
+  lineas.push(fila('Agente', 'Cotizadas', 'Convertidas', 'Tasa (%)'))
+  for (const a of conv.por_agente ?? []) {
+    lineas.push(
+      fila(
+        a.agente ?? '',
+        Number(a.cotizadas ?? 0),
+        Number(a.convertidas ?? 0),
+        Number(a.tasa ?? 0),
+      ),
+    )
+  }
+
+  // F5 \u2014 Meta del mes: agencia + por agente (meta vs vendido, avance %).
+  lineas.push('', fila('Meta del mes', goals.month ?? ''))
+  lineas.push(fila('\u00C1mbito', 'Meta (MXN)', 'Vendido (MXN)', 'Avance (%)'))
+  const agGoal = Number(goals.agencia?.goal ?? 0)
+  const agVendido = Number(goals.agencia?.vendido ?? 0)
+  lineas.push(
+    fila('Agencia', monto(agGoal), monto(agVendido), avancePct(agGoal, agVendido)),
+  )
+  for (const a of goals.agentes ?? []) {
+    const g = Number(a.goal ?? 0)
+    const v = Number(a.vendido ?? 0)
+    lineas.push(fila(a.agente ?? '', monto(g), monto(v), a.avance ?? avancePct(g, v)))
+  }
+
   // BOM UTF-8 para que Excel abra bien los acentos; CRLF por compatibilidad.
   return '\uFEFF' + lineas.join('\r\n') + '\r\n'
 }
@@ -58,15 +104,19 @@ function construirCsv(r: Reporte, from: string, to: string): string {
 /** Botón "Exportar CSV": genera el archivo en el navegador y lo descarga. */
 export function ExportarCsv({
   reporte,
+  conv,
+  goals,
   from,
   to,
 }: {
   reporte: Reporte
+  conv: Conversion
+  goals: GoalsProgress
   from: string
   to: string
 }) {
   function handleClick() {
-    const csv = construirCsv(reporte, from, to)
+    const csv = construirCsv(reporte, conv, goals, from, to)
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
