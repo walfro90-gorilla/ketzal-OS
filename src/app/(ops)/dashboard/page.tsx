@@ -522,8 +522,15 @@ export default async function DashboardPage({
     return <p className="text-sm text-muted-foreground">Sesión no válida.</p>
   }
 
-  const [summaryRes, periodoRes, bookingsRes, paymentsRes, profileRes, clawbot] =
-    await Promise.all([
+  const [
+    summaryRes,
+    periodoRes,
+    bookingsRes,
+    paymentsRes,
+    profileRes,
+    clawbot,
+    anomaliasRes,
+  ] = await Promise.all([
       supabase.rpc('dashboard_summary'),
       supabase.rpc('reports_summary', { p_from: from, p_to: to }),
       // Filas crudas del periodo para las gráficas; RLS acota la visibilidad
@@ -541,12 +548,41 @@ export default async function DashboardPage({
         .lt('paid_at', toExclusivo),
       supabase.from('profiles').select('supplier_id').eq('id', user.id).single(),
       getClawbotResumen(),
+      // Anomalías de dinero (sobrepago / pagado_sin_cupo / pago_cancelado) que el
+      // webhook dejó en system_log y necesitan revisión/reembolso manual.
+      supabase.rpc('alertas_anomalias_dinero' as never),
     ])
 
   const d = (summaryRes.data ?? EMPTY_SUMMARY) as unknown as DashboardSummary
   const periodo = (periodoRes.data ?? EMPTY_REPORTE) as unknown as Reporte
   const bookings = (bookingsRes.data ?? []) as unknown as BookingRow[]
   const payments = (paymentsRes.data ?? []) as unknown as PaymentRow[]
+
+  // Anomalías de dinero pendientes de revisión (últimas 3 semanas).
+  const anomalias = (anomaliasRes.data ?? {
+    total: 0,
+    sobrepago: 0,
+    sin_cupo: 0,
+    cancelado: 0,
+  }) as unknown as {
+    total: number
+    sobrepago: number
+    sin_cupo: number
+    cancelado: number
+  }
+  const numAnomalias = Number(anomalias.total ?? 0)
+  const anomaliaDetalle =
+    [
+      anomalias.sobrepago
+        ? `${anomalias.sobrepago} sobrepago${anomalias.sobrepago > 1 ? 's' : ''}`
+        : null,
+      anomalias.sin_cupo ? `${anomalias.sin_cupo} pagado sin cupo` : null,
+      anomalias.cancelado
+        ? `${anomalias.cancelado} en venta cancelada`
+        : null,
+    ]
+      .filter(Boolean)
+      .join(' · ') || 'Pagos que requieren revisión'
 
   const ventasSaldo = d.ventas_saldo ?? []
   const proximosViajes = d.proximos_viajes ?? []
@@ -716,6 +752,18 @@ export default async function DashboardPage({
             calmDetail="No hay recordatorios pendientes por enviar."
             href="/clawbot"
             linkLabel="Ver bandeja"
+          />
+          <AtencionCard
+            tone="danger"
+            icon={BanknoteIcon}
+            label="Anomalías de pago"
+            active={numAnomalias > 0}
+            value={String(numAnomalias)}
+            detail={`${anomaliaDetalle} — revisa y reembolsa si aplica`}
+            calmValue="Pagos en orden"
+            calmDetail="Sin anomalías de pago en las últimas 3 semanas."
+            href="/salud"
+            linkLabel="Ver salud"
           />
         </div>
       </section>
