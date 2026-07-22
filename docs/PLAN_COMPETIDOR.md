@@ -110,13 +110,23 @@ MXN**: al vender en USD el RPC convierte al registrar (original en
 venta. Invariantes: `divisa_sin_tc`, `tc_fuera_de_rango` (TC USD ∉ [5,50] ⇒
 warning, detecta dedazos).
 
-### F7 — Clawbot: 3 reglas nuevas
+### F7 — Clawbot: 3 reglas nuevas — ✅ COMPLETA (2026-07-22)
+Aplicada (`ketzal_clawbot_reglas_v2`, espejo `db/proposed/015`) +
+hard-testeada (1er tick 1 c/u, 2º tick idempotente) + en prod. App: cron
+`/api/clawbot/tick` llama la función nueva además del motor; 3 kinds nuevos +
+chips en `/clawbot`; los internos muestran "Ver venta" en vez de WhatsApp.
+Advisors 0 ERROR.
+
 `saldo_sin_plan` (venta de contado con saldo ≥3 días — hoy solo se persigue a
 quien tiene plan), `viaje_manana_operativo` (interno al agente: pax capturados
-X/Y + link al manifiesto; depende de F3), `pago_sin_recibo` (abono sin recibo
-tras 24h). Descartada `cupo_por_llenarse` (sin datos para calibrar umbral).
-Ampliar check de kinds + re-apply `clawbot_generar_recordatorios` y
-`clawbot_resumen` (dedupe_key idempotente). El cron no cambia.
+X/Y + revisa manifiesto; depende de F3), `pago_sin_recibo` (abono `COMPLETED`
+sin recibo tras 24h). Descartada `cupo_por_llenarse` (sin datos para calibrar
+umbral). **Decisión de coordinación:** NO se re-escribió el motor
+`clawbot_generar_recordatorios`/`clawbot_resumen`/`clawbot_bandeja` — las 3
+reglas viven en una función NUEVA e independiente `clawbot_reglas_operativas()`
+(cero colisión). Solo se extendió el CHECK de `kind` (4 → 7) y el cron la llama
+además del motor. `dedupe_key` idempotente; reusa la columna `channel` existente
+(`interno` para las dos operativas). El cron no cambia su contrato.
 
 ## Descartados (no implementar sin nueva decisión)
 
