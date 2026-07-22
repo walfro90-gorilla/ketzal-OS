@@ -26,6 +26,7 @@ export async function proxy(request: NextRequest) {
   // NO va aquí: se llega con la sesión de recuperación ya creada por /auth/callback.
   const isPublic =
     path.startsWith('/login') ||
+    path.startsWith('/entrar') || // entrada del viajero (comprador B2C): entrar o crear cuenta
     path.startsWith('/auth') ||
     path.startsWith('/cotizacion/') ||
     path.startsWith('/estado/') || // estado de cuenta del cliente (link público por token)
@@ -41,7 +42,7 @@ export async function proxy(request: NextRequest) {
   if (!user && !isPublic) {
     const url = request.nextUrl.clone(); url.pathname = '/login'; return NextResponse.redirect(url)
   }
-  if (user && path.startsWith('/login')) {
+  if (user && (path.startsWith('/login') || path.startsWith('/entrar'))) {
     // '/' resuelve el aterrizaje por persona (agente → dashboard, viajero → mis-compras).
     const url = request.nextUrl.clone(); url.pathname = '/'; return NextResponse.redirect(url)
   }

@@ -36,8 +36,8 @@ export default async function MisComprasPage({
         <p className="mt-2 text-sm text-muted-foreground">
           Inicia sesión para ver tus viajes.
         </p>
-        <Link href="/explora" className={`${buttonVariants({ variant: 'outline' })} mt-4`}>
-          Explorar viajes
+        <Link href="/entrar" className={`${buttonVariants()} mt-4`}>
+          Entrar
         </Link>
       </div>
     )

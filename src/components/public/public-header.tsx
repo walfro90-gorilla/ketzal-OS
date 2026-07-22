@@ -25,7 +25,7 @@ export function PublicHeader() {
             Agencias
           </Link>
           <Link
-            href="/login"
+            href="/entrar"
             className="font-medium text-primary hover:underline"
           >
             Entrar
