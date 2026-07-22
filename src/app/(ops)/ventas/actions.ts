@@ -30,6 +30,10 @@ export type CreateBookingInput = {
   lines: CreateBookingLine[]
   /** 'reserved' = venta (default) · 'draft' = cotización. */
   status?: 'reserved' | 'draft'
+  /** F6: divisa original de la venta. USD ⇒ las líneas ya vienen en MXN (el
+   *  form convirtió con exchangeRate); solo se anota divisa+TC para mostrar. */
+  currency?: 'MXN' | 'USD'
+  exchangeRate?: number
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100
@@ -130,6 +134,21 @@ export async function createBooking(
   )
   if (rpcError || !bookingId) {
     return { error: safeError(rpcError, 'No se pudo guardar la venta.') }
+  }
+
+  // F6: si la venta se cotizó en USD, anota divisa + TC (el MXN ya quedó
+  // autoritativo con las líneas convertidas). Best-effort tras crear la venta.
+  if (input.currency === 'USD' && Number(input.exchangeRate) > 0) {
+    const { error: curError } = await supabase.rpc('set_booking_currency' as never, {
+      p_booking_id: bookingId as string,
+      p_currency: 'USD',
+      p_rate: Number(input.exchangeRate),
+    } as never)
+    if (curError) {
+      return {
+        error: safeError(curError, 'La venta se creó, pero no se pudo anotar la divisa (USD).'),
+      }
+    }
   }
 
   revalidatePath('/ventas')
