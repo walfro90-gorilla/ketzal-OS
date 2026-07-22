@@ -77,6 +77,21 @@ superficie compartida tiene un dueño designado.
 Regla de oro: **el dueño de BD/tipos es uno solo.** Los demás usan un cast
 puntual en su `data.ts` si necesitan un RPC nuevo, sin tocar `database.types.ts`.
 
+### Espejos de migraciones (`db/proposed/`)
+
+Ambos carriles escriben espejos de migraciones aquí. Para no chocar en la
+numeración, **cada carril prefija con su letra y lleva su propio contador**:
+`bNNN_` (backend / dinero) y `mNNN_` (marketplace / viajero). Como los prefijos
+difieren, nunca coinciden aunque usen el mismo número. Detalle, próximo número y
+tabla de legacy en **`db/proposed/README.md`**. Los `NNN_` sin prefijo (001–016)
+son previos a la convención y **no se renumeran**.
+
+> ⚠️ **`git add` con rutas dinámicas de Next.** Los paths con brackets
+> (`app/servicio/[id]/…`) son *glob* en los pathspecs de git: `git add
+> "app/x/[id]/page.tsx"` puede no stagear nada (el `[id]` se interpreta como
+> clase de caracteres). Stagea **por directorio** (`git add src/app/servicio`) y
+> **revisa `git status` antes de commitear** para confirmar que quedó staged.
+
 ## Integración (checkpoints)
 
 ```bash
