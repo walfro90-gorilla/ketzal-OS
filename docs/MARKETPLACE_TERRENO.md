@@ -231,6 +231,49 @@ efecto en prod). Buscan romper RLS / dinero / cupo / calificaciones.
   Resto (RLS directo/RPC/cross-agency, ledger append-only, folio, cupo, ratings, plan,
   inyección, anon, idempotencia, refund) aguantó. Superficie agotada.
 
+## 🟢 GO-LIVE (2026-07-21) — marketplace encendido y validado con dinero real
+
+El marketplace pasó de dark a **vivo en producción**. Compradores reales pueden
+registrarse, pedir y pagar en línea.
+
+**Encendido:**
+- Var `NEXT_PUBLIC_MARKETPLACE=on` en Vercel (Production) + **redeploy** (es
+  `NEXT_PUBLIC`, se hornea en build). Config de cobro ya lista: `MP_ACCESS_TOKEN`
+  (prod, `APP_USR-`), `MP_WEBHOOK_SECRET`, webhook `/api/mp/webhook`.
+
+**Fix de go-live (cazado en verificación post-deploy):** el flag estaba on pero
+`/comprar` **no** estaba en el allowlist de `src/proxy.ts` ⇒ el middleware expulsaba
+al visitante sin sesión a `/login`, rompiendo el auto-registro del comprador.
+Corregido: `path.startsWith('/comprar/')` agregado al allowlist. (Commit
+`fix(marketplace): /comprar publico en el proxy`.)
+
+**Verificación de superficies en prod** (`ketzal-os.vercel.app`): `/explora` 200 ·
+ficha con CTA "Comprar en línea" + "Reseñas de viajeros" · `/comprar/[id]` 200 con
+form de registro · `/mis-compras` session-gated.
+
+**Validación con dinero real (el paso que los self-tests single-thread no cubrían):**
+- Servicio de prueba temporal de **$10** publicado bajo una agencia del fundador,
+  comprado end-to-end con **tarjeta de débito real**, luego despublicado
+  (`services.published=false`; no se borra porque el booking del test lo referencia
+  y el ledger es append-only).
+- Resultado en el ledger: booking `paid`, total $10, **saldo $0.00**; 1 pago
+  `mercadopago`/`COMPLETED` (txn MP `169054162353`); intent `approved` ligado al
+  pago; comprador aislado (cuenta nueva, no agente); **cero anomalías**
+  (sin `sobrepago`/`pagado_sin_cupo`/`pago_cancelado`).
+- ⇒ webhook → `confirm_online_payment` → abono al ledger → `paid` **funciona con MP
+  vivo**. La `.md` "corregido 2026-07-19: bookings/payments en cero" queda superada:
+  hay 1 venta pagada real (de prueba) por el canal marketplace.
+
+**Notas post-go-live:**
+- El test de $10 quedó como venta real en la agencia vendedora (reembolsable desde
+  el panel de MP si se quiere; o se deja como registro del primer pago).
+- **Autoconfirm de correo** (Supabase Auth): el registro+pago fluyó de corrido ⇒ el
+  correo confirmó bien o está en autoconfirm. Si se quiere UX inmediata sin paso de
+  correo, apagar "Confirm email" en Supabase → Auth → Providers → Email.
+- **Pendiente menor** (no bloquea): filtro/badge "Marketplace" en la *lista* `/ventas`
+  (hoy el badge está en el detalle); hardening `travel_date < hoy` en
+  `create_marketplace_order` (nit G3).
+
 ## Reglas de oro que respeta
 
 - **Aislamiento RLS:** comprador ≠ agente; la RLS por agencia no se toca.
