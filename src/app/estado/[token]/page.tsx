@@ -1,7 +1,9 @@
 import type { Metadata } from 'next'
 import { getStatement } from './data'
+import { getDocDivisa } from '@/lib/public/doc-currency'
 import { getBrandLogo } from '@/lib/brand'
 import { BrandMark } from '@/components/brand-mark'
+import { NotaDivisa } from '@/components/public/nota-divisa'
 import { PoweredByKetzal } from '@/components/data/powered-by-ketzal'
 import { CompartirWhatsApp } from '@/components/data/compartir-whatsapp'
 import { ImprimirBoton } from '@/components/imprimir-boton'
@@ -64,9 +66,10 @@ export async function generateMetadata({
   const s = await getStatement(token)
   if (!s) return { title: 'Estado de cuenta', robots: { index: false } }
 
+  // Importes en MXN (autoritativos), aun para ventas pactadas en USD.
   const money = new Intl.NumberFormat('es-MX', {
     style: 'currency',
-    currency: s.moneda || 'MXN',
+    currency: 'MXN',
     maximumFractionDigits: 0,
   })
   const saldo = Number(s.saldo)
@@ -115,10 +118,13 @@ export default async function EstadoCuentaPublicoPage({
   if (!statement) return <NotFound />
 
   const logo = await getBrandLogo()
+  // Origen en USD (null salvo que la venta se haya pactado en USD).
+  const divisa = await getDocDivisa('statement', token)
 
+  // Importes en MXN (autoritativos), aun para ventas pactadas en USD.
   const money = new Intl.NumberFormat('es-MX', {
     style: 'currency',
-    currency: statement.moneda || 'MXN',
+    currency: 'MXN',
   })
 
   return (
@@ -216,6 +222,13 @@ export default async function EstadoCuentaPublicoPage({
               Fecha límite de pago:{' '}
               <span className="tabular-nums">{formatDate(statement.due_date)}</span>
             </p>
+          )}
+          {divisa && (
+            <NotaDivisa
+              rate={divisa.exchange_rate}
+              totalMxn={Number(statement.total)}
+              className="text-xs text-muted-foreground"
+            />
           )}
         </CardContent>
       </Card>

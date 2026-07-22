@@ -34,7 +34,7 @@ export default async function Image({
 
   const money = new Intl.NumberFormat('es-MX', {
     style: 'currency',
-    currency: quote.currency || 'MXN',
+    currency: 'MXN',
     maximumFractionDigits: 0,
   })
   const fecha = quote.travel_date
@@ -51,7 +51,7 @@ export default async function Image({
     agency: quote.agency.name,
     title: quote.service?.name ?? 'Viaje a medida',
     subtitle,
-    figure: `${money.format(Number(quote.total))} ${quote.currency || 'MXN'}`,
+    figure: `${money.format(Number(quote.total))} MXN`,
     figureLabel: 'Total',
   })
 }
