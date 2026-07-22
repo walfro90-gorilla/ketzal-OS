@@ -26,7 +26,7 @@ export default async function Image({
 
   const money = new Intl.NumberFormat('es-MX', {
     style: 'currency',
-    currency: r.moneda || 'MXN',
+    currency: 'MXN',
     maximumFractionDigits: 0,
   })
   const isRefund = r.tipo === 'refund'
@@ -37,7 +37,7 @@ export default async function Image({
     agency: r.agencia,
     title: `Folio #${folio}`,
     subtitle: [r.cliente ?? undefined, r.concepto].filter(Boolean).join(' · '),
-    figure: `${money.format(Number(r.monto))} ${r.moneda || 'MXN'}`,
+    figure: `${money.format(Number(r.monto))} MXN`,
     figureLabel: isRefund ? 'Monto reembolsado' : 'Monto recibido',
     // Reembolso en rojo de marca; abono en verde hoja (default).
     accent: isRefund ? '#FF5A6A' : undefined,

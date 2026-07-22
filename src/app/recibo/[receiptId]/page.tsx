@@ -1,8 +1,10 @@
 import type { ReactNode } from 'react'
 import type { Metadata } from 'next'
 import { getReceipt } from './data'
+import { getDocDivisa } from '@/lib/public/doc-currency'
 import { getBrandLogo } from '@/lib/brand'
 import { BrandMark } from '@/components/brand-mark'
+import { NotaDivisa } from '@/components/public/nota-divisa'
 import { PoweredByKetzal } from '@/components/data/powered-by-ketzal'
 import { ImprimirBoton } from '@/components/imprimir-boton'
 import { CompartirWhatsApp } from '@/components/data/compartir-whatsapp'
@@ -120,16 +122,18 @@ export async function generateMetadata({
   const r = await getReceipt(receiptId)
   if (!r) return { title: 'Recibo', robots: { index: false } }
 
+  // Los importes se almacenan en MXN (autoritativos), aun cuando la venta se
+  // pactó en USD (el form convirtió con el TC). El origen USD se anota como nota.
   const money = new Intl.NumberFormat('es-MX', {
     style: 'currency',
-    currency: r.moneda || 'MXN',
+    currency: 'MXN',
     maximumFractionDigits: 0,
   })
   const isRefund = r.tipo === 'refund'
   const folio = String(r.folio).padStart(4, '0')
   const kind = isRefund ? 'Reembolso' : 'Recibo de pago'
   const title = `${kind} #${folio} — ${r.agencia}`
-  const monto = `${money.format(Number(r.monto))} ${r.moneda || 'MXN'}`
+  const monto = `${money.format(Number(r.monto))} MXN`
   const description = [
     r.cliente ? `Para ${r.cliente}` : null,
     `${isRefund ? 'Reembolso' : 'Abono'} de ${monto}`,
@@ -172,18 +176,20 @@ export default async function ReciboPage({
   if (!r) return <NotFound />
 
   const logo = await getBrandLogo()
+  // Origen en USD (null salvo que la venta se haya pactado en USD).
+  const divisa = await getDocDivisa('receipt', receiptId)
 
+  // Los importes están en MXN (autoritativos), aun para ventas pactadas en USD.
   const money = new Intl.NumberFormat('es-MX', {
     style: 'currency',
-    currency: r.moneda || 'MXN',
+    currency: 'MXN',
   })
   const isRefund = r.tipo === 'refund'
   const saldo = Number(r.saldo)
   const liquidada = saldo <= 0
   const folio = String(r.folio).padStart(4, '0')
   const metodo = r.metodo ? METHOD_LABELS[r.metodo] ?? r.metodo : '—'
-  const letra =
-    (r.moneda || 'MXN') === 'MXN' ? montoConLetra(Number(r.monto)) : null
+  const letra = montoConLetra(Number(r.monto))
   // Teal de interacción (AA sobre blanco) para abonos; rojo de marca para reembolsos.
   const accentText = isRefund ? 'text-[#C00017]' : 'text-[#00805F]'
   const chipTint = isRefund
@@ -253,7 +259,7 @@ export default async function ReciboPage({
           <p className="mt-3 text-4xl leading-none font-bold tracking-tight tabular-nums sm:text-[44px]">
             {money.format(Number(r.monto))}
             <span className="ml-2 align-baseline text-base font-semibold tracking-normal text-neutral-400">
-              {r.moneda || 'MXN'}
+              MXN
             </span>
           </p>
           {letra && (
@@ -289,6 +295,14 @@ export default async function ReciboPage({
             </div>
           </dl>
         </section>
+
+        {divisa && (
+          <NotaDivisa
+            rate={divisa.exchange_rate}
+            totalMxn={Number(r.total)}
+            className="mt-6 text-center text-[11px] leading-relaxed text-neutral-500 break-inside-avoid"
+          />
+        )}
 
         {/* Línea de sello/firma: da formalidad al comprobante impreso */}
         <div className="mt-14 flex justify-center break-inside-avoid print:mt-16">

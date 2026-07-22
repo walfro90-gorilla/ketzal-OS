@@ -26,7 +26,7 @@ export default async function Image({
 
   const money = new Intl.NumberFormat('es-MX', {
     style: 'currency',
-    currency: s.moneda || 'MXN',
+    currency: 'MXN',
     maximumFractionDigits: 0,
   })
   const saldo = Number(s.saldo)
@@ -44,7 +44,7 @@ export default async function Image({
       .join(' · '),
     figure: liquidada
       ? 'Liquidada'
-      : `${money.format(saldo)} ${s.moneda || 'MXN'}`,
+      : `${money.format(saldo)} MXN`,
     figureLabel: liquidada ? 'Estado' : 'Saldo pendiente',
   })
 }

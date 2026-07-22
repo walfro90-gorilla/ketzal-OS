@@ -1,7 +1,9 @@
 import type { Metadata } from 'next'
 import { getQuote } from './data'
+import { getDocDivisa } from '@/lib/public/doc-currency'
 import { getBrandLogo } from '@/lib/brand'
 import { BrandMark } from '@/components/brand-mark'
+import { NotaDivisa } from '@/components/public/nota-divisa'
 import { PoweredByKetzal } from '@/components/data/powered-by-ketzal'
 import { CompartirWhatsApp } from '@/components/data/compartir-whatsapp'
 import { ImprimirBoton } from '@/components/imprimir-boton'
@@ -26,13 +28,12 @@ import {
 
 // Formatters locales (duplicados a propósito: los de (ops)/ventas/ui.tsx
 // viven en el grupo privado; esta página es pública y autocontenida).
-// La moneda sale de la cotización (una agencia puede cotizar en USD).
-function moneyFormatter(currency: string | null | undefined) {
-  return new Intl.NumberFormat('es-MX', {
-    style: 'currency',
-    currency: currency || 'MXN',
-  })
-}
+// Los importes se muestran en MXN (autoritativos): al cotizar en USD el form
+// convirtió con el TC; el origen USD se anota aparte con <NotaDivisa>.
+const mxnFmt = new Intl.NumberFormat('es-MX', {
+  style: 'currency',
+  currency: 'MXN',
+})
 
 const dateFormatter = new Intl.DateTimeFormat('es-MX', { dateStyle: 'long' })
 
@@ -71,7 +72,7 @@ export async function generateMetadata({
   const quote = await getQuote(token)
   if (!quote) return { title: 'Cotización', robots: { index: false } }
 
-  const total = `${moneyFormatter(quote.currency).format(Number(quote.total))} ${quote.currency || 'MXN'}`
+  const total = `${mxnFmt.format(Number(quote.total))} MXN`
   const service = quote.service?.name ?? 'Viaje a medida'
   const title = `Cotización · ${service} — ${quote.agency.name}`
   const description = `Para ${quote.customer.full_name} · ${quote.num_pax} pax · ${formatTravelDate(quote.travel_date)} · Total ${total}`
@@ -111,7 +112,9 @@ export default async function CotizacionPublicaPage({
   if (!quote) return <NotFound />
 
   const logo = await getBrandLogo()
-  const fmt = moneyFormatter(quote.currency)
+  const fmt = mxnFmt
+  // Origen en USD (null salvo que la cotización se haya pactado en USD).
+  const divisa = await getDocDivisa('quote', token)
 
   // Plan de pagos: filas con saldo restante (suma pura, sin acumulador mutable).
   const total = Number(quote.total)
@@ -271,10 +274,18 @@ export default async function CotizacionPublicaPage({
             <div className="flex items-center justify-between border-t pt-2 text-lg font-bold">
               <span>Total</span>
               <span className="tabular-nums">
-                {fmt.format(Number(quote.total))} {quote.currency || 'MXN'}
+                {fmt.format(Number(quote.total))} MXN
               </span>
             </div>
           </div>
+
+          {divisa && (
+            <NotaDivisa
+              rate={divisa.exchange_rate}
+              totalMxn={Number(quote.total)}
+              className="text-xs text-muted-foreground"
+            />
+          )}
         </CardContent>
       </Card>
 
