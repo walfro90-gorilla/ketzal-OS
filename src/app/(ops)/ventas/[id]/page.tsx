@@ -19,6 +19,7 @@ import { CancelarVenta } from './cancelar-venta'
 import { VencimientoForm } from './vencimiento-form'
 import { PasajerosSection } from './pasajeros'
 import type { Pasajero } from './pasajeros-actions'
+import { VoucherBoton } from './voucher-boton'
 
 type LineItem = {
   id: string
@@ -168,6 +169,14 @@ export default async function VentaDetallePage({
     .eq('booking_id' as never, id as never)
     .order('created_at' as never)
   const pasajeros = (pasajerosData ?? []) as unknown as Pasajero[]
+
+  // F4: ¿ya tiene voucher emitido? (tabla nueva, no tipada ⇒ cast). RLS acota.
+  const { data: voucherRow } = await supabase
+    .from('vouchers' as never)
+    .select('id' as never)
+    .eq('booking_id' as never, id as never)
+    .maybeSingle()
+  const voucherId = (voucherRow as { id?: string } | null)?.id ?? null
 
   // Calendario sugerido del plan de pagos (seq 0 = enganche).
   const { data: schedule } = await supabase
@@ -356,6 +365,10 @@ export default async function VentaDetallePage({
         initial={pasajeros}
         canEdit={!cancelada}
       />
+
+      {['reserved', 'confirmed', 'paid'].includes(booking.status) && (
+        <VoucherBoton bookingId={booking.id} initialVoucherId={voucherId} />
+      )}
 
       <PlanPagosSection
         bookingId={booking.id}
