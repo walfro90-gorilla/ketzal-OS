@@ -10,6 +10,10 @@ export type ClawbotKind =
   | 'abono_vencido'
   | 'cotizacion_seguimiento'
   | 'viaje_proximo'
+  // F7 — reglas operativas (clawbot_reglas_operativas):
+  | 'saldo_sin_plan'
+  | 'viaje_manana_operativo'
+  | 'pago_sin_recibo'
 
 export type ClawbotReminder = {
   id: string

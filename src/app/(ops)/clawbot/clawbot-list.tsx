@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { SendIcon, XIcon } from 'lucide-react'
+import Link from 'next/link'
+import { ArrowRightIcon, SendIcon, XIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import {
   Card,
   CardAction,
@@ -32,7 +33,19 @@ const KIND_CHIP: Record<
   abono_por_vencer: { label: 'Abono por vencer', variant: 'warning' },
   viaje_proximo: { label: 'Viaje próximo', variant: 'default' },
   cotizacion_seguimiento: { label: 'Cotización', variant: 'secondary' },
+  // F7 — reglas operativas. saldo_sin_plan es cobranza (whatsapp al cliente);
+  // los otros dos son internos al agente (sin teléfono, con "Ver venta").
+  saldo_sin_plan: { label: 'Saldo por cobrar', variant: 'warning' },
+  viaje_manana_operativo: { label: 'Viaje mañana', variant: 'default' },
+  pago_sin_recibo: { label: 'Abono sin recibo', variant: 'secondary' },
 }
+
+// Recordatorios internos al agente (no se mandan por WhatsApp): en vez del
+// botón de enviar, se ofrece un enlace directo a la venta.
+const INTERNAL_KINDS = new Set<ClawbotKind>([
+  'viaje_manana_operativo',
+  'pago_sin_recibo',
+])
 
 /**
  * Normaliza el teléfono para wa.me: solo dígitos, y si son 10 (número local
@@ -54,6 +67,7 @@ function ReminderCard({ reminder }: { reminder: ClawbotReminder }) {
     variant: 'outline' as const,
   }
   const tel = waPhone(reminder.phone)
+  const isInternal = INTERNAL_KINDS.has(reminder.kind)
 
   function handleEnviar() {
     if (!tel) return
@@ -99,24 +113,42 @@ function ReminderCard({ reminder }: { reminder: ClawbotReminder }) {
         </CardAction>
       </CardHeader>
       <CardContent className="space-y-3">
-        {/* min-h-24: el mensaje de WhatsApp suele ser más largo que una nota. */}
-        <Textarea
-          id={`clawbot-msg-${reminder.id}`}
-          aria-label="Mensaje del recordatorio"
-          className="min-h-24"
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          disabled={isPending}
-        />
+        {isInternal ? (
+          // Recordatorio interno: la nota es de lectura (no se edita ni se
+          // manda por WhatsApp); la acción es abrir la venta.
+          <p className="text-sm text-muted-foreground">{reminder.message}</p>
+        ) : (
+          /* min-h-24: el mensaje de WhatsApp suele ser más largo que una nota. */
+          <Textarea
+            id={`clawbot-msg-${reminder.id}`}
+            aria-label="Mensaje del recordatorio"
+            className="min-h-24"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            disabled={isPending}
+          />
+        )}
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <Button
-            type="button"
-            onClick={handleEnviar}
-            disabled={!tel || isPending}
-          >
-            <SendIcon />
-            {isPending ? 'Enviando…' : 'Enviar por WhatsApp'}
-          </Button>
+          {isInternal ? (
+            reminder.booking_id && (
+              <Link
+                href={`/ventas/${reminder.booking_id}`}
+                className={buttonVariants()}
+              >
+                <ArrowRightIcon />
+                Ver venta
+              </Link>
+            )
+          ) : (
+            <Button
+              type="button"
+              onClick={handleEnviar}
+              disabled={!tel || isPending}
+            >
+              <SendIcon />
+              {isPending ? 'Enviando…' : 'Enviar por WhatsApp'}
+            </Button>
+          )}
           <Button
             type="button"
             variant="ghost"
@@ -126,7 +158,7 @@ function ReminderCard({ reminder }: { reminder: ClawbotReminder }) {
             <XIcon />
             Descartar
           </Button>
-          {!tel && (
+          {!isInternal && !tel && (
             <p className="text-xs text-muted-foreground sm:ml-auto">
               Sin teléfono
             </p>

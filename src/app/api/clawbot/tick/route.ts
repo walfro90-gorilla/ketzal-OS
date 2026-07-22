@@ -29,6 +29,21 @@ export async function GET(request: Request) {
     pendientes,
   })
 
+  // 1b. Reglas operativas (F7): saldo_sin_plan, viaje_manana_operativo,
+  //     pago_sin_recibo. Función aparte del motor, también idempotente.
+  const { data: operativos, error: opErr } = await supabase.rpc(
+    'clawbot_reglas_operativas' as never
+  )
+  if (opErr) {
+    await logSistema(supabase, 'clawbot_tick', 'error', 'fallo en reglas operativas', {
+      message: opErr.message,
+    })
+  } else {
+    await logSistema(supabase, 'clawbot_tick', 'info', 'reglas operativas generadas', {
+      pendientes: operativos,
+    })
+  }
+
   // 2. Chequeo de invariantes de dinero (monitoreo diario).
   const { data: inv, error: invErr } = await supabase.rpc(
     'verificar_invariantes' as never
