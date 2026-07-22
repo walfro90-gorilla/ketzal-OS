@@ -101,7 +101,10 @@ Aplicada (`ketzal_currency_usd`, espejo `db/proposed/014`) + hard-testeada
 (USD $1000@17.5=17500 MXN, guards, RLS, CHECK) + en prod. **Sin tocar
 `create_booking_with_items`**: el form convierte USD→MXN y `set_booking_currency`
 anota divisa+TC. App: selector MXN/USD + TC en `/ventas/nueva`, USD original en
-`/ventas/[id]`. Advisors 0 ERROR. Follow-up: nota USD en documentos públicos.
+`/ventas/[id]`. Advisors 0 ERROR. Follow-up **cerrado (2026-07-22)**: nota USD·TC
+en documentos públicos (recibo/cotización/estado muestran MXN autoritativo +
+nota USD vía el RPC nuevo `get_public_doc_currency`, sin re-aplicar los RPCs
+públicos compartidos; espejo `db/proposed/016`).
 
 `bookings.exchange_rate` + checks (MXN ⇔ rate null). **El motor entero sigue
 MXN**: al vender en USD el RPC convierte al registrar (original en
