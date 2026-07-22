@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { StarIcon, ChevronRightIcon } from 'lucide-react'
+import { StarIcon, ChevronRightIcon, ClockIcon } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { crearLinkPagoMarketplace, calificar } from '@/app/comprar/actions'
@@ -19,6 +20,7 @@ export type Order = {
   paid: number
   balance: number
   next_due: number
+  next_due_date: string | null
   can_rate: boolean
   rated_provider: boolean
   rated_app: boolean
@@ -39,6 +41,29 @@ function fechaCorta(d: string | null): string | null {
   return new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }).format(
     new Date(y, m - 1, day)
   )
+}
+
+/** Recordatorio del próximo abono con urgencia (vencido / hoy / en N días). */
+function abonoAviso(
+  d: string | null
+): { text: string; tone: 'danger' | 'warn' | 'muted' } | null {
+  if (!d) return null
+  const [y, m, day] = d.split('-').map(Number)
+  const due = new Date(y, m - 1, day)
+  const hoy = new Date()
+  hoy.setHours(0, 0, 0, 0)
+  const dias = Math.round((due.getTime() - hoy.getTime()) / 86400000)
+  const f = fechaCorta(d)
+  if (dias < 0) return { text: `Abono vencido (venció el ${f})`, tone: 'danger' }
+  if (dias === 0) return { text: 'Tu abono vence hoy', tone: 'warn' }
+  if (dias <= 7) return { text: `Tu abono vence en ${dias} día${dias > 1 ? 's' : ''} · ${f}`, tone: 'warn' }
+  return { text: `Próximo abono: ${f}`, tone: 'muted' }
+}
+
+const TONO: Record<'danger' | 'warn' | 'muted', string> = {
+  danger: 'text-destructive',
+  warn: 'text-amber-600 dark:text-amber-500',
+  muted: 'text-muted-foreground',
 }
 
 /** Selector de estrellas 1-5. */
@@ -154,6 +179,15 @@ export function OrderCard({ order }: { order: Order }) {
         {/* Pago pendiente */}
         {order.balance > 0 && order.service_id && (
           <div className="flex flex-col gap-2">
+            {conPlan &&
+              (() => {
+                const aviso = abonoAviso(order.next_due_date)
+                return aviso ? (
+                  <p className={cn('flex items-center gap-1.5 text-sm font-medium', TONO[aviso.tone])}>
+                    <ClockIcon className="size-4 shrink-0" /> {aviso.text}
+                  </p>
+                ) : null
+              })()}
             <Button
               type="button"
               size="touch"
