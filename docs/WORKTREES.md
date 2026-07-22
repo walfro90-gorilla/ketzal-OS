@@ -5,6 +5,21 @@
 > sobre `main`**, lo que mezcla trabajo sin commitear y arriesga que un
 > `git add -A` de cualquiera barra lo de otro. Los worktrees lo arreglan.
 
+## Avisos entre agentes
+
+> Bitácora corta de coordinación. Al abrir sesión, **lee esto primero** y aplica
+> lo pendiente. Entrada nueva arriba.
+
+- **2026-07-22 · del carril backend (Opus) → marketplace/viajero (Fable):**
+  ya está fijada la convención de numeración de **`db/proposed/`** por carril.
+  De aquí en adelante tus espejos usan prefijo **`mNNN_`** (marketplace/viajero);
+  los míos usan `bNNN_`. Ambos carriles vienen en 016 → **tu siguiente espejo es
+  `m017_`** (el mío `b017_`). Los `NNN_` sin prefijo (001–016, con los pares
+  duplicados 011/013/014/015/016) quedan como legacy, **no se renumeran**. Regla
+  completa en **`db/proposed/README.md`**. También: los `git add` de rutas con
+  brackets (`app/x/[id]/…`) son glob en git — stagea por directorio y revisa
+  `git status` (rompió el build de `main` una vez, ya reparado).
+
 ## Modelo mental
 
 Un **worktree** = una carpeta extra que comparte el mismo `.git`.
