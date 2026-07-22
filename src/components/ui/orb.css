@@ -1,0 +1,75 @@
+/* "Thinking orb" — esfera con gradiente cónico animado + glow. Recreación CSS
+   ligera (sin canvas/JS) del loader de orbs.jakubantalik.com, themeada al teal
+   de marca (--primary). Tamaño por la var --orb-size. */
+.orb {
+  --orb-size: 2.5rem;
+  position: relative;
+  display: inline-block;
+  width: var(--orb-size);
+  height: var(--orb-size);
+  border-radius: 9999px;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+/* Halo giratorio: gradiente cónico multicolor difuminado. */
+.orb::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: conic-gradient(
+    from 0deg,
+    var(--primary),
+    color-mix(in oklch, var(--primary), white 42%),
+    color-mix(in oklch, var(--primary), #6366f1 55%),
+    color-mix(in oklch, var(--primary), white 24%),
+    var(--primary)
+  );
+  filter: blur(calc(var(--orb-size) * 0.12));
+  animation: orb-spin 2.4s linear infinite;
+}
+
+/* Núcleo pulsante con brillo especular + glow. */
+.orb::after {
+  content: '';
+  position: absolute;
+  inset: 16%;
+  border-radius: inherit;
+  background:
+    radial-gradient(
+      circle at 34% 30%,
+      rgba(255, 255, 255, 0.9),
+      rgba(255, 255, 255, 0) 55%
+    ),
+    color-mix(in oklch, var(--primary), white 12%);
+  box-shadow: 0 0 calc(var(--orb-size) * 0.4)
+    color-mix(in oklch, var(--primary), transparent 55%);
+  animation: orb-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes orb-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+@keyframes orb-pulse {
+  0%,
+  100% {
+    transform: scale(0.9);
+    opacity: 0.85;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+}
+
+/* Respeta reduce-motion: ralentiza en vez de detener (el orb sigue indicando actividad). */
+@media (prefers-reduced-motion: reduce) {
+  .orb::before,
+  .orb::after {
+    animation-duration: 6s;
+  }
+}

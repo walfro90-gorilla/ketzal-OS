@@ -114,7 +114,7 @@ export function PagoBloque({
           type="button"
           size="touch"
           className="w-full"
-          disabled={busy}
+          loading={busy}
           onClick={() => pagar()}
         >
           {busy ? 'Abriendo pago…' : `Pagar en línea ${mxn.format(total)}`}
@@ -164,7 +164,7 @@ export function PagoBloque({
               type="button"
               variant="outline"
               className="w-full"
-              disabled={busy}
+              loading={busy}
               onClick={calcular}
             >
               {busy ? 'Calculando…' : 'Ver plan'}
@@ -188,7 +188,7 @@ export function PagoBloque({
                 type="button"
                 size="touch"
                 className="w-full"
-                disabled={busy}
+                loading={busy}
                 onClick={pagarEnganche}
               >
                 {busy ? 'Abriendo pago…' : `Pagar enganche ${mxn.format(preview.enganche)}`}

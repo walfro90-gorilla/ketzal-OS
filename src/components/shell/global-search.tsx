@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { buscarGlobal, type ResultadoBusqueda } from '@/app/(ops)/buscar-actions'
 import { Input } from '@/components/ui/input'
+import { Orb } from '@/components/ui/orb'
 import { cn } from '@/lib/utils'
 
 // Paleta de búsqueda global (⌘K / Ctrl+K): clientes, ventas, cotizaciones,
@@ -232,12 +233,7 @@ export function GlobalSearch() {
               onKeyDown={onInputKeyDown}
               className="h-12 rounded-none border-0 bg-transparent px-0 shadow-none focus-visible:border-transparent focus-visible:ring-0 dark:bg-transparent"
             />
-            {loading && (
-              <span
-                aria-hidden
-                className="size-2 shrink-0 animate-pulse rounded-full bg-primary motion-reduce:animate-none"
-              />
-            )}
+            {loading && <Orb size="xs" decorative />}
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1.5">
