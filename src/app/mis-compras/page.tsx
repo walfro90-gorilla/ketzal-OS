@@ -4,14 +4,25 @@ import { createClient } from '@/lib/supabase/server'
 import { marketplaceActivo } from '@/lib/marketplace'
 import { buttonVariants } from '@/components/ui/button'
 import { OrderCard, type Order } from './order-card'
+import { PagoProcesando } from './pago-procesando'
 
 // "Mis compras" del comprador B2C (B.3). Lista sus pedidos vía RPC SECURITY
 // DEFINER (el comprador no tiene RLS sobre bookings). Aquí paga los abonos
 // siguientes y califica el viaje. Tras el flag del marketplace.
 export const metadata = { robots: { index: false } }
 
-export default async function MisComprasPage() {
+export default async function MisComprasPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
   if (!marketplaceActivo()) notFound()
+
+  // MP agrega sus params al regresar (status/collection_status/payment_id).
+  // Su presencia = el comprador acaba de volver de pagar → mostrar "validando".
+  const sp = await searchParams
+  const volviendoDePago =
+    sp.status != null || sp.collection_status != null || sp.payment_id != null
 
   const supabase = await createClient()
   const {
@@ -38,6 +49,7 @@ export default async function MisComprasPage() {
   return (
     <main className="mx-auto w-full max-w-lg flex-1 px-4 py-8 sm:py-12">
       <h1 className="text-2xl font-bold tracking-tight">Mis compras</h1>
+      {volviendoDePago && <PagoProcesando />}
       {orders.length === 0 ? (
         <p className="mt-4 text-sm text-muted-foreground">
           Aún no tienes viajes.{' '}

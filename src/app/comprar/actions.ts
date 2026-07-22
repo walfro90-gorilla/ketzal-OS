@@ -157,10 +157,15 @@ export async function crearLinkPagoMarketplace(
       ],
       external_reference: intent.id,
       notification_url: `${origin}/api/mp/webhook`,
+      // Tras pagar, MP regresa al perfil del comprador ("Mis compras"), donde
+      // ve su pedido y espera la validación (el webhook lo pasa a pagado async).
+      // Sin auto_return ni query-strings propios (la combinación es la causa #1
+      // del "/fatal/" en MP); MP agrega sus propios params, que /mis-compras usa
+      // para mostrar el banner de "validando".
       back_urls: {
-        success: `${origin}/servicio/${serviceId}`,
-        failure: `${origin}/servicio/${serviceId}`,
-        pending: `${origin}/servicio/${serviceId}`,
+        success: `${origin}/mis-compras`,
+        failure: `${origin}/mis-compras`,
+        pending: `${origin}/mis-compras`,
       },
     }),
   })
