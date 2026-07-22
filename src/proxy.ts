@@ -54,7 +54,9 @@ export async function proxy(request: NextRequest) {
       .eq('id', user.id)
       .single()
     if (!isAdminRole(profile?.role)) {
-      const url = request.nextUrl.clone(); url.pathname = '/dashboard'; return NextResponse.redirect(url)
+      // '/' resuelve por persona: el agente no-admin cae en /dashboard, el viajero
+      // en /mis-compras (sin el salto extra vía /dashboard).
+      const url = request.nextUrl.clone(); url.pathname = '/'; return NextResponse.redirect(url)
     }
   }
   return response
