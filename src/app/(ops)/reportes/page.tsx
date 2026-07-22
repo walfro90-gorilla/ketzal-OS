@@ -13,6 +13,12 @@ import { RangoFechas } from './rango-fechas'
 import { ExportarCsv } from './exportar-csv'
 import { BarrasTop, GraficaMensual } from './graficas'
 import { getExpensesSummary } from '../gastos/data'
+import {
+  ConversionCard,
+  MetaMesCard,
+  type Conversion,
+  type GoalsProgress,
+} from './conversion-meta'
 // Tipos del jsonb de ketzal.reports_summary(p_from, p_to): ver ./tipos.ts.
 import type { PorAgente, PorMes, PorServicio, Reporte } from './tipos'
 
@@ -136,10 +142,23 @@ export default async function ReportesPage({
     return <p className="text-sm text-muted-foreground">Sesión no válida.</p>
   }
 
-  const [summaryRes, gastos] = await Promise.all([
+  const [summaryRes, gastos, convRes, goalsRes] = await Promise.all([
     supabase.rpc('reports_summary', { p_from: from, p_to: to }),
     getExpensesSummary(from, to),
+    supabase.rpc('conversion_summary' as never, { p_from: from, p_to: to } as never),
+    supabase.rpc('goals_progress' as never, { p_month: to } as never),
   ])
+  const conv = (convRes.data ?? {
+    cotizadas: 0,
+    convertidas: 0,
+    tasa: 0,
+    por_agente: [],
+  }) as unknown as Conversion
+  const goals = (goalsRes.data ?? {
+    month: to.slice(0, 7),
+    agencia: { goal: 0, vendido: 0 },
+    agentes: [],
+  }) as unknown as GoalsProgress
 
   const base = (summaryRes.data ?? EMPTY_REPORTE) as unknown as Reporte
   const totalGastos = Number(gastos.total_gastos ?? 0)
@@ -315,6 +334,11 @@ export default async function ReportesPage({
             <p className="text-xs text-muted-foreground">Vendido − gastos</p>
           </CardContent>
         </Card>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <ConversionCard conv={conv} />
+        <MetaMesCard goals={goals} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
