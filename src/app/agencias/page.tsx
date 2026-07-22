@@ -3,7 +3,6 @@ import Link from 'next/link'
 import { MapPinIcon, RouteIcon, Building2Icon, StarIcon } from 'lucide-react'
 import { listPublicSuppliers } from './data'
 import { marketplaceActivo } from '@/lib/marketplace'
-import { esDemoReviews, demoRating } from '@/lib/demo/reviews'
 import { PublicHeader } from '@/components/public/public-header'
 import { PublicFooter } from '@/components/public/public-footer'
 
@@ -35,16 +34,10 @@ function RatingChip({ value, count }: { value: number; count: number }) {
   )
 }
 
-export default async function AgenciasPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ [k: string]: string | string[] | undefined }>
-}) {
+export default async function AgenciasPage() {
   // El rating ya viene en list_public_suppliers (RPC get_supplier_rating), sin
   // N+1 app-side. El flag solo decide si se muestra (consistente con la ficha).
-  // `?preview=reviews` pinta ratings de ejemplo sin BD ni flag (demo).
-  const demo = esDemoReviews((await searchParams).preview)
-  const conRating = marketplaceActivo() || demo
+  const conRating = marketplaceActivo()
   const agencias = await listPublicSuppliers()
 
   return (
@@ -73,8 +66,8 @@ export default async function AgenciasPage({
         </div>
       ) : (
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          {agencias.map((a, i) => {
-            const rating = demo ? demoRating(i) : a.rating
+          {agencias.map((a) => {
+            const rating = a.rating
             return (
             <Link
               key={a.id}
