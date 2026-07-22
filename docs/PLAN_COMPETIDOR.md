@@ -83,7 +83,13 @@ Tabla `vouchers` (uuid = token público, unique por booking, folio serie
 no el dinero). UI: ruta pública `/voucher/[id]` (calco de `/recibo/`), botón en
 la venta, allowlist en `proxy.ts` (no olvidar).
 
-### F5 — Metas por agente + productividad
+### F5 — Metas por agente + productividad — ✅ COMPLETA (2026-07-22)
+Aplicada (`ketzal_sales_goals_v1`, espejo `db/proposed/013`) + hard-testeada
+(upsert pisa, guard admin, RLS aislada, goals_progress, conversión 2/1=50%) +
+en prod. App: sección Metas en `/equipo`, cards Conversión + Meta del mes en
+`/reportes`. **Sin re-aplicar `reports_summary`** (conversion_summary aparte).
+Advisors 0 ERROR. Follow-up menor: conversión/meta en el CSV.
+
 Tabla `sales_goals` (meta mensual por agencia y/o agente; escritura solo vía
 RPC con guard admin). RPC `goals_progress`. `reports_summary` gana `conversion`
 (cotizadas = count(quote_folio), convertidas, tasa — habilitado por F1), solo
