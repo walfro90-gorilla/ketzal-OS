@@ -14,6 +14,7 @@ import {
 import { createClient } from '@/lib/supabase/server'
 import { marketplaceActivo } from '@/lib/marketplace'
 import { buttonVariants } from '@/components/ui/button'
+import { VoucherViajero } from './voucher-viajero'
 
 // Detalle del viaje del comprador B2C (#6): itinerario, qué incluye/no incluye y
 // contacto de la agencia. Datos vía RPC get_my_trip (SECURITY DEFINER, ownership
@@ -43,6 +44,7 @@ type Trip = {
     itinerary: { title?: string; description?: string }[]
   }
   agency: { name: string; phone: string | null; email: string | null; logo: string | null } | null
+  voucher_id: string | null
 }
 
 const mxn = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' })
@@ -92,6 +94,8 @@ export default async function TripPage({
   if (!trip) notFound()
 
   const { service: sv, booking: bk, money, agency } = trip
+  // El voucher acredita el servicio; disponible cuando la compra está apartada/pagada.
+  const puedeVoucher = ['reserved', 'confirmed', 'paid'].includes(bk.status)
   const ruta = [sv.city_from, sv.city_to].filter(Boolean).join(' → ') || sv.location
   const fecha = fechaLarga(bk.travel_date)
 
@@ -156,6 +160,20 @@ export default async function TripPage({
           <p className="mt-1 text-sm text-primary">Pagado por completo ✓</p>
         )}
       </section>
+
+      {puedeVoucher && (
+        <section className="mt-6">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Voucher de servicio
+          </h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Preséntalo al operador o al hotel. No muestra montos.
+          </p>
+          <div className="mt-3">
+            <VoucherViajero bookingId={bk.id} voucherId={trip.voucher_id} />
+          </div>
+        </section>
+      )}
 
       {sv.description && (
         <section className="mt-6">

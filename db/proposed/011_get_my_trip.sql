@@ -31,12 +31,14 @@ begin
       'itinerary', coalesce(sv.itinerary, '[]'::jsonb),
       'faqs', coalesce(sv.faqs, '[]'::jsonb)),
     'agency', case when sup.id is null then null else jsonb_build_object(
-      'name', sup.name, 'phone', sup.phone_number, 'email', sup.contact_email, 'logo', sup.img_logo) end
+      'name', sup.name, 'phone', sup.phone_number, 'email', sup.contact_email, 'logo', sup.img_logo) end,
+    'voucher_id', vch.id  -- voucher ya emitido (si existe); si no, el viajero lo genera
   ) into v
   from ketzal.bookings b
   join ketzal.bookings_with_balance bwb on bwb.id = b.id
   left join ketzal.services sv on sv.id = b.service_id
   left join ketzal.suppliers sup on sup.id = sv.supplier_id
+  left join ketzal.vouchers vch on vch.booking_id = b.id
   where b.id = p_booking_id and b.marketplace_customer_id = v_uid and b.status <> 'cancelled';
   return v;
 end $$;
