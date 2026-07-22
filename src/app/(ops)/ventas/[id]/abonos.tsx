@@ -21,6 +21,7 @@ import {
   compartirEstadoCuenta,
   crearLinkPago,
   emitirRecibo,
+  reembolsarPagoMP,
   registrarAbono,
 } from './actions'
 
@@ -31,6 +32,8 @@ export type AbonoRow = {
   status: string
   payment_method: string | null
   paid_at: string | null
+  /** En un asiento refund: el pago que revierte. Sirve para marcar pagos ya devueltos. */
+  refunds_payment_id?: string | null
 }
 
 export type ReciboRow = {
@@ -90,6 +93,15 @@ export function AbonosSection({
   const [formError, setFormError] = useState<string | null>(null)
   const [receiptError, setReceiptError] = useState<string | null>(null)
   const [emittingId, setEmittingId] = useState<string | null>(null)
+  const [isRefunding, startRefunding] = useTransition()
+  const [refundingId, setRefundingId] = useState<string | null>(null)
+
+  // Pagos ya reembolsados (por el link refunds_payment_id del asiento refund).
+  const refundedIds = new Set(
+    payments
+      .filter((p) => p.refunds_payment_id != null)
+      .map((p) => p.refunds_payment_id as string)
+  )
 
   // Saldo derivado (regla de oro): total − pagos + reembolsos.
   const saldo = balance(
@@ -203,6 +215,23 @@ export function AbonosSection({
     })
   }
 
+  function handleRefund(paymentId: string) {
+    const p = payments.find((x) => x.id === paymentId)
+    const monto = p ? Number(p.amount_mxn) : 0
+    const ok = window.confirm(
+      `¿Devolver ${mxn.format(monto)} al comprador por Mercado Pago? ` +
+        'El dinero regresa a su tarjeta. No se puede deshacer.'
+    )
+    if (!ok) return
+    setRefundingId(paymentId)
+    startRefunding(async () => {
+      const res = await reembolsarPagoMP(paymentId)
+      if ('error' in res) toast.error(res.error)
+      else toast.success(`Devuelto ${mxn.format(res.refunded)} por Mercado Pago`)
+      setRefundingId(null)
+    })
+  }
+
   // Columnas del ledger: tabla en desktop / tarjetas en móvil (sin scroll
   // horizontal). Se definen aquí para cerrar sobre los recibos y el emisor.
   const abonoColumns: DataColumn<AbonoRow>[] = [
@@ -260,6 +289,37 @@ export function AbonosSection({
             disabled={isEmitting}
           >
             {isEmitting && emittingId === p.id ? 'Emitiendo…' : 'Emitir recibo'}
+          </Button>
+        )
+      },
+    },
+    {
+      header: 'Devolver',
+      fullWidthOnCard: true,
+      cell: (p) => {
+        // Solo pagos de Mercado Pago (devolución real a la tarjeta).
+        const esMP =
+          p.type === 'payment' &&
+          p.status === 'COMPLETED' &&
+          p.payment_method === 'mercadopago'
+        if (!esMP) return null
+        if (refundedIds.has(p.id)) {
+          return (
+            <span className="text-xs text-muted-foreground">Reembolsado</span>
+          )
+        }
+        return (
+          <Button
+            type="button"
+            variant="destructive"
+            size="sm"
+            className="h-10 w-full md:h-7 md:w-auto"
+            onClick={() => handleRefund(p.id)}
+            disabled={isRefunding}
+          >
+            {isRefunding && refundingId === p.id
+              ? 'Devolviendo…'
+              : 'Devolver por MP'}
           </Button>
         )
       },

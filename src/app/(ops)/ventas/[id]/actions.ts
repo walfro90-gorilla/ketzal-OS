@@ -330,8 +330,12 @@ export async function calificarViajero(
 // Orden importa: primero MP (mueve el dinero), luego el ledger; si el ledger falla
 // tras un refund MP exitoso, se reporta para reconciliación manual (no se pierde
 // el registro del movimiento — el dinero ya salió de MP).
-export async function reembolsarMercadoPago(
-  bookingId: string
+// Devolución REAL por Mercado Pago de UN pago específico: devuelve el dinero a la
+// tarjeta (API refund de MP) y registra el asiento ligado (refund_payment). Orden
+// MP→ledger; si el ledger falla tras un refund MP exitoso, se reporta para
+// reconciliación manual (el dinero ya salió de MP).
+export async function reembolsarPagoMP(
+  paymentId: string
 ): Promise<{ error: string } | { ok: true; refunded: number }> {
   const token = process.env.MP_ACCESS_TOKEN
   if (!token) return { error: 'Mercado Pago no está configurado.' }
@@ -342,76 +346,68 @@ export async function reembolsarMercadoPago(
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // v1: una devolución por venta. Si ya hay un reembolso, no se repite.
-  const { data: refunds } = await supabase
+  // El pago a devolver (RLS: solo tus ventas). `transaction_id` no está en
+  // database.types.ts (tipos a mano) ⇒ cast del select, como el resto del repo.
+  const { data: payRaw } = await supabase
     .from('payments')
-    .select('id')
-    .eq('booking_id', bookingId)
-    .eq('type', 'refund')
-    .limit(1)
-  if (refunds && refunds.length > 0) {
-    return { error: 'Esta venta ya tiene un reembolso registrado.' }
-  }
-
-  // Pagos MP a devolver (RLS: solo los de tu agencia). `transaction_id` no está
-  // en database.types.ts (tipos a mano) ⇒ cast del select, como el resto del repo.
-  const { data: paysRaw } = await supabase
-    .from('payments')
-    .select('id, amount_mxn, transaction_id' as '*')
-    .eq('booking_id', bookingId)
-    .eq('payment_method', 'mercadopago')
-    .eq('type', 'payment')
-    .eq('status', 'COMPLETED')
-  const pays = (paysRaw ?? []) as unknown as {
+    .select(
+      'id, booking_id, amount_mxn, transaction_id, type, status, payment_method' as '*'
+    )
+    .eq('id', paymentId)
+    .maybeSingle()
+  const pay = payRaw as unknown as {
     id: string
+    booking_id: string
     amount_mxn: number | string
     transaction_id: string | null
-  }[]
-  if (pays.length === 0) {
-    return { error: 'No hay pagos de Mercado Pago en esta venta.' }
+    type: string
+    status: string
+    payment_method: string | null
+  } | null
+  if (!pay) return { error: 'Pago no encontrado o sin acceso.' }
+  if (
+    pay.type !== 'payment' ||
+    pay.status !== 'COMPLETED' ||
+    pay.payment_method !== 'mercadopago'
+  ) {
+    return { error: 'Ese movimiento no es un pago de Mercado Pago reembolsable.' }
+  }
+  if (!pay.transaction_id) {
+    return { error: 'El pago no tiene referencia de Mercado Pago.' }
   }
 
-  let refunded = 0
-  for (const p of pays) {
-    if (!p.transaction_id) continue
-
-    // Refund TOTAL del pago en MP. La clave de idempotencia (por pago) evita una
-    // doble devolución si la request se reintenta.
-    const res = await fetch(
-      `https://api.mercadopago.com/v1/payments/${p.transaction_id}/refunds`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-          'X-Idempotency-Key': `refund-${p.id}`,
-        },
-        body: JSON.stringify({}),
-      }
-    )
-    if (!res.ok) {
-      return {
-        error: `Mercado Pago rechazó el reembolso del pago ${p.transaction_id}. No se registró nada; reintenta o revisa en el panel de MP.`,
-      }
+  // Devolución total del pago en MP. Idempotency-Key por pago evita doble refund.
+  const res = await fetch(
+    `https://api.mercadopago.com/v1/payments/${pay.transaction_id}/refunds`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        'X-Idempotency-Key': `refund-${pay.id}`,
+      },
+      body: JSON.stringify({}),
     }
-
-    // Asiento de reembolso en el ledger (el RPC valida refund ≤ pagado).
-    const { error } = await supabase.rpc('register_payment', {
-      p_booking_id: bookingId,
-      p_amount: Number(p.amount_mxn),
-      p_method: 'mercadopago',
-      p_paid_at: new Date().toISOString(),
-      p_type: 'refund',
-    })
-    if (error) {
-      return {
-        error: `El dinero SÍ se devolvió en Mercado Pago, pero falló registrar el asiento en el ledger (${safeError(error)}). Corrige el ledger manualmente para reconciliar.`,
-      }
+  )
+  if (!res.ok) {
+    return {
+      error:
+        'Mercado Pago rechazó el reembolso. Reintenta o revisa en el panel de MP.',
     }
-    refunded += Number(p.amount_mxn)
   }
 
-  revalidatePath('/ventas/' + bookingId)
+  // Asiento de reembolso ligado al pago (guards en el RPC: no-doble-refund,
+  // refund ≤ pagado, lock del booking).
+  const { data, error } = await supabase.rpc('refund_payment' as never, {
+    p_payment_id: paymentId,
+  } as never)
+  if (error) {
+    return {
+      error: `El dinero SÍ se devolvió en Mercado Pago, pero falló registrar el asiento (${safeError(error)}). Reconciliar el ledger manualmente.`,
+    }
+  }
+
+  revalidatePath('/ventas/' + pay.booking_id)
   revalidatePath('/ventas')
-  return { ok: true, refunded }
+  return { ok: true, refunded: Number(data) }
 }
