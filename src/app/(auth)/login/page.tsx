@@ -89,6 +89,11 @@ function LoginForm() {
       setError('Correo o contraseña incorrectos.')
       return
     }
+    // SaaS: el login por contraseña NO pasa por /auth/callback, así que la
+    // auto-unión a la agencia que invitó a este correo se dispara aquí. No-op si
+    // no hay invitación o si ya pertenece a una agencia (mismo RPC idempotente que
+    // usa el callback de magic-link/Google). RPC nuevo ⇒ cast.
+    await supabase.rpc('accept_pending_invitation' as never)
     // '/' resuelve el aterrizaje por persona (agente → dashboard, viajero → mis-compras).
     router.push('/')
     router.refresh()
