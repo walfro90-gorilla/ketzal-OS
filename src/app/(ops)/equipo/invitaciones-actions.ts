@@ -116,6 +116,15 @@ export async function crearAgenciaEInvitarAdmin(input: {
     .select('id')
     .single()
   if (eSup || !sup) {
+    // `suppliers.contact_email` es UNIQUE. Por defecto el contacto de la agencia
+    // es el correo del admin; si ese correo ya lo usa otro proveedor, el insert
+    // falla con 23505 y `safeError` solo daría el genérico. Damos un mensaje
+    // accionable: que capturen un correo de contacto propio para la agencia.
+    if (eSup?.code === '23505') {
+      return {
+        error: `Ya existe un proveedor con el correo de contacto "${contacto}". Escribe un correo de contacto distinto para la agencia.`,
+      }
+    }
     return { error: safeError(eSup, 'No se pudo crear la agencia.') }
   }
   const supplierId = (sup as { id: string }).id
