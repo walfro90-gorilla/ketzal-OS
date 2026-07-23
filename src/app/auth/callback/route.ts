@@ -29,6 +29,10 @@ export async function GET(request: Request) {
       }
       // Garantiza el perfil de Ketzal para cualquier método de login (Google incluido).
       await supabase.rpc('ensure_profile')
+      // SaaS: si fue invitado a una agencia (por su email verificado), se une
+      // solo a ese equipo con el rol invitado. No-op si no hay invitación o si
+      // ya pertenece a una agencia (no arrebata). RPC nuevo ⇒ cast.
+      await supabase.rpc('accept_pending_invitation' as never)
       return NextResponse.redirect(`${origin}${explicitNext ?? homeForPersona('agent')}`)
     }
   }
