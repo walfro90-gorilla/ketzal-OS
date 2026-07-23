@@ -23,6 +23,7 @@ export function CrearAgenciaSection() {
   const [isPending, startTransition] = useTransition()
   const [nombre, setNombre] = useState('')
   const [adminEmail, setAdminEmail] = useState('')
+  const [contacto, setContacto] = useState('')
   const [comision, setComision] = useState('')
 
   function crear() {
@@ -44,6 +45,7 @@ export function CrearAgenciaSection() {
         nombre: nombre.trim(),
         adminEmail: adminEmail.trim(),
         commissionRate: rate,
+        contactEmail: contacto.trim() || undefined,
       })
       if ('error' in res) {
         toast.error(res.error)
@@ -53,6 +55,7 @@ export function CrearAgenciaSection() {
       else toast.success('Agencia creada e invitación enviada')
       setNombre('')
       setAdminEmail('')
+      setContacto('')
       setComision('')
       router.refresh()
     })
@@ -101,6 +104,23 @@ export function CrearAgenciaSection() {
             />
           </div>
 
+          <div className="min-w-52 flex-1">
+            <label className="mb-1 block text-xs text-muted-foreground" htmlFor="ag-contacto">
+              Correo de contacto (opcional)
+            </label>
+            <Input
+              id="ag-contacto"
+              type="email"
+              inputMode="email"
+              autoComplete="off"
+              value={contacto}
+              onChange={(e) => setContacto(e.target.value)}
+              placeholder="contacto@agencia.com"
+              className="h-10"
+              disabled={isPending}
+            />
+          </div>
+
           <div>
             <label className="mb-1 block text-xs text-muted-foreground" htmlFor="ag-comision">
               Comisión %
@@ -127,8 +147,9 @@ export function CrearAgenciaSection() {
           </Button>
         </div>
         <p className="mt-2 text-xs text-muted-foreground">
-          La comisión es el % que esta agencia cobra cuando otra le revende un
-          viaje; puedes ajustarla luego en Proveedores.
+          Si dejas vacío el correo de contacto, se usa el del admin. La comisión
+          es el % que esta agencia cobra cuando otra le revende un viaje; puedes
+          ajustar ambos luego en Proveedores.
         </p>
       </CardContent>
     </Card>
