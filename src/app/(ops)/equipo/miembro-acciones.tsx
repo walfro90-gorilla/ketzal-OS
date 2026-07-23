@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { NativeSelect } from '@/components/ui/native-select'
 import type { Database } from '@/lib/db/database.types'
-import { aprobarUsuario, asignarAgencia, cambiarRol } from './actions'
+import { aprobarUsuario, asignarAgencia, cambiarRol, resetearPassword } from './actions'
 
 type UserRole = Database['ketzal']['Enums']['user_role']
 
@@ -64,6 +64,28 @@ export function MiembroAcciones({
         revert?.()
       } else {
         toast.success('Cambios guardados')
+      }
+    })
+  }
+
+  // Reset de contraseña (solo superadmin): pide la nueva clave y la fija por el
+  // service role. La comparte el admin con el agente; luego el agente puede
+  // cambiarla desde /recuperar. window.prompt basta para una herramienta interna.
+  function resetPwd() {
+    const quien = miembro.name ?? miembro.email ?? 'este agente'
+    const pwd = window.prompt(`Nueva contraseña para ${quien} (mín. 8 caracteres):`)
+    if (pwd == null) return // canceló
+    if (pwd.trim().length < 8) {
+      setError('La contraseña debe tener al menos 8 caracteres.')
+      return
+    }
+    setError(null)
+    startTransition(async () => {
+      const result = await resetearPassword(miembro.id, pwd)
+      if ('error' in result) {
+        setError(result.error)
+      } else {
+        toast.success('Contraseña actualizada')
       }
     })
   }
@@ -127,6 +149,19 @@ export function MiembroAcciones({
             </option>
           ))}
         </NativeSelect>
+      )}
+
+      {isSuperadmin && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-10 md:h-7"
+          disabled={isPending}
+          onClick={resetPwd}
+        >
+          Contraseña
+        </Button>
       )}
 
       {error && (
