@@ -22,6 +22,7 @@ import {
   quitarPlanPagos,
   type FrecuenciaPlan,
 } from './actions'
+import { conSaldoCorrido } from '@/lib/domain/payment-plan'
 
 /** Fila de `payment_schedule` (seq 0 = enganche, seq k = abono k). */
 export type PlanItem = {
@@ -80,14 +81,9 @@ function PlanTable({
   /** seq del próximo pago a resaltar (null = sin resaltado, p. ej. en preview). */
   nextSeq?: number | null
 }) {
-  // Saldo tras la fila i = total − suma de montos hasta i (cálculo puro:
-  // la regla react-hooks/immutability prohíbe mutar acumuladores en render).
-  const rows = items.map((item, i) => ({
-    ...item,
-    saldo:
-      total -
-      items.slice(0, i + 1).reduce((sum, it) => sum + Number(it.amount), 0),
-  }))
+  // Saldo corrido: saldo tras cada fila = total − suma acumulada de montos.
+  // Cálculo puro y testeado en @/lib/domain/payment-plan.
+  const rows = conSaldoCorrido(items, total)
 
   // Columnas dentro del componente para cerrar sobre `nextSeq` (resaltado del
   // próximo pago). El tinte de fila del desktop lo reemplaza el badge "Próximo",

@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { toUsd } from '@/lib/domain/currency'
 import {
   Card,
   CardContent,
@@ -298,8 +299,9 @@ export default async function VentaDetallePage({
                   USD · TC {booking.exchange_rate}{' '}
                   <span className="font-normal text-muted-foreground">
                     (≈ US$
-                    {(
-                      Number(booking.total) / Number(booking.exchange_rate)
+                    {toUsd(
+                      Number(booking.total),
+                      Number(booking.exchange_rate)
                     ).toFixed(2)}{' '}
                     · el MXN es autoritativo)
                   </span>
