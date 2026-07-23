@@ -65,6 +65,81 @@ export async function revocarInvitacion(id: string): Promise<ActionResult> {
 }
 
 /**
+ * Superadmin: onboarding de una agencia en un solo paso — crea la agencia
+ * (`suppliers` type='agency', RLS solo-superadmin) y de inmediato invita a su
+ * admin (rol admin) a esa agencia recién creada. Si la agencia se crea pero la
+ * invitación falla, no se revierte (la agencia ya existe y se puede invitar al
+ * admin después desde "Invitar agentes"): se regresa como `warning`.
+ */
+export async function crearAgenciaEInvitarAdmin(input: {
+  nombre: string
+  adminEmail: string
+  commissionRate?: number
+  contactEmail?: string
+}): Promise<{ error: string } | { ok: true; warning?: string }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: 'Inicia sesión.' }
+
+  // Gate superadmin (leer el rol propio sí lo permite la RLS de profiles). La
+  // RLS de suppliers también lo exige; esto es solo para un mensaje claro.
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+  if (profile?.role !== 'superadmin') {
+    return { error: 'Solo el superadmin puede crear agencias.' }
+  }
+
+  const nombre = (input.nombre ?? '').trim()
+  if (!nombre) return { error: 'Escribe el nombre de la agencia.' }
+  const adminEmail = (input.adminEmail ?? '').trim()
+  if (!adminEmail) return { error: 'Escribe el correo del admin a invitar.' }
+  const contacto = (input.contactEmail ?? '').trim() || adminEmail
+  const rate = Number(input.commissionRate ?? 0)
+  if (!Number.isFinite(rate) || rate < 0 || rate > 100) {
+    return { error: 'La comisión debe estar entre 0 y 100.' }
+  }
+
+  // 1) Crear la agencia (RLS: solo superadmin puede insertar de primer nivel).
+  const { data: sup, error: eSup } = await supabase
+    .from('suppliers')
+    .insert({
+      name: nombre,
+      contact_email: contacto,
+      supplier_type: 'agency',
+      commission_rate: rate,
+    } as never)
+    .select('id')
+    .single()
+  if (eSup || !sup) {
+    return { error: safeError(eSup, 'No se pudo crear la agencia.') }
+  }
+  const supplierId = (sup as { id: string }).id
+
+  // 2) Invitar a su admin (rol admin) a la agencia recién creada.
+  const { error: eInv } = await supabase.rpc('invite_agent' as never, {
+    p_email: adminEmail,
+    p_role: 'admin',
+    p_supplier: supplierId,
+  } as never)
+
+  revalidatePath('/equipo')
+  if (eInv) {
+    return {
+      ok: true,
+      warning: `Agencia creada, pero no se pudo invitar al admin (${safeError(
+        eInv
+      )}). Invítalo desde "Invitar agentes".`,
+    }
+  }
+  return { ok: true }
+}
+
+/**
  * Delega el rol de un miembro DENTRO de la agencia (user ↔ admin). Lo usa el
  * admin de agencia; el superadmin ya tiene el selector de 3 roles. El RPC impide
  * poner superadmin y tocar otra agencia.
