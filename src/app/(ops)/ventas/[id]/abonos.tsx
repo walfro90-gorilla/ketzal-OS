@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { NativeSelect } from '@/components/ui/native-select'
 import { balance } from '@/lib/domain/balance'
+import { validarCobro } from '@/lib/domain/abono'
 import { mxn } from '@/components/data/format'
 import {
   cancelarVenta,
@@ -121,16 +122,14 @@ export function AbonosSection({
   // Cobro en línea: monto editable (permite anticipos), prellenado con el saldo.
   const [montoCobro, setMontoCobro] = useState(() => String(saldo))
   const montoCobroNum = Number(montoCobro)
-  const cobroValido =
-    montoCobro.trim() !== '' &&
-    Number.isFinite(montoCobroNum) &&
-    montoCobroNum > 0 &&
-    montoCobroNum <= saldo
+  // Regla pura y testeada en @/lib/domain/abono; la UI mapea el resultado.
+  const cobroCheck = validarCobro(montoCobro, saldo)
+  const cobroValido = cobroCheck === 'ok'
   // Mensaje preciso según la condición que falla (null = monto válido, sin hint).
   const cobroHint =
-    montoCobro.trim() === '' || !Number.isFinite(montoCobroNum) || montoCobroNum <= 0
+    cobroCheck === 'no_positivo'
       ? 'El monto debe ser mayor a 0.'
-      : montoCobroNum > saldo
+      : cobroCheck === 'excede_saldo'
         ? `El monto no puede exceder el saldo: ${mxn.format(saldo)}.`
         : null
 
