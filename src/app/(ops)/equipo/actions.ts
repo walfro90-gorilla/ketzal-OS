@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { safeError } from '@/lib/errors'
 import type { Database } from '@/lib/db/database.types'
 
@@ -80,6 +81,49 @@ export async function cambiarRol(
   }
 
   revalidatePath('/equipo')
+  return { ok: true }
+}
+
+/**
+ * Superadmin: fija una nueva contraseña para un agente del equipo.
+ *
+ * auth.users no lo cubre la RLS de Ketzal, así que va por SERVICE ROLE
+ * (bypassa RLS) — y por eso el gate de superadmin se verifica AQUÍ antes de
+ * usar el cliente de servicio, mismo criterio que /viajeros. El agente puede
+ * entrar de inmediato con la nueva clave; si quiere, la cambia luego él mismo.
+ */
+export async function resetearPassword(
+  userId: string,
+  newPassword: string
+): Promise<ActionResult> {
+  const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  // Gate: solo superadmin (leer el rol propio sí lo permite la RLS de profiles).
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+  if (profile?.role !== 'superadmin') {
+    return { error: 'Solo el superadmin puede resetear contraseñas.' }
+  }
+
+  const pwd = (newPassword ?? '').trim()
+  if (pwd.length < 8) {
+    return { error: 'La contraseña debe tener al menos 8 caracteres.' }
+  }
+
+  const svc = createServiceClient()
+  const { error } = await svc.auth.admin.updateUserById(userId, { password: pwd })
+  if (error) {
+    return { error: safeError(error, 'No se pudo actualizar la contraseña.') }
+  }
+
   return { ok: true }
 }
 
