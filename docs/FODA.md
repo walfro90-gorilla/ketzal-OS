@@ -320,3 +320,59 @@ compartido o privado entre agencias.
 9. Explorar **OS-como-SaaS a otras agencias** (validar apetito antes de construir).
 10. Roadmap conocido: CFDI/SAT, checkout self-service (*gated* por señal B2C),
     Openpay, marketplace/influencers.
+
+---
+
+## Actualización de pendientes (2026-07-23)
+
+Revisión del estado real de los items que quedaban abiertos. Verificado contra
+el snapshot de schema (`supabase/snapshots/ketzal_schema.sql`) y el ledger de
+migraciones (`list_migrations`).
+
+- **[✅ CERRADO — ya no es un pendiente] Visibilidad de `commission_rate` entre
+  agencias** (era el ⏳ de P0-bis). La FODA describía la policy `suppliers_read`
+  en `qual = true`, pero eso quedó **desactualizado**: la migración
+  **`ketzal_suppliers_ownership` (006, aplicada 2026-07-19)** la dejó restringida
+  a lo propio →
+  `is_superadmin() OR id = my_supplier_id() OR owner_supplier_id = my_supplier_id()`.
+  Un agente **ya no puede** leer el `commission_rate` de otra agencia por
+  `from('suppliers')` (verificado: los 14 usos de `from('suppliers')` en la app
+  caen bajo esa RLS; los cruces de reventa van por RPCs `SECURITY DEFINER` —
+  `payables_summary`, `commissions_summary` — que corren como owner y no exponen
+  la tarifa ajena arbitrariamente). La "decisión de negocio" quedó resuelta de
+  facto en favor de **privado**, sin romper reventa. **Nada que hacer.**
+
+- **[⏳ ACCIÓN DEL FUNDADOR — dashboard, sin SQL ni tool] Protección de
+  contraseñas filtradas (HaveIBeenPwned)** (P1 #4). Sigue **OFF** (advisor
+  `auth_leaked_password_protection` presente al 2026-07-23). No es una migración
+  ni hay tool MCP para togglearlo — es config de Auth (GoTrue). **Cómo:** Supabase
+  Dashboard → **Authentication** → **Attack Protection** (según versión también
+  "Policies"/"Settings") → activar **"Leaked password protection"**. Ref:
+  <https://supabase.com/docs/guides/auth/password-security>. 1 clic.
+
+- **[⏳ ACCIÓN DEL FUNDADOR — decidir aparte] Bucket público `gorilla-assets`**
+  permite listar, pero es del **org / otra app** (no de este repo). No se toca
+  desde aquí; decidir con el dueño del bucket.
+
+- **[⏳ EXPERIMENTO PENDIENTE DE CORRER — acción del fundador, sin código] B2C con
+  distribución** (P1 #6). No hay nada que codear: los links públicos (`/explora`,
+  `/servicio/[id]`, `/agencia/[id]`, `/agencias`) ya sirven y son compartibles.
+  Falta **darles distribución** (WhatsApp a clientes que ya compraron + bio de IG
+  de Wanderlust) y re-medir **page views de `/servicio/[id]`** (métrica gratis en
+  plan Hobby). Hasta entonces B2C queda **sin probar**, no archivado.
+
+- **[⏸️ DIFERIDO — YAGNI, a propósito] P2** (7–10): zod en actions de dinero,
+  staging (Supabase branch), OS-como-SaaS, roadmap (CFDI/SAT, checkout, Openpay,
+  marketplace). Sin cambio; se atacan cuando el volumen/equipo lo justifiquen.
+
+**Neto:** de la lista de pendientes, **el único de naturaleza técnica ya estaba
+cerrado** (006). Lo que resta son **2 toggles de dashboard del fundador** +
+**1 experimento de distribución B2C** + los **diferidos YAGNI**. **No queda
+trabajo de código pendiente del FODA.**
+
+> Nota: esta FODA es del 2026-07-11 (+ P0-bis del 07-19). Desde entonces se
+> ejecutó el **plan competidor 7/7** (`docs/PLAN_COMPETIDOR.md`) y más. La
+> amenaza "coordinación multi-agente por convención" se materializó (colisión de
+> numeración en `db/proposed` + un build roto por un `git add` con brackets) y
+> quedó **parcialmente mitigada** (convención de prefijos `b/m` en
+> `db/proposed/README.md`). Conviene un **re-FODA** completo al estado de hoy.
