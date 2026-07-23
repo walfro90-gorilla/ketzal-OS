@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { NativeSelect } from '@/components/ui/native-select'
 import type { Database } from '@/lib/db/database.types'
 import { aprobarUsuario, asignarAgencia, cambiarRol, resetearPassword } from './actions'
+import { cambiarRolAgencia } from './invitaciones-actions'
 
 type UserRole = Database['ketzal']['Enums']['user_role']
 
@@ -39,10 +40,13 @@ export function MiembroAcciones({
   miembro,
   agencias,
   isSuperadmin,
+  viewerId,
 }: {
   miembro: Miembro
   agencias: AgenciaOption[]
   isSuperadmin: boolean
+  /** Id del que mira: para ocultar la delegación de rol en su propia fila. */
+  viewerId: string
 }) {
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -66,6 +70,23 @@ export function MiembroAcciones({
         toast.success('Cambios guardados')
       }
     })
+  }
+
+  // Delegación de rol del admin de agencia (user ↔ admin, nunca superadmin ni
+  // cross-agencia; el RPC lo garantiza). El superadmin ya tiene el selector de
+  // 3 roles, así que este botón es solo para admins. Se oculta en la fila propia
+  // (evitar auto-degradación) y para miembros libres/superadmin.
+  const puedeDelegarRol =
+    !isSuperadmin &&
+    miembro.supplier_id != null &&
+    miembro.role !== 'superadmin' &&
+    miembro.id !== viewerId
+
+  function toggleRolAgencia() {
+    const nuevo: UserRole = rol === 'admin' ? 'user' : 'admin'
+    const prev = rol
+    setRol(nuevo)
+    run(() => cambiarRolAgencia(miembro.id, nuevo), () => setRol(prev))
   }
 
   // Reset de contraseña (solo superadmin): pide la nueva clave y la fija por el
@@ -103,6 +124,19 @@ export function MiembroAcciones({
       >
         {miembro.active ? 'Desactivar' : 'Aprobar'}
       </Button>
+
+      {puedeDelegarRol && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-10 md:h-7"
+          disabled={isPending}
+          onClick={toggleRolAgencia}
+        >
+          {rol === 'admin' ? 'Hacer agente' : 'Hacer admin'}
+        </Button>
+      )}
 
       {isSuperadmin && (
         <NativeSelect

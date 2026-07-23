@@ -13,6 +13,7 @@ import { EquipoList } from './equipo-list'
 import type { Miembro } from './miembro-acciones'
 import { TasaPlataformaForm } from './tasa-plataforma-form'
 import { MetasSection, type MetaRow } from './metas-section'
+import { InvitacionesSection, type Invitacion } from './invitaciones-section'
 
 export default async function EquipoPage() {
   const supabase = await createClient()
@@ -45,7 +46,7 @@ export default async function EquipoPage() {
   // ver tu agencia y tus proveedores. `list_agency_names` es SECURITY DEFINER y
   // devuelve sólo id + nombre, que es cuanto necesita el selector de agencia.
   const hoyIso = new Date().toISOString().slice(0, 10)
-  const [teamRes, agenciasRes, settingsRes, goalsRes] = await Promise.all([
+  const [teamRes, agenciasRes, settingsRes, goalsRes, invitesRes] = await Promise.all([
     supabase.rpc('list_team'),
     supabase.rpc('list_agency_names' as never),
     supabase
@@ -54,11 +55,13 @@ export default async function EquipoPage() {
       .eq('id', 1)
       .single(),
     supabase.rpc('goals_progress' as never, { p_month: hoyIso } as never),
+    supabase.rpc('list_agency_invitations' as never),
   ])
 
   const miembros = (teamRes.data ?? []) as unknown as Miembro[]
   const agencias = (agenciasRes.data ?? []) as { id: string; name: string }[]
   const platformRate = Number(settingsRes.data?.platform_commission_rate ?? 0)
+  const invitaciones = (invitesRes.data ?? []) as unknown as Invitacion[]
 
   // F5: metas del mes. Cruza el equipo (agentes de agencia) con goals_progress.
   const goals = (goalsRes.data ?? {}) as {
@@ -139,6 +142,7 @@ export default async function EquipoPage() {
             rows={miembros}
             agencias={agencias}
             isSuperadmin={isSuperadmin}
+            viewerId={user.id}
             empty={
               <EmptyState
                 icon={UsersRoundIcon}
@@ -149,6 +153,17 @@ export default async function EquipoPage() {
           />
         </CardContent>
       </Card>
+
+      {invitesRes.error && (
+        <p className="text-sm text-destructive">
+          Error al cargar las invitaciones: {invitesRes.error.message}
+        </p>
+      )}
+      <InvitacionesSection
+        invitaciones={invitaciones}
+        agencias={agencias}
+        isSuperadmin={isSuperadmin}
+      />
 
       <MetasSection month={mesLabel} agencia={agenciaMeta} agentes={agentesMeta} />
     </div>

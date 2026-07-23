@@ -36,11 +36,13 @@ export function EquipoList({
   rows,
   agencias,
   isSuperadmin,
+  viewerId,
   empty,
 }: {
   rows: Miembro[]
   agencias: AgenciaOption[]
   isSuperadmin: boolean
+  viewerId: string
   empty: ReactNode
 }) {
   // Las columnas dependen de agencias/isSuperadmin (props del servidor),
@@ -89,6 +91,7 @@ export function EquipoList({
           miembro={m}
           agencias={agencias}
           isSuperadmin={isSuperadmin}
+          viewerId={viewerId}
         />
       ),
     },
