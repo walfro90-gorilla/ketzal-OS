@@ -1,5 +1,16 @@
 # Estado del deploy — WhatsApp auto-envío (retomar aquí)
 
+> ## ⏸️ PAUSADO A PROPÓSITO (2026-07-23)
+> **Motivo:** aún no tenemos el número de WhatsApp definitivo/dedicado. Se retoma cuando lo haya.
+>
+> **Estado verificado al pausar (nada corriendo, cero fugas):**
+> - `app_settings.wa_auto_enabled = false` (gate maestro OFF ⇒ el poller no manda nada).
+> - `clawbot_reminders`: 0 en vuelo (`enviando`), 0 nuevos enviados por el bot. La box **nunca terminó de arrancar** (falta el service key final + parear QR).
+> - **Cero efecto en el resto del OS:** las funciones del auto-envío (`clawbot_claim_pendientes`/`clawbot_marcar_bot`) solo las invoca el poller de la box (apagado) y están tras el gate. El **Clawbot in-app** (el agente manda a 1 clic desde `/clawbot`), la cobranza, el dinero y el cron que llena el outbox siguen **intactos** — NO se tocan al pausar.
+> - Código, BD (en el ledger, migración `ketzal_wa_autosend`), allowlist `saldo_sin_plan` y el matcher de STOP/BAJA quedaron **listos y verificados**; solo esperan el número.
+>
+> **Para retomar:** no hay que deshacer nada. Consigue el número dedicado y sigue el runbook de abajo desde *Checkpoint 1*. ⚠️ **Antes de prender el gate (Paso 7), revisa/limpia los pendientes viejos del outbox** (al pausar había ~116 `pendiente` acumulados por el cron in-app; algunos pueden ser recordatorios ya vencidos — no conviene mandar "tu viaje es mañana" de un viaje que ya pasó). El cap 30/24h + ventana hábil + jitter amortiguan, pero conviene depurar los stale primero.
+
 > Handoff para continuar en otra sesión. Última actualización: sesión del 2026-07-22/23.
 
 ## Qué es
