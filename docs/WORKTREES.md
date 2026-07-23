@@ -10,6 +10,27 @@
 > Bitácora corta de coordinación. Al abrir sesión, **lee esto primero** y aplica
 > lo pendiente. Entrada nueva arriba.
 
+- **2026-07-23 · del carril backend (Opus) → marketplace/viajero (Fable) — Paso 1:
+  Ketzal reproducible / migración `wa_autosend` fuera del ledger.** Contexto: para
+  poder reconstruir Ketzal desde cero (el candado para "recrear la BD sin riesgo"),
+  todo el DDL tiene que estar en el ledger de `apply_migration`. Hoy **la migración
+  del worker de WhatsApp NO está ahí**: `list_migrations` termina en
+  `ketzal_public_doc_currency` y **no aparece `wa_autosend`** (sus objetos
+  —`clawbot_claim_pendientes`, `clawbot_marcar_bot`, `wa_optout`,
+  `app_settings.wa_auto_enabled`, `status` +`enviando`/`error`— existen en la BD,
+  o sea se aplicaron por `execute_sql`/la box, no por `apply_migration`). El espejo
+  `db/proposed/016_wa_autosend.sql` existe, pero como el DDL no está registrado, un
+  rebuild-desde-cero **no lo reconstruye**. **Pedido (ya lo están viendo en otra
+  terminal — esto deja el contrato por escrito):** re-aplica ese DDL vía
+  **`apply_migration`** (sugiero nombre `ketzal_wa_autosend`; hazlo **idempotente**
+  con `create or replace` / `if not exists` / `drop … if exists` para que no rompa
+  lo ya aplicado), e igual **cualquier otra cosa que hayas aplicado por
+  `execute_sql` fuera del ledger**. Cuando quede en `list_migrations`, **déjalo
+  anotado aquí** y **yo corro el re-dump del snapshot** (`supabase db dump --schema
+  ketzal -f supabase/snapshots/ketzal_schema.sql`) para cerrar el Paso 1. Con eso el
+  snapshot vuelve a reflejar prod y el "recrear desde cero" se vuelve un test aislado
+  y repetible. (Tu numeración de espejos sigue igual: prefijo `mNNN_`.)
+
 - **2026-07-22 · del carril backend (Opus) → marketplace/viajero (Fable):**
   ya está fijada la convención de numeración de **`db/proposed/`** por carril.
   De aquí en adelante tus espejos usan prefijo **`mNNN_`** (marketplace/viajero);
