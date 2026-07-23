@@ -31,6 +31,7 @@ import {
   subtotal as calcSubtotal,
   total as calcTotal,
 } from '@/lib/domain/pricing'
+import { toMxn } from '@/lib/domain/currency'
 import {
   createBooking,
   type CreateBookingInput,
@@ -69,7 +70,6 @@ function fechaCorta(iso: string): string {
 
 // F6: formateador USD para captura en dólares (el MXN sigue siendo autoritativo).
 const usd = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'USD' })
-const round2 = (n: number) => Math.round(n * 100) / 100
 
 type ItemType = CreateBookingLine['item_type']
 type PassengerType = NonNullable<CreateBookingLine['passenger_type']>
@@ -164,7 +164,7 @@ export function NuevaVentaForm({
   const subtotalNum = calcSubtotal(parsedLines)
   const totalNum = calcTotal(parsedLines, discountNum)
   // MXN autoritativo (para mostrar en USD): total capturado × TC.
-  const totalMxn = esUsd ? round2(totalNum * rateNum) : totalNum
+  const totalMxn = esUsd ? toMxn(totalNum, rateNum) : totalNum
 
   function handleServiceChange(id: string) {
     setServiceId(id)
@@ -261,7 +261,7 @@ export function NuevaVentaForm({
     // F6: USD ⇒ convierte precios y descuento a MXN (motor MXN autoritativo).
     const factor = esUsd ? rateNum : 1
     const linesMxn: CreateBookingLine[] = esUsd
-      ? lineInputs.map((l) => ({ ...l, unit_price: round2(l.unit_price * factor) }))
+      ? lineInputs.map((l) => ({ ...l, unit_price: toMxn(l.unit_price, factor) }))
       : lineInputs
 
     const input: CreateBookingInput = {
@@ -271,7 +271,7 @@ export function NuevaVentaForm({
         : undefined,
       serviceId: serviceId || undefined,
       travelDate: travelDate || undefined,
-      discount: round2(discountNum * factor),
+      discount: toMxn(discountNum, factor),
       notes: notes.trim() || undefined,
       lines: linesMxn,
       status,
