@@ -1,0 +1,28 @@
+-- b017 (carril backend) — Cierre de escalación de privilegios en ketzal.profiles.
+--
+-- HALLAZGO (auditoría 2026-07-23): la policy `profiles_update_own`
+--   (FOR UPDATE USING auth.uid()=id WITH CHECK auth.uid()=id) NO restringe
+--   columnas, y `authenticated` tenía GRANT UPDATE de tabla completa, sin trigger
+--   que protegiera role/active. ⇒ cualquier usuario AUTENTICADO podía hacer
+--   PATCH a su propia fila por PostgREST y ponerse role='superadmin' y
+--   active=true, saltándose los RPCs con guard (set_user_role / set_user_active /
+--   assign_user_agency). Como cualquiera que pueda loguearse (magic link / Google)
+--   nace con un profiles pendiente, el ataque era esencialmente abierto:
+--   registrarse → auto-promoverse a superadmin → acceso a TODAS las agencias.
+--
+-- FIX: la app NUNCA escribe profiles desde el cliente (todos los usos son SELECT;
+--   las mutaciones van por RPCs SECURITY DEFINER: ensure_profile / set_user_active
+--   / set_user_role / assign_user_agency, que corren como owner y NO dependen de
+--   este grant). Por eso se puede revocar la escritura de `authenticated` sin
+--   romper nada. SELECT se conserva (lectura de perfil propio + RLS select_own).
+--
+-- HARD-TEST (rolled back, 2026-07-23):
+--   A) post-fix: authenticated UPDATE profiles → permission denied (cerrado).
+--   B) con grant temporal: authenticated UPDATE permitido (la vuln era real).
+--   C) authenticated SELECT sigue OK (no se sobre-revocó).
+--   D) RPC DEFINER set_user_active sigue mutando profiles pese al revoke (t→f).
+--   advisors 0 ERROR.
+--
+-- Espejo del DDL vivo; la fuente es la BD (apply_migration: ketzal_profiles_lockdown).
+
+revoke insert, update, delete on ketzal.profiles from authenticated;
