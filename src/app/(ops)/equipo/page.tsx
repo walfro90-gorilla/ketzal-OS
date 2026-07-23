@@ -14,6 +14,7 @@ import type { Miembro } from './miembro-acciones'
 import { TasaPlataformaForm } from './tasa-plataforma-form'
 import { MetasSection, type MetaRow } from './metas-section'
 import { InvitacionesSection, type Invitacion } from './invitaciones-section'
+import { CrearAgenciaSection } from './crear-agencia-section'
 
 export default async function EquipoPage() {
   const supabase = await createClient()
@@ -97,6 +98,8 @@ export default async function EquipoPage() {
         title="Equipo"
         description="Agentes de venta: de agencia o libres de Ketzal."
       />
+
+      {isSuperadmin && <CrearAgenciaSection />}
 
       {isSuperadmin && (
         <Card>
