@@ -9,14 +9,17 @@ Auto-envío de los recordatorios de Ketzal (`ketzal.clawbot_reminders`) por What
 plan `~/.claude/plans/imperative-jumping-moon.md`.
 
 ## ✅ Hecho (en prod / commiteado)
-- **BD Supabase** (proyecto `wnujoyzdpdyxblgdtxjw`, aplicada + espejo `db/proposed/016_wa_autosend.sql`):
+- **BD Supabase** (proyecto `wnujoyzdpdyxblgdtxjw`, **en el ledger** desde 2026-07-23 — migración
+  `ketzal_wa_autosend` — + espejo `db/proposed/016_wa_autosend.sql`):
   - `clawbot_claim_pendientes(limit)` — claim atómico `FOR UPDATE SKIP LOCKED` → `enviando`,
-    **solo kinds al comprador**: `abono_por_vencer, abono_vencido, viaje_proximo, cotizacion_seguimiento`.
+    **solo kinds al comprador**: `abono_por_vencer, abono_vencido, viaje_proximo, cotizacion_seguimiento,
+    saldo_sin_plan` (este último agregado 2026-07-23, F7).
   - `clawbot_marcar_bot(id, status)` — marca `enviado`/`error`/`descartado`/`pendiente`.
   - Tabla `wa_optout(phone)` · `app_settings.wa_auto_enabled` (gate, **OFF**) + `wa_daily_cap` (30).
   - `clawbot_reminders.status` admite `enviando` + `error`.
-- **Código** en repo (`wa-sender/`), commit en `main` (pusheado): `bridge.mjs`, `poller.mjs`,
-  `package.json`, `.env.example`, `ecosystem.config.cjs`, `README.md`. Excluido de Vercel (`.vercelignore`).
+- **Código** en repo (`wa-sender/`), commit en `main` (pusheado): `bridge.mjs` (incl. **matcher de
+  opt-out entrante STOP/BAJA → `wa_optout`**), `poller.mjs`, `package.json`, `.env.example`,
+  `ecosystem.config.cjs`, `README.md`. Excluido de Vercel (`.vercelignore`).
 - **Box** = `clawbot`/`orion` (mismo host `ubuntu-2cpu-4gb-us-sjo1`, node v20.20.2, pm2 6.0.14):
   - Código copiado a **`/opt/ketzal-wa-sender/`** (scp; la box NO tiene git-access al repo Ketzal).
   - `npm install` hecho (195 paquetes, baileys resuelve).
@@ -59,11 +62,14 @@ update ketzal.app_settings set wa_auto_enabled = true where id = 1;   -- gate ON
 El cron PM2 (`*/30 9-18 * * 1-5`) ya corre el poller; con el gate ON envía en horario hábil.
 Luego `pm2 save` en la box.
 
-## Follow-ups abiertos
-- **`saldo_sin_plan`**: kind al cliente que F7 agregó (otro agente); NO está en el allowlist de
-  `clawbot_claim_pendientes` → no se auto-envía. Si se quiere, agregarlo (1 línea + espejo + push).
-  Los otros 2 de F7 (`viaje_manana_operativo`, `pago_sin_recibo`) son **internos**, se quedan fuera.
-- **Inbound STOP/BAJA → `wa_optout` automático**: portar el reply-matcher de openclaw al bridge de Ketzal.
+## Follow-ups
+- ✅ **`saldo_sin_plan`** (2026-07-23): agregado al allowlist de `clawbot_claim_pendientes` (BD + espejo
+  + DRY-RUN del poller). Los otros 2 de F7 (`viaje_manana_operativo`, `pago_sin_recibo`) son **internos**,
+  se quedan fuera a propósito.
+- ✅ **Inbound STOP/BAJA → `wa_optout` automático** (2026-07-23): matcher en `bridge.mjs`
+  (`messages.upsert`, solo 1-a-1, mensaje = `STOP|BAJA|ALTO|CANCELAR|UNSUBSCRIBE|NO MORE`), guarda el
+  teléfono a 10 dígitos vía service-role. Best-effort: sin `SERVICE_ROLE_KEY` en la box es no-op y el
+  bridge sigue enviando. **Toma efecto al reiniciar el bridge en la box tras pegar el service key.**
 - Opt-out manual mientras tanto: `insert into ketzal.wa_optout(phone,reason) values ('55...','STOP');`
 
 ## Notas de riesgo

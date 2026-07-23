@@ -32,6 +32,7 @@ import makeWASocket, {
   makeCacheableSignalKeyStore,
   jidNormalizedUser,
 } from '@whiskeysockets/baileys'
+import { createClient } from '@supabase/supabase-js'
 
 dotenv.config()
 
@@ -40,6 +41,18 @@ const HOST = '127.0.0.1' // loopback ONLY
 const TOKEN = process.env.KETZAL_WA_TOKEN || ''
 const AUTH_DIR = process.env.KETZAL_WA_AUTH_DIR || '/opt/ketzal-wa-session/baileys-state'
 const LOG_LEVEL = process.env.KETZAL_WA_LOG_LEVEL || 'warn'
+
+// Supabase (service role) — SOLO para capturar el opt-out entrante (STOP/BAJA) en
+// ketzal.wa_optout. Best-effort: si falta el service key, el bridge sigue
+// enviando normal y solo omite la captura (no es ruta de dinero).
+const SUPABASE_URL = process.env.SUPABASE_URL || ''
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+const supa =
+  SUPABASE_URL && SERVICE_KEY
+    ? createClient(SUPABASE_URL, SERVICE_KEY, { db: { schema: 'ketzal' }, auth: { persistSession: false } })
+    : null
+// Palabras de baja (el mensaje ENTERO, sin distinción de mayúsculas ni acentos).
+const OPTOUT_RE = /^(stop|baja|alto|cancelar|unsubscribe|no\s*more)$/i
 
 const RECONNECT_BACKOFF_MS = [5_000, 15_000, 30_000, 60_000]
 const log = (...a) => console.log(`[ketzal-wa ${new Date().toISOString()}]`, ...a)
@@ -65,6 +78,30 @@ async function nukeAuthDir() {
 const humanDelay = () => new Promise((r) => setTimeout(r, 3000 + Math.floor(Math.random() * 4000))) // 3-7s
 const phoneToJid = (phone) => `${String(phone).replace(/\D/g, '')}@s.whatsapp.net`
 const jidToPhone = (jid) => (jid ? jid.split(':')[0].split('@')[0] : null)
+const localDigits = (r) => String(r ?? '').replace(/\D/g, '').slice(-10) // 10 dígitos locales (como el poller)
+
+// Captura de opt-out entrante: si el número dedicado recibe "STOP"/"BAJA" (mensaje
+// completo), guarda el teléfono en ketzal.wa_optout a 10 dígitos — la MISMA
+// normalización que usa el poller para su blocklist — y así deja de escribirle.
+// Best-effort: sin service key (supa=null) es no-op; solo mensajes 1-a-1 (no
+// grupos/status) y solo entrantes (fromMe se ignora).
+async function handleInbound({ messages, type }) {
+  if (type !== 'notify' || !supa) return
+  for (const m of messages || []) {
+    if (m.key?.fromMe) continue
+    const jid = m.key?.remoteJid || ''
+    if (!jid.endsWith('@s.whatsapp.net')) continue
+    const text = (m.message?.conversation || m.message?.extendedTextMessage?.text || '').trim()
+    if (!OPTOUT_RE.test(text)) continue
+    const phone = localDigits(jidToPhone(jid))
+    if (phone.length !== 10) continue
+    const { error } = await supa
+      .from('wa_optout')
+      .upsert({ phone, reason: `inbound: ${text.slice(0, 40)}` }, { onConflict: 'phone', ignoreDuplicates: true })
+    if (error) log(`opt-out upsert (+${phone}): ${error.message}`)
+    else log(`🚫 opt-out entrante · +${phone} · "${text.slice(0, 40)}"`)
+  }
+}
 
 let reconnectTimer = null
 function scheduleReconnect(ms) {
@@ -103,6 +140,7 @@ async function startSocket() {
   })
   state.sock = sock
   sock.ev.on('creds.update', saveCreds)
+  sock.ev.on('messages.upsert', (ev) => handleInbound(ev).catch((e) => log(`inbound: ${e.message}`)))
 
   sock.ev.on('connection.update', async (update) => {
     const { connection, lastDisconnect, qr } = update

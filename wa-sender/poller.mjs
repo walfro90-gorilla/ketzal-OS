@@ -121,7 +121,7 @@ async function main() {
 
   // DRY-RUN: solo lee, no claim.
   if (DRY_RUN) {
-    const { data: rows } = await supabase.from('clawbot_reminders').select('id, phone, kind, message').eq('status', 'pendiente').in('kind', ['abono_por_vencer', 'abono_vencido', 'viaje_proximo', 'cotizacion_seguimiento']).not('phone', 'is', null).order('created_at').limit(50)
+    const { data: rows } = await supabase.from('clawbot_reminders').select('id, phone, kind, message').eq('status', 'pendiente').in('kind', ['abono_por_vencer', 'abono_vencido', 'viaje_proximo', 'cotizacion_seguimiento', 'saldo_sin_plan']).not('phone', 'is', null).order('created_at').limit(50)
     for (const r of rows ?? []) {
       const e164 = toE164(r.phone)
       const skip = !e164 ? 'phone_invalid' : blocked.has(localDigits(e164)) ? 'opt_out' : ''

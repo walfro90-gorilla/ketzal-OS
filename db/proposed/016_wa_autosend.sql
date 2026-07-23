@@ -9,6 +9,8 @@
 -- • clawbot_claim_pendientes(limit): claim ATÓMICO (FOR UPDATE SKIP LOCKED) de
 --   pendientes → 'enviando', SOLO kinds dirigidos al comprador (evita disparar
 --   kinds operativos a los clientes). Idempotencia dura del outbox: dedupe_key.
+--   [2026-07-23] registrada en el ledger (migración ketzal_wa_autosend) — antes
+--   vivía solo aquí; y agregado el kind 'saldo_sin_plan' (F7) al allowlist.
 -- • clawbot_marcar_bot(id, status): marca 'enviado'/'error'/'pendiente' sin
 --   auth.uid() (lo llama el bot con service role).
 -- • status admite 'enviando' y 'error' (claim + fallo).
@@ -48,7 +50,8 @@ begin
      select r2.id from ketzal.clawbot_reminders r2
       where r2.status = 'pendiente'
         and r2.phone is not null and btrim(r2.phone) <> ''
-        and r2.kind in ('abono_por_vencer','abono_vencido','viaje_proximo','cotizacion_seguimiento')
+        -- 'saldo_sin_plan' (F7) agregado 2026-07-23; los operativos internos NO se auto-envían.
+        and r2.kind in ('abono_por_vencer','abono_vencido','viaje_proximo','cotizacion_seguimiento','saldo_sin_plan')
       order by r2.created_at
       for update skip locked
       limit greatest(1, p_limit)
