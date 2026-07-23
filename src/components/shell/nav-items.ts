@@ -51,8 +51,11 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Viajeros', href: '/viajeros', icon: UserRoundIcon, primary: false, adminOnly: true, superadminOnly: true },
   { label: 'Servicios', href: '/servicios', icon: MapPinIcon, primary: false, adminOnly: true },
   { label: 'Proveedores', href: '/proveedores', icon: Building2Icon, primary: false, adminOnly: true },
-  { label: 'Salud', href: '/salud', icon: ActivityIcon, primary: false, adminOnly: true },
-  { label: 'Ajustes', href: '/ajustes', icon: SettingsIcon, primary: false, adminOnly: true },
+  // Salud (invariantes globales) y Ajustes (marca Ketzal) son de PLATAFORMA:
+  // solo superadmin. Las páginas ya se auto-protegen; esto las saca del nav del
+  // admin de agencia (relevante en SaaS multi-agencia).
+  { label: 'Salud', href: '/salud', icon: ActivityIcon, primary: false, adminOnly: true, superadminOnly: true },
+  { label: 'Ajustes', href: '/ajustes', icon: SettingsIcon, primary: false, adminOnly: true, superadminOnly: true },
 ]
 
 export const PRIMARY_ITEMS = NAV_ITEMS.filter((i) => i.primary)
