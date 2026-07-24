@@ -15,16 +15,16 @@ export async function GET(request: Request) {
       const {
         data: { user },
       } = await supabase.auth.getUser()
-      // ¿Ya es comprador? entonces NO lo conviertas en agente: /auth/callback es
-      // lo único que llama ensure_profile, así que aquí lo saltamos para quien ya
-      // tiene fila en marketplace_customers y lo mandamos a su viaje.
-      // marketplace_customers: tabla no tipada ⇒ cast (convención del repo).
+      // ¿Ya es viajero? entonces NO lo conviertas en agente: /auth/callback es
+      // lo único que llama ensure_profile. Si su profile es type='viajero' lo
+      // saltamos y lo mandamos a su viaje (refactor de identidad, F1).
+      // profiles.type no está tipado ⇒ cast (convención del repo).
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const db = supabase as any
-      const { data: buyer } = user
-        ? await db.from('marketplace_customers').select('id').eq('id', user.id).maybeSingle()
+      const { data: prof } = user
+        ? await db.from('profiles').select('type').eq('id', user.id).maybeSingle()
         : { data: null }
-      if (buyer) {
+      if (prof?.type === 'viajero') {
         return NextResponse.redirect(`${origin}${explicitNext ?? homeForPersona('traveler')}`)
       }
       // Garantiza el perfil de Ketzal para cualquier método de login (Google incluido).

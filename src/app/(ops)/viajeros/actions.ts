@@ -6,12 +6,12 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { safeError } from '@/lib/errors'
 
-// CRUD de VIAJEROS (compradores B2C = ketzal.marketplace_customers).
+// CRUD de VIAJEROS (compradores B2C = profiles type='viajero', refactor F1).
 //
 // Solo el god admin. Como la identidad vive en auth.users (id = FK), crear y
-// eliminar tocan auth ⇒ van por SERVICE ROLE (bypassa RLS). Por eso CADA acción
-// verifica superadmin ANTES de usar el cliente de servicio: el service role no
-// respeta RLS, la puerta la ponemos nosotros aquí.
+// eliminar tocan auth ⇒ van por SERVICE ROLE (bypassa RLS + el lockdown b017 que
+// impide a authenticated escribir profiles). Por eso CADA acción verifica
+// superadmin ANTES de usar el cliente de servicio: la puerta la ponemos aquí.
 
 /** Puerta: exige sesión de superadmin. Devuelve el uid o un error. */
 async function requireSuperadmin(): Promise<{ uid: string } | { error: string }> {
@@ -68,14 +68,16 @@ export async function crearViajero(
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: rowErr } = await (svc as any).from('marketplace_customers').upsert({
+  const { error: rowErr } = await (svc as any).from('profiles').upsert({
     id: created.user.id,
-    full_name: nombre,
+    name: nombre,
     phone: telefono,
     email,
+    type: 'viajero',
+    active: true,
   })
   if (rowErr) {
-    // Deshacer la cuenta auth para no dejar un huérfano sin fila de comprador.
+    // Deshacer la cuenta auth para no dejar un huérfano sin profile de viajero.
     await svc.auth.admin.deleteUser(created.user.id)
     return { error: safeError(rowErr, 'No se pudo guardar el viajero.') }
   }
@@ -96,11 +98,13 @@ export async function editarViajero(
   if (!nombre) return { error: 'Escribe el nombre del viajero.' }
 
   const svc = createServiceClient()
+  // .eq('type','viajero'): no renombrar por error a un agente vía esta ruta.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { error } = await (svc as any)
-    .from('marketplace_customers')
-    .update({ full_name: nombre, phone: input.telefono?.trim() || null })
+    .from('profiles')
+    .update({ name: nombre, phone: input.telefono?.trim() || null })
     .eq('id', id)
+    .eq('type', 'viajero')
   if (error) return { error: safeError(error, 'No se pudo actualizar el viajero.') }
 
   revalidatePath('/viajeros')
@@ -109,8 +113,9 @@ export async function editarViajero(
 }
 
 /**
- * Elimina un viajero (su cuenta auth ⇒ cascada a marketplace_customers).
- * Guarda: si tiene compras se bloquea, para no destruir datos ligados a dinero.
+ * Elimina un viajero: su cuenta auth + su profile (profiles.id NO cascadea desde
+ * auth.users ⇒ se borra explícito). Guarda: si tiene compras se bloquea, para no
+ * destruir datos ligados a dinero.
  */
 export async function eliminarViajero(
   id: string
@@ -133,6 +138,10 @@ export async function eliminarViajero(
 
   const { error } = await svc.auth.admin.deleteUser(id)
   if (error) return { error: safeError(error, 'No se pudo eliminar el viajero.') }
+
+  // profiles.id no cascadea desde auth.users ⇒ borrar la fila (evita huérfano).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (svc as any).from('profiles').delete().eq('id', id).eq('type', 'viajero')
 
   revalidatePath('/viajeros')
   return { ok: true }

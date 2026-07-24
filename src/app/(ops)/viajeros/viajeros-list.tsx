@@ -8,7 +8,7 @@ import { DataList, type DataColumn } from '@/components/data/data-list'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { eliminarViajero } from './actions'
 
-// Viajeros = compradores B2C del marketplace (ketzal.marketplace_customers).
+// Viajeros = compradores B2C del marketplace (profiles type='viajero', F1).
 // Solo el god admin los administra, vía RPC/acciones con service role.
 
 export type Viajero = {

@@ -5,12 +5,11 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { safeError } from '@/lib/errors'
 
-// Registro / datos del COMPRADOR B2C (terreno del marketplace, Fase B.0).
-// El comprador es una cuenta aparte del agente: se registra con email+password
-// (NO magic link / OAuth) para no pasar por /auth/callback, que es lo único que
-// llama a ensure_profile. Así el comprador nunca nace como agente en `profiles`.
-// La fila vive en ketzal.marketplace_customers (aislada, RLS solo-dueño); como
-// es tabla nueva no tipada, se accede con cast (convención multi-agente).
+// Registro / datos del COMPRADOR B2C (terreno del marketplace).
+// El comprador es un profile de tipo 'viajero' (refactor de identidad, F1): un
+// solo modelo de persona diferenciado por `type`. Nace 'viajero' (no agente) al
+// registrarse; nunca pasa por ensure_profile como agente. profiles no está tipado
+// para estas columnas nuevas ⇒ se accede con cast (convención multi-agente).
 
 export type RegistroInput = {
   nombre: string
@@ -46,15 +45,19 @@ export async function registrarComprador(
   const user = data.user
   if (!user) return { error: 'No se pudo crear la cuenta.' }
 
-  // Con service role: la fila se crea aunque aún no haya sesión (p. ej. si el
-  // proyecto exige confirmar el correo). Idempotente por id.
+  // Con service role: el profile se crea aunque aún no haya sesión (p. ej. si el
+  // proyecto exige confirmar el correo; sin sesión no hay auth.uid para el RPC).
+  // authenticated no puede escribir profiles (b017) ⇒ va por service role. Nace
+  // 'viajero' + activo. Idempotente por id.
   const svc = createServiceClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (svc as any).from('marketplace_customers').upsert({
+  await (svc as any).from('profiles').upsert({
     id: user.id,
-    full_name: nombre,
+    name: nombre,
     phone: telefono,
     email,
+    type: 'viajero',
+    active: true,
   })
 
   return { ok: true, needsConfirmation: !data.session }
@@ -74,14 +77,12 @@ export async function guardarComprador(input: {
   const nombre = input.nombre?.trim()
   if (!nombre) return { error: 'Escribe tu nombre.' }
 
-  // RLS: solo la propia fila (id = auth.uid()).
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any).from('marketplace_customers').upsert({
-    id: user.id,
-    full_name: nombre,
-    phone: input.telefono?.trim() || null,
-    email: user.email ?? null,
-  })
+  // Con sesión: authenticated no puede escribir profiles (b017) ⇒ RPC DEFINER
+  // que actualiza el propio profile (auth.uid). No convierte a un agente en viajero.
+  const { error } = await supabase.rpc('register_traveler' as never, {
+    p_full_name: nombre,
+    p_phone: input.telefono?.trim() || null,
+  } as never)
   if (error) return { error: safeError(error) }
   return { ok: true }
 }

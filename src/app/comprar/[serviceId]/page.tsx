@@ -50,12 +50,13 @@ export default async function ComprarPage({
     data: { user },
   } = await supabase.auth.getUser()
 
-  let mc: { full_name: string; phone: string | null } | null = null
+  let mc: { name: string; phone: string | null } | null = null
   if (user) {
+    // Viajero = profile type='viajero' (F1). RLS profiles_select_own: su propia fila.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data } = await (supabase as any)
-      .from('marketplace_customers')
-      .select('full_name, phone')
+      .from('profiles')
+      .select('name, phone')
       .eq('id', user.id)
       .maybeSingle()
     mc = data ?? null
@@ -112,7 +113,7 @@ export default async function ComprarPage({
           serviceName={s.name}
           packs={(s.packs as Pack[] | null) ?? []}
           departures={s.departures ?? []}
-          buyerName={mc.full_name}
+          buyerName={mc.name}
           agencyPhone={s.agency.phone}
           refCode={refCode}
         />

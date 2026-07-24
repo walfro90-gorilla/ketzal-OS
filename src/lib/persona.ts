@@ -11,10 +11,9 @@ export function homeForPersona(p: Persona): string {
   return p === 'agent' ? '/dashboard' : '/mis-compras'
 }
 
-// ponytail: discriminador = profiles.type, no "existe fila". Hoy todo profile es
-// 'agente' ⇒ comportamiento idéntico; el mecanismo ya soporta viajero/proveedor/
-// embajador cuando F1–F3 los muevan a profiles. Sin profile ⇒ traveler (el comprador
-// marketplace vive en marketplace_customers hasta F1).
+// ponytail: discriminador = profiles.type, no "existe fila". El viajero ya vive en
+// profiles(type='viajero') (F1); proveedor/embajador llegan en F2–F3. Sin profile ⇒
+// traveler (defensa: cualquiera sin persona resuelta aterriza en la vista de viajero).
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function getPersona(supabase: any): Promise<Persona> {
   const {

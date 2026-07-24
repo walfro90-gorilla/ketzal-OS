@@ -13,11 +13,11 @@ export default async function PerfilPage() {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // marketplace_customers: tabla nueva no tipada ⇒ cast (convención del repo).
+  // Viajero = profile type='viajero' (F1). profiles.type/phone no tipados ⇒ cast.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: customer } = await (supabase as any)
-    .from('marketplace_customers')
-    .select('full_name, phone')
+    .from('profiles')
+    .select('name, phone')
     .eq('id', user.id)
     .maybeSingle()
 
@@ -26,7 +26,7 @@ export default async function PerfilPage() {
       <h1 className="text-2xl font-bold tracking-tight">Perfil</h1>
       <p className="mt-1 text-sm text-muted-foreground">{user.email}</p>
       <PerfilForm
-        nombre={customer?.full_name ?? ''}
+        nombre={customer?.name ?? ''}
         telefono={customer?.phone ?? ''}
       />
     </div>
