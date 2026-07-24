@@ -6,6 +6,7 @@ import { UserMenu } from './user-menu'
 import { ThemeToggle } from './theme-toggle'
 import { GlobalSearch } from './global-search'
 import { FlashToasts } from './flash-toasts'
+import { ProductTour } from './tour/product-tour'
 
 // Shell responsive de Ketzal OS (campo-primero):
 //  - móvil: header compacto + contenido a ancho completo + bottom tab bar
@@ -66,6 +67,7 @@ export function AppShell({
         </Link>
         <div className="flex items-center gap-1 sm:gap-2">
           <GlobalSearch />
+          <ProductTour role={role} />
           <ThemeToggle />
           {email && <UserMenu email={email} displayName={displayName} />}
         </div>

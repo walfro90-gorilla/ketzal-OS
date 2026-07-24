@@ -114,7 +114,7 @@ Detalle completo del modelo objetivo en **`docs/DATA_MODEL.md`**. SQL propuesto 
 - **Recibo** rediseñado + público/compartible (`/recibo/[uuid]`, cantidad con letra, sello "Liquidada").
 - **Plan de pagos (abonos)**: enganche % configurable (default 20%) + abonos semanal/quincenal/mensual hasta la fecha final; invariante suma=total. Tabla `payment_schedule` + RPCs `preview/generate/clear_payment_plan`; `bookings.payment_type`.
 
-**Operación / institucional:** Panel (KPIs + "Requiere atención") · **Reportes** (`/reportes`, gráficas + exportar CSV) · **búsqueda + filtros + ordenar por columna** en todas las listas · **buscador global ⌘K** · **sidebar de escritorio colapsable** · PWA · dark mode · toasts · mobile-first (campo-primero) · borrados con confirmación + guardas de integridad.
+**Operación / institucional:** Panel (KPIs + "Requiere atención") · **Reportes** (`/reportes`, gráficas + exportar CSV) · **búsqueda + filtros + ordenar por columna** en todas las listas · **buscador global ⌘K** · **sidebar de escritorio colapsable** · PWA · dark mode · toasts · mobile-first (campo-primero) · borrados con confirmación + guardas de integridad · **tour de onboarding** (`src/components/shell/tour/`: modal base-ui que se auto-abre 1× por dispositivo vía `localStorage` `ketzal_tour_seen_v1` y se reabre desde el botón "?" del header; pasos por sección filtrados por rol, sin backend).
 
 **Automatización / cobranza / salud (2026-07-10):**
 - **Cobranza** (`/cobranza`): a quién cobrar / quién va atrasado (cruza el plan de pagos con los abonos reales).
