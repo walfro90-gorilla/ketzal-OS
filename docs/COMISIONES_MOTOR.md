@@ -160,13 +160,30 @@ Detalle de lo aplicado:
    agrega 1 línea idempotente; snapshot inmutable (DELETE bloqueado); invariante
    dispara si Σ > total; RLS aislada entre agencias; advisors 0 ERROR.
 
-**Fase 2 — leer del ledger + UI (tras verificar Fase 1):**
+**Fase 2 — config por servicio — ✅ SLICE 1 HECHO (2026-07-23, misma rama).**
+Lo que el fundador pidió: **cuánto gana Ketzal por servicio** (override del % global).
+- BD: RPC `set_commission_rule(service, payee_type, scope, basis, rate, unit)`
+  (migración `ketzal_set_commission_rule`, espejo `db/proposed/b020_set_commission_rule.sql`),
+  SECURITY DEFINER, guard = calco de las policies (superadmin, o la agencia dueña
+  para reglas 'agencia'); atómico (desactiva la activa + inserta); `basis=null` limpia.
+  Sirve a los 3 payee_type; la UI hoy solo usa 'plataforma'.
+- App: `/comisiones` gana card **"Ganancia de Ketzal por servicio"** (solo superadmin):
+  por servicio elige *Usar % global / % propio / Fijo por venta / Fijo por pasajero*
+  (`reglas-servicio.tsx` + `reglas-actions.ts`). Hard-test SQL (rollback, 7 checks:
+  set/cambia/una-sola-activa/resolver/limpiar-a-legacy/guard-agencia-no-plataforma/
+  agencia-sí-su-regla). `tsc`+`build`+57 tests de dominio limpios.
+
+**Fase 2 — pendiente (cuando haya datos/consumidor):**
 - Reescribir `commissions_summary` para leer `commission_lines` (separa **ganado**
-  `payee=yo` de **costo** ⇒ arregla hueco #3), cubre marketplace.
-- RPC nuevo `ambassador_payables_summary` (vista Ketzal, superadmin).
-- `/comisiones`: editor de reglas fijas por servicio + tarifas de embajador.
-- `/gastos`: pago al embajador (`category='embajador'` prellenada).
+  `payee=yo` de **costo** ⇒ arregla hueco #3), cubre marketplace. *Diferido*: hoy
+  balance 0 ⇒ la lista está vacía; el rewrite cambia semántica sin upside inmediato.
+- RPC `ambassador_payables_summary` (Ketzal, superadmin) + `/gastos` pago al embajador
+  (`category='embajador'` prellenada). *Diferido*: no hay embajador ni línea que pagar.
+- Editor de tarifas de embajador por servicio (reusa `set_commission_rule` con
+  `payee_type='embajador'`) — *diferido* hasta que existan embajadores (`suppliers`
+  type='embajador').
 - Marketplace: capturar `?ref=CODIGO` → `set_booking_ambassador` tras el pedido.
+  *Diferido*: depende de que existan embajadores con `referral_code`.
 
 **Diferido (no hay embajador real todavía):**
 - Embajador se loguea al OS a vender (gating de nav/shell).

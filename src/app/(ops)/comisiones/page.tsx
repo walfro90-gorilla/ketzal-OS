@@ -12,6 +12,8 @@ import { PageHeader } from '@/components/data/page-header'
 import { mxn } from '@/components/data/format'
 import { TasaForm } from './tasa-form'
 import { ComisionesList, type ComisionVenta } from './comisiones-list'
+import { ReglasServicio, type ReglaServicio } from './reglas-servicio'
+import type { ReglaBasis } from './reglas-actions'
 
 type CommissionsSummary = {
   total_comision: number
@@ -40,18 +42,85 @@ export default async function ComisionesPage() {
     return <p className="text-sm text-muted-foreground">Sesión no válida.</p>
   }
 
-  const [agenciasRes, summaryRes] = await Promise.all([
-    supabase
-      .from('suppliers')
-      .select('id, name, commission_rate')
-      .eq('supplier_type', 'agency')
-      .order('name'),
-    supabase.rpc('commissions_summary'),
-  ])
+  // Solo el superadmin configura "cuánto gana Ketzal por servicio" (regla de
+  // plataforma). Un admin de agencia no ve ni edita el corte de la plataforma.
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+  const isSuperadmin = profile?.role === 'superadmin'
+
+  const [agenciasRes, summaryRes, settingsRes, serviciosRes, reglasRes] =
+    await Promise.all([
+      supabase
+        .from('suppliers')
+        .select('id, name, commission_rate')
+        .eq('supplier_type', 'agency')
+        .order('name'),
+      supabase.rpc('commissions_summary'),
+      isSuperadmin
+        ? supabase
+            .from('app_settings')
+            .select('platform_commission_rate')
+            .eq('id', 1)
+            .single()
+        : Promise.resolve({ data: null, error: null }),
+      isSuperadmin
+        ? supabase
+            .from('services')
+            .select('id, name, supplier_id')
+            .order('name')
+        : Promise.resolve({ data: [], error: null }),
+      isSuperadmin
+        ? supabase
+            .from('commission_rules' as never)
+            .select('service_id, basis, rate, unit_amount')
+            .eq('payee_type', 'plataforma')
+            .eq('active', true)
+        : Promise.resolve({ data: [], error: null }),
+    ])
 
   const agencias = agenciasRes.data ?? []
   const d = (summaryRes.data ?? EMPTY_SUMMARY) as unknown as CommissionsSummary
   const lista = d.lista ?? []
+
+  // Reglas de plataforma por servicio (solo superadmin): cruza el catálogo con
+  // las reglas activas; sin regla ⇒ 'global' (usa el % de app_settings).
+  const globalRate = Number(
+    (settingsRes.data as { platform_commission_rate?: number } | null)
+      ?.platform_commission_rate ?? 0
+  )
+  const agenciaPorId = new Map(
+    (agencias as { id: string; name: string }[]).map((a) => [a.id, a.name])
+  )
+  const reglaPorServicio = new Map(
+    (
+      (reglasRes.data ?? []) as unknown as {
+        service_id: string
+        basis: 'percent' | 'fijo_venta' | 'fijo_pax'
+        rate: number | null
+        unit_amount: number | null
+      }[]
+    ).map((r) => [r.service_id, r])
+  )
+  const reglasServicio: ReglaServicio[] = (
+    (serviciosRes.data ?? []) as unknown as {
+      id: string
+      name: string
+      supplier_id: string
+    }[]
+  ).map((s) => {
+    const r = reglaPorServicio.get(s.id)
+    const basis: ReglaBasis = r ? r.basis : 'global'
+    return {
+      serviceId: s.id,
+      nombre: s.name,
+      agencia: agenciaPorId.get(s.supplier_id) ?? null,
+      basis,
+      value: r ? (r.basis === 'percent' ? Number(r.rate) : Number(r.unit_amount)) : null,
+    }
+  })
 
   return (
     <div className="space-y-6">
@@ -94,6 +163,32 @@ export default async function ComisionesPage() {
           )}
         </CardContent>
       </Card>
+
+      {isSuperadmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Ganancia de Ketzal por servicio</CardTitle>
+            <CardDescription>
+              Cuánto gana Ketzal al vender cada servicio. Por defecto usa el %
+              global ({globalRate}%); aquí puedes ponerle un % propio o un monto
+              fijo (por venta o por pasajero) cuando el trato sea distinto.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {reglasRes.error ? (
+              <p className="text-sm text-destructive">
+                Error al cargar las reglas: {reglasRes.error.message}
+              </p>
+            ) : (
+              <ReglasServicio
+                reglas={reglasServicio}
+                globalRate={globalRate}
+                showAgencia
+              />
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {summaryRes.error && (
         <p className="text-sm text-destructive">
