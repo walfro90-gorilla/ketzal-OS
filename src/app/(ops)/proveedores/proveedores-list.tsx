@@ -11,6 +11,7 @@ const TIPO_LABELS: Record<string, string> = {
   transport: 'Transporte',
   transporte: 'Transporte',
   hotel: 'Hotel',
+  embajador: 'Embajador',
   otro: 'Otro',
 }
 

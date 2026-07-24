@@ -26,12 +26,12 @@ import {
 } from './actions'
 import { subirImagenProveedor } from './subir-imagen'
 
-type ProveedorTipo = 'agency' | 'transporte' | 'hotel' | 'otro'
+type ProveedorTipo = 'agency' | 'transporte' | 'hotel' | 'embajador' | 'otro'
 
 /** Acota el supplier_type de la BD a las opciones del select. */
 function normalizarTipo(tipo: string | null | undefined): ProveedorTipo {
   if (tipo === 'agency' || tipo === 'tour_operator') return 'agency'
-  if (tipo === 'transporte' || tipo === 'hotel') return tipo
+  if (tipo === 'transporte' || tipo === 'hotel' || tipo === 'embajador') return tipo
   return 'otro'
 }
 
@@ -43,6 +43,8 @@ export type ProveedorFormInitial = {
   description: string
   supplier_type: string | null
   commission_rate: number
+  /** Código de referido del embajador (referral_code), o null. */
+  referral_code: string | null
   /** Logo (img_logo), o null. */
   img_logo: string | null
   /** Fotos del perfil público (hasta 12). */
@@ -73,6 +75,7 @@ export function ProveedorForm({
   const [commissionRate, setCommissionRate] = useState(
     String(initial?.commission_rate ?? 0)
   )
+  const [referralCode, setReferralCode] = useState(initial?.referral_code ?? '')
 
   // Perfil público (info jsonb).
   const info = initial?.info
@@ -225,6 +228,7 @@ export function ProveedorForm({
       description: description.trim() || undefined,
       supplier_type: tipo,
       commission_rate: tipo === 'agency' ? rate : undefined,
+      referral_code: tipo === 'embajador' ? referralCode.trim() || null : null,
       info: infoInput,
     }
 
@@ -289,6 +293,7 @@ export function ProveedorForm({
                 <option value="agency">Agencia</option>
                 <option value="transporte">Transporte</option>
                 <option value="hotel">Hotel</option>
+                <option value="embajador">Embajador</option>
                 <option value="otro">Otro</option>
               </NativeSelect>
             </div>
@@ -306,6 +311,22 @@ export function ProveedorForm({
                   onChange={(e) => setCommissionRate(e.target.value)}
                   placeholder="Ej. 10"
                 />
+              </div>
+            )}
+            {tipo === 'embajador' && (
+              <div className="space-y-2 sm:col-span-2">
+                <Label htmlFor="proveedor-referral">Código de referido</Label>
+                <Input
+                  id="proveedor-referral"
+                  value={referralCode}
+                  onChange={(e) => setReferralCode(e.target.value)}
+                  placeholder="Ej. IVO2026 (opcional)"
+                  autoCapitalize="characters"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Con este código se atribuyen sus ventas por link (?ref). Su
+                  tarifa por servicio se configura en Comisiones.
+                </p>
               </div>
             )}
             <div className="space-y-2 sm:col-span-2">

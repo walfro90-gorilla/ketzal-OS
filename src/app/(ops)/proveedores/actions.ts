@@ -27,7 +27,37 @@ export type ProveedorInput = {
   description?: string
   supplier_type: string
   commission_rate?: number
+  /** Código de referido del embajador (para atribuir ventas por `?ref`). */
+  referral_code?: string | null
   info?: ProveedorInfo
+}
+
+/** ¿El error es el choque del índice único de referral_code? */
+function esCodigoReferidoDuplicado(
+  error: { code?: string; message?: string } | null
+): boolean {
+  if (!error) return false
+  const msg = (error.message ?? '').toLowerCase()
+  return error.code === '23505' && msg.includes('referral_code')
+}
+
+/**
+ * Normaliza el código de referido de un embajador: mayúsculas, sin espacios,
+ * solo A-Z 0-9 _ -. Devuelve `{ code }` (null si vacío) o `{ error }`.
+ * Solo aplica a embajadores; para el resto se guarda null.
+ */
+function normalizarReferral(
+  raw: string | null | undefined
+): { code: string | null } | { error: string } {
+  const code = (raw ?? '').trim().toUpperCase().replace(/\s+/g, '')
+  if (!code) return { code: null }
+  if (!/^[A-Z0-9_-]{3,32}$/.test(code)) {
+    return {
+      error:
+        'El código de referido debe tener 3–32 caracteres: letras, números, guion o guion bajo.',
+    }
+  }
+  return { code }
 }
 
 /** Limpia el perfil público: recorta strings, acota año y tags. null si vacío. */
@@ -74,6 +104,7 @@ function normalizarCampos(input: ProveedorInput):
         description: string | null
         supplier_type: string
         commission_rate: number
+        referral_code: string | null
         info: ProveedorInfo | null
       }
     } {
@@ -95,6 +126,14 @@ function normalizarCampos(input: ProveedorInput):
     }
   }
 
+  // El código de referido solo aplica a embajadores; en el resto se limpia.
+  let referralCode: string | null = null
+  if (input.supplier_type === 'embajador') {
+    const ref = normalizarReferral(input.referral_code)
+    if ('error' in ref) return ref
+    referralCode = ref.code
+  }
+
   return {
     fields: {
       name,
@@ -104,6 +143,7 @@ function normalizarCampos(input: ProveedorInput):
       description: input.description?.trim() || null,
       supplier_type: input.supplier_type,
       commission_rate: rate,
+      referral_code: referralCode,
       info: limpiarInfo(input.info),
     },
   }
@@ -130,6 +170,9 @@ export async function crearProveedor(
     .select('id')
     .single()
   if (error || !data) {
+    if (esCodigoReferidoDuplicado(error)) {
+      return { error: 'Ese código de referido ya está en uso por otro embajador.' }
+    }
     return { error: safeError(error, 'No se pudo guardar el proveedor.') }
   }
 
@@ -157,6 +200,9 @@ export async function actualizarProveedor(
     .update(result.fields as never)
     .eq('id', id)
   if (error) {
+    if (esCodigoReferidoDuplicado(error)) {
+      return { error: 'Ese código de referido ya está en uso por otro embajador.' }
+    }
     return { error: safeError(error) }
   }
 

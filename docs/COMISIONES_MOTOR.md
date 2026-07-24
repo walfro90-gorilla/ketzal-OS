@@ -173,17 +173,28 @@ Lo que el fundador pidió: **cuánto gana Ketzal por servicio** (override del % 
   set/cambia/una-sola-activa/resolver/limpiar-a-legacy/guard-agencia-no-plataforma/
   agencia-sí-su-regla). `tsc`+`build`+57 tests de dominio limpios.
 
+**Fase 2 slice 2 (alta de embajadores) — ✅ HECHO (2026-07-23, misma rama).**
+El form de `/proveedores` gana el tipo **Embajador** + campo **Código de referido**
+(`referral_code`, opcional, normalizado A-Z0-9_- 3–32, unique con mensaje claro al
+chocar). Sin migración (la columna `referral_code` ya existe de b019). Ahora que un
+embajador puede existir, el flujo cierra end-to-end: crear embajador+código →
+`set_commission_rule(payee_type='embajador')` fija su tarifa por servicio →
+`set_booking_ambassador` atribuye → línea. Smoke-test SQL (rollback, 4 checks:
+código duplicado bloqueado / tarifa por servicio / línea 200×3=600 / lookup por
+código). tsc+build limpios. Archivos: `proveedores/{actions,proveedor-form,proveedores-list}.tsx`
++ `[id]/page.tsx`.
+
 **Fase 2 — pendiente (cuando haya datos/consumidor):**
 - Reescribir `commissions_summary` para leer `commission_lines` (separa **ganado**
   `payee=yo` de **costo** ⇒ arregla hueco #3), cubre marketplace. *Diferido*: hoy
   balance 0 ⇒ la lista está vacía; el rewrite cambia semántica sin upside inmediato.
 - RPC `ambassador_payables_summary` (Ketzal, superadmin) + `/gastos` pago al embajador
   (`category='embajador'` prellenada). *Diferido*: no hay embajador ni línea que pagar.
-- Editor de tarifas de embajador por servicio (reusa `set_commission_rule` con
-  `payee_type='embajador'`) — *diferido* hasta que existan embajadores (`suppliers`
-  type='embajador').
-- Marketplace: capturar `?ref=CODIGO` → `set_booking_ambassador` tras el pedido.
-  *Diferido*: depende de que existan embajadores con `referral_code`.
+- **Editor de tarifas de embajador por servicio** en `/comisiones` (reusa
+  `set_commission_rule` con `payee_type='embajador'`, scope = embajador) — **ya es
+  posible** (los embajadores ya se dan de alta); siguiente paso natural de UI.
+- Marketplace: capturar `?ref=CODIGO` → `set_booking_ambassador` tras el pedido
+  (lookup por `suppliers.referral_code`, ya probado).
 
 **Diferido (no hay embajador real todavía):**
 - Embajador se loguea al OS a vender (gating de nav/shell).

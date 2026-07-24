@@ -174,6 +174,9 @@ export default async function ProveedorDetallePage({
           description: proveedor.description ?? '',
           supplier_type: proveedor.supplier_type,
           commission_rate: Number(proveedor.commission_rate ?? 0),
+          referral_code:
+            (proveedor as { referral_code?: string | null }).referral_code ??
+            null,
           // img_logo / photos / info no están en los types generados ⇒ cast.
           img_logo: (proveedor as { img_logo?: string | null }).img_logo ?? null,
           photos: Array.isArray((proveedor as { photos?: unknown }).photos)
