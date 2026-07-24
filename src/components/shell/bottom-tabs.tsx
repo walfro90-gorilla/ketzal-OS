@@ -21,9 +21,11 @@ import { navItemsForRole, isNavActive } from './nav-items'
 // Respeta el safe-area del home indicator de iOS.
 export function BottomTabs({
   role,
+  personaType = null,
   email,
 }: {
   role: string | null
+  personaType?: string | null
   email: string | null
 }) {
   const pathname = usePathname()
@@ -37,7 +39,7 @@ export function BottomTabs({
       document.getElementById('signout-form') as HTMLFormElement | null
     )?.requestSubmit()
   }
-  const items = navItemsForRole(role)
+  const items = navItemsForRole(role, personaType)
   const primaryItems = items.filter((i) => i.primary)
   const secondaryItems = items.filter((i) => !i.primary)
   const hasMore = secondaryItems.length > 0

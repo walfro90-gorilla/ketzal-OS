@@ -14,6 +14,7 @@ import { ProveedorForm } from '../proveedor-form'
 import { type ProveedorInfo } from '../actions'
 import { EliminarProveedor } from './eliminar-proveedor'
 import { AccionesProveedor } from './acciones-proveedor'
+import { CrearAcceso } from './crear-acceso'
 
 // Formatter local (mismo criterio que el resto de páginas: autocontenidas).
 const mxn = new Intl.NumberFormat('es-MX', {
@@ -106,6 +107,15 @@ export default async function ProveedorDetallePage({
   )
   const tienePerfilPublico = perfilPublico != null
 
+  // Dar acceso (login) al proveedor es de plataforma ⇒ solo superadmin.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  const { data: me } = user
+    ? await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+    : { data: null }
+  const isSuperadmin = me?.role === 'superadmin'
+
   const servicios: ServicioVinculado[] = (serviciosData ?? []).map((s) => ({
     id: s.id,
     name: s.name,
@@ -163,6 +173,22 @@ export default async function ProveedorDetallePage({
           />
         </CardContent>
       </Card>
+
+      {isSuperadmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Acceso del proveedor</CardTitle>
+            <CardDescription>
+              Da un login a este proveedor. Entra como persona de tipo proveedor:
+              ve solo lo suyo (sin ventas ni datos de otras agencias) y no accede a
+              la administración de la plataforma.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <CrearAcceso supplierId={proveedor.id} />
+          </CardContent>
+        </Card>
+      )}
 
       <ProveedorForm
         proveedorId={proveedor.id}

@@ -20,18 +20,22 @@ export default async function OpsLayout({
 
   let displayName: string | null = null
   let role: string | null = null
+  let personaType: string | null = null
   if (user) {
-    const { data: profile } = await supabase
+    // profiles.type no está tipado (refactor de identidad) ⇒ cast.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: profile } = await (supabase as any)
       .from('profiles')
-      .select('name, role')
+      .select('name, role, type')
       .eq('id', user.id)
       .maybeSingle()
-    // Sin fila en profiles = viajero (comprador B2C): el back-office no es para él.
-    // Es el gate de persona de toda la superficie (ops) — sin costo extra: el rol
-    // ya se consultaba aquí.
-    if (!profile) redirect('/mis-compras')
+    // Gate de persona de toda la superficie (ops): el back-office no es para el
+    // viajero (comprador B2C). Desde F1 el viajero SÍ tiene profile ⇒ se discrimina
+    // por type='viajero', no por "existe fila". Sin costo extra: el rol ya se leía aquí.
+    if (!profile || profile.type === 'viajero') redirect('/mis-compras')
     displayName = profile.name ?? null
     role = profile.role ?? null
+    personaType = profile.type ?? null
   }
 
   const logoUrl = await getBrandLogo()
@@ -41,6 +45,7 @@ export default async function OpsLayout({
       email={user?.email ?? null}
       displayName={displayName}
       role={role}
+      personaType={personaType}
       logoUrl={logoUrl}
       sidebarCollapsed={sidebarCollapsed}
     >
