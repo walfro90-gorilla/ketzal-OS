@@ -8,12 +8,20 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { buttonVariants } from '@/components/ui/button'
+import { createClient } from '@/lib/supabase/server'
 import { PageHeader } from '@/components/data/page-header'
 import { EmptyState } from '@/components/data/empty-state'
 import { mxn } from '@/components/data/format'
-import { listExpenses, getExpensesSummary, getPayables } from './data'
+import {
+  listExpenses,
+  getExpensesSummary,
+  getPayables,
+  getAmbassadorPayables,
+  type AmbassadorPayables,
+} from './data'
 import { GastosList } from './gastos-list'
 import { CxpSection } from './cxp-section'
+import { CxpEmbajadoresSection } from './cxp-embajadores-section'
 
 function isoDate(d: Date): string {
   const m = String(d.getMonth() + 1).padStart(2, '0')
@@ -28,10 +36,28 @@ export default async function GastosPage() {
   const from = isoDate(new Date(hoy.getFullYear(), hoy.getMonth(), 1))
   const to = isoDate(hoy)
 
-  const [rows, resumen, payables] = await Promise.all([
+  // El CxP a embajadores es deuda de Ketzal (plataforma) ⇒ solo superadmin.
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  const { data: profile } = user
+    ? await supabase.from('profiles').select('role').eq('id', user.id).single()
+    : { data: null }
+  const isSuperadmin = profile?.role === 'superadmin'
+
+  const [rows, resumen, payables, ambPayables] = await Promise.all([
     listExpenses(),
     getExpensesSummary(from, to),
     getPayables(),
+    isSuperadmin
+      ? getAmbassadorPayables()
+      : Promise.resolve<AmbassadorPayables>({
+          total_debo: 0,
+          total_pagado: 0,
+          total_saldo: 0,
+          lista: [],
+        }),
   ])
 
   return (
@@ -85,6 +111,35 @@ export default async function GastosPage() {
             <p className="text-xs text-muted-foreground">Saldo pendiente</p>
           </CardContent>
         </Card>
+        {isSuperadmin && (
+          <Card
+            className={
+              ambPayables.total_saldo > 0
+                ? 'border-amber-500/50 bg-amber-500/5'
+                : undefined
+            }
+          >
+            <CardHeader>
+              <CardDescription
+                className={
+                  ambPayables.total_saldo > 0
+                    ? 'text-amber-700 dark:text-amber-400'
+                    : undefined
+                }
+              >
+                Por pagar a embajadores
+              </CardDescription>
+              <CardTitle
+                className={`text-2xl tabular-nums${ambPayables.total_saldo > 0 ? ' text-amber-700 dark:text-amber-400' : ''}`}
+              >
+                {mxn.format(Number(ambPayables.total_saldo))}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground">Deuda de Ketzal</p>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       <Card>
@@ -117,6 +172,8 @@ export default async function GastosPage() {
       </Card>
 
       <CxpSection payables={payables} />
+
+      {isSuperadmin && <CxpEmbajadoresSection payables={ambPayables} />}
     </div>
   )
 }

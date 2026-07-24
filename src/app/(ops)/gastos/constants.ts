@@ -13,6 +13,7 @@ export const CATEGORIAS = [
   'hospedaje',
   'alimentos',
   'mayorista',
+  'embajador',
   'marketing',
   'otro',
 ] as const

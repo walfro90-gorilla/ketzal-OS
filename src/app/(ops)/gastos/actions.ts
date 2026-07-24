@@ -29,8 +29,12 @@ export async function crearGasto(
   if (!Number.isFinite(amount) || amount <= 0) {
     return { error: 'El monto debe ser mayor que cero.' }
   }
-  if (input.category === 'mayorista' && !input.provider_supplier_id) {
-    return { error: 'Un pago a mayorista requiere elegir el proveedor.' }
+  if (
+    (input.category === 'mayorista' || input.category === 'embajador') &&
+    !input.provider_supplier_id
+  ) {
+    const quien = input.category === 'embajador' ? 'embajador' : 'mayorista'
+    return { error: `Un pago a ${quien} requiere elegir el proveedor.` }
   }
 
   const { error } = await supabase.rpc('create_expense' as never, {

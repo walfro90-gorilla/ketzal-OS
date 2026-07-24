@@ -16,6 +16,7 @@ const CATEGORIA_LABELS: Record<string, string> = {
   hospedaje: 'Hospedaje',
   alimentos: 'Alimentos',
   mayorista: 'Pago a mayorista',
+  embajador: 'Pago a embajador',
   marketing: 'Marketing',
   otro: 'Otro',
 }
@@ -53,7 +54,9 @@ export function GastoForm({
   const [provider, setProvider] = useState(defaultProvider ?? '')
   const [notes, setNotes] = useState('')
 
-  const esMayorista = category === 'mayorista'
+  // Mayorista y embajador exigen proveedor (para netear su cuenta por pagar).
+  const requiereProveedor = category === 'mayorista' || category === 'embajador'
+  const proveedorLabel = category === 'embajador' ? 'Embajador' : 'Proveedor mayorista'
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -67,8 +70,8 @@ export function GastoForm({
       setError('El monto debe ser mayor que cero.')
       return
     }
-    if (esMayorista && !provider) {
-      setError('Elige el proveedor mayorista.')
+    if (requiereProveedor && !provider) {
+      setError(`Elige el ${proveedorLabel.toLowerCase()}.`)
       return
     }
     startTransition(async () => {
@@ -78,7 +81,7 @@ export function GastoForm({
         amount: monto,
         method: method || undefined,
         spent_at: spentAt,
-        provider_supplier_id: esMayorista ? provider : null,
+        provider_supplier_id: requiereProveedor ? provider : null,
         notes: notes.trim() || undefined,
       })
       // En éxito la acción redirige a /gastos; solo se llega aquí con error.
@@ -153,15 +156,15 @@ export function GastoForm({
             onChange={(e) => setSpentAt(e.target.value)}
           />
         </div>
-        {esMayorista && (
+        {requiereProveedor && (
           <div className="space-y-2 sm:col-span-2">
-            <Label htmlFor="gasto-proveedor">Proveedor mayorista *</Label>
+            <Label htmlFor="gasto-proveedor">{proveedorLabel} *</Label>
             <NativeSelect
               id="gasto-proveedor"
               value={provider}
               onChange={(e) => setProvider(e.target.value)}
             >
-              <option value="">— Elige el proveedor</option>
+              <option value="">— Elige el {proveedorLabel.toLowerCase()}</option>
               {proveedores.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}

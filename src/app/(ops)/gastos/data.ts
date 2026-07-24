@@ -41,6 +41,23 @@ export type Payables = {
   }[]
 }
 
+// CxP a embajadores (deuda de Ketzal). Solo superadmin; para otros el RPC
+// devuelve vacío. `devengado` = comisiones de embajador de ventas reales;
+// `pagado` = gastos category='embajador' a ese embajador; saldo = la diferencia.
+export type AmbassadorPayables = {
+  total_debo: number
+  total_pagado: number
+  total_saldo: number
+  lista: {
+    embajador_id: string
+    embajador: string | null
+    num_ventas: number
+    devengado: number
+    pagado: number
+    saldo: number
+  }[]
+}
+
 /** Gastos visibles (RLS), con el nombre del proveedor si es pago a mayorista. */
 export async function listExpenses(): Promise<GastoRow[]> {
   const supabase = await createClient()
@@ -94,6 +111,19 @@ export async function getPayables(): Promise<Payables> {
   const { data } = await supabase.rpc('payables_summary' as never)
   return (
     (data as unknown as Payables) ?? {
+      total_debo: 0,
+      total_pagado: 0,
+      total_saldo: 0,
+      lista: [],
+    }
+  )
+}
+
+export async function getAmbassadorPayables(): Promise<AmbassadorPayables> {
+  const supabase = await createClient()
+  const { data } = await supabase.rpc('ambassador_payables_summary' as never)
+  return (
+    (data as unknown as AmbassadorPayables) ?? {
       total_debo: 0,
       total_pagado: 0,
       total_saldo: 0,

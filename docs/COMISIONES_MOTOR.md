@@ -207,12 +207,32 @@ tras crear el pedido. Hard-test SQL (rollback): normaliza y atribuye (150×2=300
 `ambassador_id`), idempotente, código inexistente / sin tarifa / extraño = no-op.
 tsc+build limpios, advisors 0 ERROR.
 
+**Fase 2 slice 5 (CxP + pago al embajador) — ✅ HECHO (2026-07-24, misma rama).**
+Cuando un embajador vende con su código, su `commission_lines` (el devengo) **genera
+la deuda de Ketzal** en cuentas por pagar; el pago la baja. BD (migración
+`ketzal_ambassador_payables` + `ketzal_create_expense_embajador`, espejo
+`db/proposed/b022_ambassador_payables.sql`): RPC **`ambassador_payables_summary()`**
+(DEFINER, **solo superadmin** — el que paga es Ketzal, no una agencia; calco de
+`payables_summary`; `saldo = devengado − pagado`, solo ventas reales reserved/
+confirmed/paid, draft no cuenta); categoría **`embajador`** en `expenses` con
+**CHECK que exige proveedor** (backstop) + `create_expense` re-aplicado ADITIVO
+(acepta `embajador`, exige proveedor). App: `/gastos` gana card **"Cuentas por pagar
+a embajadores"** + KPI, **solo superadmin** (`cxp-embajadores-section.tsx`,
+`getAmbassadorPayables`); "Registrar pago" prellena `?category=embajador&provider=<embId>`;
+el form/acción exigen proveedor para `embajador`. Hard-test SQL (rollback, 4 checks:
+devengado 300 con draft excluido / pago 100→saldo 200 / sin-proveedor bloqueado /
+no-superadmin vacío). tsc+build limpios, advisors 0 ERROR. **Coordinación:**
+`create_expense` (RPC compartido de F2) re-aplicado aditivo — conservar `embajador`
+si el otro agente lo re-aplica.
+
 **Fase 2 — pendiente (cuando haya datos):**
 - Reescribir `commissions_summary` para leer `commission_lines` (separa **ganado**
   `payee=yo` de **costo** ⇒ arregla hueco #3), cubre marketplace. *Diferido*: hoy
   balance 0 ⇒ la lista está vacía; el rewrite cambia semántica sin upside inmediato.
-- RPC `ambassador_payables_summary` (Ketzal, superadmin) + `/gastos` pago al embajador
-  (`category='embajador'` prellenada). *Diferido*: no hay embajador ni línea que pagar.
+
+Con esto el **flujo del embajador está COMPLETO**: alta+código (Proveedores) →
+tarifa por servicio (Comisiones) → atribución (manual o por `?ref`) → línea/devengo
+→ **CxP + pago** (Gastos). Solo queda el rewrite opcional de `commissions_summary`.
 
 **Diferido (no hay embajador real todavía):**
 - Embajador se loguea al OS a vender (gating de nav/shell).
