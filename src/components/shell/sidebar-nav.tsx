@@ -23,6 +23,7 @@ export function SidebarNav({
           <Link
             key={href}
             href={href}
+            data-tour={href}
             aria-current={active ? 'page' : undefined}
             // Colapsado: solo ícono ⇒ el nombre va en aria-label/title (tooltip).
             aria-label={collapsed ? label : undefined}

@@ -55,6 +55,7 @@ export function BottomTabs({
             <li key={href}>
               <Link
                 href={href}
+                data-tour={href}
                 aria-current={active ? 'page' : undefined}
                 className={cn(
                   'flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
