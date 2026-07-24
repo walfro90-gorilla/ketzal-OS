@@ -34,10 +34,6 @@ const EMPTY_SUMMARY: CommissionsSummary = {
   lista: [],
 }
 
-function pluralRevendidas(n: number): string {
-  return n === 1 ? '1 venta revendida' : `${n} ventas revendidas`
-}
-
 export default async function ComisionesPage() {
   const supabase = await createClient()
   const {
@@ -184,12 +180,29 @@ export default async function ComisionesPage() {
     value: r.basis === 'percent' ? Number(r.rate) : Number(r.unit_amount),
   }))
 
+  // El superadmin ve el CORTE DE PLATAFORMA (libres + marketplace); una agencia
+  // ve sus comisiones de REVENTA. Los textos se adaptan al rol.
+  const L = isSuperadmin
+    ? {
+        pageDesc: 'El corte de Ketzal por ventas de agentes libres y del marketplace.',
+        cardTitle: 'Corte de plataforma',
+        cardDesc: 'Ventas de agentes libres y del marketplace donde Ketzal cobra su corte.',
+        emptyTitle: 'Aún no hay ventas con corte de plataforma',
+        emptyDesc: 'Cuando un agente libre o el marketplace concreten una venta, el corte de Ketzal aparece aquí.',
+        count: (n: number) => (n === 1 ? '1 venta' : `${n} ventas`),
+      }
+    : {
+        pageDesc: 'Lo que ganas por revender viajes de otras agencias.',
+        cardTitle: 'Comisiones ganadas',
+        cardDesc: 'Ventas donde el servicio pertenece a otra agencia.',
+        emptyTitle: 'Aún no has revendido viajes de otra agencia',
+        emptyDesc: 'Cuando vendas un servicio cuyo dueño es otra agencia, la comisión aparece aquí.',
+        count: (n: number) => (n === 1 ? '1 venta revendida' : `${n} ventas revendidas`),
+      }
+
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Comisiones"
-        description="Lo que ganas por revender viajes de otras agencias."
-      />
+      <PageHeader title="Comisiones" description={L.pageDesc} />
 
       <Card>
         <CardHeader>
@@ -293,19 +306,15 @@ export default async function ComisionesPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-xs text-muted-foreground">
-              {pluralRevendidas(d.num ?? 0)}
-            </p>
+            <p className="text-xs text-muted-foreground">{L.count(d.num ?? 0)}</p>
           </CardContent>
         </Card>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Comisiones ganadas</CardTitle>
-          <CardDescription>
-            Ventas donde el servicio pertenece a otra agencia.
-          </CardDescription>
+          <CardTitle>{L.cardTitle}</CardTitle>
+          <CardDescription>{L.cardDesc}</CardDescription>
         </CardHeader>
         <CardContent>
           <ComisionesList
@@ -313,8 +322,8 @@ export default async function ComisionesPage() {
             empty={
               <EmptyState
                 icon={PercentIcon}
-                title="Aún no has revendido viajes de otra agencia"
-                description="Cuando vendas un servicio cuyo dueño es otra agencia, la comisión aparece aquí."
+                title={L.emptyTitle}
+                description={L.emptyDesc}
               />
             }
           />

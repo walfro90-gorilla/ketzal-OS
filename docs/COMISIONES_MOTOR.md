@@ -225,14 +225,24 @@ no-superadmin vacío). tsc+build limpios, advisors 0 ERROR. **Coordinación:**
 `create_expense` (RPC compartido de F2) re-aplicado aditivo — conservar `embajador`
 si el otro agente lo re-aplica.
 
-**Fase 2 — pendiente (cuando haya datos):**
-- Reescribir `commissions_summary` para leer `commission_lines` (separa **ganado**
-  `payee=yo` de **costo** ⇒ arregla hueco #3), cubre marketplace. *Diferido*: hoy
-  balance 0 ⇒ la lista está vacía; el rewrite cambia semántica sin upside inmediato.
+**Fase 2 slice 6 (commissions_summary al ledger) — ✅ HECHO (2026-07-24, misma rama).
+Cierra los 3 huecos del `commissions_summary` viejo.** Ahora **lee `commission_lines`**
+(el asiento congelado) en vez de derivar al vuelo. BD (migración
+`ketzal_commissions_summary_ledger`, espejo `db/proposed/b023_commissions_summary_ledger.sql`;
+firma intacta sin args→jsonb ⇒ `database.types.ts` sigue válido): acota por beneficiario
+— **superadmin** ve las líneas `plataforma` (el corte de Ketzal: **libres + marketplace**,
+antes invisible), una **agencia** ve sus líneas `agencia` (reventa que ella cobra); el
+`embajador` NO sale aquí (es un costo ⇒ vive en Gastos/CxP). Congelado: cambiar una tasa
+ya **no** reescribe lo reportado (lee `amount_mxn`). App: `comisiones-list.tsx` gana columna
+**"Base"** (%/fijo por pax/fijo por venta) desde `basis`/`unit_amount`; `/comisiones` adapta
+títulos por rol (superadmin "Corte de plataforma" vs agencia "Comisiones ganadas"). Hard-test
+SQL (rollback, 6 checks: superadmin plataforma 400/2 incl. marketplace, no ve reventa; agencia
+su reventa 240; dueña 0; **congelado** cambiar tasa a 50% → sigue 240). tsc+build limpios.
 
-Con esto el **flujo del embajador está COMPLETO**: alta+código (Proveedores) →
-tarifa por servicio (Comisiones) → atribución (manual o por `?ref`) → línea/devengo
-→ **CxP + pago** (Gastos). Solo queda el rewrite opcional de `commissions_summary`.
+**Fase 2 COMPLETA.** El flujo del embajador está COMPLETO end-to-end: alta+código
+(Proveedores) → tarifa por servicio (Comisiones) → atribución (manual o por `?ref`) →
+línea/devengo → **CxP + pago** (Gastos); y el reporte de comisiones ya lee el ledger
+congelado con el corte del marketplace visible.
 
 **Diferido (no hay embajador real todavía):**
 - Embajador se loguea al OS a vender (gating de nav/shell).

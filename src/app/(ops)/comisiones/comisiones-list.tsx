@@ -13,9 +13,18 @@ export type ComisionVenta = {
   servicio: string | null
   owner: string
   total: number
-  rate: number
+  basis: 'percent' | 'fijo_venta' | 'fijo_pax'
+  rate: number | null
+  unit_amount: number | null
   comision: number
   status: BookingStatus
+}
+
+/** Cómo se calculó la comisión: "12%" | "$150 / pax" | "$500". */
+function baseLabel(v: ComisionVenta): string {
+  if (v.basis === 'fijo_pax') return `${mxn.format(Number(v.unit_amount ?? 0))} / pax`
+  if (v.basis === 'fijo_venta') return mxn.format(Number(v.unit_amount ?? 0))
+  return `${Number(v.rate ?? 0)}%`
 }
 
 const columns: DataColumn<ComisionVenta>[] = [
@@ -40,10 +49,11 @@ const columns: DataColumn<ComisionVenta>[] = [
     sortValue: (v) => Number(v.total),
   },
   {
-    header: '%',
+    header: 'Base',
     align: 'right',
-    cell: (v) => <span className="tabular-nums">{Number(v.rate)}%</span>,
-    sortValue: (v) => Number(v.rate),
+    cell: (v) => <span className="tabular-nums">{baseLabel(v)}</span>,
+    sortValue: (v) =>
+      v.basis === 'percent' ? Number(v.rate ?? 0) : Number(v.unit_amount ?? 0),
   },
   {
     header: 'Comisión',
