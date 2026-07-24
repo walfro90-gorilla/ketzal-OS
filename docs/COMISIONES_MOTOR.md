@@ -184,15 +184,21 @@ código duplicado bloqueado / tarifa por servicio / línea 200×3=600 / lookup p
 código). tsc+build limpios. Archivos: `proveedores/{actions,proveedor-form,proveedores-list}.tsx`
 + `[id]/page.tsx`.
 
+**Fase 2 slice 3 (tarifas de embajador) — ✅ HECHO (2026-07-23, misma rama).**
+`/comisiones` gana card **"Tarifas de embajador"** (solo superadmin): selector de
+embajador + tarifa por servicio (fijo por pasajero / fijo por venta / % de la venta /
+sin tarifa). Reusa la RPC `set_commission_rule` con `payee_type='embajador'`, scope =
+el embajador; el `ReglaRow` se generalizó y lo comparten el editor de plataforma y el
+de embajador (`reglas-servicio.tsx` + `guardarReglaEmbajador` en `reglas-actions.ts`).
+Sin migración. Sanity-test SQL (rollback: write 2 reglas / read con la query de la
+página / cambio deja 1 activa / limpiar la quita). tsc+build limpios.
+
 **Fase 2 — pendiente (cuando haya datos/consumidor):**
 - Reescribir `commissions_summary` para leer `commission_lines` (separa **ganado**
   `payee=yo` de **costo** ⇒ arregla hueco #3), cubre marketplace. *Diferido*: hoy
   balance 0 ⇒ la lista está vacía; el rewrite cambia semántica sin upside inmediato.
 - RPC `ambassador_payables_summary` (Ketzal, superadmin) + `/gastos` pago al embajador
   (`category='embajador'` prellenada). *Diferido*: no hay embajador ni línea que pagar.
-- **Editor de tarifas de embajador por servicio** en `/comisiones` (reusa
-  `set_commission_rule` con `payee_type='embajador'`, scope = embajador) — **ya es
-  posible** (los embajadores ya se dan de alta); siguiente paso natural de UI.
 - Marketplace: capturar `?ref=CODIGO` → `set_booking_ambassador` tras el pedido
   (lookup por `suppliers.referral_code`, ya probado).
 

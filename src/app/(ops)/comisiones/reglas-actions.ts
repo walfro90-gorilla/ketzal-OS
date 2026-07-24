@@ -5,21 +5,24 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { safeError } from '@/lib/errors'
 
-// Modo de ganancia por servicio para la plataforma (Ketzal). 'global' = sin regla
-// (usa el % global de app_settings / el legacy del resolver).
+// Modo de comisión por servicio. 'global' = sin regla (para plataforma usa el %
+// global de app_settings; para embajador significa "sin tarifa" ⇒ no atribuye).
 export type ReglaBasis = 'global' | 'percent' | 'fijo_venta' | 'fijo_pax'
 
+type ReglaResult = { error: string } | { ok: true }
+
 /**
- * Fija (o limpia) la regla de comisión de PLATAFORMA de un servicio: cuánto gana
- * Ketzal por venderlo. Override del % global con un % propio o un monto fijo
- * (por venta o por pasajero). Escribe vía RPC `set_commission_rule` (atómica,
- * con guard superadmin). `basis='global'` limpia el override.
+ * Alta/edición/limpieza de una regla de comisión por servicio vía la RPC
+ * `set_commission_rule` (atómica, con guard). Compartida por los editores de
+ * plataforma y de embajador. `basis='global'` limpia la regla (p_basis=null).
  */
-export async function guardarReglaPlataforma(
+async function guardarRegla(
+  payeeType: 'plataforma' | 'embajador',
+  scope: string | null,
   serviceId: string,
   basis: ReglaBasis,
   value: number | null
-): Promise<{ error: string } | { ok: true }> {
+): Promise<ReglaResult> {
   const supabase = await createClient()
   const {
     data: { user },
@@ -44,8 +47,8 @@ export async function guardarReglaPlataforma(
 
   const { error } = await supabase.rpc('set_commission_rule' as never, {
     p_service: serviceId,
-    p_payee_type: 'plataforma',
-    p_scope: null,
+    p_payee_type: payeeType,
+    p_scope: scope,
     p_basis,
     p_rate,
     p_unit,
@@ -54,4 +57,23 @@ export async function guardarReglaPlataforma(
 
   revalidatePath('/comisiones')
   return { ok: true }
+}
+
+/** Cuánto gana Ketzal (plataforma) por vender un servicio. 'global' = usa el % global. */
+export async function guardarReglaPlataforma(
+  serviceId: string,
+  basis: ReglaBasis,
+  value: number | null
+): Promise<ReglaResult> {
+  return guardarRegla('plataforma', null, serviceId, basis, value)
+}
+
+/** Cuánto cobra un embajador por vender un servicio. 'global' = sin tarifa (no atribuye). */
+export async function guardarReglaEmbajador(
+  embajadorId: string,
+  serviceId: string,
+  basis: ReglaBasis,
+  value: number | null
+): Promise<ReglaResult> {
+  return guardarRegla('embajador', embajadorId, serviceId, basis, value)
 }

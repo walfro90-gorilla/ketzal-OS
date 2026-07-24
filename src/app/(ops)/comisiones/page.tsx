@@ -12,7 +12,14 @@ import { PageHeader } from '@/components/data/page-header'
 import { mxn } from '@/components/data/format'
 import { TasaForm } from './tasa-form'
 import { ComisionesList, type ComisionVenta } from './comisiones-list'
-import { ReglasServicio, type ReglaServicio } from './reglas-servicio'
+import {
+  ReglasServicio,
+  ReglasEmbajador,
+  type ReglaServicio,
+  type Embajador,
+  type ServicioBasico,
+  type ReglaEmbajadorRow,
+} from './reglas-servicio'
 import type { ReglaBasis } from './reglas-actions'
 
 type CommissionsSummary = {
@@ -51,35 +58,53 @@ export default async function ComisionesPage() {
     .single()
   const isSuperadmin = profile?.role === 'superadmin'
 
-  const [agenciasRes, summaryRes, settingsRes, serviciosRes, reglasRes] =
-    await Promise.all([
-      supabase
-        .from('suppliers')
-        .select('id, name, commission_rate')
-        .eq('supplier_type', 'agency')
-        .order('name'),
-      supabase.rpc('commissions_summary'),
-      isSuperadmin
-        ? supabase
-            .from('app_settings')
-            .select('platform_commission_rate')
-            .eq('id', 1)
-            .single()
-        : Promise.resolve({ data: null, error: null }),
-      isSuperadmin
-        ? supabase
-            .from('services')
-            .select('id, name, supplier_id')
-            .order('name')
-        : Promise.resolve({ data: [], error: null }),
-      isSuperadmin
-        ? supabase
-            .from('commission_rules' as never)
-            .select('service_id, basis, rate, unit_amount')
-            .eq('payee_type', 'plataforma')
-            .eq('active', true)
-        : Promise.resolve({ data: [], error: null }),
-    ])
+  const [
+    agenciasRes,
+    summaryRes,
+    settingsRes,
+    serviciosRes,
+    reglasRes,
+    embajadoresRes,
+    reglasEmbRes,
+  ] = await Promise.all([
+    supabase
+      .from('suppliers')
+      .select('id, name, commission_rate')
+      .eq('supplier_type', 'agency')
+      .order('name'),
+    supabase.rpc('commissions_summary'),
+    isSuperadmin
+      ? supabase
+          .from('app_settings')
+          .select('platform_commission_rate')
+          .eq('id', 1)
+          .single()
+      : Promise.resolve({ data: null, error: null }),
+    isSuperadmin
+      ? supabase.from('services').select('id, name, supplier_id').order('name')
+      : Promise.resolve({ data: [], error: null }),
+    isSuperadmin
+      ? supabase
+          .from('commission_rules' as never)
+          .select('service_id, basis, rate, unit_amount')
+          .eq('payee_type', 'plataforma')
+          .eq('active', true)
+      : Promise.resolve({ data: [], error: null }),
+    isSuperadmin
+      ? supabase
+          .from('suppliers')
+          .select('id, name, referral_code')
+          .eq('supplier_type', 'embajador')
+          .order('name')
+      : Promise.resolve({ data: [], error: null }),
+    isSuperadmin
+      ? supabase
+          .from('commission_rules' as never)
+          .select('service_id, scope_supplier_id, basis, rate, unit_amount')
+          .eq('payee_type', 'embajador')
+          .eq('active', true)
+      : Promise.resolve({ data: [], error: null }),
+  ])
 
   const agencias = agenciasRes.data ?? []
   const d = (summaryRes.data ?? EMPTY_SUMMARY) as unknown as CommissionsSummary
@@ -121,6 +146,43 @@ export default async function ComisionesPage() {
       value: r ? (r.basis === 'percent' ? Number(r.rate) : Number(r.unit_amount)) : null,
     }
   })
+
+  // Tarifas de embajador por servicio (solo superadmin): embajadores + catálogo
+  // básico + reglas activas de payee_type='embajador' (scope = el embajador).
+  const embajadores: Embajador[] = (
+    (embajadoresRes.data ?? []) as unknown as {
+      id: string
+      name: string
+      referral_code: string | null
+    }[]
+  ).map((e) => ({ id: e.id, nombre: e.name, codigo: e.referral_code }))
+
+  const serviciosBasicos: ServicioBasico[] = (
+    (serviciosRes.data ?? []) as unknown as {
+      id: string
+      name: string
+      supplier_id: string
+    }[]
+  ).map((s) => ({
+    id: s.id,
+    nombre: s.name,
+    agencia: agenciaPorId.get(s.supplier_id) ?? null,
+  }))
+
+  const reglasEmbajador: ReglaEmbajadorRow[] = (
+    (reglasEmbRes.data ?? []) as unknown as {
+      service_id: string
+      scope_supplier_id: string
+      basis: 'percent' | 'fijo_venta' | 'fijo_pax'
+      rate: number | null
+      unit_amount: number | null
+    }[]
+  ).map((r) => ({
+    embajadorId: r.scope_supplier_id,
+    serviceId: r.service_id,
+    basis: r.basis,
+    value: r.basis === 'percent' ? Number(r.rate) : Number(r.unit_amount),
+  }))
 
   return (
     <div className="space-y-6">
@@ -184,6 +246,32 @@ export default async function ComisionesPage() {
                 reglas={reglasServicio}
                 globalRate={globalRate}
                 showAgencia
+              />
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {isSuperadmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Tarifas de embajador</CardTitle>
+            <CardDescription>
+              Cuánto cobra cada embajador por vender un servicio (Ketzal lo paga de
+              su corte). Elige un embajador y fija su tarifa por servicio: fijo por
+              pasajero, fijo por venta o % de la venta.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {embajadoresRes.error ? (
+              <p className="text-sm text-destructive">
+                Error al cargar los embajadores: {embajadoresRes.error.message}
+              </p>
+            ) : (
+              <ReglasEmbajador
+                embajadores={embajadores}
+                servicios={serviciosBasicos}
+                reglas={reglasEmbajador}
               />
             )}
           </CardContent>
