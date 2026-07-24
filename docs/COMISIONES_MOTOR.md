@@ -193,14 +193,26 @@ de embajador (`reglas-servicio.tsx` + `guardarReglaEmbajador` en `reglas-actions
 Sin migración. Sanity-test SQL (rollback: write 2 reglas / read con la query de la
 página / cambio deja 1 activa / limpiar la quita). tsc+build limpios.
 
-**Fase 2 — pendiente (cuando haya datos/consumidor):**
+**Fase 2 slice 4 (atribución `?ref` del marketplace) — ✅ HECHO (2026-07-23, misma rama).**
+El comprador que llega por link de embajador (`/servicio/[id]?ref=CODIGO`) queda
+atribuido automáticamente al comprar. BD: RPC **`attribute_booking_by_ref(booking, code)`**
+(DEFINER, migración `ketzal_attribute_booking_by_ref`, espejo `db/proposed/b021_attribute_by_ref.sql`)
+— **best-effort**: clon tolerante de `set_booking_ambassador` que resuelve el código
+(`suppliers.referral_code`, normalizado) y estampa la línea, pero **nunca rompe la
+compra** (código inexistente / sin tarifa / venta ajena / excede total ⇒ no-op sin
+raise); reusa `resolve_commission_rule`+`commission_amount`, idempotente. App: el CTA
+de `/servicio` propaga `?ref`; `/comprar` lo lee → `PedidoForm` (respaldo en
+localStorage para sobrevivir registro/confirmación) → `crearPedido` lo pasa y atribuye
+tras crear el pedido. Hard-test SQL (rollback): normaliza y atribuye (150×2=300 +
+`ambassador_id`), idempotente, código inexistente / sin tarifa / extraño = no-op.
+tsc+build limpios, advisors 0 ERROR.
+
+**Fase 2 — pendiente (cuando haya datos):**
 - Reescribir `commissions_summary` para leer `commission_lines` (separa **ganado**
   `payee=yo` de **costo** ⇒ arregla hueco #3), cubre marketplace. *Diferido*: hoy
   balance 0 ⇒ la lista está vacía; el rewrite cambia semántica sin upside inmediato.
 - RPC `ambassador_payables_summary` (Ketzal, superadmin) + `/gastos` pago al embajador
   (`category='embajador'` prellenada). *Diferido*: no hay embajador ni línea que pagar.
-- Marketplace: capturar `?ref=CODIGO` → `set_booking_ambassador` tras el pedido
-  (lookup por `suppliers.referral_code`, ya probado).
 
 **Diferido (no hay embajador real todavía):**
 - Embajador se loguea al OS a vender (gating de nav/shell).

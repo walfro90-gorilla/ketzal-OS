@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useTransition } from 'react'
+import { useEffect, useMemo, useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { NativeSelect } from '@/components/ui/native-select'
@@ -27,6 +27,8 @@ function fechaLarga(iso: string) {
   })
 }
 
+const REF_KEY = 'mkt_ref'
+
 export function PedidoForm({
   serviceId,
   serviceName,
@@ -34,6 +36,7 @@ export function PedidoForm({
   departures,
   buyerName,
   agencyPhone,
+  refCode,
 }: {
   serviceId: string
   serviceName: string
@@ -41,11 +44,26 @@ export function PedidoForm({
   departures: Departure[]
   buyerName: string
   agencyPhone: string | null
+  /** Código de embajador del ?ref (puede perderse entre registro/confirmación;
+   *  se respalda en localStorage para sobrevivir recargas del mismo navegador). */
+  refCode?: string | null
 }) {
   const [qty, setQty] = useState<Record<string, number>>({})
   const [depId, setDepId] = useState(departures[0]?.id ?? '')
   const [orderId, setOrderId] = useState<string | null>(null)
   const [pending, start] = useTransition()
+
+  // El ?ref llega en la URL; puede perderse tras registro/confirmación de correo.
+  // Se respalda en localStorage y se usa el de la URL o el respaldo.
+  useEffect(() => {
+    if (refCode?.trim()) {
+      try {
+        localStorage.setItem(REF_KEY, refCode.trim())
+      } catch {
+        /* localStorage no disponible: seguimos con el ref de la URL */
+      }
+    }
+  }, [refCode])
 
   const total = useMemo(
     () => packs.reduce((s, p) => s + p.price * (qty[p.key] ?? 0), 0),
@@ -65,15 +83,30 @@ export function PedidoForm({
       .filter((p) => (qty[p.key] ?? 0) > 0)
       .map((p) => ({ pack_key: p.key, label: p.label, qty: qty[p.key] }))
     const dep = departures.find((d) => d.id === depId)
+    let ref = refCode?.trim() || null
+    if (!ref) {
+      try {
+        ref = localStorage.getItem(REF_KEY)
+      } catch {
+        ref = null
+      }
+    }
     start(async () => {
       const res = await crearPedido({
         serviceId,
         travelDate: dep?.departs_on ?? null,
         items,
+        ref,
       })
       if ('error' in res) {
         toast.error(res.error)
         return
+      }
+      // El ref ya se aplicó a este pedido; se limpia para no atribuir otro futuro.
+      try {
+        localStorage.removeItem(REF_KEY)
+      } catch {
+        /* noop */
       }
       setOrderId(res.bookingId)
     })

@@ -82,10 +82,16 @@ function NotFound() {
 
 export default async function ServicioPublicoPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ ref?: string | string[] }>
 }) {
   const { id } = await params
+  const { ref: refRaw } = await searchParams
+  const refCode = Array.isArray(refRaw) ? refRaw[0] : refRaw
+  // Propaga el ?ref del embajador al CTA de compra para que sobreviva el salto.
+  const comprarHref = `/comprar/${id}${refCode ? `?ref=${encodeURIComponent(refCode)}` : ''}`
   const s = await getPublicService(id)
   if (!s) return <NotFound />
 
@@ -158,7 +164,7 @@ export default async function ServicioPublicoPage({
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             {comprarOnline && (
               <Link
-                href={`/comprar/${s.id}`}
+                href={comprarHref}
                 className={`${buttonVariants({ variant: 'default', size: 'touch' })} w-full sm:w-auto`}
               >
                 Comprar en línea

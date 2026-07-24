@@ -32,12 +32,16 @@ function destino(s: {
 
 export default async function ComprarPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ serviceId: string }>
+  searchParams: Promise<{ ref?: string | string[] }>
 }) {
   if (!marketplaceActivo()) notFound()
 
   const { serviceId } = await params
+  const { ref: refRaw } = await searchParams
+  const refCode = Array.isArray(refRaw) ? refRaw[0] : (refRaw ?? null)
   const s = await getPublicService(serviceId)
   if (!s) notFound()
 
@@ -110,6 +114,7 @@ export default async function ComprarPage({
           departures={s.departures ?? []}
           buyerName={mc.full_name}
           agencyPhone={s.agency.phone}
+          refCode={refCode}
         />
       )}
       </main>

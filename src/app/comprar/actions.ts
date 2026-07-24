@@ -95,6 +95,8 @@ export async function crearPedido(input: {
   serviceId: string
   travelDate: string | null
   items: PedidoItem[]
+  /** Código de embajador que refirió la compra (?ref). Best-effort. */
+  ref?: string | null
 }): Promise<{ error: string } | { ok: true; bookingId: string }> {
   const supabase = await createClient()
   const {
@@ -109,7 +111,18 @@ export async function crearPedido(input: {
     p_items: input.items,
   } as never)
   if (error) return { error: safeError(error, 'No se pudo crear el pedido.') }
-  return { ok: true, bookingId: data as unknown as string }
+  const bookingId = data as unknown as string
+
+  // Atribución del embajador por ?ref. BEST-EFFORT: si algo falla (código
+  // inválido, sin tarifa, etc.) el RPC devuelve null y la compra NO se rompe.
+  if (input.ref?.trim()) {
+    await supabase.rpc('attribute_booking_by_ref' as never, {
+      p_booking: bookingId,
+      p_ref: input.ref.trim(),
+    } as never)
+  }
+
+  return { ok: true, bookingId }
 }
 
 // B.2a: link de pago en línea (contado) para un pedido del comprador. Crea el
