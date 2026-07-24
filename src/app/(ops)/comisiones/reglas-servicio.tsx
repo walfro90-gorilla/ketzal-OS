@@ -223,8 +223,8 @@ export function ReglasEmbajador({
   if (embajadores.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
-        No hay embajadores. Créalos en Proveedores (tipo Embajador) y aquí podrás
-        fijar su tarifa por servicio.
+        Aún no hay embajadores. Crea uno arriba y aquí podrás fijar su tarifa por
+        servicio.
       </p>
     )
   }

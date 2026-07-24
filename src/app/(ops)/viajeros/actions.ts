@@ -138,10 +138,8 @@ export async function eliminarViajero(
 
   const { error } = await svc.auth.admin.deleteUser(id)
   if (error) return { error: safeError(error, 'No se pudo eliminar el viajero.') }
-
-  // profiles.id no cascadea desde auth.users ⇒ borrar la fila (evita huérfano).
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (svc as any).from('profiles').delete().eq('id', id).eq('type', 'viajero')
+  // profiles.id → auth.users ON DELETE CASCADE ⇒ borrar la cuenta ya elimina el
+  // profile del viajero; no hace falta borrarlo aparte.
 
   revalidatePath('/viajeros')
   return { ok: true }

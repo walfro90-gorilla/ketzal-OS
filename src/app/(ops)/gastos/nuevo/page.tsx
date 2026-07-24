@@ -13,11 +13,15 @@ export default async function NuevoGastoPage({
   const defaultProvider = typeof sp.provider === 'string' ? sp.provider : undefined
 
   const supabase = await createClient()
-  const { data } = await supabase
-    .from('suppliers')
-    .select('id, name')
-    .order('name')
+  const [{ data }, ambRes] = await Promise.all([
+    supabase.from('suppliers').select('id, name').order('name'),
+    // Embajadores viven en profiles (F2); RLS solo-propio ⇒ vía RPC (superadmin).
+    supabase.rpc('list_ambassadors' as never),
+  ])
   const proveedores = (data ?? []) as { id: string; name: string }[]
+  const embajadores = (
+    (ambRes.data ?? []) as unknown as { id: string; name: string }[]
+  ).map((e) => ({ id: e.id, name: e.name }))
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -33,6 +37,7 @@ export default async function NuevoGastoPage({
         <CardContent>
           <GastoForm
             proveedores={proveedores}
+            embajadores={embajadores}
             defaultCategory={defaultCategory}
             defaultProvider={defaultProvider}
           />

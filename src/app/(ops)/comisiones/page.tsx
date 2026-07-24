@@ -11,6 +11,7 @@ import { EmptyState } from '@/components/data/empty-state'
 import { PageHeader } from '@/components/data/page-header'
 import { mxn } from '@/components/data/format'
 import { TasaForm } from './tasa-form'
+import { CrearEmbajador } from './embajador-crear'
 import { ComisionesList, type ComisionVenta } from './comisiones-list'
 import {
   ReglasServicio,
@@ -87,16 +88,14 @@ export default async function ComisionesPage() {
           .eq('active', true)
       : Promise.resolve({ data: [], error: null }),
     isSuperadmin
-      ? supabase
-          .from('suppliers')
-          .select('id, name, referral_code')
-          .eq('supplier_type', 'embajador')
-          .order('name')
+      ? // Embajadores viven en profiles (type='embajador', F2); RLS solo-propio ⇒
+        // se leen vía RPC DEFINER. Devuelve [{id,name,referral_code}].
+        supabase.rpc('list_ambassadors' as never)
       : Promise.resolve({ data: [], error: null }),
     isSuperadmin
       ? supabase
           .from('commission_rules' as never)
-          .select('service_id, scope_supplier_id, basis, rate, unit_amount')
+          .select('service_id, scope_profile_id, basis, rate, unit_amount')
           .eq('payee_type', 'embajador')
           .eq('active', true)
       : Promise.resolve({ data: [], error: null }),
@@ -168,13 +167,13 @@ export default async function ComisionesPage() {
   const reglasEmbajador: ReglaEmbajadorRow[] = (
     (reglasEmbRes.data ?? []) as unknown as {
       service_id: string
-      scope_supplier_id: string
+      scope_profile_id: string
       basis: 'percent' | 'fijo_venta' | 'fijo_pax'
       rate: number | null
       unit_amount: number | null
     }[]
   ).map((r) => ({
-    embajadorId: r.scope_supplier_id,
+    embajadorId: r.scope_profile_id,
     serviceId: r.service_id,
     basis: r.basis,
     value: r.basis === 'percent' ? Number(r.rate) : Number(r.unit_amount),
@@ -276,6 +275,7 @@ export default async function ComisionesPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            <CrearEmbajador />
             {embajadoresRes.error ? (
               <p className="text-sm text-destructive">
                 Error al cargar los embajadores: {embajadoresRes.error.message}

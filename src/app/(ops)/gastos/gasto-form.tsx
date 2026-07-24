@@ -32,10 +32,14 @@ function hoyIso(): string {
 
 export function GastoForm({
   proveedores,
+  embajadores = [],
   defaultCategory,
   defaultProvider,
 }: {
   proveedores: { id: string; name: string }[]
+  /** Embajadores (profiles type='embajador'). El pago a embajador los usa como
+   *  "proveedor" del egreso; create_expense los enruta a provider_profile_id. */
+  embajadores?: { id: string; name: string }[]
   defaultCategory?: string
   defaultProvider?: string
 }) {
@@ -57,6 +61,8 @@ export function GastoForm({
   // Mayorista y embajador exigen proveedor (para netear su cuenta por pagar).
   const requiereProveedor = category === 'mayorista' || category === 'embajador'
   const proveedorLabel = category === 'embajador' ? 'Embajador' : 'Proveedor mayorista'
+  // Mayorista elige de suppliers; embajador de profiles(type='embajador').
+  const opcionesProveedor = category === 'embajador' ? embajadores : proveedores
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -165,7 +171,7 @@ export function GastoForm({
               onChange={(e) => setProvider(e.target.value)}
             >
               <option value="">— Elige el {proveedorLabel.toLowerCase()}</option>
-              {proveedores.map((p) => (
+              {opcionesProveedor.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
                 </option>

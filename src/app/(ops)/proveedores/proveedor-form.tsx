@@ -293,7 +293,8 @@ export function ProveedorForm({
                 <option value="agency">Agencia</option>
                 <option value="transporte">Transporte</option>
                 <option value="hotel">Hotel</option>
-                <option value="embajador">Embajador</option>
+                {/* Embajador ya no es un supplier: se crea en Comisiones como
+                    profile(type='embajador') (refactor de identidad, F2). */}
                 <option value="otro">Otro</option>
               </NativeSelect>
             </div>
