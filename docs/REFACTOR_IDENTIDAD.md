@@ -1,8 +1,14 @@
-# Refactor de identidad bajo `profiles` — plan aprobado (retomar aquí)
+# Refactor de identidad bajo `profiles`
 
-> Estado: **plan aprobado 2026-07-24, sin ejecutar aún.** Retomar por Fase 0.
-> Contexto de negocio en la memoria `modelo-usuarios`. Motor de comisiones ya en
-> main (b019–b023); este refactor lo re-toca en la Fase 2.
+> Estado: **COMPLETO 4/4 — EN MAIN (2026-07-24).** Todo usuario de Ketzal = un
+> `profiles`, diferenciado por `type` (agente/proveedor/embajador/viajero).
+> - **F0** fundación `profiles.type` — `b024`, commit `283fe41`.
+> - **F1** viajero (marketplace_customers eliminada) — `b025`, commit `3bb1174`.
+> - **F2** embajador FULL (payee del motor → profiles) — `b026` + fix, commit `8c21943`.
+> - **F3** proveedor con login (pure app, sin migración) — commit `2ed65f9`.
+>
+> Cada fase hard-testeada en prod (rollback, balance 0) con advisors 0 ERROR; F2 re-validó
+> el motor completo (15/15). El resto del documento es el plan original (referencia).
 
 ## Por qué
 
@@ -107,13 +113,19 @@ cambiar el discriminador a un `type` explícito.
   (tarifa por servicio, atribución manual + `?ref`, devengo, CxP+pago, `commissions_summary`,
   `verificar_invariantes`=0, congelado). Rollback. Advisors 0 ERROR.
 
-### Fase 3 — Proveedor: persona ligada a su suppliers (thin)
-- **BD** (`b027_proveedor_type.sql`): `profiles(type='proveedor')` ligado por `supplier_id` a su
-  `suppliers`. RPC de alta/invitación (reusa patrón `b018`). Sin mover `suppliers`.
-- **App**: gating de shell para `type='proveedor'` (ve solo su suppliers/servicios; RLS por
-  `my_supplier_id` ya lo acota). **Sin self-service UI nueva** salvo pedido explícito.
-- **Hard-test**: proveedor loguea y ve solo lo suyo; no ve otras agencias; no accede a `/gastos`
-  de plataforma. Rollback.
+### Fase 3 — Proveedor con login (thin) — HECHA (commit `2ed65f9`)
+- **Sin migración** (b027 no hizo falta): F0 ya dio el enum, y RLS por `my_supplier_id` + el
+  gating por rol ya existían. Fase **pure app**.
+- **Alta**: `crearAccesoProveedor` (superadmin, service role + `admin.createUser` — el proveedor
+  necesita cuenta auth porque `profiles.id → auth.users`) crea `profiles(type='proveedor',
+  role='user', supplier_id)`; card "Acceso del proveedor" en `/proveedores/[id]`.
+- **Gating**: nav por `type` (`navItemsForRole(role, type)`; proveedor ve solo Panel — su portal
+  propio queda diferido "cuando se priorice"); `personaType` fluye layout→AppShell→sidebar/tabs.
+- **Fix latente de F1**: `(ops)/layout` gateaba por "existe profile"; como desde F1 el viajero SÍ
+  tiene profile, ahora el gate es por `type='viajero'` (evita que un viajero entre al back-office).
+- **Hard-test** (rollback): proveedor → `my_profile_type='proveedor'`, `my_supplier_id`=su supplier,
+  `is_superadmin=false`, ve 0 bookings y 0 customers de otra agencia. `role='user'` ⇒ el proxy le
+  cierra las rutas admin/plataforma.
 
 ## Convenciones / coordinación
 - Espejos `db/proposed/b024`–`b027`. RPCs nuevos con cast `as never`; no tocar `database.types.ts`.
