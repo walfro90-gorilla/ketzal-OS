@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { MailPlusIcon } from 'lucide-react'
+import { MailPlusIcon, KeyRoundIcon, CopyIcon, CheckIcon } from 'lucide-react'
 import {
   Card,
   CardContent,
@@ -17,7 +17,11 @@ import { NativeSelect } from '@/components/ui/native-select'
 import { Badge } from '@/components/ui/badge'
 import type { Database } from '@/lib/db/database.types'
 import type { AgenciaOption } from './miembro-acciones'
-import { invitarAgente, revocarInvitacion } from './invitaciones-actions'
+import {
+  invitarAgente,
+  revocarInvitacion,
+  generarLinkInvitacion,
+} from './invitaciones-actions'
 
 type UserRole = Database['ketzal']['Enums']['user_role']
 
@@ -48,6 +52,37 @@ export function InvitacionesSection({
   const [rol, setRol] = useState<UserRole>('user')
   // El superadmin debe elegir agencia destino; el admin invita a la suya.
   const [agencia, setAgencia] = useState('')
+  // Link de acceso generado por invitación (id → link + si se mandó correo).
+  const [accesos, setAccesos] = useState<
+    Record<string, { link: string; emailed: boolean }>
+  >({})
+  const [copiado, setCopiado] = useState<string | null>(null)
+
+  function enviarAcceso(inv: Invitacion) {
+    startTransition(async () => {
+      const res = await generarLinkInvitacion(inv.email)
+      if ('error' in res) {
+        toast.error(res.error)
+        return
+      }
+      setAccesos((prev) => ({ ...prev, [inv.id]: res }))
+      toast.success(
+        res.emailed
+          ? 'Correo de acceso enviado. También puedes copiar el link.'
+          : 'Link de acceso listo. Cópialo y mándalo por WhatsApp.'
+      )
+    })
+  }
+
+  async function copiar(id: string, link: string) {
+    try {
+      await navigator.clipboard.writeText(link)
+      setCopiado(id)
+      setTimeout(() => setCopiado((c) => (c === id ? null : c)), 1800)
+    } catch {
+      // clipboard bloqueado: seleccionar a mano.
+    }
+  }
 
   function invitar() {
     const correo = email.trim()
@@ -68,7 +103,7 @@ export function InvitacionesSection({
       if ('error' in res) {
         toast.error(res.error)
       } else {
-        toast.success('Invitación enviada')
+        toast.success('Invitación creada. Usa «Enviar acceso» para darle entrada.')
         setEmail('')
         router.refresh()
       }
@@ -92,9 +127,9 @@ export function InvitacionesSection({
       <CardHeader>
         <CardTitle>Invitar agentes</CardTitle>
         <CardDescription>
-          Invita por correo. Al entrar por primera vez con ese correo, la persona
-          se une a la agencia con el rol que le des —sin que tú tengas que
-          aprobarla después.
+          Invita por correo y luego usa «Enviar acceso»: le manda un correo para
+          crear su contraseña (si tienes SMTP en Supabase) y te da un link copiable
+          para WhatsApp. Al abrirlo se une a la agencia con el rol que le des.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -169,27 +204,63 @@ export function InvitacionesSection({
           ) : (
             <ul className="divide-y">
               {invitaciones.map((inv) => (
-                <li
-                  key={inv.id}
-                  className="flex flex-wrap items-center gap-2 py-2"
-                >
-                  <span className="min-w-40 flex-1 text-sm">{inv.email}</span>
-                  <Badge variant={inv.role === 'admin' ? 'secondary' : 'outline'}>
-                    {ROL_LABEL[inv.role] ?? inv.role}
-                  </Badge>
-                  {isSuperadmin && inv.agency && (
-                    <span className="text-xs text-muted-foreground">{inv.agency}</span>
+                <li key={inv.id} className="space-y-2 py-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="min-w-40 flex-1 text-sm">{inv.email}</span>
+                    <Badge variant={inv.role === 'admin' ? 'secondary' : 'outline'}>
+                      {ROL_LABEL[inv.role] ?? inv.role}
+                    </Badge>
+                    {isSuperadmin && inv.agency && (
+                      <span className="text-xs text-muted-foreground">{inv.agency}</span>
+                    )}
+                    {isSuperadmin && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-9"
+                        disabled={isPending}
+                        onClick={() => enviarAcceso(inv)}
+                      >
+                        <KeyRoundIcon className="mr-1 size-4" />
+                        Enviar acceso
+                      </Button>
+                    )}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-9"
+                      disabled={isPending}
+                      onClick={() => revocar(inv.id, inv.email)}
+                    >
+                      Revocar
+                    </Button>
+                  </div>
+                  {accesos[inv.id]?.link && (
+                    <div className="flex items-center gap-2">
+                      <code className="min-w-0 flex-1 truncate rounded-lg border bg-muted/40 px-3 py-2 text-xs">
+                        {accesos[inv.id].link}
+                      </code>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => copiar(inv.id, accesos[inv.id].link)}
+                      >
+                        {copiado === inv.id ? (
+                          <CheckIcon className="size-4" />
+                        ) : (
+                          <CopyIcon className="size-4" />
+                        )}
+                      </Button>
+                    </div>
                   )}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-9"
-                    disabled={isPending}
-                    onClick={() => revocar(inv.id, inv.email)}
-                  >
-                    Revocar
-                  </Button>
+                  {accesos[inv.id]?.emailed && (
+                    <p className="text-xs text-emerald-600">
+                      Correo de acceso enviado a {inv.email}.
+                    </p>
+                  )}
                 </li>
               ))}
             </ul>

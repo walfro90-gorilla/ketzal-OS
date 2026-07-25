@@ -1,7 +1,9 @@
 'use server'
 
+import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { safeError } from '@/lib/errors'
 import type { Database } from '@/lib/db/database.types'
 
@@ -45,6 +47,59 @@ export async function invitarAgente(
 
   revalidatePath('/equipo')
   return { ok: true }
+}
+
+/**
+ * Genera el acceso de un invitado: (1) manda un correo para que cree su contraseña
+ * —solo llega de verdad si hay SMTP propio en Supabase Auth— y (2) devuelve un link
+ * copiable para mandar por WhatsApp. Ambos llevan a /nueva-password; al abrirlo se
+ * crea el profile y se auto-une a su agencia. Solo superadmin (MVP).
+ */
+export async function generarLinkInvitacion(
+  email: string
+): Promise<{ error: string } | { link: string; emailed: boolean }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: 'Inicia sesión.' }
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+  if (profile?.role !== 'superadmin') {
+    return { error: 'Solo el superadmin puede generar accesos.' }
+  }
+
+  const correo = (email ?? '').trim().toLowerCase()
+  if (!correo) return { error: 'Falta el correo.' }
+
+  const h = await headers()
+  const origin = process.env.NEXT_PUBLIC_APP_URL ?? `https://${h.get('host')}`
+  const redirectTo = `${origin}/auth/callback?next=/nueva-password`
+  const svc = createServiceClient()
+
+  // 1) Invitar por correo: crea la cuenta y manda el email "crea tu contraseña".
+  //    Sin SMTP propio en Supabase el correo casi no llega (por eso el link de abajo).
+  //    Si la cuenta ya existe, inviteUserByEmail falla ⇒ lo ignoramos (usamos el link).
+  let emailed = false
+  const inv = await svc.auth.admin.inviteUserByEmail(correo, { redirectTo })
+  if (!inv.error) emailed = true
+
+  // 2) Link copiable (WhatsApp): recovery = "pon tu contraseña". No depende del correo.
+  const { data, error } = await svc.auth.admin.generateLink({
+    type: 'recovery',
+    email: correo,
+    options: { redirectTo },
+  })
+  const link = data?.properties?.action_link
+  if (!link) {
+    return emailed
+      ? { link: '', emailed }
+      : { error: safeError(error, 'No se pudo generar el link de acceso.') }
+  }
+  return { link, emailed }
 }
 
 /** Revoca una invitación pendiente (superadmin cualquiera; admin la de su agencia). */
