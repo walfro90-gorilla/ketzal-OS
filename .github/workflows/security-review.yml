@@ -1,0 +1,30 @@
+name: security-review
+
+# Revisión de seguridad con Claude sobre el diff de cada PR a main.
+# Complementa test.yml (tsc + pnpm test) y el `next build` de Vercel: esto NO corre
+# el código, lee el CAMBIO y busca vulnerabilidades (authz/RLS rota, secretos
+# hardcodeados, injection, IDOR, etc.) y comenta los hallazgos en el PR.
+#
+# ⚠️ Solo dispara en pull_request: un push directo a main NO se revisa. El valor
+#    llega cuando el trabajo entra por PR (p.ej. desde un carril de worktree).
+# 🔑 Requiere el secreto CLAUDE_API_KEY (Settings → Secrets and variables → Actions).
+#    La API key debe estar habilitada para Claude API y Claude Code.
+on:
+  pull_request:
+
+# Permiso mínimo: leer el repo y comentar en el PR. Nada de escritura al código.
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  security-review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0            # historia completa → diff correcto del PR
+      - uses: anthropics/claude-code-security-review@main
+        with:
+          claude-api-key: ${{ secrets.CLAUDE_API_KEY }}
+          comment-pr: true
