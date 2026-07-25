@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import { CheckIcon, CopyIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -14,6 +15,8 @@ export function CrearAcceso({ supplierId }: { supplierId: string }) {
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [ok, setOk] = useState(false)
+  const [link, setLink] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
   const [nombre, setNombre] = useState('')
   const [email, setEmail] = useState('')
 
@@ -21,6 +24,7 @@ export function CrearAcceso({ supplierId }: { supplierId: string }) {
     e.preventDefault()
     setError(null)
     setOk(false)
+    setLink(null)
     startTransition(async () => {
       const res = await crearAccesoProveedor({
         supplierId,
@@ -34,8 +38,20 @@ export function CrearAcceso({ supplierId }: { supplierId: string }) {
       setNombre('')
       setEmail('')
       setOk(true)
+      setLink(res.link ?? null)
       router.refresh()
     })
+  }
+
+  async function copiar() {
+    if (!link) return
+    try {
+      await navigator.clipboard.writeText(link)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1800)
+    } catch {
+      // clipboard bloqueado: seleccionar a mano.
+    }
   }
 
   return (
@@ -66,7 +82,26 @@ export function CrearAcceso({ supplierId }: { supplierId: string }) {
           {error}
         </p>
       )}
-      {ok && <p className="text-sm text-emerald-600">Acceso creado.</p>}
+      {ok && !link && (
+        <p className="text-sm text-emerald-600">
+          Acceso creado (no se pudo generar el link; reintenta más tarde).
+        </p>
+      )}
+      {link && (
+        <div className="space-y-1.5">
+          <p className="text-sm text-emerald-600">
+            Acceso creado. Comparte este link por WhatsApp para que entre:
+          </p>
+          <div className="flex items-center gap-2">
+            <code className="min-w-0 flex-1 truncate rounded-lg border bg-muted/40 px-3 py-2 text-xs">
+              {link}
+            </code>
+            <Button type="button" size="sm" variant="outline" onClick={copiar}>
+              {copied ? <CheckIcon className="size-4" /> : <CopyIcon className="size-4" />}
+            </Button>
+          </div>
+        </div>
+      )}
       <Button type="submit" size="sm" disabled={isPending}>
         {isPending ? 'Creando…' : 'Dar acceso'}
       </Button>

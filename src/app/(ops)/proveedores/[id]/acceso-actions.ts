@@ -1,6 +1,7 @@
 'use server'
 
 import { randomUUID } from 'node:crypto'
+import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
@@ -34,7 +35,7 @@ export async function crearAccesoProveedor(input: {
   supplierId: string
   nombre: string
   email?: string
-}): Promise<{ error: string } | { ok: true }> {
+}): Promise<{ error: string } | { ok: true; link?: string }> {
   const gate = await requireSuperadmin()
   if ('error' in gate) return gate
 
@@ -73,5 +74,16 @@ export async function crearAccesoProveedor(input: {
   }
 
   revalidatePath(`/proveedores/${input.supplierId}`)
-  return { ok: true }
+
+  // Magic-link para que el proveedor entre (se copia y se manda por WhatsApp;
+  // funciona aunque el correo sea sintético). Si falla, la cuenta ya quedó creada.
+  const h = await headers()
+  const origin = process.env.NEXT_PUBLIC_APP_URL ?? `https://${h.get('host')}`
+  const { data: linkData } = await svc.auth.admin.generateLink({
+    type: 'magiclink',
+    email,
+    options: { redirectTo: `${origin}/auth/callback` },
+  })
+  const link = linkData?.properties?.action_link
+  return link ? { ok: true, link } : { ok: true }
 }

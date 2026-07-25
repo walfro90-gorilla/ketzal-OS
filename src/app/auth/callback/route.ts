@@ -30,6 +30,9 @@ export async function GET(request: Request) {
       if (prof?.type === 'embajador') {
         return NextResponse.redirect(`${origin}${explicitNext ?? homeForPersona('ambassador')}`)
       }
+      if (prof?.type === 'proveedor') {
+        return NextResponse.redirect(`${origin}${explicitNext ?? homeForPersona('provider')}`)
+      }
       // Garantiza el perfil de Ketzal para cualquier método de login (Google incluido).
       await supabase.rpc('ensure_profile')
       // SaaS: si fue invitado a una agencia (por su email verificado), se une

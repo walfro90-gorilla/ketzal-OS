@@ -34,6 +34,7 @@ export default async function OpsLayout({
     // type. Sin costo extra: el rol ya se leía aquí.
     if (!profile || profile.type === 'viajero') redirect('/mis-compras')
     if (profile.type === 'embajador') redirect('/embajador')
+    if (profile.type === 'proveedor') redirect('/proveedor')
     displayName = profile.name ?? null
     role = profile.role ?? null
     personaType = profile.type ?? null
