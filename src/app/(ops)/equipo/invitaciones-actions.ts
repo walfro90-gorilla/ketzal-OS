@@ -240,22 +240,29 @@ export async function crearAgenciaEInvitarAdmin(input: {
     }
     adminId = foundId as unknown as string
     existingUser = true
-    // Guardas: no degradar al superadmin ni robar a otra agencia.
+    // Solo se reutiliza una cuenta LIBRE: huérfana (sin profile) o un agente sin
+    // agencia. Se BLOQUEA si el correo ya es de otra persona —superadmin, otra
+    // agencia, viajero, embajador o proveedor— para NO convertir su tipo ni robar
+    // su cuenta (un viajero es cliente; un embajador es un payee de comisión).
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: prof } = await (svc as any)
       .from('profiles')
-      .select('role, supplier_id')
+      .select('role, supplier_id, type')
       .eq('id', adminId)
       .maybeSingle()
-    if (prof?.role === 'superadmin' || (prof?.supplier_id && prof.supplier_id !== supplierId)) {
+    let motivo: string | null = null
+    if (prof) {
+      if (prof.role === 'superadmin') motivo = 'es del superadmin'
+      else if (prof.type === 'viajero') motivo = 'es de un viajero (cliente)'
+      else if (prof.type === 'embajador') motivo = 'es de un embajador'
+      else if (prof.type === 'proveedor') motivo = 'es de un proveedor'
+      else if (prof.supplier_id && prof.supplier_id !== supplierId)
+        motivo = 'ya pertenece a otra agencia'
+    }
+    if (motivo) {
       // Deshacer la agencia recién creada para poder reintentar limpio.
       await svc.from('suppliers').delete().eq('id', supplierId)
-      return {
-        error:
-          prof?.role === 'superadmin'
-            ? 'Ese correo es del superadmin; no puede ser admin de una agencia. Usa otro.'
-            : 'Ese correo ya pertenece a otra agencia. Usa otro.',
-      }
+      return { error: `Ese correo ${motivo}; usa otro para el admin de la agencia.` }
     }
   }
 
