@@ -116,13 +116,26 @@ export async function crearAgenciaEInvitarAdmin(input: {
     .select('id')
     .single()
   if (eSup || !sup) {
-    // `suppliers.contact_email` es UNIQUE. Por defecto el contacto de la agencia
-    // es el correo del admin; si ese correo ya lo usa otro proveedor, el insert
-    // falla con 23505 y `safeError` solo daría el genérico. Damos un mensaje
-    // accionable: que capturen un correo de contacto propio para la agencia.
+    // `suppliers` tiene UNIQUE en `name` Y en `contact_email`. Un 23505 puede venir
+    // de cualquiera de las dos ⇒ inspeccionar el detalle del error para dar el
+    // mensaje correcto (antes se culpaba siempre al correo, confundiendo cuando el
+    // choque era el nombre).
     if (eSup?.code === '23505') {
+      const detalle = `${eSup.message ?? ''} ${
+        (eSup as { details?: string | null }).details ?? ''
+      }`
+      if (detalle.includes('contact_email')) {
+        return {
+          error: `Ya existe una agencia o proveedor con el correo de contacto "${contacto}". Captura un correo de contacto distinto para la agencia (o cambia el correo del admin).`,
+        }
+      }
+      if (detalle.includes('name')) {
+        return {
+          error: `Ya existe una agencia o proveedor con el nombre "${nombre}". Usa un nombre distinto.`,
+        }
+      }
       return {
-        error: `Ya existe un proveedor con el correo de contacto "${contacto}". Escribe un correo de contacto distinto para la agencia.`,
+        error: 'Ya existe una agencia o proveedor con esos datos (nombre o correo repetido).',
       }
     }
     return { error: safeError(eSup, 'No se pudo crear la agencia.') }
