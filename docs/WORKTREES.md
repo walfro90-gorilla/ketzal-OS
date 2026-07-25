@@ -8,7 +8,9 @@
 > 🛠️ **Atajo (comandos de sesión):** `/nuevo-carril <nombre>` crea el worktree +
 > rama desde `origin/main` con `.env*` y `pnpm install` ya listos;
 > `/integrar` verifica (tsc+build), rebasa sobre `origin/main`, pushea a `main` sin
-> force (reintenta si hay carrera) y limpia el worktree. Ambos viven en
+> force (reintenta si hay carrera) y limpia el worktree; `/integrar-pr` hace lo mismo
+> pero abre un **PR** (para que lo gateen `test.yml` + `security-review.yml`) en vez
+> de push directo — úsalo en carriles que tocan RLS/ledger/authz. Viven en
 > `.claude/commands/` (versionados). El flujo manual de abajo sigue válido.
 
 ## Avisos entre agentes
