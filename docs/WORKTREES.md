@@ -5,6 +5,12 @@
 > sobre `main`**, lo que mezcla trabajo sin commitear y arriesga que un
 > `git add -A` de cualquiera barra lo de otro. Los worktrees lo arreglan.
 
+> 🛠️ **Atajo (comandos de sesión):** `/nuevo-carril <nombre>` crea el worktree +
+> rama desde `origin/main` con `.env*` y `pnpm install` ya listos;
+> `/integrar` verifica (tsc+build), rebasa sobre `origin/main`, pushea a `main` sin
+> force (reintenta si hay carrera) y limpia el worktree. Ambos viven en
+> `.claude/commands/` (versionados). El flujo manual de abajo sigue válido.
+
 ## Avisos entre agentes
 
 > Bitácora corta de coordinación. Al abrir sesión, **lee esto primero** y aplica
