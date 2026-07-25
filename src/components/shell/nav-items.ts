@@ -61,17 +61,10 @@ export const NAV_ITEMS: NavItem[] = [
 export const PRIMARY_ITEMS = NAV_ITEMS.filter((i) => i.primary)
 export const SECONDARY_ITEMS = NAV_ITEMS.filter((i) => !i.primary)
 
-/** Ítems visibles según rol y tipo de persona. Oculta las rutas admin a los
- *  agentes y las god-admin (viajeros) a quien no sea superadmin. El proveedor
- *  (F3) es una persona de negocio ligada a su supplier: aún sin portal propio, ve
- *  solo el Panel (RLS lo acota a lo suyo); el resto llega cuando se priorice. */
-export function navItemsForRole(
-  role: string | null | undefined,
-  type?: string | null
-): NavItem[] {
-  if (type === 'proveedor') {
-    return NAV_ITEMS.filter((i) => i.href === '/dashboard')
-  }
+/** Ítems visibles según el rol: oculta las rutas admin a los agentes y las
+ *  god-admin (viajeros) a quien no sea superadmin. Embajador/proveedor no llegan
+ *  aquí: tienen su propio portal (persona), fuera del shell de ops. */
+export function navItemsForRole(role: string | null | undefined): NavItem[] {
   return NAV_ITEMS.filter((i) => {
     if (i.superadminOnly && role !== 'superadmin') return false
     return !i.adminOnly || isAdminRole(role)

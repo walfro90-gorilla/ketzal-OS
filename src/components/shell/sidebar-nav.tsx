@@ -7,15 +7,13 @@ import { navItemsForRole, isNavActive } from './nav-items'
 
 export function SidebarNav({
   role,
-  personaType = null,
   collapsed = false,
 }: {
   role: string | null
-  personaType?: string | null
   collapsed?: boolean
 }) {
   const pathname = usePathname()
-  const items = navItemsForRole(role, personaType)
+  const items = navItemsForRole(role)
 
   return (
     <nav aria-label="Navegación principal" className="flex flex-col gap-1 p-3">

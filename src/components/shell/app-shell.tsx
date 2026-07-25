@@ -15,7 +15,6 @@ export function AppShell({
   email,
   displayName,
   role,
-  personaType = null,
   logoUrl = null,
   sidebarCollapsed = false,
   children,
@@ -23,8 +22,6 @@ export function AppShell({
   email: string | null
   displayName: string | null
   role: string | null
-  /** Tipo de persona (profiles.type): 'proveedor' recorta el nav (F3). */
-  personaType?: string | null
   /** Logo oficial configurado (o null → cae al ícono de marca por defecto). */
   logoUrl?: string | null
   sidebarCollapsed?: boolean
@@ -77,7 +74,7 @@ export function AppShell({
       </header>
 
       <div className="flex flex-1">
-        <DesktopSidebar role={role} personaType={personaType} defaultCollapsed={sidebarCollapsed} />
+        <DesktopSidebar role={role} defaultCollapsed={sidebarCollapsed} />
 
         {/* pb-24 en móvil libera espacio para la bottom bar fija. */}
         <main
@@ -89,7 +86,7 @@ export function AppShell({
         </main>
       </div>
 
-      <BottomTabs role={role} personaType={personaType} email={email} />
+      <BottomTabs role={role} email={email} />
     </div>
   )
 }

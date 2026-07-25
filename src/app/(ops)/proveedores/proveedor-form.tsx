@@ -26,12 +26,14 @@ import {
 } from './actions'
 import { subirImagenProveedor } from './subir-imagen'
 
-type ProveedorTipo = 'agency' | 'transporte' | 'hotel' | 'embajador' | 'otro'
+// Embajador ya no es un supplier (refactor de identidad F2): se crea como
+// profile(type='embajador') en Comisiones. Aquí solo proveedores operativos.
+type ProveedorTipo = 'agency' | 'transporte' | 'hotel' | 'otro'
 
 /** Acota el supplier_type de la BD a las opciones del select. */
 function normalizarTipo(tipo: string | null | undefined): ProveedorTipo {
   if (tipo === 'agency' || tipo === 'tour_operator') return 'agency'
-  if (tipo === 'transporte' || tipo === 'hotel' || tipo === 'embajador') return tipo
+  if (tipo === 'transporte' || tipo === 'hotel') return tipo
   return 'otro'
 }
 
@@ -75,7 +77,6 @@ export function ProveedorForm({
   const [commissionRate, setCommissionRate] = useState(
     String(initial?.commission_rate ?? 0)
   )
-  const [referralCode, setReferralCode] = useState(initial?.referral_code ?? '')
 
   // Perfil público (info jsonb).
   const info = initial?.info
@@ -228,7 +229,7 @@ export function ProveedorForm({
       description: description.trim() || undefined,
       supplier_type: tipo,
       commission_rate: tipo === 'agency' ? rate : undefined,
-      referral_code: tipo === 'embajador' ? referralCode.trim() || null : null,
+      referral_code: null,
       info: infoInput,
     }
 
@@ -312,22 +313,6 @@ export function ProveedorForm({
                   onChange={(e) => setCommissionRate(e.target.value)}
                   placeholder="Ej. 10"
                 />
-              </div>
-            )}
-            {tipo === 'embajador' && (
-              <div className="space-y-2 sm:col-span-2">
-                <Label htmlFor="proveedor-referral">Código de referido</Label>
-                <Input
-                  id="proveedor-referral"
-                  value={referralCode}
-                  onChange={(e) => setReferralCode(e.target.value)}
-                  placeholder="Ej. IVO2026 (opcional)"
-                  autoCapitalize="characters"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Con este código se atribuyen sus ventas por link (?ref). Su
-                  tarifa por servicio se configura en Comisiones.
-                </p>
               </div>
             )}
             <div className="space-y-2 sm:col-span-2">

@@ -20,7 +20,6 @@ export default async function OpsLayout({
 
   let displayName: string | null = null
   let role: string | null = null
-  let personaType: string | null = null
   if (user) {
     // profiles.type no está tipado (refactor de identidad) ⇒ cast.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -37,7 +36,6 @@ export default async function OpsLayout({
     if (profile.type === 'proveedor') redirect('/proveedor')
     displayName = profile.name ?? null
     role = profile.role ?? null
-    personaType = profile.type ?? null
   }
 
   const logoUrl = await getBrandLogo()
@@ -47,7 +45,6 @@ export default async function OpsLayout({
       email={user?.email ?? null}
       displayName={displayName}
       role={role}
-      personaType={personaType}
       logoUrl={logoUrl}
       sidebarCollapsed={sidebarCollapsed}
     >

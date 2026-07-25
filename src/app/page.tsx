@@ -2,7 +2,8 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getPersona, homeForPersona } from '@/lib/persona'
 
-// Resolutor de aterrizaje por persona: agente → back-office, viajero → sus viajes.
+// Resolutor de aterrizaje por persona (profiles.type): agente → back-office,
+// viajero → sus viajes, embajador → /embajador, proveedor → /proveedor.
 export default async function Home() {
   const supabase = await createClient()
   const {

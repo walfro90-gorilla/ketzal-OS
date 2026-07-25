@@ -11,11 +11,9 @@ const COOKIE = 'sidebar_collapsed'
 // que el layout (servidor) lee para el render inicial ⇒ sin parpadeo al recargar.
 export function DesktopSidebar({
   role,
-  personaType = null,
   defaultCollapsed = false,
 }: {
   role: string | null
-  personaType?: string | null
   defaultCollapsed?: boolean
 }) {
   const [collapsed, setCollapsed] = useState(defaultCollapsed)
@@ -37,7 +35,7 @@ export function DesktopSidebar({
     >
       <div className="sticky top-14 flex h-[calc(100vh-3.5rem)] flex-col">
         <div className="min-h-0 flex-1 overflow-y-auto">
-          <SidebarNav role={role} personaType={personaType} collapsed={collapsed} />
+          <SidebarNav role={role} collapsed={collapsed} />
         </div>
         <div className="border-t p-3">
           <button
