@@ -47,6 +47,11 @@ export default function NuevaPasswordPage() {
       )
       return
     }
+    // Si venía de una contraseña provisional (admin recién creado), baja el flag
+    // must_change_password para que el shell deje de forzar esta pantalla. RPC
+    // DEFINER (authenticated no escribe profiles, b017). No-op en el flujo normal
+    // de recuperación. RPC nuevo ⇒ cast.
+    await supabase.rpc('clear_password_change_flag' as never)
     // Nueva contraseña lista: ya con sesión, al panel.
     router.push('/dashboard')
     router.refresh()

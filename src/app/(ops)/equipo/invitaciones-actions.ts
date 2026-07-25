@@ -1,5 +1,6 @@
 'use server'
 
+import { randomInt } from 'node:crypto'
 import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
@@ -131,7 +132,10 @@ export async function crearAgenciaEInvitarAdmin(input: {
   adminEmail: string
   commissionRate?: number
   contactEmail?: string
-}): Promise<{ error: string } | { ok: true; warning?: string }> {
+}): Promise<
+  | { error: string }
+  | { ok: true; warning?: string; credentials?: { email: string; password: string } }
+> {
   const supabase = await createClient()
   const {
     data: { user },
@@ -197,23 +201,54 @@ export async function crearAgenciaEInvitarAdmin(input: {
   }
   const supplierId = (sup as { id: string }).id
 
-  // 2) Invitar a su admin (rol admin) a la agencia recién creada.
-  const { error: eInv } = await supabase.rpc('invite_agent' as never, {
-    p_email: adminEmail,
-    p_role: 'admin',
-    p_supplier: supplierId,
-  } as never)
-
-  revalidatePath('/equipo')
-  if (eInv) {
+  // 2) Crear la cuenta del admin con una CONTRASEÑA PROVISIONAL (correo ya
+  //    confirmado para que entre de una) + su profile como admin de la agencia.
+  //    Al primer login se le fuerza a crear su propia contraseña
+  //    (must_change_password). Cero dependencia de correo: el superadmin le pasa
+  //    las credenciales por WhatsApp.
+  const provisional = `Ketzal-${randomInt(100000, 999999)}`
+  const svc = createServiceClient()
+  const { data: created, error: eUser } = await svc.auth.admin.createUser({
+    email: adminEmail,
+    password: provisional,
+    email_confirm: true,
+  })
+  if (eUser || !created?.user) {
+    revalidatePath('/equipo')
     return {
       ok: true,
-      warning: `Agencia creada, pero no se pudo invitar al admin (${safeError(
-        eInv
-      )}). Invítalo desde "Invitar agentes".`,
+      warning: `Agencia creada, pero no se pudo crear la cuenta del admin (${safeError(
+        eUser,
+        '¿ese correo ya tiene cuenta en Ketzal?'
+      )}). Usa otro correo, o dale acceso desde "Invitar agentes".`,
     }
   }
-  return { ok: true }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error: eProf } = await (svc as any).from('profiles').upsert({
+    id: created.user.id,
+    email: adminEmail,
+    name: adminEmail.split('@')[0],
+    type: 'agente',
+    role: 'admin',
+    active: true,
+    supplier_id: supplierId,
+    must_change_password: true,
+  })
+  if (eProf) {
+    // Deshacer la cuenta auth para no dejar un huérfano sin profile.
+    await svc.auth.admin.deleteUser(created.user.id)
+    revalidatePath('/equipo')
+    return {
+      ok: true,
+      warning: `Agencia creada, pero no se pudo preparar la cuenta del admin (${safeError(
+        eProf
+      )}). Dale acceso desde "Invitar agentes".`,
+    }
+  }
+
+  revalidatePath('/equipo')
+  return { ok: true, credentials: { email: adminEmail, password: provisional } }
 }
 
 /**

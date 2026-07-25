@@ -25,7 +25,7 @@ export default async function OpsLayout({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: profile } = await (supabase as any)
       .from('profiles')
-      .select('name, role, type')
+      .select('name, role, type, must_change_password')
       .eq('id', user.id)
       .maybeSingle()
     // Gate de persona de toda la superficie (ops): el back-office no es para el
@@ -34,6 +34,9 @@ export default async function OpsLayout({
     if (!profile || profile.type === 'viajero') redirect('/mis-compras')
     if (profile.type === 'embajador') redirect('/embajador')
     if (profile.type === 'proveedor') redirect('/proveedor')
+    // Cuenta con contraseña provisional (admin recién creado): forzar a crear la
+    // suya antes de usar el OS. Se lee fresco de la BD ⇒ sin loop tras limpiarlo.
+    if (profile.must_change_password) redirect('/nueva-password')
     displayName = profile.name ?? null
     role = profile.role ?? null
   }
