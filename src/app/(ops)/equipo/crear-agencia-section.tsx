@@ -67,6 +67,10 @@ export function CrearAgenciaSection() {
         return
       }
       if (res.warning) toast.warning(res.warning)
+      else if (res.existingUser)
+        toast.success(
+          'Agencia creada. Ese correo ya tenía cuenta: el admin entra con su contraseña actual (o «olvidé mi contraseña»).'
+        )
       else toast.success('Agencia y cuenta del admin creadas')
       setCreds(res.credentials ?? null)
       setNombre('')

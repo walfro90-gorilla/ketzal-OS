@@ -134,7 +134,12 @@ export async function crearAgenciaEInvitarAdmin(input: {
   contactEmail?: string
 }): Promise<
   | { error: string }
-  | { ok: true; warning?: string; credentials?: { email: string; password: string } }
+  | {
+      ok: true
+      warning?: string
+      credentials?: { email: string; password: string }
+      existingUser?: boolean
+    }
 > {
   const supabase = await createClient()
   const {
@@ -201,54 +206,87 @@ export async function crearAgenciaEInvitarAdmin(input: {
   }
   const supplierId = (sup as { id: string }).id
 
-  // 2) Crear la cuenta del admin con una CONTRASEÑA PROVISIONAL (correo ya
-  //    confirmado para que entre de una) + su profile como admin de la agencia.
-  //    Al primer login se le fuerza a crear su propia contraseña
-  //    (must_change_password). Cero dependencia de correo: el superadmin le pasa
-  //    las credenciales por WhatsApp.
+  // 2) Cuenta del admin. Caso normal: se CREA con una CONTRASEÑA PROVISIONAL
+  //    (correo confirmado) y al primer login se le fuerza a crear la suya
+  //    (must_change_password). Caso reutilización: si el correo YA tiene cuenta,
+  //    se ENGANCHA esa cuenta como admin (entra con su contraseña actual). Cero
+  //    dependencia de correo: el superadmin pasa las credenciales por WhatsApp.
   const provisional = `Ketzal-${randomInt(100000, 999999)}`
   const svc = createServiceClient()
-  const { data: created, error: eUser } = await svc.auth.admin.createUser({
+  let adminId: string
+  let credentials: { email: string; password: string } | undefined
+  let existingUser = false
+
+  const { data: created } = await svc.auth.admin.createUser({
     email: adminEmail,
     password: provisional,
     email_confirm: true,
   })
-  if (eUser || !created?.user) {
-    revalidatePath('/equipo')
-    return {
-      ok: true,
-      warning: `Agencia creada, pero no se pudo crear la cuenta del admin (${safeError(
-        eUser,
-        '¿ese correo ya tiene cuenta en Ketzal?'
-      )}). Usa otro correo, o dale acceso desde "Invitar agentes".`,
+  if (created?.user) {
+    adminId = created.user.id
+    credentials = { email: adminEmail, password: provisional }
+  } else {
+    // El correo ya existe (u otro error): buscar la cuenta y reutilizarla.
+    const { data: foundId } = await svc.rpc('find_auth_user_id' as never, {
+      p_email: adminEmail,
+    } as never)
+    if (!foundId) {
+      revalidatePath('/equipo')
+      return {
+        ok: true,
+        warning:
+          'Agencia creada, pero no se pudo preparar la cuenta del admin. Dale acceso desde "Invitar agentes".',
+      }
+    }
+    adminId = foundId as unknown as string
+    existingUser = true
+    // Guardas: no degradar al superadmin ni robar a otra agencia.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: prof } = await (svc as any)
+      .from('profiles')
+      .select('role, supplier_id')
+      .eq('id', adminId)
+      .maybeSingle()
+    if (prof?.role === 'superadmin' || (prof?.supplier_id && prof.supplier_id !== supplierId)) {
+      // Deshacer la agencia recién creada para poder reintentar limpio.
+      await svc.from('suppliers').delete().eq('id', supplierId)
+      return {
+        error:
+          prof?.role === 'superadmin'
+            ? 'Ese correo es del superadmin; no puede ser admin de una agencia. Usa otro.'
+            : 'Ese correo ya pertenece a otra agencia. Usa otro.',
+      }
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: eProf } = await (svc as any).from('profiles').upsert({
-    id: created.user.id,
+  // Profile como admin de la agencia. Si creé la cuenta, forzar cambio de
+  // contraseña; si la reutilicé, no (entra con la suya).
+  const profileRow: Record<string, unknown> = {
+    id: adminId,
     email: adminEmail,
-    name: adminEmail.split('@')[0],
     type: 'agente',
     role: 'admin',
     active: true,
     supplier_id: supplierId,
-    must_change_password: true,
-  })
+  }
+  if (!existingUser) {
+    profileRow.name = adminEmail.split('@')[0]
+    profileRow.must_change_password = true
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error: eProf } = await (svc as any).from('profiles').upsert(profileRow)
   if (eProf) {
-    // Deshacer la cuenta auth para no dejar un huérfano sin profile.
-    await svc.auth.admin.deleteUser(created.user.id)
-    revalidatePath('/equipo')
+    if (!existingUser) await svc.auth.admin.deleteUser(adminId) // rollback solo si YO la creé
+    await svc.from('suppliers').delete().eq('id', supplierId)
     return {
-      ok: true,
-      warning: `Agencia creada, pero no se pudo preparar la cuenta del admin (${safeError(
-        eProf
-      )}). Dale acceso desde "Invitar agentes".`,
+      error: `No se pudo preparar la cuenta del admin: ${safeError(eProf)}`,
     }
   }
 
   revalidatePath('/equipo')
-  return { ok: true, credentials: { email: adminEmail, password: provisional } }
+  return existingUser
+    ? { ok: true, existingUser: true }
+    : { ok: true, credentials }
 }
 
 /**
