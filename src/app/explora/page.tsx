@@ -21,7 +21,14 @@ export const metadata: Metadata = {
   },
 }
 
-export default async function ExploraPage() {
+export default async function ExploraPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ ref?: string | string[] }>
+}) {
+  const sp = await searchParams
+  // ?ref del embajador: se propaga a cada ficha para que la venta le atribuya.
+  const refCode = typeof sp.ref === 'string' ? sp.ref : undefined
   const [servicios, agencias] = await Promise.all([
     listPublicServices(),
     listPublicSuppliers(),
@@ -47,7 +54,7 @@ export default async function ExploraPage() {
             Todavía no hay viajes publicados. Vuelve pronto.
           </p>
         ) : (
-          <Catalogo servicios={servicios} agenciaIds={agenciaIds} />
+          <Catalogo servicios={servicios} agenciaIds={agenciaIds} refCode={refCode} />
         )}
       </main>
       <PublicFooter />

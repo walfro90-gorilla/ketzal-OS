@@ -30,9 +30,10 @@ export default async function OpsLayout({
       .eq('id', user.id)
       .maybeSingle()
     // Gate de persona de toda la superficie (ops): el back-office no es para el
-    // viajero (comprador B2C). Desde F1 el viajero SÍ tiene profile ⇒ se discrimina
-    // por type='viajero', no por "existe fila". Sin costo extra: el rol ya se leía aquí.
+    // viajero (B2C) ni el embajador (su portal es /embajador). Se discrimina por
+    // type. Sin costo extra: el rol ya se leía aquí.
     if (!profile || profile.type === 'viajero') redirect('/mis-compras')
+    if (profile.type === 'embajador') redirect('/embajador')
     displayName = profile.name ?? null
     role = profile.role ?? null
     personaType = profile.type ?? null

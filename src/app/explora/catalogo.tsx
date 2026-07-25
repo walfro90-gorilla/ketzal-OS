@@ -74,11 +74,16 @@ const ORDEN_OPCIONES = [
 export function Catalogo({
   servicios,
   agenciaIds,
+  refCode,
 }: {
   servicios: PublicServiceCard[]
   /** Mapa nombre de agencia → id, para enlazar al perfil público. */
   agenciaIds: Record<string, string>
+  /** Código de referido del embajador (?ref): se propaga a la ficha para que
+   *  sobreviva hasta /comprar y atribuya la venta. */
+  refCode?: string
 }) {
+  const refQs = refCode ? `?ref=${encodeURIComponent(refCode)}` : ''
   const [query, setQuery] = useState('')
   const [estado, setEstado] = useState('')
   const [tipo, setTipo] = useState('')
@@ -237,7 +242,7 @@ export function Catalogo({
                 className="flex h-full flex-col overflow-hidden py-0 transition-shadow hover:shadow-md"
               >
                 <Link
-                  href={`/servicio/${s.id}`}
+                  href={`/servicio/${s.id}${refQs}`}
                   className="group flex flex-1 flex-col"
                 >
                   <div className="relative aspect-[3/2] w-full overflow-hidden bg-muted">

@@ -12,6 +12,7 @@ import { PageHeader } from '@/components/data/page-header'
 import { mxn } from '@/components/data/format'
 import { TasaForm } from './tasa-form'
 import { CrearEmbajador } from './embajador-crear'
+import { EmbajadoresAccesos } from './embajadores-accesos'
 import { ComisionesList, type ComisionVenta } from './comisiones-list'
 import {
   ReglasServicio,
@@ -287,6 +288,7 @@ export default async function ComisionesPage() {
                 reglas={reglasEmbajador}
               />
             )}
+            <EmbajadoresAccesos embajadores={embajadores} />
           </CardContent>
         </Card>
       )}

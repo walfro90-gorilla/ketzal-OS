@@ -15,9 +15,9 @@ export async function GET(request: Request) {
       const {
         data: { user },
       } = await supabase.auth.getUser()
-      // ¿Ya es viajero? entonces NO lo conviertas en agente: /auth/callback es
-      // lo único que llama ensure_profile. Si su profile es type='viajero' lo
-      // saltamos y lo mandamos a su viaje (refactor de identidad, F1).
+      // Ruteo por persona (profiles.type). Viajero/embajador tienen su propia
+      // superficie y NO deben pasar por ensure_profile (no nacen agente). Solo el
+      // agente (o un usuario nuevo sin profile) sigue al flujo de back-office.
       // profiles.type no está tipado ⇒ cast (convención del repo).
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const db = supabase as any
@@ -26,6 +26,9 @@ export async function GET(request: Request) {
         : { data: null }
       if (prof?.type === 'viajero') {
         return NextResponse.redirect(`${origin}${explicitNext ?? homeForPersona('traveler')}`)
+      }
+      if (prof?.type === 'embajador') {
+        return NextResponse.redirect(`${origin}${explicitNext ?? homeForPersona('ambassador')}`)
       }
       // Garantiza el perfil de Ketzal para cualquier método de login (Google incluido).
       await supabase.rpc('ensure_profile')

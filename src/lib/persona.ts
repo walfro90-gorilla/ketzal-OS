@@ -1,19 +1,21 @@
-// Persona post-login. Ketzal tiene dos experiencias sobre el mismo auth.users:
-//  - agent   → back-office (Ketzal OS): profile de tipo agente/proveedor/embajador.
-//  - traveler→ viajero/comprador B2C: su "Ketzal" es su viaje, no el panel de ventas.
-// El discriminador es `profiles.type` (b024): 'viajero' → traveler, el resto → agent.
-// Sin fila en profiles (comprador que aún vive en marketplace_customers) → traveler.
+// Persona post-login. Varias experiencias sobre el mismo auth.users, discriminadas
+// por `profiles.type` (b024, refactor de identidad):
+//  - agent    → back-office (Ketzal OS): profile agente/proveedor/admin.
+//  - traveler → viajero/comprador B2C: su "Ketzal" es su viaje.
+//  - ambassador → embajador: su portal de ganancias + link de referido (F-portal).
+// Sin fila en profiles ⇒ traveler (defensa).
 
-export type Persona = 'agent' | 'traveler'
+export type Persona = 'agent' | 'traveler' | 'ambassador'
 
 /** A dónde aterriza cada persona tras autenticar. */
 export function homeForPersona(p: Persona): string {
-  return p === 'agent' ? '/dashboard' : '/mis-compras'
+  if (p === 'traveler') return '/mis-compras'
+  if (p === 'ambassador') return '/embajador'
+  return '/dashboard'
 }
 
-// ponytail: discriminador = profiles.type, no "existe fila". El viajero ya vive en
-// profiles(type='viajero') (F1); proveedor/embajador llegan en F2–F3. Sin profile ⇒
-// traveler (defensa: cualquiera sin persona resuelta aterriza en la vista de viajero).
+// ponytail: discriminador = profiles.type, no "existe fila". viajero (F1), embajador
+// (F2) y proveedor (F3) ya viven en profiles. Sin profile ⇒ traveler.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function getPersona(supabase: any): Promise<Persona> {
   const {
@@ -25,5 +27,8 @@ export async function getPersona(supabase: any): Promise<Persona> {
     .select('type')
     .eq('id', user.id)
     .maybeSingle()
-  return data && data.type !== 'viajero' ? 'agent' : 'traveler'
+  const t = data?.type
+  if (t === 'viajero') return 'traveler'
+  if (t === 'embajador') return 'ambassador'
+  return 'agent'
 }
