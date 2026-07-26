@@ -133,6 +133,21 @@
   }
 }
 
+/* La estela se traza sola al cargar el hero (firma en movimiento, una sola vez).
+   reduced-motion la vuelve instantánea vía el bloque global → queda ya trazada. */
+@keyframes estela-draw {
+  from {
+    stroke-dashoffset: 920;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@utility animate-estela-draw {
+  stroke-dasharray: 920;
+  animation: estela-draw 1.5s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
