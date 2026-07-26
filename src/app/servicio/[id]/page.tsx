@@ -123,7 +123,9 @@ export default async function ServicioPublicoPage({
       <Carrusel images={fotos} alt={s.name} />
 
       <header className="mt-6 space-y-2">
-        <h1 className="text-2xl font-bold sm:text-3xl">{s.name}</h1>
+        <h1 className="font-display text-3xl font-semibold tracking-[-0.02em] text-balance sm:text-4xl">
+          {s.name}
+        </h1>
         {lugar && (
           <p className="flex items-center gap-1.5 text-muted-foreground">
             <MapPinIcon className="size-4" />
@@ -146,7 +148,7 @@ export default async function ServicioPublicoPage({
         <CardContent className="flex flex-wrap items-center justify-between gap-4 p-5">
           <div>
             <p className="text-sm text-muted-foreground">Desde</p>
-            <p className="text-2xl font-bold tabular-nums">
+            <p className="font-display text-3xl font-semibold tracking-[-0.02em] tabular-nums">
               {mxn.format(Number(s.price ?? 0))}{' '}
               <span className="text-sm font-normal text-muted-foreground">
                 por persona
@@ -165,7 +167,7 @@ export default async function ServicioPublicoPage({
             {comprarOnline && (
               <Link
                 href={comprarHref}
-                className={`${buttonVariants({ variant: 'default', size: 'touch' })} w-full sm:w-auto`}
+                className={`${buttonVariants({ variant: 'estela', size: 'touch' })} w-full sm:w-auto`}
               >
                 Comprar en línea
               </Link>
@@ -175,14 +177,14 @@ export default async function ServicioPublicoPage({
                 href={`${wa}?text=${encodeURIComponent(`Hola, me interesa el viaje "${s.name}".`)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`${buttonVariants({ variant: comprarOnline ? 'outline' : 'default', size: 'touch' })} w-full sm:w-auto`}
+                className={`${buttonVariants({ variant: comprarOnline ? 'outline' : 'estela', size: 'touch' })} w-full sm:w-auto`}
               >
                 Reservar por WhatsApp
               </a>
             ) : s.agency.email ? (
               <a
                 href={`mailto:${s.agency.email}?subject=${encodeURIComponent(`Reserva: ${s.name}`)}`}
-                className={`${buttonVariants({ variant: comprarOnline ? 'outline' : 'default', size: 'touch' })} w-full sm:w-auto`}
+                className={`${buttonVariants({ variant: comprarOnline ? 'outline' : 'estela', size: 'touch' })} w-full sm:w-auto`}
               >
                 Pedir informes
               </a>

@@ -289,8 +289,9 @@ function clawbotDetalle(r: ClawbotResumen): string {
 
 const KPI_TONES = {
   amber: {
-    card: 'border-amber-500/50 bg-amber-500/5',
-    text: 'text-amber-700 dark:text-amber-400',
+    // Marigold de marca (--warning), no el ámbar genérico de Tailwind.
+    card: 'border-warning/40 bg-warning/8',
+    text: 'text-[oklch(0.45_0.11_65)] dark:text-warning',
   },
   destructive: {
     card: 'border-destructive/50 bg-destructive/5',
@@ -314,7 +315,7 @@ function Kpi({
   const beam = tone === 'amber'
   return (
     <Card className={cn(beam && 'relative', t?.card)}>
-      {beam && <BorderBeam duration={9} colorFrom="#f59e0b" colorTo="#fbbf24" />}
+      {beam && <BorderBeam duration={9} colorFrom="#f5a524" colorTo="#f7b84b" />}
       <CardHeader>
         <CardDescription className={t?.text}>{label}</CardDescription>
         <CardTitle className={cn('text-2xl tabular-nums', t?.text)}>
@@ -343,10 +344,10 @@ const ATENCION_TONES: Record<AtencionTone, { card: string; text: string }> = {
     card: 'bg-destructive/5 ring-destructive/30',
     text: 'text-destructive',
   },
-  // Pendiente = ámbar, la misma convención de /reportes y del badge "Cotización".
+  // Pendiente = marigold de marca (--warning), la convención "energía/por hacer".
   pendiente: {
-    card: 'bg-amber-500/5 ring-amber-500/40',
-    text: 'text-amber-700 dark:text-amber-400',
+    card: 'bg-warning/8 ring-warning/40',
+    text: 'text-[oklch(0.45_0.11_65)] dark:text-warning',
   },
   // Clawbot = primario (teal de marca): accionable, no alarmante.
   bot: {
@@ -391,7 +392,7 @@ function AtencionCard({
           {active ? (
             <Icon className="size-3.5 shrink-0" />
           ) : (
-            <CircleCheckIcon className="size-3.5 shrink-0 text-emerald-600 dark:text-emerald-500" />
+            <CircleCheckIcon className="size-3.5 shrink-0 text-success" />
           )}
           {label}
         </CardDescription>
@@ -709,7 +710,9 @@ export default async function DashboardPage({
 
       {/* Lo accionable AHORA (no depende del rango de fechas de abajo). */}
       <section aria-label="Requiere atención" className="space-y-3">
-        <h2 className="text-base font-semibold">Requiere atención</h2>
+        <h2 className="font-display text-lg font-semibold tracking-[-0.01em]">
+          Requiere atención
+        </h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <AtencionCard
             tone="danger"
@@ -771,7 +774,7 @@ export default async function DashboardPage({
       {/* Resumen del periodo: el filtro manda sobre TODO lo de esta sección. */}
       <section aria-label="Resumen del periodo" className="space-y-4">
         <div className="space-y-3">
-          <h2 className="text-base font-semibold">
+          <h2 className="font-display text-lg font-semibold tracking-[-0.01em]">
             {esHoy ? 'Resumen de hoy' : 'Resumen del periodo'}
           </h2>
           <RangoPanel presets={presets} from={from} to={to} />

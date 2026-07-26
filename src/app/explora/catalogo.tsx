@@ -265,7 +265,7 @@ export function Catalogo({
                     )}
                   </div>
                   <CardContent className="flex-1 space-y-1 p-4 pb-2">
-                    <h2 className="line-clamp-2 font-semibold group-hover:text-primary">
+                    <h2 className="font-display line-clamp-2 font-semibold tracking-[-0.01em] group-hover:text-primary">
                       {s.name}
                     </h2>
                     {lugar && (
@@ -274,9 +274,9 @@ export function Catalogo({
                         {lugar}
                       </p>
                     )}
-                    <p className="pt-1 text-sm">
-                      <span className="text-muted-foreground">Desde </span>
-                      <span className="font-semibold tabular-nums">
+                    <p className="flex items-baseline gap-1 pt-1 text-sm">
+                      <span className="text-muted-foreground">Desde</span>
+                      <span className="font-display text-base font-semibold tabular-nums">
                         {mxn.format(Number(s.price ?? 0))}
                       </span>
                     </p>

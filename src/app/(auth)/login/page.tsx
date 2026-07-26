@@ -121,8 +121,13 @@ function LoginForm() {
         <CardTitle className="flex justify-center">
           <BrandLogo className="h-27 max-w-[360px]" />
         </CardTitle>
+        {/* La estela bajo el wordmark: la firma, no un divisor cualquiera. */}
+        <div
+          aria-hidden
+          className="bg-estela mx-auto mt-2 h-1 w-16 rounded-full"
+        />
         <CardDescription>
-          Back-office de ventas. Inicia sesión para continuar.
+          Tu operación de ventas, en una sola app. Entra para continuar.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -247,7 +252,11 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <main className="flex min-h-screen items-center justify-center p-4">
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden p-4">
+      {/* Estela ambiental: el rastro del quetzal detrás del acceso. */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
+        <div className="bg-estela absolute top-[-12%] left-1/2 h-[440px] w-[440px] -translate-x-1/2 rounded-full opacity-[0.12] blur-3xl" />
+      </div>
       <Suspense>
         <LoginForm />
       </Suspense>

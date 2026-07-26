@@ -25,6 +25,7 @@ export async function proxy(request: NextRequest) {
   // '/recuperar' es pública (usuario sin sesión pide el reset). '/nueva-password'
   // NO va aquí: se llega con la sesión de recuperación ya creada por /auth/callback.
   const isPublic =
+    path === '/' || // landing de marca (anónimo). Con sesión, page.tsx redirige por persona.
     path.startsWith('/login') ||
     path.startsWith('/entrar') || // entrada del viajero (comprador B2C): entrar o crear cuenta
     path.startsWith('/auth') ||
