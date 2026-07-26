@@ -58,10 +58,17 @@ export function BottomTabs({
                 data-tour={href}
                 aria-current={active ? 'page' : undefined}
                 className={cn(
-                  'flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
+                  'relative flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
                   active ? 'text-primary' : 'text-muted-foreground'
                 )}
               >
+                {/* La estela: rastro jade→hoja sobre el tab activo. */}
+                {active && (
+                  <span
+                    aria-hidden
+                    className="bg-estela absolute top-0 h-1 w-8 rounded-full"
+                  />
+                )}
                 <Icon className="size-5 shrink-0" />
                 {label}
               </Link>
@@ -73,10 +80,16 @@ export function BottomTabs({
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger
               className={cn(
-                'flex h-16 w-full flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
+                'relative flex h-16 w-full flex-col items-center justify-center gap-1 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring',
                 moreActive ? 'text-primary' : 'text-muted-foreground'
               )}
             >
+              {moreActive && (
+                <span
+                  aria-hidden
+                  className="bg-estela absolute top-0 h-1 w-8 rounded-full"
+                />
+              )}
               <MoreHorizontalIcon className="size-5 shrink-0" />
               Más
             </SheetTrigger>

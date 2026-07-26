@@ -3,53 +3,80 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ============================================================================
+   KETZAL · Sistema "La Estela"
+   Neutros CÁLIDOS sesgados al jade (no gris muerto = ahí muere el look de IA).
+   Teal de marca intacto. Verde hoja / marigold / grana ahora son tokens con
+   rol semántico (antes hardcode). Firma = gradiente jade→hoja (--gradient-estela).
+   ========================================================================== */
 :root {
   /* Controles nativos (select/option, date, scrollbars) siguen el tema.
      Sin esto, el <option> del dropdown se pinta blanco en dark mode. */
   color-scheme: light;
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.532 0.109 167); /* Ketzal teal #00805F (contraste AA con blanco) */
+  --radius: 0.75rem; /* un pelo más generoso = card menos "admin", más producto */
+
+  --background: oklch(0.994 0.004 95);   /* papel apenas tibio (sol/adobe) */
+  --foreground: oklch(0.24 0.024 168);   /* tinta Selva: teal-verde oscuro, NO negro puro */
+  --card: oklch(1 0.002 95);
+  --card-foreground: oklch(0.24 0.024 168);
+  --popover: oklch(1 0.002 95);
+  --popover-foreground: oklch(0.24 0.024 168);
+
+  --primary: oklch(0.532 0.109 167);     /* Jade hondo #00805F (contraste AA con blanco) */
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
+  --secondary: oklch(0.965 0.007 100);   /* superficie cálida secundaria */
+  --secondary-foreground: oklch(0.28 0.02 168);
+  --muted: oklch(0.965 0.007 100);
+  --muted-foreground: oklch(0.52 0.02 165); /* neutro sesgado a jade, no gris 0-chroma */
+  --accent: oklch(0.95 0.024 168);        /* hover con tinte jade sutil */
+  --accent-foreground: oklch(0.30 0.04 168);
+
+  --destructive: oklch(0.568 0.232 26.8); /* Grana #DF001A (cochinilla mexicana) */
   --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.62 0.121 171.6); /* Ketzal teal vibrante #009E7E */
+
+  --success: oklch(0.63 0.17 150);        /* Hoja: pagado / activo / éxito */
+  --success-foreground: oklch(0.99 0 0);
+  --warning: oklch(0.78 0.15 68);         /* Cempasúchil (marigold): pendiente / energía */
+  --warning-foreground: oklch(0.27 0.05 60);
+
+  --border: oklch(0.905 0.008 100);       /* borde cálido (antes gris muerto) */
+  --input: oklch(0.905 0.008 100);
+  --ring: oklch(0.623 0.121 171.6);       /* Jade vibrante #009E7E */
+
+  /* Firma de marca: la estela (jade→hoja). Se recolorea sola en dark
+     porque --ring y --success cambian de tema. */
+  --gradient-estela: linear-gradient(96deg, var(--ring), var(--success));
 }
 
 .dark {
   color-scheme: dark;
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.532 0.109 167); /* mismo teal de marca, texto blanco */
+  --background: oklch(0.17 0.022 170);    /* Selva profunda (fondo oscuro con alma teal) */
+  --foreground: oklch(0.96 0.006 100);
+  --card: oklch(0.215 0.024 170);
+  --card-foreground: oklch(0.96 0.006 100);
+  --popover: oklch(0.215 0.024 170);
+  --popover-foreground: oklch(0.96 0.006 100);
+
+  --primary: oklch(0.532 0.109 167);      /* mismo teal de marca, texto blanco */
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
+  --secondary: oklch(0.27 0.02 170);
+  --secondary-foreground: oklch(0.96 0.006 100);
+  --muted: oklch(0.27 0.02 170);
+  --muted-foreground: oklch(0.72 0.02 160);
+  --accent: oklch(0.30 0.035 168);
+  --accent-foreground: oklch(0.95 0.01 150);
+
+  --destructive: oklch(0.70 0.20 25);     /* Grana más brillante para fondo oscuro */
   --destructive-foreground: oklch(0.985 0 0);
+
+  --success: oklch(0.72 0.19 148);
+  --success-foreground: oklch(0.16 0.02 160);
+  --warning: oklch(0.80 0.14 70);
+  --warning-foreground: oklch(0.24 0.04 60);
+
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.62 0.121 171.6); /* Ketzal teal vibrante #009E7E */
+  --ring: oklch(0.70 0.13 172);           /* jade más brillante = anillo visible en dark */
 }
 
 @theme inline {
@@ -69,6 +96,10 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -78,7 +109,22 @@
   --radius-xl: calc(var(--radius) + 4px);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-bricolage); /* Bricolage Grotesque: titulares con energía */
   --animate-border-beam: border-beam calc(var(--duration) * 1s) infinite linear;
+}
+
+/* Firma de marca como utilidades reutilizables (Tailwind v4 @utility). */
+@utility bg-estela {
+  background-image: var(--gradient-estela);
+}
+@utility text-estela {
+  background-image: var(--gradient-estela);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+@utility border-estela {
+  border-image: var(--gradient-estela) 1;
 }
 
 @keyframes border-beam {
@@ -130,11 +176,15 @@
     --muted-foreground: oklch(0.556 0 0);
     --accent: oklch(0.97 0 0);
     --accent-foreground: oklch(0.205 0 0);
-    --destructive: oklch(0.577 0.245 27.325);
+    --destructive: oklch(0.568 0.232 26.8);
     --destructive-foreground: oklch(0.985 0 0);
+    --success: oklch(0.63 0.17 150);
+    --success-foreground: oklch(0.99 0 0);
+    --warning: oklch(0.78 0.15 68);
+    --warning-foreground: oklch(0.27 0.05 60);
     --border: oklch(0.922 0 0);
     --input: oklch(0.922 0 0);
-    --ring: oklch(0.62 0.121 171.6);
+    --ring: oklch(0.623 0.121 171.6);
   }
 }
 

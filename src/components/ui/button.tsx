@@ -10,6 +10,10 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "bg-primary text-primary-foreground hover:bg-primary/80",
+        // La firma: gradiente jade→hoja. Reservado para la acción que mueve
+        // dinero (cobrar / registrar abono). Uno por pantalla, no más.
+        estela:
+          "bg-estela text-[#06231b] shadow-sm hover:brightness-[1.05] focus-visible:ring-ring/50",
         outline:
           "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
         secondary:

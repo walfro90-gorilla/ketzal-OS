@@ -31,7 +31,12 @@ export function PageHeader({
             ← {backLabel}
           </Link>
         )}
-        <h1 className={cn('text-2xl font-semibold', backHref && 'mt-1')}>
+        <h1
+          className={cn(
+            'font-display text-2xl font-semibold tracking-[-0.015em]',
+            backHref && 'mt-1'
+          )}
+        >
           {title}
         </h1>
         {description && (
