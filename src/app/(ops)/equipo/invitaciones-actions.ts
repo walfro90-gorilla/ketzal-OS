@@ -297,6 +297,58 @@ export async function crearAgenciaEInvitarAdmin(input: {
 }
 
 /**
+ * Superadmin: regenera el acceso de un miembro que perdió sus credenciales.
+ * La contraseña provisional NO se puede recuperar (se guarda hasheada en
+ * auth.users), así que se genera una NUEVA, se fuerza a crear la suya al primer
+ * login (must_change_password) y se devuelve para copiarla y mandarla por
+ * WhatsApp. Sirve igual si nunca entró o si olvidó la suya. Va por SERVICE ROLE
+ * (auth.users no lo cubre la RLS de Ketzal), con el gate de superadmin aquí.
+ */
+export async function regenerarAcceso(
+  userId: string
+): Promise<
+  { error: string } | { ok: true; credentials: { email: string; password: string } }
+> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: 'Inicia sesión.' }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+  if (profile?.role !== 'superadmin') {
+    return { error: 'Solo el superadmin puede regenerar accesos.' }
+  }
+
+  const svc = createServiceClient()
+  // Correo del login (auth.users es la fuente de verdad; el profile puede diferir).
+  const { data: authUser, error: eGet } = await svc.auth.admin.getUserById(userId)
+  const email = authUser?.user?.email
+  if (eGet || !email) {
+    return { error: safeError(eGet, 'No se encontró la cuenta del miembro.') }
+  }
+
+  const provisional = `Ketzal-${randomInt(100000, 999999)}`
+  const { error: ePwd } = await svc.auth.admin.updateUserById(userId, {
+    password: provisional,
+  })
+  if (ePwd) return { error: safeError(ePwd, 'No se pudo regenerar la contraseña.') }
+
+  // Forzar cambio al primer login (authenticated no puede escribir profiles, b017).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (svc as any)
+    .from('profiles')
+    .update({ must_change_password: true })
+    .eq('id', userId)
+
+  return { ok: true, credentials: { email, password: provisional } }
+}
+
+/**
  * Delega el rol de un miembro DENTRO de la agencia (user ↔ admin). Lo usa el
  * admin de agencia; el superadmin ya tiene el selector de 3 roles. El RPC impide
  * poner superadmin y tocar otra agencia.

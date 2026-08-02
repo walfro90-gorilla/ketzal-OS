@@ -2,11 +2,12 @@
 
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
+import { CopyIcon, CheckIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { NativeSelect } from '@/components/ui/native-select'
 import type { Database } from '@/lib/db/database.types'
-import { aprobarUsuario, asignarAgencia, cambiarRol, resetearPassword } from './actions'
-import { cambiarRolAgencia } from './invitaciones-actions'
+import { aprobarUsuario, asignarAgencia, cambiarRol } from './actions'
+import { cambiarRolAgencia, regenerarAcceso } from './invitaciones-actions'
 
 type UserRole = Database['ketzal']['Enums']['user_role']
 
@@ -55,6 +56,9 @@ export function MiembroAcciones({
   // si la acción falla se revierte al valor del servidor.
   const [agencia, setAgencia] = useState(miembro.supplier_id ?? '')
   const [rol, setRol] = useState<UserRole>(miembro.role)
+  // Credenciales provisionales tras regenerar acceso (para copiar por WhatsApp).
+  const [creds, setCreds] = useState<{ email: string; password: string } | null>(null)
+  const [copiado, setCopiado] = useState(false)
 
   function run(
     action: () => Promise<{ error: string } | { ok: true }>,
@@ -89,29 +93,45 @@ export function MiembroAcciones({
     run(() => cambiarRolAgencia(miembro.id, nuevo), () => setRol(prev))
   }
 
-  // Reset de contraseña (solo superadmin): pide la nueva clave y la fija por el
-  // service role. La comparte el admin con el agente; luego el agente puede
-  // cambiarla desde /recuperar. window.prompt basta para una herramienta interna.
-  function resetPwd() {
-    const quien = miembro.name ?? miembro.email ?? 'este agente'
-    const pwd = window.prompt(`Nueva contraseña para ${quien} (mín. 8 caracteres):`)
-    if (pwd == null) return // canceló
-    if (pwd.trim().length < 8) {
-      setError('La contraseña debe tener al menos 8 caracteres.')
+  // Regenerar acceso (solo superadmin): genera una contraseña provisional nueva y
+  // fuerza a crear la propia al primer login. Reemite las credenciales cuando se
+  // perdieron (la provisional original no se puede recuperar). Se copian y se
+  // mandan por WhatsApp. Invalida la clave anterior ⇒ se confirma.
+  function regenerar() {
+    const quien = miembro.name ?? miembro.email ?? 'este miembro'
+    if (
+      !window.confirm(
+        `¿Regenerar el acceso de ${quien}? Se crea una contraseña nueva; la anterior deja de servir.`
+      )
+    )
       return
-    }
     setError(null)
+    setCreds(null)
     startTransition(async () => {
-      const result = await resetearPassword(miembro.id, pwd)
-      if ('error' in result) {
-        setError(result.error)
-      } else {
-        toast.success('Contraseña actualizada')
+      const res = await regenerarAcceso(miembro.id)
+      if ('error' in res) {
+        setError(res.error)
+        return
       }
+      setCreds(res.credentials)
+      toast.success('Acceso regenerado. Copia el mensaje y mándalo por WhatsApp.')
     })
   }
 
+  async function copiarCreds() {
+    if (!creds) return
+    const texto = `Ketzal OS — entra en https://ketzal-os.vercel.app/login\nCorreo: ${creds.email}\nContraseña provisional: ${creds.password}\n(Al entrar te pedirá crear tu propia contraseña.)`
+    try {
+      await navigator.clipboard.writeText(texto)
+      setCopiado(true)
+      setTimeout(() => setCopiado(false), 2000)
+    } catch {
+      // clipboard bloqueado: seleccionar a mano.
+    }
+  }
+
   return (
+    <div className="space-y-2">
     <div className="flex flex-wrap items-center gap-2">
       <Button
         type="button"
@@ -192,9 +212,9 @@ export function MiembroAcciones({
           size="sm"
           className="h-10 md:h-7"
           disabled={isPending}
-          onClick={resetPwd}
+          onClick={regenerar}
         >
-          Contraseña
+          Regenerar acceso
         </Button>
       )}
 
@@ -203,6 +223,41 @@ export function MiembroAcciones({
           {error}
         </span>
       )}
+    </div>
+
+    {creds && (
+      <div className="space-y-2 rounded-lg border border-emerald-500/40 bg-emerald-500/5 p-3">
+        <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
+          Acceso regenerado. Manda estas credenciales (WhatsApp):
+        </p>
+        <div className="space-y-1 rounded-md border bg-background px-3 py-2 text-sm">
+          <p>
+            <span className="text-muted-foreground">Correo:</span>{' '}
+            <span className="font-medium">{creds.email}</span>
+          </p>
+          <p>
+            <span className="text-muted-foreground">Contraseña provisional:</span>{' '}
+            <span className="font-mono font-medium">{creds.password}</span>
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button type="button" size="sm" variant="outline" onClick={copiarCreds}>
+            {copiado ? (
+              <>
+                <CheckIcon className="size-4" /> Copiado
+              </>
+            ) : (
+              <>
+                <CopyIcon className="size-4" /> Copiar mensaje
+              </>
+            )}
+          </Button>
+          <span className="text-xs text-muted-foreground">
+            Al entrar se le pedirá crear su propia contraseña.
+          </span>
+        </div>
+      </div>
+    )}
     </div>
   )
 }
