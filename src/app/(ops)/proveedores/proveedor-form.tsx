@@ -71,8 +71,11 @@ export function ProveedorForm({
   const [phoneNumber, setPhoneNumber] = useState(initial?.phone_number ?? '')
   const [address, setAddress] = useState(initial?.address ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
+  // Las agencias se crean en /equipo (negocio + su admin en un paso); aquí solo
+  // proveedores operativos ⇒ el default al CREAR es 'transporte'. El tipo 'agency'
+  // sigue soportado para EDITAR una agencia ya existente (no degradar su tipo).
   const [tipo, setTipo] = useState<ProveedorTipo>(
-    initial ? normalizarTipo(initial.supplier_type) : 'agency'
+    initial ? normalizarTipo(initial.supplier_type) : 'transporte'
   )
   const [commissionRate, setCommissionRate] = useState(
     String(initial?.commission_rate ?? 0)
@@ -291,11 +294,15 @@ export function ProveedorForm({
                 value={tipo}
                 onChange={(e) => setTipo(e.target.value as ProveedorTipo)}
               >
-                <option value="agency">Agencia</option>
+                {/* "Agencia" solo aparece al EDITAR una agencia existente. Al crear
+                    no se ofrece: las agencias se dan de alta en /equipo (negocio +
+                    admin en un paso). Embajador tampoco es un supplier (se crea en
+                    Comisiones como profile type='embajador', refactor de identidad F2). */}
+                {proveedorId && tipo === 'agency' && (
+                  <option value="agency">Agencia</option>
+                )}
                 <option value="transporte">Transporte</option>
                 <option value="hotel">Hotel</option>
-                {/* Embajador ya no es un supplier: se crea en Comisiones como
-                    profile(type='embajador') (refactor de identidad, F2). */}
                 <option value="otro">Otro</option>
               </NativeSelect>
             </div>
