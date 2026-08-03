@@ -33,13 +33,29 @@ export async function GET(request: Request) {
       if (prof?.type === 'proveedor') {
         return NextResponse.redirect(`${origin}${explicitNext ?? homeForPersona('provider')}`)
       }
-      // Garantiza el perfil de Ketzal para cualquier método de login (Google incluido).
+      // Garantiza el perfil de Ketzal para cualquier método de login (Google
+      // incluido). Todo usuario nuevo nace VIAJERO (b032); solo se vuelve agente
+      // si acepta una invitación de agencia (abajo).
       await supabase.rpc('ensure_profile')
       // SaaS: si fue invitado a una agencia (por su email verificado), se une
-      // solo a ese equipo con el rol invitado. No-op si no hay invitación o si
-      // ya pertenece a una agencia (no arrebata). RPC nuevo ⇒ cast.
+      // solo a ese equipo con el rol invitado y pasa a type='agente'. No-op si no
+      // hay invitación o si ya pertenece a una agencia (no arrebata). RPC ⇒ cast.
       await supabase.rpc('accept_pending_invitation' as never)
-      return NextResponse.redirect(`${origin}${explicitNext ?? homeForPersona('agent')}`)
+      // Rutea a la superficie correcta: un signup nuevo sin invitación es viajero
+      // (→ /mis-compras); uno invitado ya es agente (→ /dashboard).
+      const prof2 = user
+        ? (await db.from('profiles').select('type').eq('id', user.id).maybeSingle())
+            .data
+        : null
+      const persona =
+        prof2?.type === 'viajero'
+          ? 'traveler'
+          : prof2?.type === 'embajador'
+            ? 'ambassador'
+            : prof2?.type === 'proveedor'
+              ? 'provider'
+              : 'agent'
+      return NextResponse.redirect(`${origin}${explicitNext ?? homeForPersona(persona)}`)
     }
   }
   return NextResponse.redirect(`${origin}/login?error=auth`)

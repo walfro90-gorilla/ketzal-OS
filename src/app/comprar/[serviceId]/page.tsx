@@ -4,6 +4,7 @@ import { getPublicService } from '@/app/servicio/[id]/data'
 import { createClient } from '@/lib/supabase/server'
 import { marketplaceActivo } from '@/lib/marketplace'
 import { Card, CardContent } from '@/components/ui/card'
+import { buttonVariants } from '@/components/ui/button'
 import { RegistroComprador, CompletarComprador } from './comprador-forms'
 import { PedidoForm, type Pack } from './pedido-form'
 import { PublicHeader } from '@/components/public/public-header'
@@ -51,16 +52,28 @@ export default async function ComprarPage({
   } = await supabase.auth.getUser()
 
   let mc: { name: string; phone: string | null } | null = null
+  let profileType: string | null = null
   if (user) {
     // Viajero = profile type='viajero' (F1). RLS profiles_select_own: su propia fila.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data } = await (supabase as any)
       .from('profiles')
-      .select('name, phone')
+      .select('name, phone, type')
       .eq('id', user.id)
       .maybeSingle()
-    mc = data ?? null
+    profileType = (data?.type as string | null) ?? null
+    mc = data ? { name: data.name, phone: data.phone } : null
   }
+  // Sesión que NO es de viajero (agente/embajador/proveedor): comprar en línea es
+  // solo con cuenta de comprador. Se avisa y se ofrece crear una (evita el toast
+  // críptico "Solo compradores registrados pueden pedir." del RPC sin salida).
+  const noEsViajero = !!user && profileType != null && profileType !== 'viajero'
+  const tipoLabel =
+    profileType === 'embajador'
+      ? 'embajador'
+      : profileType === 'proveedor'
+        ? 'proveedor'
+        : 'agente de agencia'
 
   const lugar = destino(s)
 
@@ -105,6 +118,22 @@ export default async function ComprarPage({
 
       {!user ? (
         <RegistroComprador />
+      ) : noEsViajero ? (
+        <div className="mt-6 space-y-3 rounded-lg border bg-muted/40 p-4">
+          <p className="text-sm font-medium">
+            Solo compradores registrados pueden pedir.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Tu sesión es de {tipoLabel}, no de comprador. Para comprar en línea
+            necesitas una cuenta de viajero.
+          </p>
+          <Link href="/entrar" className={buttonVariants({ size: 'touch' })}>
+            Crear cuenta de comprador
+          </Link>
+          <p className="text-xs text-muted-foreground">
+            Si estás con una cuenta de agente, cierra sesión primero.
+          </p>
+        </div>
       ) : !mc ? (
         <CompletarComprador />
       ) : (
