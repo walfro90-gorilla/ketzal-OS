@@ -15,7 +15,12 @@ export type Voucher = {
   fecha_viaje: string | null
   pax: number
   estado: string
-  pasajeros: { full_name: string; passenger_type: string | null }[]
+  pasajeros: {
+    full_name: string
+    passenger_type: string | null
+    /** Asiento asignado (b041/b042), o null si aún no elige. */
+    seat: number | null
+  }[]
 }
 
 // cache(): dedupe entre generateMetadata y el render en un mismo request.

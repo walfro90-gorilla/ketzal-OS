@@ -1,6 +1,9 @@
 import type { ReactNode } from 'react'
 import type { Metadata } from 'next'
+import { headers } from 'next/headers'
+import QRCode from 'qrcode'
 import { getVoucher } from './data'
+import { firmarVoucher, verificarCert } from '@/lib/voucher-cert'
 import { getBrandLogo } from '@/lib/brand'
 import { BrandMark } from '@/components/brand-mark'
 import { PoweredByKetzal } from '@/components/data/powered-by-ketzal'
@@ -83,16 +86,30 @@ function NotFound() {
 
 export default async function VoucherPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ voucherId: string }>
+  searchParams: Promise<{ c?: string | string[] }>
 }) {
   const { voucherId } = await params
+  const { c } = await searchParams
   const v = await getVoucher(voucherId)
   if (!v) return <NotFound />
 
   const logo = await getBrandLogo()
   const folio = String(v.folio).padStart(4, '0')
   const estado = ESTADO[v.estado] ?? v.estado
+
+  // b042: QR único con certificado digital (HMAC del uuid). El staff lo
+  // escanea al abordar: abre esta misma página con ?c=<firma> y el badge
+  // confirma "verificado" (o "inválido" si el documento fue alterado).
+  const cert = firmarVoucher(voucherId)
+  const h = await headers()
+  const origin =
+    process.env.NEXT_PUBLIC_APP_URL ?? `https://${h.get('host') ?? 'ketzal-os.vercel.app'}`
+  const qrUrl = `${origin}/voucher/${voucherId}${cert ? `?c=${cert}` : ''}`
+  const qrDataUrl = await QRCode.toDataURL(qrUrl, { margin: 1, width: 320 })
+  const verificado = verificarCert(voucherId, c)
 
   return (
     <main className="mx-auto w-full max-w-2xl px-4 py-8 print:max-w-none print:p-0">
@@ -103,6 +120,21 @@ export default async function VoucherPage({
         />
         <ImprimirBoton />
       </div>
+
+      {verificado != null && (
+        <div
+          role="status"
+          className={`mb-4 rounded-lg border px-4 py-3 text-sm font-semibold print:hidden ${
+            verificado
+              ? 'border-emerald-300 bg-emerald-500/10 text-emerald-700'
+              : 'border-red-300 bg-red-500/10 text-red-700'
+          }`}
+        >
+          {verificado
+            ? '✓ Certificado digital verificado — voucher auténtico.'
+            : '⚠ Certificado inválido — este voucher NO se pudo verificar. Confirma con la agencia antes de permitir el abordaje.'}
+        </div>
+      )}
 
       <article className="overflow-hidden rounded-xl border border-t-4 border-neutral-200 border-t-[#009E7E] bg-white p-6 text-neutral-900 shadow-sm sm:p-10 print:rounded-none print:border-x-0 print:border-b-0 print:p-0 print:pt-8 print:shadow-none">
         <header className="flex flex-wrap items-start justify-between gap-x-8 gap-y-5 break-inside-avoid">
@@ -157,10 +189,15 @@ export default async function VoucherPage({
                     <span className="mr-2 tabular-nums text-neutral-400">{i + 1}.</span>
                     {p.full_name}
                   </span>
-                  <span className="text-xs text-neutral-500">
+                  <span className="flex items-center gap-2 text-xs text-neutral-500">
                     {p.passenger_type
                       ? PAX_LABEL[p.passenger_type] ?? p.passenger_type
                       : ''}
+                    {p.seat != null && (
+                      <span className="rounded-md border border-[#009E7E]/30 bg-[#009E7E]/10 px-1.5 py-0.5 font-semibold tabular-nums text-[#00805F]">
+                        Asiento {p.seat}
+                      </span>
+                    )}
                   </span>
                 </li>
               ))}
@@ -168,7 +205,32 @@ export default async function VoucherPage({
           </section>
         )}
 
-        <div className="mt-14 flex justify-center break-inside-avoid print:mt-16">
+        {/* b042: QR único con certificado digital — el staff lo escanea al
+            abordar y la página confirma la autenticidad. */}
+        <section className="mt-10 flex items-center justify-center gap-5 border-t border-neutral-200 pt-7 break-inside-avoid">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={qrDataUrl}
+            alt="QR del voucher (certificado digital)"
+            className="size-32 shrink-0"
+          />
+          <div className="max-w-56 text-xs text-neutral-500">
+            <p className="font-semibold tracking-[0.14em] text-neutral-600 uppercase">
+              Pase de abordaje
+            </p>
+            <p className="mt-1">
+              El staff escanea este QR al abordar para verificar la
+              autenticidad del voucher.
+            </p>
+            {cert && (
+              <p className="mt-1.5 font-mono text-[10px] text-neutral-400">
+                Cert. {cert}
+              </p>
+            )}
+          </div>
+        </section>
+
+        <div className="mt-10 flex justify-center break-inside-avoid print:mt-12">
           <div className="w-60 border-t border-neutral-300 pt-2 text-center">
             <p className="text-[10px] tracking-[0.16em] text-neutral-400 uppercase">
               Sello / firma de la agencia

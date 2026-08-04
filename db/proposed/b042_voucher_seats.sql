@@ -1,0 +1,17 @@
+-- b042 — Voucher: asientos por pasajero + QR con certificado digital.
+-- Espejo de la migración aplicada `b042_voucher_seats`.
+--
+-- BD: re-apply ADITIVO de get_voucher_public (F4) desde el DDL vivo — cada
+-- pasajero gana 'seat' (left join a seat_assignments de b041; null si aún no
+-- elige). Sigue anon, sin montos, fail-closed en cancelada. Ver la migración
+-- aplicada para el cuerpo completo.
+--
+-- App (sin DDL): QR único en el documento del voucher que codifica
+-- /voucher/<uuid>?c=<HMAC-SHA256(uuid, llave derivada del service key,
+-- src/lib/voucher-cert.ts)>. El staff lo escanea al abordar: la página
+-- recomputa la firma y muestra "certificado verificado" o "inválido" — un
+-- voucher photoshopeado no puede producir firma válida. Sin env nueva
+-- (llave derivada con propósito fijo; nunca se expone).
+--
+-- Coordinación: si se re-aplica get_voucher_public desde otra fuente,
+-- conservar la key 'seat' en pasajeros.
