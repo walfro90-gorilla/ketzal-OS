@@ -1,7 +1,7 @@
 # Plan de implementación — Política de cancelaciones (carril `cancelaciones`)
 
 > Aterriza la investigación de `docs/POLITICA_CANCELACION.md` en fases construibles.
-> Estado: **PLAN — nada implementado**. Decisiones del §8 **CERRADAS (2026-08-04)**: tramos 10/25/50/75/100 con piso = enganche (efectivo 20/25/50/75/100), **crédito 100% (12 meses) ofrecido SIEMPRE antes que la devolución**, cambio de fecha 1º gratis ≥7 días, aviso mínimo pax 7 días, atraso de plan 15 días, pena en reventas proporcional a comisión, política default + override por agencia. Único pendiente externo: abogado/PROFECO (no bloquea).
+> Estado: **PLAN — nada implementado**. Decisiones del §8 **CERRADAS (2026-08-04)**: tramos 10/25/50/75/100 con piso = enganche (efectivo 20/25/50/75/100), **crédito 100% (12 meses) ofrecido SIEMPRE antes que la devolución**, cambio de fecha 1º gratis ≥20 días, aviso mínimo pax 7 días, atraso de plan 15 días, pena en reventas proporcional a comisión, política default + override por agencia. Único pendiente externo: abogado/PROFECO (no bloquea).
 >
 > Contexto actualizado (2026-08-04, main @ d939204): el marketplace ya opera pedidos reales — `/comprar/[serviceId]`, `(travel)/mis-compras`, pagos MP + **SPEI con aprobación** (b034–b038), plan de abonos del pedido (b039), notificaciones (b036), seat map/abordaje (b041–b043). La política debe cubrir **ambos carriles**: venta con agente (OS) y pedido del marketplace. Siguiente migración backend: **b045**.
 
@@ -35,7 +35,7 @@
   - Default plataforma: `app_settings.cancellation_policy` jsonb (la tabla ya existe — logo, wa gate).
   - Override por agencia: `suppliers.info.cancellation_policy` (jsonb existente, patrón CLABE SPEI de b034 — **sin DDL**).
   - Override por servicio: **diferido** (YAGNI hasta que una agencia lo pida).
-  - Shape: `{tramos:[{dias_min:30,retencion_pct:10},{dias_min:15,retencion_pct:25},{dias_min:7,retencion_pct:50},{dias_min:2,retencion_pct:75}], no_show_pct:100, piso_enganche:true, credito:{pct:100, vigencia_meses:12}, cambio_fecha:{gratis_primero:true, aviso_min_dias:7}, aviso_min_pax_dias:7, atraso_max_dias:15, version:1}`.
+  - Shape: `{tramos:[{dias_min:30,retencion_pct:10},{dias_min:15,retencion_pct:25},{dias_min:7,retencion_pct:50},{dias_min:2,retencion_pct:75}], no_show_pct:100, piso_enganche:true, credito:{pct:100, vigencia_meses:12}, cambio_fecha:{gratis_primero:true, aviso_min_dias:20}, aviso_min_pax_dias:7, atraso_max_dias:15, version:1}`.
   - Fórmula de pena (vive en los RPCs): `pena = max(tramo_pct × total, enganche_pactado)` con tope el total; `a_devolver = max(0, pagado − pena)`.
 - `bookings` + 3 columnas nullable (ventas viejas quedan null = "sin política pactada", se maneja en UI):
   - `cancellation_policy` jsonb (snapshot),

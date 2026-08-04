@@ -189,6 +189,12 @@ export default async function ServicioPublicoPage({
                 Pedir informes
               </a>
             ) : null}
+            <Link
+              href="/politica-cancelacion"
+              className="text-center text-xs text-muted-foreground underline underline-offset-2 transition-colors hover:text-foreground"
+            >
+              Política de cancelación
+            </Link>
           </div>
         </CardContent>
       </Card>
