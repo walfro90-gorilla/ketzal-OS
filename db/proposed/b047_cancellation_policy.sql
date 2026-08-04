@@ -1,4 +1,4 @@
--- b046 — Política de cancelación (C1 de docs/PLAN_CANCELACIONES.md).
+-- b047 — Política de cancelación (C1 de docs/PLAN_CANCELACIONES.md).
 -- Espejo de las migraciones aplicadas `ketzal_cancellation_policy` +
 -- `ketzal_cancellation_policy_fix_guard` (consolidadas; el fix corrigió el
 -- guard de dueño: los términos del OR se coalescen a false — un

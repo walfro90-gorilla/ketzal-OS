@@ -3,7 +3,7 @@
 > Aterriza la investigación de `docs/POLITICA_CANCELACION.md` en fases construibles.
 > Estado: **PLAN — nada implementado**. Decisiones del §8 **CERRADAS (2026-08-04)**: tramos 10/25/50/75/100 con piso = enganche (efectivo 20/25/50/75/100), **crédito 100% (12 meses) ofrecido SIEMPRE antes que la devolución**, cambio de fecha 1º gratis ≥20 días, aviso mínimo pax 7 días, atraso de plan 15 días, pena en reventas proporcional a comisión, política default + override por agencia. Único pendiente externo: abogado/PROFECO (no bloquea).
 >
-> Contexto actualizado (2026-08-04, main @ d939204): el marketplace ya opera pedidos reales — `/comprar/[serviceId]`, `(travel)/mis-compras`, pagos MP + **SPEI con aprobación** (b034–b038), plan de abonos del pedido (b039), notificaciones (b036), seat map/abordaje (b041–b043). La política debe cubrir **ambos carriles**: venta con agente (OS) y pedido del marketplace. Siguiente migración backend: **b046** (b045 = temporadas, del otro carril).
+> Contexto actualizado (2026-08-04, main @ d939204): el marketplace ya opera pedidos reales — `/comprar/[serviceId]`, `(travel)/mis-compras`, pagos MP + **SPEI con aprobación** (b034–b038), plan de abonos del pedido (b039), notificaciones (b036), seat map/abordaje (b041–b043). La política debe cubrir **ambos carriles**: venta con agente (OS) y pedido del marketplace. Siguiente migración backend: **b048** (b045 temporadas y b046 buslist son del otro carril; C1 usó b047).
 
 ## Principios (heredados de las reglas de oro)
 
@@ -26,13 +26,13 @@
 
 **DoD:** página pública accesible sin login, enlazada desde vitrina. Cero cambios de BD.
 
-## C1 — BD: definición + snapshot + preview (**b046**) — ✅ COMPLETA + hard-testeada (2026-08-04)
+## C1 — BD: definición + snapshot + preview (**b047**) — ✅ COMPLETA + hard-testeada (2026-08-04)
 
-> Aplicada como `ketzal_cancellation_policy` + `_fix_guard` (espejo consolidado `db/proposed/b046_cancellation_policy.sql`). Hard-test en vivo con fixtures QA (limpiadas): cascada default/override, snapshot idempotente y **congelado** (override 99% no mueve la venta ni el doc público), cross-agencia denegado, comprador acepta su pedido / no el ajeno, anon por token fail-closed, tramos 10/50/no-show + piso enganche, RLS de preview. Invariantes 0, advisors **0 ERROR**. **Bug real cachado por el hard-test:** el guard de dueño con OR trivalente (`marketplace_customer_id` null ⇒ NULL ⇒ no raise) — corregido con `coalesce(..., false)`.
+> Aplicada como `ketzal_cancellation_policy` + `_fix_guard` (espejo consolidado `db/proposed/b047_cancellation_policy.sql`). Hard-test en vivo con fixtures QA (limpiadas): cascada default/override, snapshot idempotente y **congelado** (override 99% no mueve la venta ni el doc público), cross-agencia denegado, comprador acepta su pedido / no el ajeno, anon por token fail-closed, tramos 10/50/no-show + piso enganche, RLS de preview. Invariantes 0, advisors **0 ERROR**. **Bug real cachado por el hard-test:** el guard de dueño con OR trivalente (`marketplace_customer_id` null ⇒ NULL ⇒ no raise) — corregido con `coalesce(..., false)`.
 
 **Objetivo:** la política vive en datos, se congela por venta y se puede calcular la pena.
 
-**BD (migración `b046_cancellation_policy`):**
+**BD (migración `b047_cancellation_policy`):**
 - Definición en cascada, sin tabla nueva:
   - Default plataforma: `app_settings.cancellation_policy` jsonb (la tabla ya existe — logo, wa gate).
   - Override por agencia: `suppliers.info.cancellation_policy` (jsonb existente, patrón CLABE SPEI de b034 — **sin DDL**).
@@ -52,7 +52,7 @@
 
 **Hard-test (rollback, agencias QA):** cascada agencia>default; snapshot idempotente; accept 2ª vez no-op; accept por token de otra venta falla; preview en cada tramo + no-show + venta sin política; RLS entre agencias.
 
-**DoD:** advisors 0 ERROR; espejo `db/proposed/b046_cancellation_policy.sql`; sin tocar RPCs compartidos.
+**DoD:** advisors 0 ERROR; espejo `db/proposed/b047_cancellation_policy.sql`; sin tocar RPCs compartidos.
 
 ## C2 — Aceptación visible en los dos carriles
 
@@ -65,11 +65,11 @@
 
 **DoD:** venta/pedido nuevos siempre con snapshot; aceptación visible en detalle; `tsc`+`build` limpios.
 
-## C3 — Reembolso parcial (**b047**)
+## C3 — Reembolso parcial (**b048**)
 
 **Objetivo:** poder devolver "lo que toca" según el tramo (hoy solo existe reembolso total por pago).
 
-**BD (`b047_refund_partial`):**
+**BD (`b048_refund_partial`):**
 - RPC **`refund_partial(p_booking, p_amount, p_reason)`** INVOKER: asiento `refund` por monto arbitrario con guards calco de `refund_payment` (monto > 0, ≤ pagado neto COMPLETED, venta visible por RLS, cuenta activa); `reason` va en el asiento (columna nueva `payments.note` text nullable — o reusar si ya existe algo). No liga a un pago específico (`refunds_payment_id` null): es reembolso a nivel venta.
 - `refund_payment` (total, ligado) queda intacto — siguen coexistiendo.
 - **MP parcial:** la API de refunds de MP acepta `{amount}` — action nueva **`reembolsarParcialMP`** espejo de `reembolsarPago` (orden MP→ledger, idempotency key, reporte de reconciliación manual si el ledger falla tras refund OK). SPEI/efectivo: devolución física a mano + asiento (como hoy).
@@ -78,13 +78,13 @@
 
 **Hard-test:** parcial ≤ pagado ok; excedente bloqueado; dos parciales acumulan; interacción con `bookings_with_balance` (saldo revive); invariantes existentes en 0.
 
-**DoD:** advisors 0 ERROR; espejo b047; `verificar_invariantes` NO tocado (el check "Σrefunds ≤ Σpayments" ya lo cubre el guard; si el carril backend quiere el check formal, va como función/entrada aparte).
+**DoD:** advisors 0 ERROR; espejo b048; `verificar_invariantes` NO tocado (el check "Σrefunds ≤ Σpayments" ya lo cubre el guard; si el carril backend quiere el check formal, va como función/entrada aparte).
 
-## C4 — Cancelar con política (**b048**)
+## C4 — Cancelar con política (**b049**)
 
 **Objetivo:** el flujo de cancelar deja de ser "status + motivo" y pasa a "pena calculada + evidencia + reembolso sugerido".
 
-**BD (`b048_cancel_with_policy`):**
+**BD (`b049_cancel_with_policy`):**
 - `bookings` + `cancel_fee_mxn numeric` + `cancelled_at timestamptz` (nullable).
 - RPC **`cancel_booking_v2(p_booking, p_reason, p_mode, p_waive_fee bool default false)`** INVOKER, `p_mode in ('efectivo','credito')`:
   - calcula la pena con la misma lógica de `preview_cancellation` (tramo a la fecha de HOY, piso enganche);
@@ -98,9 +98,9 @@
 
 **Hard-test:** cancelar en cada tramo asigna la pena correcta (con piso enganche); modo crédito ⇒ pena 0 + crédito emitido atómico; waive ⇒ 0; venta sin política ⇒ pena null y no truena; cancelada no re-cancela; cupo se libera (trigger existente); reembolso posterior cuadra con `a_devolver`.
 
-**DoD:** advisors 0 ERROR; espejo b048; flujo completo cancelar→reembolsar en una venta QA end-to-end.
+**DoD:** advisors 0 ERROR; espejo b049; flujo completo cancelar→reembolsar en una venta QA end-to-end.
 
-## C5 — Crédito (saldo a favor) (**b049**)
+## C5 — Crédito (saldo a favor) (**b050**)
 
 **Objetivo:** el "crédito antes que devolución" existe como objeto de primera clase: se emite al cancelar, se canjea como abono en una venta nueva, expira solo.
 
@@ -117,7 +117,7 @@
 
 **Hard-test:** cancelar-con-crédito → canje parcial en venta nueva → remanente correcto; canje sobre saldo bloqueado; expirado bloqueado; cross-customer y cross-agencia bloqueados; doble canje race-safe; reembolsar en efectivo un abono método crédito bloqueado; invariantes 0.
 
-**DoD:** advisors 0 ERROR; espejo b049; el ciclo completo cancelar→crédito→canje probado end-to-end en QA.
+**DoD:** advisors 0 ERROR; espejo b050; el ciclo completo cancelar→crédito→canje probado end-to-end en QA.
 
 ---
 
@@ -132,7 +132,7 @@
 ## Coordinación multi-agente
 
 - Este carril (`cancelaciones`) es dueño de: docs, página pública C0, componentes nuevos (`politica-badge`, preview de cancelación), y las ediciones localizadas listadas en C2/C4.
-- **BD/RPCs (b046–b049)**: el fundador decidió (2026-08-04) que este carril los construye, con el protocolo completo (aplicar → espejo → hard-test rollback → advisors).
+- **BD/RPCs (b047–b050)**: el fundador decidió (2026-08-04) que este carril los construye, con el protocolo completo (aplicar → espejo → hard-test rollback → advisors).
 - Archivos compartidos que se tocan (edición mínima, rebase-friendly): `ventas/[id]/page.tsx`, `ventas/[id]/cancelar-venta.tsx`, `ventas/nueva` action, `comprar/actions.ts`, `cotizacion/[token]/page.tsx`, `proxy.ts` (1 línea), footer público.
 - Si alguien re-aplica `get_quote_by_token`/`list_my_marketplace_orders`: no hay colisión (la política viaja por `get_public_doc_policy`), pero conservar sus keys existentes como siempre.
 
