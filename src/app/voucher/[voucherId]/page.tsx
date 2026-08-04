@@ -2,8 +2,10 @@ import type { ReactNode } from 'react'
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import QRCode from 'qrcode'
+import Link from 'next/link'
 import { getVoucher } from './data'
 import { firmarVoucher, verificarCert } from '@/lib/voucher-cert'
+import { createClient } from '@/lib/supabase/server'
 import { getBrandLogo } from '@/lib/brand'
 import { BrandMark } from '@/components/brand-mark'
 import { PoweredByKetzal } from '@/components/data/powered-by-ketzal'
@@ -111,9 +113,34 @@ export default async function VoucherPage({
   const qrDataUrl = await QRCode.toDataURL(qrUrl, { margin: 1, width: 320 })
   const verificado = verificarCert(voucherId, c)
 
+  // b043: si quien abre es STAFF logueado (escaneó con la cámara del sistema),
+  // ofrecer el modo abordaje. El comprador (viajero) no lo ve.
+  let esStaff = false
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (user) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: prof } = await (supabase as any)
+      .from('profiles')
+      .select('type')
+      .eq('id', user.id)
+      .maybeSingle()
+    esStaff = prof?.type === 'agente'
+  }
+
   return (
     <main className="mx-auto w-full max-w-2xl px-4 py-8 print:max-w-none print:p-0">
       <div className="mb-4 flex flex-wrap items-center justify-end gap-2 print:hidden">
+        {esStaff && (
+          <Link
+            href={`/abordaje/${voucherId}${typeof c === 'string' ? `?c=${c}` : ''}`}
+            className="mr-auto rounded-lg border border-[#009E7E]/40 bg-[#009E7E]/10 px-3 py-1.5 text-sm font-semibold text-[#00805F]"
+          >
+            Modo abordaje →
+          </Link>
+        )}
         <CompartirWhatsApp
           mensaje="Aquí está tu voucher de servicio:"
           toastOk="Link del voucher copiado"
