@@ -39,7 +39,7 @@ export function VencimientoForm({
       <div className="flex flex-wrap items-center gap-2">
         <Input
           type="date"
-          aria-label="Fecha límite de pago"
+          aria-label="Fecha límite para el 1er pago"
           value={value}
           onChange={(e) => setValue(e.target.value)}
           className="w-fit"

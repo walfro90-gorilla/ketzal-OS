@@ -318,7 +318,14 @@ export default async function VentaDetallePage({
               </div>
             ) : null}
             <div className="sm:col-span-2">
-              <dt className="text-muted-foreground">Fecha límite de pago</dt>
+              {/* Con plan: la fecha es la última del calendario (automática).
+                  Sin plan: control interno — límite para que el cliente dé su
+                  primer pago (aparte/enganche) antes de perder el lugar. */}
+              <dt className="text-muted-foreground">
+                {booking.payment_type === 'abonos' && (schedule?.length ?? 0) > 0
+                  ? 'Fecha límite de pago'
+                  : 'Fecha límite para el 1er pago'}
+              </dt>
               <dd className="mt-1">
                 {cancelada ? (
                   <span className="font-medium">
