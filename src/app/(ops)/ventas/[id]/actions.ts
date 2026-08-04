@@ -379,13 +379,19 @@ export async function calificarViajero(
 // Si fue efectivo/transferencia, solo registra el asiento (el dinero se devuelve a
 // mano). Orden MP→ledger; si el ledger falla tras un refund MP OK, se reporta.
 export async function reembolsarPago(
-  paymentId: string
+  paymentId: string,
+  /** C3 (b048): monto parcial a devolver. Omitido o ≥ el pago ⇒ devolución total. */
+  amount?: number
 ): Promise<{ error: string } | { ok: true; refunded: number }> {
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
+
+  if (amount != null && (!Number.isFinite(amount) || amount <= 0)) {
+    return { error: 'El monto a devolver debe ser mayor que 0.' }
+  }
 
   // El pago a devolver (RLS: solo tus ventas). `transaction_id` no está en
   // database.types.ts (tipos a mano) ⇒ cast del select, como el resto del repo.
@@ -411,8 +417,13 @@ export async function reembolsarPago(
   }
 
   const esMP = pay.payment_method === 'mercadopago'
+  // Parcial solo si el monto es MENOR al pago; igual o mayor ⇒ flujo total.
+  const montoPago = Number(pay.amount_mxn)
+  const esParcial = amount != null && amount < montoPago
 
-  // Pago MP: devolución real en la tarjeta antes de tocar el ledger.
+  // Pago MP: devolución real en la tarjeta antes de tocar el ledger. La API de
+  // refunds acepta {amount} para parciales; el idempotency key del parcial
+  // incluye los centavos para no chocar con el del total.
   if (esMP) {
     const token = process.env.MP_ACCESS_TOKEN
     if (!token) return { error: 'Mercado Pago no está configurado.' }
@@ -426,9 +437,11 @@ export async function reembolsarPago(
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
-          'X-Idempotency-Key': `refund-${pay.id}`,
+          'X-Idempotency-Key': esParcial
+            ? `refund-${pay.id}-${Math.round((amount as number) * 100)}`
+            : `refund-${pay.id}`,
         },
-        body: JSON.stringify({}),
+        body: JSON.stringify(esParcial ? { amount } : {}),
       }
     )
     if (!res.ok) {
@@ -440,10 +453,16 @@ export async function reembolsarPago(
   }
 
   // Asiento de reembolso ligado al pago (guards en el RPC). Para efectivo, esto es
-  // todo: el dinero se devuelve a mano y aquí queda el registro.
-  const { data, error } = await supabase.rpc('refund_payment' as never, {
-    p_payment_id: paymentId,
-  } as never)
+  // todo: el dinero se devuelve a mano y aquí queda el registro. Un pago admite
+  // UNA devolución ligada (unique del ledger); parcial ⇒ refund_payment_partial.
+  const { data, error } = esParcial
+    ? await supabase.rpc('refund_payment_partial' as never, {
+        p_payment_id: paymentId,
+        p_amount: amount,
+      } as never)
+    : await supabase.rpc('refund_payment' as never, {
+        p_payment_id: paymentId,
+      } as never)
   if (error) {
     const extra = esMP
       ? ' El dinero SÍ se devolvió en Mercado Pago; reconciliar el ledger manualmente.'

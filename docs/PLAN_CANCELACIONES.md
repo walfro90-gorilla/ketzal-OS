@@ -67,7 +67,9 @@
 
 **DoD:** venta/pedido nuevos siempre con snapshot; aceptación visible en detalle; `tsc`+`build` limpios.
 
-## C3 — Reembolso parcial (**b048**)
+## C3 — Reembolso parcial (**b048**) — ✅ COMPLETA + hard-testeada (2026-08-04)
+
+> **Recorte al construir:** el parcial "a nivel venta" YA existía (`register_payment` type='refund', monto libre ≤ pagado, con form manual en abonos) — C3 quedó en el parcial **ligado al pago** que faltaba para MP. Aplicada `ketzal_refund_partial` + `_unique_guard` (espejo `db/proposed/b048_refund_partial.sql`): RPC **`refund_payment_partial`** INVOKER. **El schema impuso el diseño** (hard-test): unique `uq_payments_refund_of` ⇒ UNA devolución ligada por pago (total o parcial); el resto va por el form manual sin ligar. `refund_payment` intacto. App: `reembolsarPago(paymentId, amount?)` aditivo — MP refund parcial `{amount}` con idempotency key por centavos; botón "Parcial…" (prompt) en abonos + celda "Devuelto parcial $X". Hard-test: parcial revive saldo, paid→reserved, monto>pago / doble-ligado / total-tras-parcial / RLS bloqueados; invariantes 0, advisors 0 ERROR; tsc+build+75 tests verdes.
 
 **Objetivo:** poder devolver "lo que toca" según el tramo (hoy solo existe reembolso total por pago).
 

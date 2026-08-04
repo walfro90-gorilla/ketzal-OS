@@ -98,12 +98,17 @@ export function AbonosSection({
   const [isRefunding, startRefunding] = useTransition()
   const [refundingId, setRefundingId] = useState<string | null>(null)
 
-  // Pagos ya reembolsados (por el link refunds_payment_id del asiento refund).
-  const refundedIds = new Set(
-    payments
-      .filter((p) => p.refunds_payment_id != null)
-      .map((p) => p.refunds_payment_id as string)
-  )
+  // Devolución ligada por pago (link refunds_payment_id del asiento refund).
+  // C3: puede ser total o parcial — se guarda el monto para distinguirlas.
+  const refundedAmount = new Map<string, number>()
+  for (const p of payments) {
+    if (p.refunds_payment_id != null) {
+      refundedAmount.set(
+        p.refunds_payment_id,
+        (refundedAmount.get(p.refunds_payment_id) ?? 0) + Number(p.amount_mxn)
+      )
+    }
+  }
 
   // Saldo derivado (regla de oro): total − pagos + reembolsos.
   const saldo = balance(
@@ -215,10 +220,10 @@ export function AbonosSection({
     })
   }
 
-  function handleRefund(paymentId: string) {
+  function handleRefund(paymentId: string, parcial?: number) {
     const p = payments.find((x) => x.id === paymentId)
     if (!p) return
-    const monto = Number(p.amount_mxn)
+    const monto = parcial ?? Number(p.amount_mxn)
     const esMP = p.payment_method === 'mercadopago'
     const ok = window.confirm(
       esMP
@@ -228,7 +233,7 @@ export function AbonosSection({
     if (!ok) return
     setRefundingId(paymentId)
     startRefunding(async () => {
-      const res = await reembolsarPago(paymentId)
+      const res = await reembolsarPago(paymentId, parcial)
       if ('error' in res) {
         toast.error(res.error)
         setRefundingId(null)
@@ -324,28 +329,67 @@ export function AbonosSection({
       cell: (p) => {
         // Cualquier pago completado es reembolsable. MP → devuelve a la tarjeta;
         // efectivo/otro → asiento en el ledger (el dinero se devuelve a mano).
+        // Un pago admite UNA devolución ligada (total o parcial, C3/b048); si
+        // hizo falta devolver más, va por el form manual de reembolso.
         if (p.type !== 'payment' || p.status !== 'COMPLETED') return null
-        if (refundedIds.has(p.id)) {
+        const devuelto = refundedAmount.get(p.id)
+        if (devuelto != null) {
+          const fueTotal = devuelto >= Number(p.amount_mxn) - 0.005
           return (
-            <span className="text-xs text-muted-foreground">Reembolsado</span>
+            <span className="text-xs text-muted-foreground">
+              {fueTotal
+                ? 'Reembolsado'
+                : `Devuelto parcial ${mxn.format(devuelto)}`}
+            </span>
           )
         }
         const esMP = p.payment_method === 'mercadopago'
+        const montoPago = Number(p.amount_mxn)
         return (
-          <Button
-            type="button"
-            variant="destructive"
-            size="sm"
-            className="h-10 w-full md:h-7 md:w-auto"
-            onClick={() => handleRefund(p.id)}
-            disabled={isRefunding}
-          >
-            {isRefunding && refundingId === p.id
-              ? 'Devolviendo…'
-              : esMP
-                ? 'Devolver por MP'
-                : 'Devolver'}
-          </Button>
+          <div className="flex flex-col gap-1 md:flex-row md:items-center md:gap-2">
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              className="h-10 w-full md:h-7 md:w-auto"
+              onClick={() => handleRefund(p.id)}
+              disabled={isRefunding}
+            >
+              {isRefunding && refundingId === p.id
+                ? 'Devolviendo…'
+                : esMP
+                  ? 'Devolver por MP'
+                  : 'Devolver'}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-10 w-full md:h-7 md:w-auto"
+              disabled={isRefunding}
+              onClick={() => {
+                const raw = window.prompt(
+                  `Monto a devolver (máximo ${mxn.format(montoPago)}):`
+                )
+                if (raw == null) return
+                const m = Number(raw)
+                if (!Number.isFinite(m) || m <= 0) {
+                  toast.error('Escribe un monto mayor que 0.')
+                  return
+                }
+                if (m > montoPago) {
+                  toast.error(
+                    `No puede exceder el pago: ${mxn.format(montoPago)}.`
+                  )
+                  return
+                }
+                // Igual al pago ⇒ es una devolución total normal.
+                handleRefund(p.id, m < montoPago ? m : undefined)
+              }}
+            >
+              Parcial…
+            </Button>
+          </div>
         )
       },
     },
