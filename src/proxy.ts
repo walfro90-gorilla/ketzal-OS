@@ -39,6 +39,7 @@ export async function proxy(request: NextRequest) {
     path === '/agencias' || // directorio público de agencias (marketplace)
     path.startsWith('/agencia/') || // perfil público de una agencia (marketplace)
     path.startsWith('/comprar/') || // compra en línea (el visitante sin sesión se registra aquí)
+    path === '/politica-cancelacion' || // política de cancelación (texto legal público)
     path.startsWith('/recuperar') ||
     path === '/sw.js' || // service worker (b036): el navegador lo re-fetchea sin contexto de página
     path.startsWith('/api/') // endpoints (p.ej. webhook de Mercado Pago) manejan su propia auth

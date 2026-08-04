@@ -18,6 +18,9 @@ export function PublicFooter() {
           <Link href="/agencias" className="transition-colors hover:text-foreground">
             Agencias
           </Link>
+          <Link href="/politica-cancelacion" className="transition-colors hover:text-foreground">
+            Política de cancelación
+          </Link>
           <Link href="/login" className="transition-colors hover:text-foreground">
             Soy agencia
           </Link>
