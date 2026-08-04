@@ -21,6 +21,8 @@ export type ServicioInput = {
   state_to?: string
   city_to?: string
   max_capacity?: number
+  /** Tipo de transporte (b041): habilita el mapa de asientos. null = sin mapa. */
+  transport_type?: string
   /** Fecha YYYY-MM-DD del input date. */
   available_from?: string
   available_to?: string
@@ -73,6 +75,7 @@ function normalizarCampos(input: ServicioInput):
         state_to: string | null
         city_to: string | null
         max_capacity: number | null
+        transport_type: string | null
         available_from: string | null
         available_to: string | null
         includes: string[]
@@ -115,6 +118,12 @@ function normalizarCampos(input: ServicioInput):
       state_to: input.state_to?.trim() || null,
       city_to: input.city_to?.trim() || null,
       max_capacity: maxCapacity,
+      // Solo los 4 tipos con preset de layout; otro valor ⇒ sin mapa (null).
+      transport_type: ['autobus', 'sprinter', 'van', 'avion'].includes(
+        input.transport_type ?? ''
+      )
+        ? (input.transport_type as string)
+        : null,
       available_from: fechaAIso(input.available_from),
       available_to: fechaAIso(input.available_to),
       includes: limpiarLineas(input.includes),
@@ -142,7 +151,8 @@ export async function crearServicio(
   // mensaje de permiso denegado se muestra tal cual.
   const { data, error } = await supabase
     .from('services')
-    .insert({ ...result.fields, current_bookings: 0 })
+    // transport_type (b041) no está en database.types.ts ⇒ cast (convención).
+    .insert({ ...result.fields, current_bookings: 0 } as never)
     .select('id')
     .single()
   if (error || !data) {
@@ -168,9 +178,10 @@ export async function actualizarServicio(
   if ('error' in result) return result
 
   // RLS: superadmin, o la agencia dueña editando su servicio.
+  // transport_type (b041) no está en database.types.ts ⇒ cast (convención).
   const { error } = await supabase
     .from('services')
-    .update(result.fields)
+    .update(result.fields as never)
     .eq('id', id)
   if (error) {
     return { error: safeError(error) }

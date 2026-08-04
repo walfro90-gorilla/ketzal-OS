@@ -68,6 +68,8 @@ export type ServicioFormInitial = {
   state_to: string
   city_to: string
   max_capacity: number | null
+  /** Tipo de transporte (b041) o null = sin mapa de asientos. */
+  transport_type: string | null
   /** Fecha YYYY-MM-DD (ya recortada) o ''. */
   available_from: string
   available_to: string
@@ -122,6 +124,10 @@ export function ServicioForm({
   const [cityTo, setCityTo] = useState(initial?.city_to ?? '')
   const [maxCapacity, setMaxCapacity] = useState(
     initial?.max_capacity != null ? String(initial.max_capacity) : ''
+  )
+  // b041: tipo de transporte — habilita el mapa de asientos ('' = sin mapa).
+  const [transportType, setTransportType] = useState(
+    initial?.transport_type ?? ''
   )
   const [availableFrom, setAvailableFrom] = useState(
     initial?.available_from ?? ''
@@ -365,6 +371,7 @@ export function ServicioForm({
       state_to: stateTo.trim() || undefined,
       city_to: cityTo.trim() || undefined,
       max_capacity: cupo,
+      transport_type: transportType || undefined,
       available_from: availableFrom || undefined,
       available_to: availableTo || undefined,
       includes: separarLineas(includesText),
@@ -479,6 +486,24 @@ export function ServicioForm({
                 onChange={(e) => setMaxCapacity(e.target.value)}
                 placeholder="Ej. 40 (opcional)"
               />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="servicio-transporte">Transporte (mapa de asientos)</Label>
+              <NativeSelect
+                id="servicio-transporte"
+                value={transportType}
+                onChange={(e) => setTransportType(e.target.value)}
+              >
+                <option value="">Sin mapa de asientos</option>
+                <option value="autobus">Autobús (2+2)</option>
+                <option value="sprinter">Sprinter (1+2)</option>
+                <option value="van">Van (1+2)</option>
+                <option value="avion">Avión (3+3)</option>
+              </NativeSelect>
+              <p className="text-xs text-muted-foreground">
+                Con transporte, los viajeros eligen asiento; el total de
+                asientos = cupo de cada salida.
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="servicio-estado-origen">Origen — estado</Label>

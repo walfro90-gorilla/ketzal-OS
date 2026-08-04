@@ -14,6 +14,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { NativeSelect } from '@/components/ui/native-select'
 import { agregarPasajero, eliminarPasajero, type Pasajero } from './pasajeros-actions'
+import { SeatPicker } from '@/components/seat-picker'
+import type { SeatMapData } from '@/lib/actions/asientos'
 
 const TIPOS = ['adulto', 'niño', 'infante', 'adulto mayor']
 
@@ -22,11 +24,14 @@ export function PasajerosSection({
   numPax,
   initial,
   canEdit,
+  seatMap = null,
 }: {
   bookingId: string
   numPax: number
   initial: Pasajero[]
   canEdit: boolean
+  /** Mapa de asientos de la salida (b041); null/disabled = servicio sin mapa. */
+  seatMap?: SeatMapData | null
 }) {
   const [isPending, startTransition] = useTransition()
   const [nombre, setNombre] = useState('')
@@ -88,31 +93,56 @@ export function PasajerosSection({
       <CardContent className="space-y-4">
         {initial.length > 0 ? (
           <ul className="divide-y rounded-lg border">
-            {initial.map((p) => (
-              <li
-                key={p.id}
-                className="flex items-center justify-between gap-3 px-3 py-2 text-sm"
-              >
-                <div className="flex flex-col">
-                  <span className="font-medium">{p.full_name}</span>
-                  <span className="text-xs text-muted-foreground">
-                    {p.passenger_type ?? '—'}
-                    {p.doc_id ? ` · ${p.doc_id}` : ''}
-                  </span>
-                </div>
-                {canEdit && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    disabled={isPending}
-                    onClick={() => onRemove(p.id, p.full_name)}
-                    aria-label={`Quitar a ${p.full_name}`}
-                  >
-                    <XIcon className="size-4" />
-                  </Button>
-                )}
-              </li>
-            ))}
+            {initial.map((p) => {
+              // b041: asiento del pasajero + ocupados por los demás (para que
+              // pueda conservar/cambiar el suyo sin verlo "ocupado").
+              const miAsiento =
+                seatMap?.mine?.find((m) => m.passenger_id === p.id)?.seat ?? null
+              const deOtros = (seatMap?.occupied ?? []).filter(
+                (n) => n !== miAsiento
+              )
+              return (
+                <li
+                  key={p.id}
+                  className="flex flex-col gap-2 px-3 py-2 text-sm"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex flex-col">
+                      <span className="font-medium">{p.full_name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {p.passenger_type ?? '—'}
+                        {p.doc_id ? ` · ${p.doc_id}` : ''}
+                        {!canEdit && miAsiento != null
+                          ? ` · Asiento ${miAsiento}`
+                          : ''}
+                      </span>
+                    </div>
+                    {canEdit && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={isPending}
+                        onClick={() => onRemove(p.id, p.full_name)}
+                        aria-label={`Quitar a ${p.full_name}`}
+                      >
+                        <XIcon className="size-4" />
+                      </Button>
+                    )}
+                  </div>
+                  {canEdit && seatMap?.enabled && seatMap.transport_type && (
+                    <SeatPicker
+                      bookingId={bookingId}
+                      passengerId={p.id}
+                      passengerName={p.full_name}
+                      seat={miAsiento}
+                      tipo={seatMap.transport_type}
+                      total={seatMap.total ?? 0}
+                      occupiedOthers={deOtros}
+                    />
+                  )}
+                </li>
+              )
+            })}
           </ul>
         ) : (
           <p className="text-sm text-muted-foreground">

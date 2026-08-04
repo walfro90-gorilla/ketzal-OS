@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { NativeSelect } from '@/components/ui/native-select'
 import { agregarAcompanante, quitarAcompanante } from './acompanantes-actions'
+import { SeatPicker } from '@/components/seat-picker'
+import type { SeatMapData } from '@/lib/actions/asientos'
 
 // b040: captura de acompañantes por el comprador (tras el primer pago), con
 // tope = viajeros comprados. Mismos tipos que usa el agente en /ventas.
@@ -24,10 +26,13 @@ export function AcompanantesSection({
   bookingId,
   numPax,
   initial,
+  seatMap = null,
 }: {
   bookingId: string
   numPax: number
   initial: Acompanante[]
+  /** Mapa de asientos de la salida (b041); null/disabled = servicio sin mapa. */
+  seatMap?: SeatMapData | null
 }) {
   const [isPending, startTransition] = useTransition()
   const [nombre, setNombre] = useState('')
@@ -74,30 +79,51 @@ export function AcompanantesSection({
 
       {initial.length > 0 && (
         <ul className="mt-3 space-y-2">
-          {initial.map((p) => (
-            <li
-              key={p.id}
-              className="flex items-center gap-2 rounded-xl border p-3 text-sm"
-            >
-              <CircleCheckIcon className="size-4 shrink-0 text-emerald-600 dark:text-emerald-500" />
-              <span className="min-w-0 flex-1">
-                <span className="font-medium">{p.full_name}</span>
-                <span className="text-muted-foreground">
-                  {p.passenger_type ? ` · ${p.passenger_type}` : ''}
-                  {p.doc_id ? ` · ${p.doc_id}` : ''}
-                </span>
-              </span>
-              <button
-                type="button"
-                onClick={() => onRemove(p.id, p.full_name)}
-                disabled={isPending}
-                aria-label={`Quitar a ${p.full_name}`}
-                className="text-muted-foreground hover:text-destructive"
-              >
-                <XIcon className="size-4" />
-              </button>
-            </li>
-          ))}
+          {initial.map((p) => {
+            // b041: asiento propio + ocupados por los demás (el suyo no se
+            // pinta rojo para poder conservarlo/cambiarlo).
+            const miAsiento =
+              seatMap?.mine?.find((m) => m.passenger_id === p.id)?.seat ?? null
+            const deOtros = (seatMap?.occupied ?? []).filter(
+              (n) => n !== miAsiento
+            )
+            return (
+              <li key={p.id} className="rounded-xl border p-3 text-sm">
+                <div className="flex items-center gap-2">
+                  <CircleCheckIcon className="size-4 shrink-0 text-emerald-600 dark:text-emerald-500" />
+                  <span className="min-w-0 flex-1">
+                    <span className="font-medium">{p.full_name}</span>
+                    <span className="text-muted-foreground">
+                      {p.passenger_type ? ` · ${p.passenger_type}` : ''}
+                      {p.doc_id ? ` · ${p.doc_id}` : ''}
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onRemove(p.id, p.full_name)}
+                    disabled={isPending}
+                    aria-label={`Quitar a ${p.full_name}`}
+                    className="text-muted-foreground hover:text-destructive"
+                  >
+                    <XIcon className="size-4" />
+                  </button>
+                </div>
+                {seatMap?.enabled && seatMap.transport_type && (
+                  <div className="mt-2">
+                    <SeatPicker
+                      bookingId={bookingId}
+                      passengerId={p.id}
+                      passengerName={p.full_name}
+                      seat={miAsiento}
+                      tipo={seatMap.transport_type}
+                      total={seatMap.total ?? 0}
+                      occupiedOthers={deOtros}
+                    />
+                  </div>
+                )}
+              </li>
+            )
+          })}
         </ul>
       )}
 

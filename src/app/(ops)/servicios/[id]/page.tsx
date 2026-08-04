@@ -103,6 +103,9 @@ export default async function ServicioDetallePage({
           state_to: servicio.state_to ?? '',
           city_to: servicio.city_to ?? '',
           max_capacity: servicio.max_capacity,
+          // transport_type (b041) es columna nueva no tipada ⇒ cast.
+          transport_type:
+            (servicio as { transport_type?: string | null }).transport_type ?? null,
           available_from: fechaAInput(servicio.available_from),
           available_to: fechaAInput(servicio.available_to),
           includes: jsonbALineas(servicio.includes),

@@ -22,6 +22,7 @@ import { PasajerosSection } from './pasajeros'
 import type { Pasajero } from './pasajeros-actions'
 import { VoucherBoton } from './voucher-boton'
 import { getSpeiPendientes } from '@/app/(ops)/cobranza/data'
+import type { SeatMapData } from '@/lib/actions/asientos'
 import { SpeiPendientes } from '@/app/(ops)/cobranza/spei-pendientes'
 
 type LineItem = {
@@ -173,6 +174,13 @@ export default async function VentaDetallePage({
     .eq('booking_id' as never, id as never)
     .order('created_at' as never)
   const pasajeros = (pasajerosData ?? []) as unknown as Pasajero[]
+
+  // b041: mapa de asientos de la salida (servicio con transport_type). El RPC
+  // regresa {enabled:false} si el viaje no tiene mapa; error ⇒ null ⇒ oculto.
+  const { data: seatMapData } = await supabase.rpc('seat_map_for_booking' as never, {
+    p_booking_id: id,
+  } as never)
+  const seatMap = (seatMapData as unknown as SeatMapData) ?? null
 
   // b034/b035: transferencia SPEI pendiente de esta venta (si la hay). Misma
   // card y acción que /cobranza; para un agente (no admin) el RPC regresa
@@ -414,6 +422,7 @@ export default async function VentaDetallePage({
         numPax={booking.num_pax}
         initial={pasajeros}
         canEdit={!cancelada}
+        seatMap={seatMap}
       />
 
       {['reserved', 'confirmed', 'paid'].includes(booking.status) && (

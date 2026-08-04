@@ -16,6 +16,7 @@ import { marketplaceActivo } from '@/lib/marketplace'
 import { buttonVariants } from '@/components/ui/button'
 import { VoucherViajero } from './voucher-viajero'
 import { AcompanantesSection, type Acompanante } from './acompanantes'
+import type { SeatMapData } from '@/lib/actions/asientos'
 
 // Detalle del viaje del comprador B2C (#6): itinerario, qué incluye/no incluye y
 // contacto de la agencia. Datos vía RPC get_my_trip (SECURITY DEFINER, ownership
@@ -100,12 +101,20 @@ export default async function TripPage({
 
   // b040: acompañantes — captura habilitada tras el primer pago (mismos
   // estados que el voucher). RPC DEFINER scoped al dueño del pedido.
+  // b041: mapa de asientos de la salida (si el servicio tiene transporte).
   let acompanantes: Acompanante[] = []
+  let seatMap: SeatMapData | null = null
   if (puedeVoucher) {
-    const { data: pax } = await supabase.rpc('list_my_passengers' as never, {
-      p_booking_id: bookingId,
-    } as never)
+    const [{ data: pax }, { data: sm }] = await Promise.all([
+      supabase.rpc('list_my_passengers' as never, {
+        p_booking_id: bookingId,
+      } as never),
+      supabase.rpc('seat_map_for_booking' as never, {
+        p_booking_id: bookingId,
+      } as never),
+    ])
     acompanantes = (pax as unknown as Acompanante[]) ?? []
+    seatMap = (sm as unknown as SeatMapData) ?? null
   }
   const ruta = [sv.city_from, sv.city_to].filter(Boolean).join(' → ') || sv.location
   const fecha = fechaLarga(bk.travel_date)
@@ -177,6 +186,7 @@ export default async function TripPage({
           bookingId={bk.id}
           numPax={bk.num_pax}
           initial={acompanantes}
+          seatMap={seatMap}
         />
       )}
 
