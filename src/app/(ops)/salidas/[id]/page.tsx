@@ -52,13 +52,22 @@ export default async function SalidaDetallePage({
         backHref="/salidas"
         backLabel="Volver a salidas"
         action={
-          <Link
-            href={`/salidas/${id}/manifiesto`}
-            className={buttonVariants({ variant: 'outline' })}
-          >
-            <PrinterIcon className="size-4" />
-            Manifiesto
-          </Link>
+          <span className="flex flex-wrap gap-2">
+            <Link
+              href={`/salidas/${id}/manifiesto`}
+              className={buttonVariants({ variant: 'outline' })}
+            >
+              <PrinterIcon className="size-4" />
+              Buslist
+            </Link>
+            <Link
+              href={`/salidas/${id}/roomlist`}
+              className={buttonVariants({ variant: 'outline' })}
+            >
+              <PrinterIcon className="size-4" />
+              Roomlist
+            </Link>
+          </span>
         }
       />
 

@@ -16,7 +16,26 @@ type Fila = {
   cliente: string | null
   folio: string | null
   estado: string
+  /** b046: asiento asignado y hora de abordaje (buslist). */
+  asiento: number | null
+  abordado: string | null
 }
+
+/** Fila del RPC departure_lists (b046): pax de todo el camión con asiento. */
+type BuslistRow = {
+  passenger_id: string
+  full_name: string
+  passenger_type: string | null
+  doc_id: string | null
+  seat: number | null
+  boarded_at: string | null
+  cliente: string | null
+  folio: string | null
+  status: string
+  agencia: string | null
+}
+
+const hora = new Intl.DateTimeFormat('es-MX', { hour: 'numeric', minute: '2-digit' })
 
 export default async function ManifiestoPage({
   params,
@@ -26,29 +45,30 @@ export default async function ManifiestoPage({
   const { id } = await params
   const supabase = await createClient()
 
-  const { data, error } = await supabase.rpc('get_departure_detail' as never, {
-    p_departure_id: id,
-  } as never)
+  const [{ data, error }, { data: listsData }] = await Promise.all([
+    supabase.rpc('get_departure_detail' as never, {
+      p_departure_id: id,
+    } as never),
+    // b046: buslist con asiento + abordaje (RPC independiente, mismo guard).
+    supabase.rpc('departure_lists' as never, { p_departure_id: id } as never),
+  ])
   if (error || !data) notFound()
   const d = data as unknown as SalidaDetalle
+  const buslist =
+    ((listsData as unknown as { buslist?: BuslistRow[] } | null)?.buslist ?? [])
 
-  // Aplana todos los pasajeros del camión, numerados para el pase de lista.
-  const filas: Fila[] = []
-  let n = 0
-  for (const b of d.bookings) {
-    for (const p of b.passengers) {
-      n += 1
-      filas.push({
-        n,
-        nombre: p.full_name,
-        tipo: p.passenger_type,
-        doc: p.doc_id,
-        cliente: b.customer,
-        folio: b.folio,
-        estado: ESTADO_VENTA[b.status] ?? b.status,
-      })
-    }
-  }
+  // Buslist ordenada por asiento (sin asiento al final), numerada para el pase.
+  const filas: Fila[] = buslist.map((p, i) => ({
+    n: i + 1,
+    nombre: p.full_name,
+    tipo: p.passenger_type,
+    doc: p.doc_id,
+    cliente: p.cliente,
+    folio: p.folio,
+    estado: ESTADO_VENTA[p.status] ?? p.status,
+    asiento: p.seat,
+    abordado: p.boarded_at,
+  }))
   // Ventas sin pasajeros capturados (para no dejar huecos silenciosos).
   const sinCaptura = d.bookings.filter((b) => b.passengers.length < b.num_pax)
 
@@ -84,17 +104,22 @@ export default async function ManifiestoPage({
           <thead>
             <tr className="border-b text-left">
               <th className="py-2 pr-2 font-medium">#</th>
+              <th className="py-2 pr-2 font-medium">Asiento</th>
               <th className="py-2 pr-2 font-medium">Pasajero</th>
               <th className="py-2 pr-2 font-medium">Tipo</th>
               <th className="py-2 pr-2 font-medium">Documento</th>
               <th className="py-2 pr-2 font-medium">Venta</th>
-              <th className="py-2 font-medium">Estado</th>
+              <th className="py-2 pr-2 font-medium">Estado</th>
+              <th className="py-2 font-medium">Abordó</th>
             </tr>
           </thead>
           <tbody>
             {filas.map((f) => (
               <tr key={f.n} className="border-b">
                 <td className="py-1.5 pr-2 tabular-nums">{f.n}</td>
+                <td className="py-1.5 pr-2 font-semibold tabular-nums">
+                  {f.asiento ?? '—'}
+                </td>
                 <td className="py-1.5 pr-2 font-medium">{f.nombre}</td>
                 <td className="py-1.5 pr-2">{f.tipo ?? '—'}</td>
                 <td className="py-1.5 pr-2">{f.doc ?? '—'}</td>
@@ -102,7 +127,10 @@ export default async function ManifiestoPage({
                   {f.cliente ?? '—'}
                   {f.folio ? ` · ${f.folio}` : ''}
                 </td>
-                <td className="py-1.5">{f.estado}</td>
+                <td className="py-1.5 pr-2">{f.estado}</td>
+                <td className="py-1.5 tabular-nums">
+                  {f.abordado ? `✓ ${hora.format(new Date(f.abordado))}` : '—'}
+                </td>
               </tr>
             ))}
           </tbody>

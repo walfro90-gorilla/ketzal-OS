@@ -1,0 +1,19 @@
+-- b046 — Buslist y Roomlist por salida (tour + fecha).
+-- Espejo de la migración aplicada `b046_departure_lists`.
+--
+-- RPC NUEVO e independiente `departure_lists(p_departure_id)` (patrón F7:
+-- CERO re-apply de get_departure_detail). Guard = el de F3: agencia DUEÑA del
+-- servicio de la salida (my_supplier_id) o superadmin; la revendedora NO ve
+-- estas listas. Cross-tenant a propósito (incluye reventas con la agencia
+-- vendedora visible); SIN dinero. Solo ventas reserved/confirmed/paid.
+--  · buslist: pax de todo el camión ordenados por ASIENTO (nulls al final):
+--    nombre, tipo, doc, asiento (seat_assignments b041), boarded_at (b043),
+--    cliente/folio/estado de su venta, agencia vendedora.
+--  · rooms: por venta — cliente, folio, estado, agencia, num_pax,
+--    habitaciones (líneas passenger de booking_items: label+qty, p.ej.
+--    "2× Habitación doble") y nombres de pasajeros.
+-- App: /salidas/[id]/manifiesto (buslist: columnas Asiento + Abordó, orden por
+-- asiento) y /salidas/[id]/roomlist (nueva, imprimible, para el hotel);
+-- botones "Buslist"/"Roomlist" en el detalle de la salida.
+-- Hard-test 3/3 en rollback: buslist ordenada con reventa+abordaje, roomlist
+-- con ocupación, revendedora denegada. Ver la migración aplicada para el cuerpo.
