@@ -291,6 +291,21 @@ export async function quitarPlanPagos(
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
+  // Con pagos aprobados el plan queda congelado (el cliente ya pagó contra ese
+  // calendario): no se quita ni se modifica. Guard server-side — la UI oculta
+  // el botón, pero la acción es invocable directa.
+  const { count } = await supabase
+    .from('payments')
+    .select('id', { count: 'exact', head: true })
+    .eq('booking_id', bookingId)
+    .eq('status', 'COMPLETED')
+  if ((count ?? 0) > 0) {
+    return {
+      error:
+        'La venta ya tiene pagos registrados: el plan no se puede quitar ni modificar.',
+    }
+  }
+
   const { error } = await supabase.rpc('clear_payment_plan', {
     p_booking_id: bookingId,
   })

@@ -406,6 +406,15 @@ export default async function VentaDetallePage({
         planFinalDate={booking.plan_final_date}
         schedule={(schedule ?? []) as unknown as PlanItem[]}
         cancelled={cancelada}
+        // Pagado real (abonos − reembolsos COMPLETED): checklist por renglón
+        // (verde/ámbar/rojo, mismas reglas que /mis-compras) + congela el plan.
+        pagado={(payments ?? []).reduce(
+          (s, p) =>
+            p.status === 'COMPLETED'
+              ? s + (p.type === 'refund' ? -1 : 1) * Number(p.amount_mxn)
+              : s,
+          0
+        )}
       />
 
       <SpeiPendientes rows={speiPendientes} />

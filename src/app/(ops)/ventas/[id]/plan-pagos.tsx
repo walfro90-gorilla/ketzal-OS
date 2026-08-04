@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react'
 import { toast } from 'sonner'
+import { CircleCheckIcon, CircleAlertIcon, ClockIcon } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -75,15 +77,40 @@ function PlanTable({
   items,
   total,
   nextSeq = null,
+  pagado = null,
 }: {
   items: PlanItem[]
   total: number
   /** seq del próximo pago a resaltar (null = sin resaltado, p. ej. en preview). */
   nextSeq?: number | null
+  /** Pagado real (Σ abonos − reembolsos): activa el checklist de estado por
+   *  renglón — verde cubierto, rojo vencido, ámbar próximo (mismas reglas que
+   *  el plan del viajero en /mis-compras). null = sin estado (preview). */
+  pagado?: number | null
 }) {
   // Saldo corrido: saldo tras cada fila = total − suma acumulada de montos.
   // Cálculo puro y testeado en @/lib/domain/payment-plan.
   const rows = conSaldoCorrido(items, total)
+  const today = hoy()
+
+  // Estado por renglón contra el pagado real: cubierto cuando el acumulado del
+  // calendario (total − saldo restante) cabe en lo pagado (regla de oro #2).
+  const estadoDe = (row: (typeof rows)[number]) => {
+    if (pagado == null) return null
+    const cum = total - row.saldo
+    if (cum <= pagado + 0.005) return 'pagado' as const
+    return row.due_date < today ? ('vencido' as const) : ('proximo' as const)
+  }
+  const TONO_ESTADO = {
+    pagado: 'text-emerald-600 dark:text-emerald-500',
+    vencido: 'text-destructive',
+    proximo: 'text-amber-600 dark:text-amber-500',
+  } as const
+  const ICONO_ESTADO = {
+    pagado: CircleCheckIcon,
+    vencido: CircleAlertIcon,
+    proximo: ClockIcon,
+  } as const
 
   // Columnas dentro del componente para cerrar sobre `nextSeq` (resaltado del
   // próximo pago). El tinte de fila del desktop lo reemplaza el badge "Próximo",
@@ -92,8 +119,21 @@ function PlanTable({
     {
       header: 'Concepto',
       primary: true,
-      cell: (row) =>
-        row.kind === 'enganche' ? 'Enganche' : `Abono ${row.seq}`,
+      cell: (row) => {
+        const estado = estadoDe(row)
+        const Icono = estado ? ICONO_ESTADO[estado] : null
+        return (
+          <span
+            className={cn(
+              'inline-flex items-center gap-1.5',
+              estado && TONO_ESTADO[estado]
+            )}
+          >
+            {Icono && <Icono className="size-4 shrink-0" />}
+            {row.kind === 'enganche' ? 'Enganche' : `Abono ${row.seq}`}
+          </span>
+        )
+      },
     },
     {
       header: 'Fecha',
@@ -117,9 +157,14 @@ function PlanTable({
     {
       header: 'Monto',
       align: 'right',
-      cell: (row) => (
-        <span className="tabular-nums">{mxn.format(Number(row.amount))}</span>
-      ),
+      cell: (row) => {
+        const estado = estadoDe(row)
+        return (
+          <span className={cn('tabular-nums', estado && TONO_ESTADO[estado])}>
+            {mxn.format(Number(row.amount))}
+          </span>
+        )
+      },
     },
     {
       header: 'Saldo restante',
@@ -148,6 +193,7 @@ export function PlanPagosSection({
   planFinalDate,
   schedule,
   cancelled = false,
+  pagado = 0,
 }: {
   bookingId: string
   total: number
@@ -158,8 +204,13 @@ export function PlanPagosSection({
   schedule: PlanItem[]
   /** Venta cancelada: el plan (si existe) queda visible pero de solo lectura. */
   cancelled?: boolean
+  /** Pagado real (Σ abonos − reembolsos COMPLETED): checklist + congela el plan. */
+  pagado?: number
 }) {
   const hasPlan = paymentType === 'abonos' && schedule.length > 0
+  // Con pagos aprobados el plan queda CONGELADO: el cliente ya pagó contra ese
+  // calendario. La acción quitarPlanPagos tiene el mismo guard server-side.
+  const tienePagos = pagado > 0.005
 
   // ── Formulario de configuración (estado 1) ────────────────────────────
   const [frequency, setFrequency] = useState<FrecuenciaPlan>('quincenal')
@@ -242,6 +293,13 @@ export function PlanPagosSection({
     const numAbonos = schedule.filter((s) => s.kind === 'abono').length
     const today = hoy()
     const proximo = schedule.find((s) => s.due_date >= today)
+    // Renglones cubiertos por el pagado real (mismo criterio que el checklist
+    // del viajero): acumulado del calendario ≤ pagado.
+    let cum = 0
+    const cubiertos = schedule.filter((s) => {
+      cum += Number(s.amount)
+      return cum <= pagado + 0.005
+    }).length
 
     return (
       <Card>
@@ -253,6 +311,7 @@ export function PlanPagosSection({
             {planFrequency &&
               ` · ${FRECUENCIA_LABELS[planFrequency] ?? planFrequency}`}
             {planFinalDate && ` · hasta ${formatTravelDate(planFinalDate)}`}
+            {` · ${cubiertos}/${schedule.length} pagados`}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -260,22 +319,29 @@ export function PlanPagosSection({
             items={schedule}
             total={total}
             nextSeq={proximo?.seq ?? null}
+            pagado={pagado}
           />
           <p className="text-xs text-muted-foreground">
             Plan sugerido (guía). Registra los pagos reales en
             {' “Abonos y recibo”.'}
           </p>
-          {!cancelled && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleQuitar}
-              disabled={isRemoving}
-            >
-              {isRemoving ? 'Quitando…' : 'Quitar plan'}
-            </Button>
-          )}
+          {!cancelled &&
+            (tienePagos ? (
+              <p className="text-xs text-muted-foreground">
+                El plan ya tiene pagos vinculados: no se puede quitar ni
+                modificar.
+              </p>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleQuitar}
+                disabled={isRemoving}
+              >
+                {isRemoving ? 'Quitando…' : 'Quitar plan'}
+              </Button>
+            ))}
         </CardContent>
       </Card>
     )
