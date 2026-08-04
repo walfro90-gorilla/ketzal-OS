@@ -18,6 +18,7 @@ import { AbonosSection } from './abonos'
 import { PlanPagosSection, type PlanItem } from './plan-pagos'
 import { CancelarVenta } from './cancelar-venta'
 import { PoliticaBadge } from './politica-badge'
+import { AplicarCredito, type CreditoCliente } from './aplicar-credito'
 import { VencimientoForm } from './vencimiento-form'
 import { PasajerosSection } from './pasajeros'
 import type { Pasajero } from './pasajeros-actions'
@@ -104,6 +105,7 @@ type BookingDetail = {
   owner_supplier_id: string
   selling_supplier_id: string
   marketplace_customer_id: string | null
+  customer_id: string | null
   cancellation_policy?: unknown
   policy_accepted_at?: string | null
   policy_accepted_meta?: { canal?: string } | null
@@ -124,7 +126,7 @@ export default async function VentaDetallePage({
   // sin ella para no tirar la venta a notFound. Al aplicarse la migración el
   // origen aparece sin tocar código (entonces se puede quitar el fallback).
   const selectVenta =
-    'id, folio, travel_date, due_date, num_pax, subtotal, discount, total, currency, exchange_rate, status, payment_type, plan_frequency, plan_final_date, notes, cancel_reason, created_at, owner_supplier_id, selling_supplier_id, marketplace_customer_id, cancellation_policy, policy_accepted_at, policy_accepted_meta, customer:customers(full_name, phone), service:services(name)'
+    'id, folio, travel_date, due_date, num_pax, subtotal, discount, total, currency, exchange_rate, status, payment_type, plan_frequency, plan_final_date, notes, cancel_reason, created_at, owner_supplier_id, selling_supplier_id, marketplace_customer_id, customer_id, cancellation_policy, policy_accepted_at, policy_accepted_meta, customer:customers(full_name, phone), service:services(name)'
   const fetchBooking = (select: string) =>
     supabase.from('bookings').select(select as '*').eq('id', id).single()
 
@@ -200,6 +202,16 @@ export default async function VentaDetallePage({
     .eq('booking_id' as never, id as never)
     .maybeSingle()
   const voucherId = (voucherRow as { id?: string } | null)?.id ?? null
+
+  // C5 (b049): créditos vigentes de la PERSONA detrás del cliente (cualquier
+  // agencia de Ketzal — crédito universal), para aplicarlos como abono aquí.
+  let creditos: CreditoCliente[] = []
+  if (booking.status !== 'cancelled' && booking.customer_id) {
+    const { data: cr } = await supabase.rpc('list_customer_credits' as never, {
+      p_customer: booking.customer_id,
+    } as never)
+    creditos = (cr as unknown as CreditoCliente[]) ?? []
+  }
 
   // Calendario sugerido del plan de pagos (seq 0 = enganche).
   const { data: schedule } = await supabase
@@ -466,6 +478,23 @@ export default async function VentaDetallePage({
       />
 
       <SpeiPendientes rows={speiPendientes} />
+
+      {!cancelada && (
+        <AplicarCredito
+          bookingId={booking.id}
+          creditos={creditos}
+          saldoVenta={
+            Number(booking.total) -
+            (payments ?? []).reduce(
+              (s, p) =>
+                p.status === 'COMPLETED'
+                  ? s + (p.type === 'refund' ? -1 : 1) * Number(p.amount_mxn)
+                  : s,
+              0
+            )
+          }
+        />
+      )}
 
       {paymentsError || receiptsError ? (
         <Card>

@@ -26,7 +26,7 @@ export function PoliticaResumen({ policy }: { policy: CancellationPolicy }) {
           Antes de pedir devolución, considera el crédito:
         </span>{' '}
         al cancelar puedes optar por el {credito}% de lo pagado como crédito para
-        otro viaje de la misma agencia, válido {vigencia} meses, sin penalización.
+        cualquier otro viaje en Ketzal, válido {vigencia} meses, sin penalización.
       </p>
       {tramos.length > 0 && (
         <div>
