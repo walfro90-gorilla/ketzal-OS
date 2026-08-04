@@ -84,7 +84,11 @@
 
 **DoD:** advisors 0 ERROR; espejo b048; `verificar_invariantes` NO tocado (el check "Σrefunds ≤ Σpayments" ya lo cubre el guard; si el carril backend quiere el check formal, va como función/entrada aparte).
 
-## C4 — Cancelar con política (**b049**)
+## C4 — Cancelar con política (**b050** — se construyó DESPUÉS del crédito) — ✅ COMPLETA + hard-testeada (2026-08-04)
+
+> Aplicada `ketzal_cancel_booking_v2` (espejo `db/proposed/b050_cancel_booking_v2.sql`). `bookings` + `cancel_fee_mxn`/`cancelled_at`; RPC **`cancel_booking_v2(booking, reason, mode, waive)`** INVOKER que **reusa `preview_cancellation`** como fuente única de la pena; modo crédito emite el crédito ATÓMICO (b049); modo efectivo solo registra la pena (devolver es acto aparte, b048); waive ⇒ pena 0 con motivo obligatorio. App: `cancelar-venta.tsx` reescrito — preview al abrir, dos salidas lado a lado (crédito recomendado con monto+vencimiento / efectivo con pena+a devolver), condonar con motivo, aviso si la política no está aceptada. `cancelarVenta` v1 sigue para el flujo de reembolso-total de abonos. Hard-test: crédito (fee 0 + asiento + credits row), efectivo 50% a 10 días, waive 0, waive-sin-motivo y doble-cancel bloqueados; invariantes 0, advisors 0 ERROR.
+
+### C4-original (referencia del diseño)
 
 **Objetivo:** el flujo de cancelar deja de ser "status + motivo" y pasa a "pena calculada + evidencia + reembolso sugerido".
 
@@ -104,7 +108,11 @@
 
 **DoD:** advisors 0 ERROR; espejo b049; flujo completo cancelar→reembolsar en una venta QA end-to-end.
 
-## C5 — Crédito (saldo a favor) (**b050**)
+## C5 — Crédito (saldo a favor) (**b049** — construido antes que C4) — ✅ COMPLETA + hard-testeada (2026-08-04)
+
+> Aplicada `ketzal_credits_v1` + `ketzal_credits_universal` (espejo `db/proposed/b049_credits.sql`). **Decisión del fundador al construir: crédito UNIVERSAL** — se canjea en CUALQUIER servicio de Ketzal, no solo la agencia emisora. Match por PERSONA (mismo customer o mismo `marketplace_customer_id` cross-agencia) ⇒ `redeem_credit` es DEFINER con guards explícitos (la RLS por agencia emisora bloquearía el canje cruzado). **Contabilidad inter-agencias derivable del ledger** (canje con `credit_id` de emisor ≠ vendedor = la emisora debe a la vendedora) — reporte pendiente como follow-up. Tabla `credits` (saldo SIEMPRE derivado, sin update/delete), `payments.credit_id`, `list_my_credits` (viajero), `list_customer_credits` (agente), candado "abono con crédito no se devuelve en efectivo" (re-apply aditivo de `refund_payment` +1 guard; mismo guard en `refund_payment_partial`), advisory lock anti-doble-canje. App: card "Crédito del cliente" en `/ventas/[id]` (aplicar con prompt, máx = min(saldos)), banner "Crédito a tu favor" en `/mis-compras`. Hard-test: canje parcial ×2, venta liquidada ⇒ paid, cross-agencia misma persona ✓, cross-persona/expirado/sobre-saldo/refund-de-canje bloqueados; invariantes 0, advisors 0 ERROR.
+
+### C5-original (referencia del diseño)
 
 **Objetivo:** el "crédito antes que devolución" existe como objeto de primera clase: se emite al cancelar, se canjea como abono en una venta nueva, expira solo.
 

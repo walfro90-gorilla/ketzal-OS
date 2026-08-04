@@ -46,9 +46,43 @@ export default async function MisComprasPage({
   const { data } = await supabase.rpc('list_my_marketplace_orders' as never, {} as never)
   const orders = (data as unknown as Order[]) ?? []
 
+  // C5 (b049): créditos del viajero por cancelaciones — saldo derivado,
+  // canjeables en cualquier viaje de Ketzal (los aplica la agencia al reservar).
+  const { data: crData } = await supabase.rpc('list_my_credits' as never, {} as never)
+  const creditos = (
+    (crData as unknown as {
+      id: string
+      agencia: string
+      saldo_mxn: number
+      expira: string
+      vigente: boolean
+    }[]) ?? []
+  ).filter((c) => c.vigente && Number(c.saldo_mxn) > 0)
+  const mxnFmt = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' })
+
   return (
     <div className="mx-auto w-full max-w-lg flex-1 px-4 py-8 sm:py-12">
       <h1 className="text-2xl font-bold tracking-tight">Mis compras</h1>
+      {creditos.length > 0 && (
+        <div className="mt-4 rounded-lg border bg-muted/40 p-4 text-sm">
+          <p className="font-medium">Crédito a tu favor</p>
+          {creditos.map((c) => (
+            <p key={c.id} className="mt-1 text-muted-foreground">
+              <span className="font-medium text-foreground tabular-nums">
+                {mxnFmt.format(Number(c.saldo_mxn))}
+              </span>{' '}
+              · emitido por {c.agencia} · vence el{' '}
+              {new Date(`${c.expira}T00:00:00`).toLocaleDateString('es-MX', {
+                dateStyle: 'long',
+              })}
+            </p>
+          ))}
+          <p className="mt-2 text-xs text-muted-foreground">
+            Úsalo en cualquier viaje de Ketzal: al reservar, pide a la agencia
+            aplicar tu crédito.
+          </p>
+        </div>
+      )}
       {volviendoDePago && <PagoProcesando />}
       {orders.length === 0 ? (
         <p className="mt-4 text-sm text-muted-foreground">

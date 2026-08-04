@@ -78,12 +78,12 @@ Reglas transversales:
 
 La primera oferta ante cualquier cancelación del viajero es **crédito, no efectivo**:
 
-- **Crédito por el 100% de lo pagado, SIN pena**, válido **12 meses** desde su emisión, aplicable a cualquier viaje de la **misma agencia vendedora**.
+- **Crédito por el 100% de lo pagado, SIN pena**, válido **12 meses** desde su emisión, aplicable a **cualquier viaje en Ketzal** (crédito UNIVERSAL — decidido 2026-08-04; entre agencias, la emisora que retuvo el efectivo le debe el monto canjeado a la vendedora — derivable del ledger vía `payments.credit_id`, reporte pendiente).
 - La devolución en efectivo (con los tramos) sigue siempre disponible — el crédito se **ofrece**, no se impone (PROFECO). El incentivo es el diferencial: crédito = 100%, efectivo = 100% − pena.
 - Personal e intransferible (v1). **No canjeable por efectivo** después. Si el viaje nuevo cuesta menos, el remanente sigue como crédito; si cuesta más, el cliente paga la diferencia.
 - **Expira a los 12 meses y se pierde** — dicho explícito en el texto legal.
 - Si cancela **la agencia**: el cliente elige libremente 100% en efectivo o crédito (nunca crédito forzado).
-- Reventas: el crédito lo emite y honra la agencia **vendedora**, sobre su propio catálogo.
+- Reventas: el crédito lo emite la agencia **vendedora** (la que retuvo el dinero); se canjea en cualquier agencia y la cuenta entre agencias se deriva del ledger.
 
 Racional: retiene caja, convierte cancelaciones en ventas futuras, y hace defendible el piso del enganche ("siempre tuviste la opción de no perder nada").
 
@@ -141,7 +141,7 @@ Mitigación adicional: para liquidaciones grandes, empujar SPEI (sin contracargo
 
 - [x] Tramos: **10 / 25 / 50 / 75 / 100** (≥30 · 15–29 · 7–14 · 2–6 · ≤48h/no-show), % sobre el total.
 - [x] Enganche NO reembolsable — como **piso de la pena**: `pena = max(tramo × total, enganche)` ⇒ retención efectiva 20/25/50/75/100 con enganche default 20%.
-- [x] **Crédito antes que devolución**: siempre se ofrece primero crédito 100% sin pena, vigencia 12 meses, misma agencia, no forzado (§4).
+- [x] **Crédito antes que devolución**: siempre se ofrece primero crédito 100% sin pena, vigencia 12 meses, **universal (cualquier viaje en Ketzal)**, no forzado (§4).
 - [x] Cambio de fecha: 1º gratis con **≥20 días** de aviso; después o <20 días ⇒ crédito o tramos.
 - [x] Aviso cuando cancelamos por mínimo de pax: **7 días**.
 - [x] Atraso del plan de abonos: **15 días** de atraso (tras avisos de cobranza/Clawbot) ⇒ cancelable por incumplimiento aplicando el tramo vigente a esa fecha.

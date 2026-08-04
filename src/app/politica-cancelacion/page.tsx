@@ -68,7 +68,9 @@ export default function PoliticaCancelacionPage() {
             <strong className="text-foreground">
               el 100% de lo que hayas pagado, sin penalización
             </strong>
-            , para usarlo en cualquier viaje de la misma agencia durante los{' '}
+            , para usarlo en{' '}
+            <strong className="text-foreground">cualquier viaje de Ketzal</strong>{' '}
+            (con cualquiera de nuestras agencias) durante los{' '}
             <strong className="text-foreground">12 meses</strong> siguientes.
           </p>
           <ul className="list-disc space-y-1 pl-5">
