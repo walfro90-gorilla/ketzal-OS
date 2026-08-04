@@ -59,15 +59,33 @@ Basado en estándar de la industria MX (GDL Tours, Tours Calypso, PriceTravel, o
 | 2–6 días | 75% | 25% |
 | ≤ 48 h o **no-show** | 100% | 0% |
 
-Reglas transversales del borrador:
+**✅ DECIDIDO (2026-08-04):** tramos aprobados tal cual, con **piso = enganche**. Fórmula única:
+
+> **pena = max(tramo% × total, enganche pactado)**, con tope el total.
+> Con enganche default 20% ⇒ retención efectiva: **20 / 25 / 50 / 75 / 100**.
+
+Reglas transversales:
 
 - **Base de cálculo**: % sobre el TOTAL de la venta, no sobre lo abonado. Si lo abonado < pena, el cliente ya no debe el resto pero no recibe nada; si abonó de más, se devuelve la diferencia.
-- **Anticipo/enganche (default 20%) NO reembolsable** una vez confirmado el cupo — es la versión simple de la fila 1 y cubre el costo de apartar asiento. *(Alternativa: quitarle esta regla y confiar solo en los tramos — decidir.)*
+- **Anticipo/enganche NO reembolsable** una vez confirmado el cupo — implementado como el piso de la fórmula de arriba (no como regla aparte).
 - **Componentes de terceros no recuperables** (vuelos, hoteles con depósito no reembolsable) se retienen al 100% en cualquier tramo, siempre que estén desglosados en la venta. Hay que poder marcarlos.
-- **Reprogramación en vez de reembolso** (palanca pro-caja): ofrecer SIEMPRE primero cambio de fecha o **crédito 100% válido 12 meses**. El cliente elige; si pide dinero conforme a los tramos, se le da (no se le puede imponer el crédito).
 - **Cambio de titular** (el cliente manda a otra persona): gratis hasta 48 h antes. Mata la mayoría de las cancelaciones de facto.
+- **Cambio de fecha** (✅ decidido): el 1º es **gratis con ≥7 días de aviso**; cambios posteriores o con <7 días ⇒ se resuelve como crédito o tramos.
 - **USD (F6)**: el reembolso se calcula y paga en **MXN autoritativo** (lo que entró al ledger), no al TC del día del reembolso. Decirlo explícito en la política evita pelear el diferencial cambiario.
 - **Momento del reloj**: los "días antes" se cuentan contra `travel_date` a partir de la fecha en que el cliente **notifica por escrito** (WhatsApp cuenta, y queda de evidencia).
+
+### Crédito ANTES que devolución (✅ decidido 2026-08-04)
+
+La primera oferta ante cualquier cancelación del viajero es **crédito, no efectivo**:
+
+- **Crédito por el 100% de lo pagado, SIN pena**, válido **12 meses** desde su emisión, aplicable a cualquier viaje de la **misma agencia vendedora**.
+- La devolución en efectivo (con los tramos) sigue siempre disponible — el crédito se **ofrece**, no se impone (PROFECO). El incentivo es el diferencial: crédito = 100%, efectivo = 100% − pena.
+- Personal e intransferible (v1). **No canjeable por efectivo** después. Si el viaje nuevo cuesta menos, el remanente sigue como crédito; si cuesta más, el cliente paga la diferencia.
+- **Expira a los 12 meses y se pierde** — dicho explícito en el texto legal.
+- Si cancela **la agencia**: el cliente elige libremente 100% en efectivo o crédito (nunca crédito forzado).
+- Reventas: el crédito lo emite y honra la agencia **vendedora**, sobre su propio catálogo.
+
+Racional: retiene caja, convierte cancelaciones en ventas futuras, y hace defendible el piso del enganche ("siempre tuviste la opción de no perder nada").
 
 ### Cuando cancela la AGENCIA (espejo obligatorio — NOM reciprocidad)
 
@@ -83,10 +101,10 @@ Reglas transversales del borrador:
 
 | # | Caso | Qué pasa con el dinero |
 |---|---|---|
-| 1 | Viajero cancela en tramo X | Tabla §4: retener %, reembolsar resto (asiento(s) `refund`) |
+| 1 | Viajero cancela en tramo X | Primero se ofrece **crédito 100% (12 meses)**; si prefiere efectivo: tabla §4 — retener pena, reembolsar resto (asiento(s) `refund`) |
 | 2 | Viajero con plan de abonos **deja de pagar** | NO es cancelación automática. Tras N días de atraso (sugerido 15) y avisos de cobranza/Clawbot: la agencia puede cancelar por incumplimiento aplicando el tramo vigente **a la fecha de la cancelación**. El enganche no se devuelve. Debe decirlo el contrato. |
 | 3 | No-show | Retención 100%, cero reembolso. El manifiesto (F3) es la evidencia de que el asiento se reservó y salió. |
-| 4 | Viajero pide cambio de fecha | No es cancelación: crédito/reprogramación, sin pena (o cuota fija de cambio — decidir). |
+| 4 | Viajero pide cambio de fecha | No es cancelación: 1º cambio gratis con ≥7 días de aviso; después o con <7 días ⇒ crédito o tramos. |
 | 5 | Agencia cancela (mínimo de pax) | 100% o alternativa aceptada. Aviso con anticipación pactada. |
 | 6 | Fuerza mayor | Reprogramar; si no, 100%. |
 | 7 | Contracargo MP (el cliente no pide, QUITA) | Pelear con kit de evidencia (§7). Si se pierde, asiento `refund` para que el ledger refleje la realidad. |
@@ -102,7 +120,7 @@ Principio rector: **la política se congela en la venta** (snapshot), igual que 
 2. **Snapshot**: al crear la venta, copiar la política vigente a `bookings` (columna jsonb). La cotización pública (`/cotizacion/[token]`) y el checkout del marketplace la **muestran y exigen aceptación** (checkbox + timestamp + para online: IP). Esa aceptación ES la defensa legal y anti-contracargo.
 3. **Cálculo**: RPC `preview_cancellation(booking_id)` → días a `travel_date`, tramo aplicable, pena, pagado, a devolver. Solo lectura; el agente ve el desglose antes de confirmar.
 4. **Ejecución**: `cancel_booking_v2(booking_id, reason)` — cancela + registra la pena aplicada (para reporte) ; el reembolso sale por el flujo existente. **Falta pieza**: `refund_payment` hoy solo reembolsa pagos completos ⇒ se necesita **reembolso parcial** (asiento `refund` por monto arbitrario ≤ pagado, ligado a la cancelación, con los mismos guards). Ledger intacto: pena retenida = simplemente NO se reembolsa; no es asiento nuevo.
-5. **Crédito/reprogramación**: v1 manual (cancelar + nueva venta + asiento). Un "saldo a favor" formal es fase posterior (YAGNI hasta que duela).
+5. **Crédito/reprogramación**: formal desde el arranque (decisión 2026-08-04) — tabla `credits` con saldo derivado + canje como asiento `payment` método `credito` en la venta nueva. Detalle en `docs/PLAN_CANCELACIONES.md` fase C5.
 6. **Texto legal**: página pública `/politica-cancelacion` + inclusión en cotización, checkout y voucher. Contrato de adhesión → abogado → registro PROFECO.
 
 Nada de esto toca `create_booking_with_items` de entrada (snapshot puede hacerse con RPC aparte post-creación o en el action) — coordinar con el carril backend cuando se implemente.
@@ -119,16 +137,17 @@ MP no protege servicios; ante contracargo solo gana la evidencia. Por venta con 
 
 Mitigación adicional: para liquidaciones grandes, empujar SPEI (sin contracargo, sin fee de tarjeta). Ya alineado con el plan Openpay del roadmap.
 
-## 8. Decisiones abiertas (Walfre — marcar y seguimos)
+## 8. Decisiones — CERRADAS por Walfre (2026-08-04)
 
-- [ ] ¿Los % y tramos de la tabla §4? (borrador: 10/25/50/75/100)
-- [ ] ¿Enganche no reembolsable como regla explícita, o solo tramos?
-- [ ] ¿Cuota fija por cambio de fecha o gratis?
-- [ ] ¿Días de aviso cuando cancelamos por mínimo de pax? (sugerido 7)
-- [ ] ¿Atraso máximo del plan de abonos antes de poder cancelar por incumplimiento? (sugerido 15 días)
-- [ ] ¿Reparto de la pena retenida en reventas (proporcional a comisión)?
-- [ ] ¿Una política única para las 3 agencias o por agencia? (sugerido: default único + override)
-- [ ] Abogado para el contrato de adhesión + registro PROFECO (¿cuándo?)
+- [x] Tramos: **10 / 25 / 50 / 75 / 100** (≥30 · 15–29 · 7–14 · 2–6 · ≤48h/no-show), % sobre el total.
+- [x] Enganche NO reembolsable — como **piso de la pena**: `pena = max(tramo × total, enganche)` ⇒ retención efectiva 20/25/50/75/100 con enganche default 20%.
+- [x] **Crédito antes que devolución**: siempre se ofrece primero crédito 100% sin pena, vigencia 12 meses, misma agencia, no forzado (§4).
+- [x] Cambio de fecha: 1º gratis con ≥7 días de aviso; después o <7 días ⇒ crédito o tramos.
+- [x] Aviso cuando cancelamos por mínimo de pax: **7 días**.
+- [x] Atraso del plan de abonos: **15 días** de atraso (tras avisos de cobranza/Clawbot) ⇒ cancelable por incumplimiento aplicando el tramo vigente a esa fecha.
+- [x] Reparto de la pena en reventas: **proporcional a la comisión** (misma proporción que la venta).
+- [x] Política **única default + override por agencia** (jsonb en cascada).
+- [ ] Abogado + contrato de adhesión + registro PROFECO — único pendiente, externo al código (corre en paralelo, no bloquea C0–C5).
 
 ## Fuentes
 

@@ -1,7 +1,7 @@
 # Plan de implementación — Política de cancelaciones (carril `cancelaciones`)
 
 > Aterriza la investigación de `docs/POLITICA_CANCELACION.md` en fases construibles.
-> Estado: **PLAN — nada implementado**. Prerrequisito duro: Walfre cierra las decisiones del §8 del doc de investigación (los % de los tramos pueden quedar como default editable, pero el resto sí bloquea).
+> Estado: **PLAN — nada implementado**. Decisiones del §8 **CERRADAS (2026-08-04)**: tramos 10/25/50/75/100 con piso = enganche (efectivo 20/25/50/75/100), **crédito 100% (12 meses) ofrecido SIEMPRE antes que la devolución**, cambio de fecha 1º gratis ≥7 días, aviso mínimo pax 7 días, atraso de plan 15 días, pena en reventas proporcional a comisión, política default + override por agencia. Único pendiente externo: abogado/PROFECO (no bloquea).
 >
 > Contexto actualizado (2026-08-04, main @ d939204): el marketplace ya opera pedidos reales — `/comprar/[serviceId]`, `(travel)/mis-compras`, pagos MP + **SPEI con aprobación** (b034–b038), plan de abonos del pedido (b039), notificaciones (b036), seat map/abordaje (b041–b043). La política debe cubrir **ambos carriles**: venta con agente (OS) y pedido del marketplace. Siguiente migración backend: **b045**.
 
@@ -35,7 +35,8 @@
   - Default plataforma: `app_settings.cancellation_policy` jsonb (la tabla ya existe — logo, wa gate).
   - Override por agencia: `suppliers.info.cancellation_policy` (jsonb existente, patrón CLABE SPEI de b034 — **sin DDL**).
   - Override por servicio: **diferido** (YAGNI hasta que una agencia lo pida).
-  - Shape: `{tramos:[{dias_min:30,retencion_pct:10},…], no_show_pct:100, enganche_no_reembolsable:bool, cuota_cambio_fecha:0, aviso_min_pax_dias:7, version:1}`.
+  - Shape: `{tramos:[{dias_min:30,retencion_pct:10},{dias_min:15,retencion_pct:25},{dias_min:7,retencion_pct:50},{dias_min:2,retencion_pct:75}], no_show_pct:100, piso_enganche:true, credito:{pct:100, vigencia_meses:12}, cambio_fecha:{gratis_primero:true, aviso_min_dias:7}, aviso_min_pax_dias:7, atraso_max_dias:15, version:1}`.
+  - Fórmula de pena (vive en los RPCs): `pena = max(tramo_pct × total, enganche_pactado)` con tope el total; `a_devolver = max(0, pagado − pena)`.
 - `bookings` + 3 columnas nullable (ventas viejas quedan null = "sin política pactada", se maneja en UI):
   - `cancellation_policy` jsonb (snapshot),
   - `policy_accepted_at timestamptz`,
@@ -44,7 +45,7 @@
   - **`snapshot_booking_policy(p_booking)`** INVOKER: resuelve agencia→default y copia al booking **solo si aún no tiene** (idempotente). Se llama desde los actions tras crear venta/pedido — así NO se toca `create_booking_with_items`.
   - **`accept_booking_policy(p_booking, p_meta)`** INVOKER: sella `policy_accepted_at` (solo si null; visibilidad = RLS de la venta / dueño del pedido).
   - **`accept_policy_by_token(p_token, p_meta)`** DEFINER **anon** fail-closed: resuelve por el token de la cotización (misma visibilidad que `get_quote_by_token`), sella solo si null. Escritura mínima y de un solo sentido — es lo único que anon puede "escribir".
-  - **`preview_cancellation(p_booking)`** INVOKER, solo lectura: días a `travel_date`, tramo aplicable, `pena_mxn`, `pagado_mxn`, `a_devolver_mxn` (= max(0, pagado − pena)), y flags (sin política, sin aceptación, ya cancelada).
+  - **`preview_cancellation(p_booking)`** INVOKER, solo lectura: días a `travel_date`, tramo aplicable, `pena_mxn`, `pagado_mxn`, y **las dos salidas** — `efectivo: {a_devolver}` (= max(0, pagado − pena)) y `credito: {monto: pagado, expira: hoy+12m}` — más flags (sin política, sin aceptación, ya cancelada).
 - **`get_public_doc_policy(p_kind, p_id)`** DEFINER anon `LANGUAGE sql` (patrón `get_public_doc_currency`): regresa el snapshot + accepted_at para cotización/estado públicos, sin re-aplicar los RPCs hermanos.
 
 **Hard-test (rollback, agencias QA):** cascada agencia>default; snapshot idempotente; accept 2ª vez no-op; accept por token de otra venta falla; preview en cada tramo + no-show + venta sin política; RLS entre agencias.
@@ -83,24 +84,43 @@
 
 **BD (`b047_cancel_with_policy`):**
 - `bookings` + `cancel_fee_mxn numeric` + `cancelled_at timestamptz` (nullable).
-- RPC **`cancel_booking_v2(p_booking, p_reason, p_waive_fee bool default false)`** INVOKER:
-  - calcula la pena con la misma lógica de `preview_cancellation` (tramo a la fecha de HOY);
+- RPC **`cancel_booking_v2(p_booking, p_reason, p_mode, p_waive_fee bool default false)`** INVOKER, `p_mode in ('efectivo','credito')`:
+  - calcula la pena con la misma lógica de `preview_cancellation` (tramo a la fecha de HOY, piso enganche);
+  - `p_mode='credito'` ⇒ pena 0 y emite el crédito de C5 **en la misma transacción** (asiento `refund` método `credito` + fila en `credits`) — no puede quedar cancelada-sin-crédito;
   - `p_waive_fee=true` (cancelación imputable a la agencia / fuerza mayor / mínimo de pax) ⇒ pena 0, motivo obligatorio;
   - sella `status='cancelled'`, `cancel_reason`, `cancel_fee_mxn`, `cancelled_at`;
-  - **NO reembolsa automático** — devolver es acto separado y consciente (`refund_partial`), el RPC solo deja el número.
+  - en modo efectivo **NO reembolsa automático** — devolver es acto separado y consciente (`refund_partial`), el RPC solo deja el número.
 - `cancel_booking` v1 queda para compat (o la UI deja de llamarlo; no se borra).
 
-**App (`/ventas/[id]`):** `cancelar-venta.tsx` evoluciona: al abrir muestra el preview (tramo, pena, pagado, **a devolver: $X**), toggle "condonar pena (cancelación de la agencia)" con motivo obligatorio; tras cancelar, botón "Reembolsar $X" prellenado hacia el flujo C3. Ventas sin política/aceptación: aviso "sin política pactada — pena manual" (input libre).
+**App (`/ventas/[id]`):** `cancelar-venta.tsx` evoluciona: al abrir muestra el preview con **las dos opciones lado a lado** — "Crédito $pagado (vence en 12 meses)" vs "Efectivo: devolver $X (pena $Y)" — con el crédito como opción destacada; toggle "condonar pena (cancelación de la agencia)" con motivo obligatorio; tras cancelar en efectivo, botón "Reembolsar $X" prellenado hacia el flujo C3. Ventas sin política/aceptación: aviso "sin política pactada — pena manual" (input libre).
 
-**Hard-test:** cancelar en cada tramo asigna la pena correcta; waive ⇒ 0; venta sin política ⇒ pena null y no truena; cancelada no re-cancela; cupo se libera (trigger existente); reembolso posterior cuadra con `a_devolver`.
+**Hard-test:** cancelar en cada tramo asigna la pena correcta (con piso enganche); modo crédito ⇒ pena 0 + crédito emitido atómico; waive ⇒ 0; venta sin política ⇒ pena null y no truena; cancelada no re-cancela; cupo se libera (trigger existente); reembolso posterior cuadra con `a_devolver`.
 
 **DoD:** advisors 0 ERROR; espejo b047; flujo completo cancelar→reembolsar en una venta QA end-to-end.
+
+## C5 — Crédito (saldo a favor) (**b048**)
+
+**Objetivo:** el "crédito antes que devolución" existe como objeto de primera clase: se emite al cancelar, se canjea como abono en una venta nueva, expira solo.
+
+**Diseño ledger (coherente con las reglas de oro):**
+- **Emisión** (desde `cancel_booking_v2` modo crédito): asiento `refund` método `credito` por lo pagado en la venta cancelada (la venta queda saldada sin salida de efectivo) + fila en **`ketzal.credits`** (`id`, `supplier_id` (agencia vendedora), `customer_id`, `booking_origen_id`, `amount_mxn`, `expires_at` (= emisión + vigencia_meses del snapshot), `note`, `created_by`). RLS = visibilidad por agencia (calco payments); escritura solo vía RPC.
+- **Saldo del crédito DERIVADO** (regla de oro #2): `amount_mxn − Σ(canjes COMPLETED)`. Sin campo mutable.
+- **Canje**: RPC **`redeem_credit(p_credit, p_booking, p_amount)`** INVOKER — guards: mismo customer y misma agencia vendedora, no expirado (`now() < expires_at`, chequeo lazy — no hay cron de expiración), `p_amount ≤ saldo del crédito` y `≤ saldo de la venta destino`; inserta asiento `payment` método `credito` con **`payments.credit_id`** (columna nueva nullable, única DDL sobre payments). Remanente persiste solo (saldo derivado).
+- **No canjeable por efectivo**: `refund_partial`/`refund_payment` rechazan asientos método `credito` como base de reembolso en efectivo.
+
+**App:**
+- `/ventas/[id]` (venta nueva): en abonos, opción "Aplicar crédito" si el cliente tiene créditos vigentes con saldo (lista + monto).
+- Ficha del cliente: badge "Crédito disponible $X (vence dd/mm)".
+- `(travel)/mis-compras`: el viajero ve su crédito vigente (RPC DEFINER scoped al dueño, patrón `list_my_marketplace_orders` — key nueva en RPC NUEVO, sin re-apply).
+
+**Hard-test:** cancelar-con-crédito → canje parcial en venta nueva → remanente correcto; canje sobre saldo bloqueado; expirado bloqueado; cross-customer y cross-agencia bloqueados; doble canje race-safe; reembolsar en efectivo un abono método crédito bloqueado; invariantes 0.
+
+**DoD:** advisors 0 ERROR; espejo b048; el ciclo completo cancelar→crédito→canje probado end-to-end en QA.
 
 ---
 
 ## Diferido a propósito (no construir hasta que duela)
 
-- **Crédito / saldo a favor formal** para reprogramaciones (v1: cancelar con waive + nueva venta, manual).
 - **Política por servicio** (override fino).
 - **Reparto de la pena en reventas** (owner/selling) + ajuste en `payables_summary` — necesita decisión §8 y toca CxP de F2: carril backend.
 - **Cancelación de salida completa** (mínimo de pax): herramienta que cancele en lote con waive + notifique — hoy se hace venta por venta.
@@ -116,4 +136,4 @@
 
 ## Orden y tamaño
 
-C0 (chico, hoy mismo tras decidir texto) → C1 (el corazón, 1 migración) → C2 (UI, sin BD) → C3 (1 migración) → C4 (1 migración). C2 puede ir en paralelo con C3. Cada fase es integrable por separado vía `/integrar-pr`.
+C0 (chico, texto ya decidido) → C1 (el corazón, 1 migración) → C2 (UI, sin BD) → C3 (1 migración) → C4+C5 (2 migraciones; C4 depende de C5 para el modo crédito — pueden ir juntas en un solo carril). C2 puede ir en paralelo con C3. Cada fase es integrable por separado vía `/integrar-pr`.
