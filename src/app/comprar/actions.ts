@@ -268,6 +268,26 @@ export async function calificar(
   return { ok: true }
 }
 
+// b034: datos SPEI de la agencia vendedora de un pedido del comprador.
+// Reusa list_my_marketplace_orders (ya scoped al uid) — sin RPC nuevo; el
+// viajero no puede leer suppliers directo (RLS).
+export type SpeiInfo = {
+  clabe: string
+  banco: string | null
+  titular: string | null
+  agencia: string
+}
+
+export async function obtenerSpeiPedido(
+  bookingId: string
+): Promise<{ spei: SpeiInfo | null }> {
+  const supabase = await createClient()
+  const { data } = await supabase.rpc('list_my_marketplace_orders' as never)
+  const orders =
+    (data as unknown as { booking_id: string; spei: SpeiInfo | null }[]) ?? []
+  return { spei: orders.find((o) => o.booking_id === bookingId)?.spei ?? null }
+}
+
 // b034: el comprador declara que ya hizo la transferencia SPEI. Queda como
 // payment_intent (provider='spei', pending) hasta que el admin la confirme en
 // Cobranza — el guard (dueño del pedido, monto ≤ saldo) vive en el RPC.

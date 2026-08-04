@@ -8,14 +8,14 @@ import {
   StarIcon,
   ChevronRightIcon,
   ClockIcon,
-  CopyIcon,
   LandmarkIcon,
   HourglassIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { crearLinkPagoMarketplace, calificar, enviarPagoSpei } from '@/app/comprar/actions'
+import { crearLinkPagoMarketplace, calificar } from '@/app/comprar/actions'
+import { SpeiPanel } from '@/app/comprar/[serviceId]/spei-panel'
 
 export type Order = {
   booking_id: string
@@ -124,7 +124,6 @@ export function OrderCard({ order }: { order: Order }) {
   const [busy, setBusy] = useState(false)
   // Transferencia SPEI (b034): panel con los datos bancarios de la agencia.
   const [speiOpen, setSpeiOpen] = useState(false)
-  const [speiRef, setSpeiRef] = useState('')
   // 'abono' = siguiente abono del plan; 'todo' = liquidar el saldo.
   const [speiOpcion, setSpeiOpcion] = useState<'abono' | 'todo'>('abono')
   // Calificación (viajero→proveedor + →app). Editable: submit_rating hace upsert,
@@ -153,28 +152,6 @@ export function OrderCard({ order }: { order: Order }) {
     window.location.href = res.url
   }
 
-  async function copiarClabe() {
-    if (!order.spei) return
-    await navigator.clipboard.writeText(order.spei.clabe)
-    toast.success('CLABE copiada')
-  }
-
-  async function enviarSpei(amount: number) {
-    setBusy(true)
-    const res = await enviarPagoSpei({
-      bookingId: order.booking_id,
-      amount,
-      reference: speiRef,
-    })
-    setBusy(false)
-    if ('error' in res) {
-      toast.error(res.error)
-      return
-    }
-    toast.success('Transferencia registrada. La agencia la confirmará al recibirla.')
-    setSpeiOpen(false)
-    router.refresh()
-  }
 
   async function enviarProveedor() {
     if (prov < 1) {
@@ -302,10 +279,20 @@ export function OrderCard({ order }: { order: Order }) {
                 </Button>
               )}
               {order.spei && speiOpen && (
-                <div className="space-y-3 rounded-lg border p-3 text-sm">
-                  <p className="font-medium">
-                    Transferencia SPEI a {order.spei.agencia}
-                  </p>
+                <SpeiPanel
+                  bookingId={order.booking_id}
+                  spei={order.spei}
+                  amount={
+                    conPlan && order.next_due < order.balance && speiOpcion === 'abono'
+                      ? order.next_due
+                      : order.balance
+                  }
+                  onDone={() => {
+                    setSpeiOpen(false)
+                    router.refresh()
+                  }}
+                  onCancel={() => setSpeiOpen(false)}
+                >
                   {conPlan && order.next_due < order.balance && (
                     <div className="flex flex-col gap-1.5">
                       <label className="flex items-center gap-2">
@@ -328,70 +315,7 @@ export function OrderCard({ order }: { order: Order }) {
                       </label>
                     </div>
                   )}
-                  <div className="space-y-1 rounded-md bg-muted/50 p-2.5">
-                    <p className="flex items-center justify-between gap-2">
-                      <span className="font-mono text-[13px] tabular-nums">
-                        {order.spei.clabe}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={copiarClabe}
-                        aria-label="Copiar CLABE"
-                        className="text-muted-foreground hover:text-foreground"
-                      >
-                        <CopyIcon className="size-4" />
-                      </button>
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {[order.spei.banco, order.spei.titular]
-                        .filter(Boolean)
-                        .join(' · ') || 'CLABE de la agencia'}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Monto exacto:{' '}
-                      <span className="font-semibold text-foreground">
-                        {mxn.format(
-                          conPlan && order.next_due < order.balance && speiOpcion === 'abono'
-                            ? order.next_due
-                            : order.balance
-                        )}
-                      </span>
-                    </p>
-                  </div>
-                  <input
-                    value={speiRef}
-                    onChange={(e) => setSpeiRef(e.target.value)}
-                    placeholder="Clave de rastreo o referencia (opcional)"
-                    className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30"
-                  />
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      loading={busy}
-                      onClick={() =>
-                        enviarSpei(
-                          conPlan && order.next_due < order.balance && speiOpcion === 'abono'
-                            ? order.next_due
-                            : order.balance
-                        )
-                      }
-                    >
-                      Ya hice la transferencia
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      disabled={busy}
-                      onClick={() => setSpeiOpen(false)}
-                    >
-                      Cancelar
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Tu pago quedará en revisión y la agencia lo confirmará al
-                    ver la transferencia en su cuenta.
-                  </p>
-                </div>
+                </SpeiPanel>
               )}
             </div>
           )
