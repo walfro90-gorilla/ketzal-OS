@@ -232,6 +232,15 @@ export default async function ServicioPublicoPage({
                         : `${d.free} ${d.free === 1 ? 'lugar' : 'lugares'}`}
                     </span>
                   )}
+                  {/* b045: precio de temporada — solo cuando difiere del base. */}
+                  {!pasada && !agotada && d.price_pct !== 0 && (
+                    <span className="ml-2 text-xs font-semibold text-amber-600 dark:text-amber-500">
+                      desde{' '}
+                      {mxn.format(
+                        Math.round(Number(s.price ?? 0) * (1 + d.price_pct / 100) * 100) / 100
+                      )}
+                    </span>
+                  )}
                 </li>
               )
             })}

@@ -27,10 +27,10 @@ export type PublicService = {
   add_ons: unknown
   dates: unknown
   /** Salidas futuras con cupo libre (para el pedido de marketplace). */
-  departures: { id: string; departs_on: string; free: number }[]
+  departures: { id: string; departs_on: string; free: number; price_pct: number }[]
   /** b044: calendario completo (últimos 180 días + futuras, incl. agotadas)
       para la ficha — las vendibles siguen siendo `departures`. */
-  all_departures: { id: string; departs_on: string; free: number }[]
+  all_departures: { id: string; departs_on: string; free: number; price_pct: number }[]
   agency: {
     id: string
     name: string

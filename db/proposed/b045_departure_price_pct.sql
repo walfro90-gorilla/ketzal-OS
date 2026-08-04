@@ -1,0 +1,24 @@
+-- b045 — Precio por temporada: ajuste % por salida.
+-- Espejo de la migración aplicada `b045_departure_price_pct`.
+--
+-- Modelo (acordado con el fundador): un número por salida —
+--   service_departures.price_pct numeric(5,2) not null default 0
+--   CHECK (> -100 and <= 500)   (+25 = temporada alta, -10 = promo)
+-- que escala TODOS los packs proporcionalmente. Sin tabla de temporadas ni
+-- packs duplicados por fecha (YAGNI; este modelo escala a eso si hiciera falta).
+--
+-- Re-applies (desde DDL vivo, ambos verificados):
+--  · create_marketplace_order: aplica round(price × (1+pct/100), 2) al precio
+--    de cada pack en el subtotal Y en el snapshot de booking_items (el precio
+--    congelado ya va ajustado ⇒ ventas pasadas intactas ante cambios). El
+--    fetch de la salida se movió antes del loop de precios; fecha inexistente
+--    conserva el error 'Sin cupo…'; el check de cupo sigue igual.
+--  · get_public_service: + price_pct en `departures` y `all_departures`
+--    (conservar junto con agency.id en futuros re-applies).
+--
+-- App: editor de salidas con campo "Precio %" (alta + edición inline);
+-- ficha /servicio muestra "desde $X" ámbar en fechas con ajuste; /comprar
+-- ajusta precios de packs y total en vivo según la salida elegida (display —
+-- el server recalcula autoritativo). Helper puro `precioAjustado` en
+-- domain/pricing (+2 tests). Hard-test 5/5 en rollback (total base, total
+-- +25% con snapshot ajustado, fecha inexistente, ficha con pct, invariantes 0).

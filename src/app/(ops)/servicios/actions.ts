@@ -422,6 +422,8 @@ export type SalidaInput = {
   departs_on: string
   max_capacity: number
   note?: string | null
+  /** b045: ajuste de temporada en % (+25 alta, -10 promo). Vacío = 0. */
+  price_pct?: number
 }
 
 export type Salida = {
@@ -432,6 +434,8 @@ export type Salida = {
   /** Lugares libres = max_capacity − seats_taken (nunca negativo). */
   remaining: number
   note: string | null
+  /** b045: ajuste de temporada en % (0 = precio normal). */
+  price_pct: number
 }
 
 /** Hoy en local (YYYY-MM-DD), para no permitir alta de salidas en el pasado. */
@@ -448,7 +452,14 @@ function normalizarSalida(
   input: SalidaInput
 ):
   | { error: string }
-  | { fields: { departs_on: string; max_capacity: number; note: string | null } } {
+  | {
+      fields: {
+        departs_on: string
+        max_capacity: number
+        note: string | null
+        price_pct: number
+      }
+    } {
   const fecha = input.departs_on?.trim()
   if (!fecha || !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
     return { error: 'Elige una fecha de salida válida.' }
@@ -462,8 +473,18 @@ function normalizarSalida(
   if (!Number.isInteger(cupo) || cupo < 1) {
     return { error: 'El cupo debe ser un entero mayor a 0.' }
   }
+  // b045: ajuste de temporada (%). Vacío/0 = precio normal.
+  const pct = Number(input.price_pct ?? 0)
+  if (!Number.isFinite(pct) || pct <= -100 || pct > 500) {
+    return { error: 'El ajuste de precio debe estar entre -99% y 500%.' }
+  }
   return {
-    fields: { departs_on: fecha, max_capacity: cupo, note: input.note?.trim() || null },
+    fields: {
+      departs_on: fecha,
+      max_capacity: cupo,
+      note: input.note?.trim() || null,
+      price_pct: Math.round(pct * 100) / 100,
+    },
   }
 }
 
@@ -479,7 +500,7 @@ export async function listarSalidas(
 
   const { data, error } = await supabase
     .from('service_departures')
-    .select('id, departs_on, max_capacity, seats_taken, note')
+    .select('id, departs_on, max_capacity, seats_taken, note, price_pct' as 'id, departs_on, max_capacity, seats_taken, note')
     .eq('service_id', serviceId)
     .order('departs_on', { ascending: true })
   if (error) return { error: safeError(error) }
@@ -491,6 +512,7 @@ export async function listarSalidas(
     seats_taken: s.seats_taken,
     remaining: Math.max(0, s.max_capacity - s.seats_taken),
     note: s.note ?? null,
+    price_pct: Number((s as { price_pct?: number }).price_pct ?? 0),
   }))
   return { salidas }
 }
@@ -517,7 +539,7 @@ export async function crearSalida(
   // RLS: solo inserta si el servicio es de tu agencia (o superadmin).
   const { error } = await supabase
     .from('service_departures')
-    .insert({ service_id: svc, ...result.fields })
+    .insert({ service_id: svc, ...result.fields } as never)
   if (error) {
     if (error.code === '23505') {
       return { error: 'Ya existe una salida para esa fecha en este servicio.' }
@@ -545,7 +567,7 @@ export async function actualizarSalida(
   // RLS scope; devuelve service_id para revalidar la página del servicio.
   const { data, error } = await supabase
     .from('service_departures')
-    .update(result.fields)
+    .update(result.fields as never)
     .eq('id', id)
     .select('service_id')
     .single()

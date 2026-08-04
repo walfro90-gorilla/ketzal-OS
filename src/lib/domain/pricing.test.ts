@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { lineTotal, subtotal, total, type BookingLine } from './pricing'
+import { lineTotal, precioAjustado, subtotal, total, type BookingLine } from './pricing'
 
 // Ruta de dinero: el importe que cobra una venta = Σ(cantidad × precio) − descuento.
 // Es lo que persiste create_booking_with_items y de lo que se deriva el saldo.
@@ -42,5 +42,17 @@ describe('total', () => {
   })
   it('venta vacía ⇒ 0', () => {
     expect(total([])).toBe(0)
+  })
+})
+
+describe('precioAjustado (b045)', () => {
+  it('aplica el % de temporada a 2 decimales', () => {
+    expect(precioAjustado(1000, 25)).toBe(1250)
+    expect(precioAjustado(600, 25)).toBe(750)
+    expect(precioAjustado(1000, -10)).toBe(900)
+    expect(precioAjustado(999.99, 0)).toBe(999.99)
+  })
+  it('redondea mitades correctamente', () => {
+    expect(precioAjustado(333.33, 10)).toBe(366.66)
   })
 })

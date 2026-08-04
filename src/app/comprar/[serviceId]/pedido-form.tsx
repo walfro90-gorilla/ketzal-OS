@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { NativeSelect } from '@/components/ui/native-select'
 import { crearPedido } from '../actions'
+import { precioAjustado } from '@/lib/domain/pricing'
 import { WaButton } from './wa-button'
 import { PagoBloque } from './pago-bloque'
 
@@ -14,7 +15,7 @@ import { PagoBloque } from './pago-bloque'
 // recalcula el precio desde los packs. Pago en línea llega en B.2.
 
 export type Pack = { key: string; label: string; price: number }
-export type Departure = { id: string; departs_on: string; free: number }
+export type Departure = { id: string; departs_on: string; free: number; price_pct?: number }
 
 const mxn = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' })
 
@@ -65,9 +66,12 @@ export function PedidoForm({
     }
   }, [refCode])
 
+  // b045: ajuste de temporada de la salida elegida (0 si no hay salidas).
+  const pct = departures.find((d) => d.id === depId)?.price_pct ?? 0
+  const precioDe = (p: Pack) => precioAjustado(p.price, pct)
   const total = useMemo(
-    () => packs.reduce((s, p) => s + p.price * (qty[p.key] ?? 0), 0),
-    [packs, qty],
+    () => packs.reduce((s, p) => s + precioAjustado(p.price, pct) * (qty[p.key] ?? 0), 0),
+    [packs, qty, pct],
   )
   const totalPax = packs.reduce((s, p) => s + (qty[p.key] ?? 0), 0)
 
@@ -164,7 +168,13 @@ export function PedidoForm({
             <div className="min-w-0">
               <p className="truncate text-sm">{p.label}</p>
               <p className="text-xs text-muted-foreground tabular-nums">
-                {mxn.format(p.price)} c/u
+                {mxn.format(precioDe(p))} c/u
+                {pct !== 0 && (
+                  <span className="ml-1 text-amber-600 dark:text-amber-500">
+                    ({pct > 0 ? '+' : ''}
+                    {pct}% temporada)
+                  </span>
+                )}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -208,6 +218,9 @@ export function PedidoForm({
             {departures.map((d) => (
               <option key={d.id} value={d.id}>
                 {fechaLarga(d.departs_on)} · {d.free} lugares
+                {(d.price_pct ?? 0) !== 0
+                  ? ` · ${(d.price_pct ?? 0) > 0 ? '+' : ''}${d.price_pct}% temporada`
+                  : ''}
               </option>
             ))}
           </NativeSelect>

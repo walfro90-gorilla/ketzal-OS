@@ -41,6 +41,8 @@ export function SalidasEditor({
   const [salidas, setSalidas] = useState<Salida[]>(initial)
   const [fecha, setFecha] = useState('')
   const [cupo, setCupo] = useState('')
+  // b045: ajuste de temporada en % (vacío = 0 = precio normal).
+  const [pct, setPct] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
@@ -61,7 +63,11 @@ export function SalidasEditor({
       return
     }
     startTransition(async () => {
-      const res = await crearSalida(serviceId, { departs_on: fecha, max_capacity: n })
+      const res = await crearSalida(serviceId, {
+        departs_on: fecha,
+        max_capacity: n,
+        price_pct: pct.trim() === '' ? 0 : Number(pct),
+      })
       if ('error' in res) {
         setError(res.error)
         toast.error(res.error)
@@ -69,6 +75,7 @@ export function SalidasEditor({
       }
       setFecha('')
       setCupo('')
+      setPct('')
       await refrescar()
       toast.success('Salida agregada')
     })
@@ -82,7 +89,11 @@ export function SalidasEditor({
       return
     }
     startTransition(async () => {
-      const res = await actualizarSalida(s.id, { departs_on: s.departs_on, max_capacity: n })
+      const res = await actualizarSalida(s.id, {
+        departs_on: s.departs_on,
+        max_capacity: n,
+        price_pct: s.price_pct,
+      })
       if ('error' in res) {
         toast.error(res.error)
         await refrescar() // revierte el input al valor real
@@ -90,6 +101,29 @@ export function SalidasEditor({
       }
       await refrescar()
       toast.success('Cupo actualizado')
+    })
+  }
+
+  function guardarPct(s: Salida, valor: string) {
+    const n = valor.trim() === '' ? 0 : Number(valor)
+    if (n === s.price_pct) return // sin cambio
+    if (!Number.isFinite(n) || n <= -100 || n > 500) {
+      toast.error('El ajuste debe estar entre -99% y 500%.')
+      return
+    }
+    startTransition(async () => {
+      const res = await actualizarSalida(s.id, {
+        departs_on: s.departs_on,
+        max_capacity: s.max_capacity,
+        price_pct: n,
+      })
+      if ('error' in res) {
+        toast.error(res.error)
+        await refrescar()
+        return
+      }
+      await refrescar()
+      toast.success('Ajuste de precio actualizado')
     })
   }
 
@@ -130,6 +164,18 @@ export function SalidasEditor({
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {s.seats_taken} vendidos · {s.remaining} libres
+                    {s.price_pct !== 0 && (
+                      <span
+                        className={
+                          s.price_pct > 0
+                            ? ' ml-1 font-semibold text-amber-600 dark:text-amber-500'
+                            : ' ml-1 font-semibold text-emerald-600 dark:text-emerald-500'
+                        }
+                      >
+                        · {s.price_pct > 0 ? '+' : ''}
+                        {s.price_pct}% precio
+                      </span>
+                    )}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -150,6 +196,24 @@ export function SalidasEditor({
                     disabled={isPending}
                     onBlur={(e) => guardarCupo(s, e.target.value)}
                   />
+                  <Label
+                    htmlFor={`pct-${s.id}`}
+                    className="text-xs text-muted-foreground"
+                  >
+                    %
+                  </Label>
+                  <Input
+                    id={`pct-${s.id}`}
+                    type="number"
+                    inputMode="decimal"
+                    step="1"
+                    defaultValue={s.price_pct || ''}
+                    placeholder="0"
+                    className="w-16"
+                    disabled={isPending}
+                    onBlur={(e) => guardarPct(s, e.target.value)}
+                    aria-label="Ajuste de precio %"
+                  />
                   <Button
                     type="button"
                     variant="ghost"
@@ -166,7 +230,7 @@ export function SalidasEditor({
           </ul>
         )}
 
-        <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto] sm:items-end">
+        <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto_auto] sm:items-end">
           <div className="space-y-2">
             <Label htmlFor="nueva-salida-fecha">Fecha de salida</Label>
             <Input
@@ -188,6 +252,20 @@ export function SalidasEditor({
               value={cupo}
               onChange={(e) => setCupo(e.target.value)}
               placeholder="Ej. 40"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="nueva-salida-pct">Precio %</Label>
+            <Input
+              id="nueva-salida-pct"
+              type="number"
+              inputMode="decimal"
+              step="1"
+              className="sm:w-24"
+              value={pct}
+              onChange={(e) => setPct(e.target.value)}
+              placeholder="0"
+              title="Ajuste de temporada: +25 = alta, -10 = promo"
             />
           </div>
           <Button type="button" onClick={agregar} disabled={isPending}>
