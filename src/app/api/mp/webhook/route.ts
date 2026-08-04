@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { logSistema } from '@/lib/system-log'
 import { mpSignatureValid } from '@/lib/mp-signature'
+import { adminsDeAgencia, notificar } from '@/lib/push/send'
+
+const mxn = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' })
 
 // Webhook de Mercado Pago. Público (lo llaman los servidores de MP; el proxy lo
 // deja pasar via '/api/'). Consulta el pago real en MP con nuestro token y
@@ -99,5 +102,28 @@ export async function POST(request: Request) {
     intentId,
     status,
   })
+
+  // b036: avisar a los admins de la agencia (in-app + push) del pago aprobado.
+  // Best-effort: un fallo aquí no debe tumbar el webhook (el dinero ya entró).
+  if (status === 'approved') {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: intent } = await (supabase as any)
+        .from('payment_intents')
+        .select('supplier_id, amount, booking_id')
+        .eq('id', intentId)
+        .maybeSingle()
+      if (intent?.supplier_id) {
+        const admins = await adminsDeAgencia(intent.supplier_id)
+        await notificar(admins, {
+          title: 'Pago en línea recibido',
+          body: `Abono de ${mxn.format(Number(intent.amount))} por Mercado Pago.`,
+          url: `/ventas/${intent.booking_id}`,
+        })
+      }
+    } catch {
+      /* best-effort */
+    }
+  }
   return NextResponse.json({ ok: true })
 }

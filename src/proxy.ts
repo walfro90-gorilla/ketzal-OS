@@ -40,6 +40,7 @@ export async function proxy(request: NextRequest) {
     path.startsWith('/agencia/') || // perfil público de una agencia (marketplace)
     path.startsWith('/comprar/') || // compra en línea (el visitante sin sesión se registra aquí)
     path.startsWith('/recuperar') ||
+    path === '/sw.js' || // service worker (b036): el navegador lo re-fetchea sin contexto de página
     path.startsWith('/api/') // endpoints (p.ej. webhook de Mercado Pago) manejan su propia auth
   if (!user && !isPublic) {
     const url = request.nextUrl.clone(); url.pathname = '/login'; return NextResponse.redirect(url)

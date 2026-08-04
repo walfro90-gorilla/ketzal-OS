@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { safeError } from '@/lib/errors'
 import { esBannerValido } from '@/lib/storage/banner-url'
+import { adminsDeAgencia, notificar } from '@/lib/push/send'
 
 // Registro / datos del COMPRADOR B2C (terreno del marketplace).
 // El comprador es un profile de tipo 'viajero' (refactor de identidad, F1): un
@@ -311,5 +312,27 @@ export async function enviarPagoSpei(input: {
     p_receipt_url: input.receiptUrl,
   } as never)
   if (error) return { error: safeError(error, 'No se pudo registrar tu transferencia.') }
+
+  // b036: avisar a los admins de la agencia (in-app + push) — hay una
+  // transferencia por confirmar. Best-effort: no bloquea la declaración.
+  try {
+    const svc = createServiceClient()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: b } = await (svc as any)
+      .from('bookings')
+      .select('selling_supplier_id')
+      .eq('id', input.bookingId)
+      .maybeSingle()
+    if (b?.selling_supplier_id) {
+      const admins = await adminsDeAgencia(b.selling_supplier_id)
+      await notificar(admins, {
+        title: 'Transferencia SPEI por confirmar',
+        body: `Un comprador declaró una transferencia de ${new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(input.amount)}.`,
+        url: '/cobranza',
+      })
+    }
+  } catch {
+    /* best-effort */
+  }
   return { ok: true }
 }

@@ -3,6 +3,7 @@ import { Suspense } from 'react'
 import { DesktopSidebar } from './desktop-sidebar'
 import { BottomTabs } from './bottom-tabs'
 import { UserMenu } from './user-menu'
+import { Notificaciones } from './notificaciones'
 import { ThemeToggle } from './theme-toggle'
 import { GlobalSearch } from './global-search'
 import { FlashToasts } from './flash-toasts'
@@ -69,6 +70,7 @@ export function AppShell({
           <GlobalSearch />
           <ProductTour role={role} />
           <ThemeToggle />
+          {email && <Notificaciones />}
           {email && <UserMenu email={email} displayName={displayName} />}
         </div>
       </header>
