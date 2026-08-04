@@ -136,6 +136,14 @@ export async function createBooking(
     return { error: safeError(rpcError, 'No se pudo guardar la venta.') }
   }
 
+  // C2 (b047): congela la política de cancelación vigente en la venta
+  // (snapshot idempotente; la aceptación del cliente llega después — desde la
+  // cotización pública o registrada por el agente). Best-effort: el error
+  // viaja en el resultado (no throw) y se ignora — la venta ya existe.
+  await supabase.rpc('snapshot_booking_policy' as never, {
+    p_booking: bookingId as string,
+  } as never)
+
   // F6: si la venta se cotizó en USD, anota divisa + TC (el MXN ya quedó
   // autoritativo con las líneas convertidas). Best-effort tras crear la venta.
   if (input.currency === 'USD' && Number(input.exchangeRate) > 0) {

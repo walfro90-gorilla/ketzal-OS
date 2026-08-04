@@ -114,6 +114,8 @@ export async function crearPedido(input: {
   items: PedidoItem[]
   /** Código de embajador que refirió la compra (?ref). Best-effort. */
   ref?: string | null
+  /** C2: el comprador marcó "acepto la política de cancelación". Obligatorio. */
+  aceptaPolitica?: boolean
 }): Promise<{ error: string } | { ok: true; bookingId: string }> {
   const supabase = await createClient()
   const {
@@ -121,6 +123,9 @@ export async function crearPedido(input: {
   } = await supabase.auth.getUser()
   if (!user) return { error: 'Inicia sesión para continuar.' }
   if (!input.items?.length) return { error: 'Selecciona al menos una opción.' }
+  if (!input.aceptaPolitica) {
+    return { error: 'Acepta la política de cancelación para continuar.' }
+  }
 
   const { data, error } = await supabase.rpc('create_marketplace_order' as never, {
     p_service_id: input.serviceId,
@@ -129,6 +134,24 @@ export async function crearPedido(input: {
   } as never)
   if (error) return { error: safeError(error, 'No se pudo crear el pedido.') }
   const bookingId = data as unknown as string
+
+  // C2: sella la aceptación de la política (snapshot congelado + evidencia
+  // ip/ua en policy_accepted_meta, canal 'checkout'). Best-effort: el pedido
+  // ya existe; si esto falla, la aceptación puede sellarse después desde la
+  // cotización o por el agente.
+  try {
+    const h = await headers()
+    await supabase.rpc('accept_booking_policy' as never, {
+      p_booking: bookingId,
+      p_canal: 'checkout',
+      p_meta: {
+        ip: h.get('x-forwarded-for')?.split(',')[0]?.trim() || null,
+        ua: h.get('user-agent')?.slice(0, 300) || null,
+      },
+    } as never)
+  } catch {
+    /* best-effort */
+  }
 
   // Atribución del embajador por ?ref. BEST-EFFORT: si algo falla (código
   // inválido, sin tarifa, etc.) el RPC devuelve null y la compra NO se rompe.

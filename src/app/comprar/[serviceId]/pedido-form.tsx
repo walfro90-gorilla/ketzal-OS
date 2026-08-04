@@ -52,6 +52,7 @@ export function PedidoForm({
   const [qty, setQty] = useState<Record<string, number>>({})
   const [depId, setDepId] = useState(departures[0]?.id ?? '')
   const [orderId, setOrderId] = useState<string | null>(null)
+  const [aceptaPolitica, setAceptaPolitica] = useState(false)
   const [pending, start] = useTransition()
 
   // El ?ref llega en la URL; puede perderse tras registro/confirmación de correo.
@@ -83,6 +84,8 @@ export function PedidoForm({
     if (totalPax < 1) return toast.error('Elige al menos una opción.')
     if (departures.length > 0 && !depId)
       return toast.error('Elige una fecha de salida.')
+    if (!aceptaPolitica)
+      return toast.error('Acepta la política de cancelación para continuar.')
     const items = packs
       .filter((p) => (qty[p.key] ?? 0) > 0)
       .map((p) => ({ pack_key: p.key, label: p.label, qty: qty[p.key] }))
@@ -101,6 +104,7 @@ export function PedidoForm({
         travelDate: dep?.departs_on ?? null,
         items,
         ref,
+        aceptaPolitica,
       })
       if ('error' in res) {
         toast.error(res.error)
@@ -236,12 +240,35 @@ export function PedidoForm({
         </span>
       </div>
 
+      {/* C2: aceptación de la política ANTES de crear el pedido — es la
+          evidencia legal/anti-contracargo (el action la sella con ip/ua). */}
+      <label className="flex items-start gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={aceptaPolitica}
+          onChange={(e) => setAceptaPolitica(e.target.checked)}
+          className="mt-0.5 size-4 accent-primary"
+        />
+        <span className="text-muted-foreground">
+          Leí y acepto la{' '}
+          <a
+            href="/politica-cancelacion"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline underline-offset-2 hover:text-foreground"
+          >
+            política de cancelación
+          </a>
+          .
+        </span>
+      </label>
+
       <Button
         type="button"
         size="touch"
         className="w-full"
         loading={pending}
-        disabled={totalPax < 1}
+        disabled={totalPax < 1 || !aceptaPolitica}
         onClick={submit}
       >
         {pending ? 'Creando pedido…' : 'Crear pedido'}

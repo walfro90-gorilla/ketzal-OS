@@ -17,6 +17,7 @@ import { ITEM_TYPE_LABELS, PASSENGER_TYPE_LABELS } from '../ui'
 import { AbonosSection } from './abonos'
 import { PlanPagosSection, type PlanItem } from './plan-pagos'
 import { CancelarVenta } from './cancelar-venta'
+import { PoliticaBadge } from './politica-badge'
 import { VencimientoForm } from './vencimiento-form'
 import { PasajerosSection } from './pasajeros'
 import type { Pasajero } from './pasajeros-actions'
@@ -103,6 +104,9 @@ type BookingDetail = {
   owner_supplier_id: string
   selling_supplier_id: string
   marketplace_customer_id: string | null
+  cancellation_policy?: unknown
+  policy_accepted_at?: string | null
+  policy_accepted_meta?: { canal?: string } | null
   customer: { full_name: string; phone: string | null } | null
   service: { name: string } | null
 }
@@ -120,7 +124,7 @@ export default async function VentaDetallePage({
   // sin ella para no tirar la venta a notFound. Al aplicarse la migración el
   // origen aparece sin tocar código (entonces se puede quitar el fallback).
   const selectVenta =
-    'id, folio, travel_date, due_date, num_pax, subtotal, discount, total, currency, exchange_rate, status, payment_type, plan_frequency, plan_final_date, notes, cancel_reason, created_at, owner_supplier_id, selling_supplier_id, marketplace_customer_id, customer:customers(full_name, phone), service:services(name)'
+    'id, folio, travel_date, due_date, num_pax, subtotal, discount, total, currency, exchange_rate, status, payment_type, plan_frequency, plan_final_date, notes, cancel_reason, created_at, owner_supplier_id, selling_supplier_id, marketplace_customer_id, cancellation_policy, policy_accepted_at, policy_accepted_meta, customer:customers(full_name, phone), service:services(name)'
   const fetchBooking = (select: string) =>
     supabase.from('bookings').select(select as '*').eq('id', id).single()
 
@@ -308,6 +312,18 @@ export default async function VentaDetallePage({
             <div>
               <dt className="text-muted-foreground">Pasajeros</dt>
               <dd className="mt-1 font-medium">{booking.num_pax}</dd>
+            </div>
+            <div className="sm:col-span-2">
+              <dt className="text-muted-foreground">Política de cancelación</dt>
+              <dd className="mt-1">
+                <PoliticaBadge
+                  bookingId={booking.id}
+                  acceptedAt={booking.policy_accepted_at ?? null}
+                  canal={booking.policy_accepted_meta?.canal ?? null}
+                  tieneSnapshot={booking.cancellation_policy != null}
+                  cancelada={booking.status === 'cancelled'}
+                />
+              </dd>
             </div>
             {booking.currency === 'USD' && booking.exchange_rate ? (
               <div className="sm:col-span-2">
