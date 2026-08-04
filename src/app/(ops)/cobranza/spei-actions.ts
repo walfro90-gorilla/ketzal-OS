@@ -22,3 +22,19 @@ export async function resolverSpei(
   revalidatePath('/ventas', 'layout')
   return { ok: true }
 }
+
+// b037: reabrir una transferencia rechazada por error (vuelve a pendiente y se
+// confirma por el camino normal). Guards en el RPC: admin de la agencia, no
+// cancelada, sin otra pendiente de la misma venta.
+export async function reabrirSpei(
+  intentId: string
+): Promise<{ error: string } | { ok: true }> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('reopen_spei_payment' as never, {
+    p_intent_id: intentId,
+  } as never)
+  if (error) return { error: safeError(error, 'No se pudo reabrir la transferencia.') }
+  revalidatePath('/cobranza')
+  revalidatePath('/ventas', 'layout')
+  return { ok: true }
+}

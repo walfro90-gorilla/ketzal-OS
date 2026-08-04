@@ -10,12 +10,16 @@ import {
 import { EmptyState } from '@/components/data/empty-state'
 import { PageHeader } from '@/components/data/page-header'
 import { mxn } from '@/components/data/format'
-import { getCobranza, getSpeiPendientes } from './data'
+import { getCobranza, getSpeiPendientes, getSpeiRechazadas } from './data'
 import { CobranzaList } from './cobranza-list'
-import { SpeiPendientes } from './spei-pendientes'
+import { SpeiPendientes, SpeiRechazadas } from './spei-pendientes'
 
 export default async function CobranzaPage() {
-  const [data, spei] = await Promise.all([getCobranza(), getSpeiPendientes()])
+  const [data, spei, speiRech] = await Promise.all([
+    getCobranza(),
+    getSpeiPendientes(),
+    getSpeiRechazadas(),
+  ])
 
   return (
     <div className="space-y-6">
@@ -85,6 +89,8 @@ export default async function CobranzaPage() {
           </CardContent>
         </Card>
       </div>
+
+      <SpeiRechazadas rows={speiRech} />
 
       <CobranzaList
         rows={data.items}

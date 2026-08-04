@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { mxn } from '@/components/data/format'
-import { resolverSpei } from './spei-actions'
+import { resolverSpei, reabrirSpei } from './spei-actions'
 
 // b034: transferencias SPEI declaradas por compradores del marketplace, a la
 // espera de que el admin las confirme contra su banca. Aprobar registra el
@@ -145,6 +145,117 @@ export function SpeiPendientes({ rows }: { rows: SpeiPendiente[] }) {
                 onClick={() => resolver(r, false)}
               >
                 Rechazar
+              </Button>
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  )
+}
+
+// b037: rechazadas recientes — auditoría (comprobante siempre consultable) y
+// corrección: "Reabrir" la vuelve pendiente para confirmarla por el camino
+// normal (guards en el RPC: no cancelada, sin otra pendiente de la venta).
+
+export type SpeiRechazada = {
+  id: string
+  booking_id: string
+  amount: number
+  reference: string | null
+  receipt_url: string | null
+  created_at: string
+  updated_at: string
+  cliente: string
+  servicio: string
+  booking_status: string
+  balance: number
+}
+
+export function SpeiRechazadas({ rows }: { rows: SpeiRechazada[] }) {
+  const [isPending, startTransition] = useTransition()
+  const [busyId, setBusyId] = useState<string | null>(null)
+
+  if (!rows.length) return null
+
+  function reabrir(row: SpeiRechazada) {
+    if (
+      !window.confirm(
+        `¿Reabrir la transferencia de ${mxn.format(row.amount)} de ${row.cliente}? Volverá a "por confirmar".`
+      )
+    )
+      return
+    setBusyId(row.id)
+    startTransition(async () => {
+      const res = await reabrirSpei(row.id)
+      setBusyId(null)
+      if ('error' in res) {
+        toast.error(res.error)
+        return
+      }
+      toast.success('Transferencia reabierta: está de nuevo por confirmar.')
+    })
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">
+          Transferencias rechazadas (últimos 14 días)
+        </CardTitle>
+        <CardDescription>
+          Nada se borra: el comprobante queda guardado. Si rechazaste una por
+          error y el dinero sí llegó, reábrela y confírmala.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {rows.map((r) => (
+          <div
+            key={r.id}
+            className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
+          >
+            <div className="min-w-0 space-y-0.5">
+              <p className="text-sm font-medium">
+                {r.cliente} · {mxn.format(r.amount)}
+              </p>
+              <p className="truncate text-xs text-muted-foreground">
+                {r.servicio}
+                {r.reference ? ` · Ref: ${r.reference}` : ''} · rechazada{' '}
+                {new Intl.DateTimeFormat('es-MX', {
+                  day: 'numeric',
+                  month: 'short',
+                  hour: 'numeric',
+                  minute: '2-digit',
+                }).format(new Date(r.updated_at))}
+              </p>
+              <p className="flex gap-3 text-xs">
+                {r.receipt_url && (
+                  <a
+                    href={r.receipt_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline-offset-2 hover:underline"
+                  >
+                    Ver comprobante →
+                  </a>
+                )}
+                <Link
+                  href={`/ventas/${r.booking_id}`}
+                  className="text-primary underline-offset-2 hover:underline"
+                >
+                  Ver venta →
+                </Link>
+              </p>
+            </div>
+            <div className="shrink-0">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                loading={isPending && busyId === r.id}
+                onClick={() => reabrir(r)}
+              >
+                Reabrir
               </Button>
             </div>
           </div>

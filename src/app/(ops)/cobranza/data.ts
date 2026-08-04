@@ -51,3 +51,13 @@ export async function getSpeiPendientes(): Promise<
   if (error || data == null) return []
   return data as unknown as import('./spei-pendientes').SpeiPendiente[]
 }
+
+// b037: rechazadas recientes (14 días) — auditoría + reabrir si fue por error.
+export async function getSpeiRechazadas(): Promise<
+  import('./spei-pendientes').SpeiRechazada[]
+> {
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc('list_rejected_spei' as never)
+  if (error || data == null) return []
+  return data as unknown as import('./spei-pendientes').SpeiRechazada[]
+}
