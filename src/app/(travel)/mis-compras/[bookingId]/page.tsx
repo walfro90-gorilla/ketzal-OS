@@ -15,6 +15,7 @@ import { createClient } from '@/lib/supabase/server'
 import { marketplaceActivo } from '@/lib/marketplace'
 import { buttonVariants } from '@/components/ui/button'
 import { VoucherViajero } from './voucher-viajero'
+import { AcompanantesSection, type Acompanante } from './acompanantes'
 
 // Detalle del viaje del comprador B2C (#6): itinerario, qué incluye/no incluye y
 // contacto de la agencia. Datos vía RPC get_my_trip (SECURITY DEFINER, ownership
@@ -96,6 +97,16 @@ export default async function TripPage({
   const { service: sv, booking: bk, money, agency } = trip
   // El voucher acredita el servicio; disponible cuando la compra está apartada/pagada.
   const puedeVoucher = ['reserved', 'confirmed', 'paid'].includes(bk.status)
+
+  // b040: acompañantes — captura habilitada tras el primer pago (mismos
+  // estados que el voucher). RPC DEFINER scoped al dueño del pedido.
+  let acompanantes: Acompanante[] = []
+  if (puedeVoucher) {
+    const { data: pax } = await supabase.rpc('list_my_passengers' as never, {
+      p_booking_id: bookingId,
+    } as never)
+    acompanantes = (pax as unknown as Acompanante[]) ?? []
+  }
   const ruta = [sv.city_from, sv.city_to].filter(Boolean).join(' → ') || sv.location
   const fecha = fechaLarga(bk.travel_date)
 
@@ -160,6 +171,14 @@ export default async function TripPage({
           <p className="mt-1 text-sm text-primary">Pagado por completo ✓</p>
         )}
       </section>
+
+      {puedeVoucher && bk.num_pax != null && bk.num_pax > 0 && (
+        <AcompanantesSection
+          bookingId={bk.id}
+          numPax={bk.num_pax}
+          initial={acompanantes}
+        />
+      )}
 
       {puedeVoucher && (
         <section className="mt-6">
