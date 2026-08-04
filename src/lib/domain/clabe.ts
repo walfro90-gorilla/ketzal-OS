@@ -19,3 +19,20 @@ export function validarClabe(clabe: string): boolean {
   }
   return (10 - (suma % 10)) % 10 === Number(clabe[17])
 }
+
+/** ¿Tarjeta válida? 16 dígitos + Luhn. Para depósitos en efectivo en cajero:
+ *  una tarjeta mal capturada manda el efectivo del comprador a otra cuenta. */
+export function validarTarjeta(tarjeta: string): boolean {
+  if (!/^\d{16}$/.test(tarjeta)) return false
+  let suma = 0
+  for (let i = 0; i < 16; i++) {
+    // Desde la derecha: posiciones pares se duplican (Luhn).
+    let d = Number(tarjeta[15 - i])
+    if (i % 2 === 1) {
+      d *= 2
+      if (d > 9) d -= 9
+    }
+    suma += d
+  }
+  return suma % 10 === 0
+}

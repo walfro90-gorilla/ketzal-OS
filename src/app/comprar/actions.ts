@@ -323,6 +323,9 @@ export type SpeiInfo = {
   clabe: string
   banco: string | null
   titular: string | null
+  /** Depósito en efectivo en cajero (b038): cuenta y tarjeta de débito. */
+  cuenta: string | null
+  tarjeta: string | null
   agencia: string
 }
 

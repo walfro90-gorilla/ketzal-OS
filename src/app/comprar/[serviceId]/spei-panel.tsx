@@ -37,10 +37,13 @@ export function SpeiPanel({
   const [file, setFile] = useState<File | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  async function copiar() {
-    await navigator.clipboard.writeText(spei.clabe)
-    toast.success('CLABE copiada')
+  async function copiar(texto: string, etiqueta: string) {
+    await navigator.clipboard.writeText(texto)
+    toast.success(`${etiqueta} copiada`)
   }
+
+  /** Agrupa dígitos de 4 en 4 para lectura (la copia va sin espacios). */
+  const grupos = (d: string) => d.replace(/(.{4})/g, '$1 ').trim()
 
   async function enviar() {
     if (!file) {
@@ -74,11 +77,14 @@ export function SpeiPanel({
       <p className="font-medium">Transferencia SPEI a {spei.agencia}</p>
       {children}
       <div className="space-y-1 rounded-md bg-muted/50 p-2.5">
+        <p className="text-xs font-medium">Transferencia (CLABE)</p>
         <p className="flex items-center justify-between gap-2">
-          <span className="font-mono text-[13px] tabular-nums">{spei.clabe}</span>
+          <span className="font-mono text-[13px] tabular-nums">
+            {grupos(spei.clabe)}
+          </span>
           <button
             type="button"
-            onClick={copiar}
+            onClick={() => copiar(spei.clabe, 'CLABE')}
             aria-label="Copiar CLABE"
             className="text-muted-foreground hover:text-foreground"
           >
@@ -94,6 +100,54 @@ export function SpeiPanel({
           <span className="font-semibold text-foreground">{mxn.format(amount)}</span>
         </p>
       </div>
+
+      {/* Depósito en EFECTIVO en cajero BBVA (b038): a la tarjeta de débito. */}
+      {spei.tarjeta && (
+        <div className="space-y-1 rounded-md bg-muted/50 p-2.5">
+          <p className="text-xs font-medium">
+            Depósito en efectivo (cajero BBVA)
+          </p>
+          <p className="flex items-center justify-between gap-2">
+            <span className="font-mono text-[13px] tabular-nums">
+              {grupos(spei.tarjeta)}
+            </span>
+            <button
+              type="button"
+              onClick={() => copiar(spei.tarjeta!, 'Tarjeta')}
+              aria-label="Copiar tarjeta"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <CopyIcon className="size-4" />
+            </button>
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Tarjeta de débito{spei.cuenta ? ` · Cuenta ${grupos(spei.cuenta)}` : ''}
+          </p>
+          <details className="text-xs text-muted-foreground">
+            <summary className="cursor-pointer font-medium text-foreground/80 hover:text-foreground">
+              ¿Cómo depositar en un cajero BBVA?
+            </summary>
+            <ol className="mt-1.5 list-decimal space-y-1 pl-4">
+              <li>
+                Ubica un cajero BBVA que reciba depósitos en efectivo
+                (Practicaja o cajero inteligente).
+              </li>
+              <li>
+                En la pantalla elige <b>Depósitos</b> → <b>Depósito a cuenta o
+                tarjeta</b> (no necesitas insertar ninguna tarjeta tuya).
+              </li>
+              <li>
+                Teclea el número de tarjeta de arriba y verifica que el titular
+                sea {spei.titular ?? 'el de la agencia'}.
+              </li>
+              <li>Inserta los billetes; el cajero los cuenta y te confirma el monto.</li>
+              <li>
+                Toma tu ticket y súbele foto aquí como comprobante.
+              </li>
+            </ol>
+          </details>
+        </div>
+      )}
       <input
         value={ref}
         onChange={(e) => setRef(e.target.value)}

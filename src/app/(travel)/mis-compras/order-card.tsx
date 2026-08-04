@@ -35,8 +35,15 @@ export type Order = {
   provider_rating: number | null
   provider_comment: string | null
   app_rating: number | null
-  /** Datos SPEI de la agencia vendedora (b034); null si no acepta transferencia. */
-  spei: { clabe: string; banco: string | null; titular: string | null; agencia: string } | null
+  /** Datos SPEI de la agencia vendedora (b034/b038); null si no acepta transferencia. */
+  spei: {
+    clabe: string
+    banco: string | null
+    titular: string | null
+    cuenta: string | null
+    tarjeta: string | null
+    agencia: string
+  } | null
   /** Monto de la transferencia declarada, en revisión del admin (b034). */
   spei_pending: number | null
 }

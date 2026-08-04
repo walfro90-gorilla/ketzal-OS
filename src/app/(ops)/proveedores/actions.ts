@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { safeError } from '@/lib/errors'
 import { esBannerValido } from '@/lib/storage/banner-url'
-import { normalizarClabe, validarClabe } from '@/lib/domain/clabe'
+import { normalizarClabe, validarClabe, validarTarjeta } from '@/lib/domain/clabe'
 
 /** Datos de perfil público del proveedor (viven en la columna jsonb `info`). */
 export type ProveedorInfo = {
@@ -23,6 +23,9 @@ export type ProveedorInfo = {
   spei_clabe?: string
   spei_banco?: string
   spei_titular?: string
+  /** Depósito en efectivo en cajero (b038): cuenta y tarjeta de débito. */
+  spei_cuenta?: string
+  spei_tarjeta?: string
 }
 
 export type ProveedorInput = {
@@ -92,11 +95,15 @@ function limpiarInfo(info?: ProveedorInfo): ProveedorInfo | null {
     .filter(Boolean)
     .slice(0, 8)
   if (tags.length) out.specialties = tags
-  // Datos SPEI (la CLABE ya viene validada por normalizarCampos).
+  // Datos SPEI (CLABE/tarjeta ya vienen validadas por normalizarCampos).
   const clabe = normalizarClabe(info.spei_clabe ?? '')
   if (clabe) out.spei_clabe = clabe
   if (s(info.spei_banco)) out.spei_banco = s(info.spei_banco)
   if (s(info.spei_titular)) out.spei_titular = s(info.spei_titular)
+  const cuenta = normalizarClabe(info.spei_cuenta ?? '')
+  if (cuenta) out.spei_cuenta = cuenta
+  const tarjeta = normalizarClabe(info.spei_tarjeta ?? '')
+  if (tarjeta) out.spei_tarjeta = tarjeta
   return Object.keys(out).length ? out : null
 }
 
@@ -150,6 +157,15 @@ function normalizarCampos(input: ProveedorInput):
   const clabe = normalizarClabe(input.info?.spei_clabe ?? '')
   if (clabe && !validarClabe(clabe)) {
     return { error: 'La CLABE no es válida (18 dígitos, dígito de control).' }
+  }
+  // Tarjeta de débito (depósito en cajero): 16 dígitos + Luhn, mismo motivo.
+  const tarjeta = normalizarClabe(input.info?.spei_tarjeta ?? '')
+  if (tarjeta && !validarTarjeta(tarjeta)) {
+    return { error: 'La tarjeta de débito no es válida (16 dígitos).' }
+  }
+  const cuenta = normalizarClabe(input.info?.spei_cuenta ?? '')
+  if (cuenta && !/^\d{10,11}$/.test(cuenta)) {
+    return { error: 'La cuenta debe tener 10 u 11 dígitos.' }
   }
 
   return {

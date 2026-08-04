@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { normalizarClabe, validarClabe } from './clabe'
+import { normalizarClabe, validarClabe, validarTarjeta } from './clabe'
 
 describe('validarClabe', () => {
   it('acepta CLABEs válidas (dígito de control correcto)', () => {
@@ -21,6 +21,28 @@ describe('validarClabe', () => {
   it('rechaza caracteres no numéricos', () => {
     expect(validarClabe('64618015700000000X')).toBe(false)
     expect(validarClabe('646180 15700000004')).toBe(false)
+  })
+})
+
+describe('validarTarjeta', () => {
+  it('acepta tarjetas válidas (Luhn)', () => {
+    expect(validarTarjeta('4111111111111111')).toBe(true) // Visa test clásica
+    expect(validarTarjeta('5555555555554444')).toBe(true) // Mastercard test
+  })
+
+  it('rechaza Luhn incorrecto', () => {
+    expect(validarTarjeta('4111111111111112')).toBe(false)
+  })
+
+  it('rechaza longitud/caracteres incorrectos', () => {
+    expect(validarTarjeta('411111111111111')).toBe(false) // 15
+    expect(validarTarjeta('41111111111111112')).toBe(false) // 17
+    expect(validarTarjeta('4111 1111 1111 1111')).toBe(false) // espacios
+    expect(validarTarjeta('')).toBe(false)
+  })
+
+  it('normalizada + validada funcionan juntas', () => {
+    expect(validarTarjeta(normalizarClabe('4111 1111 1111 1111'))).toBe(true)
   })
 })
 

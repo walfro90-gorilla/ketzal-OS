@@ -1,0 +1,19 @@
+-- b038 — Depósito en EFECTIVO (cajero BBVA) como variante del pago SPEI.
+-- Espejo de la migración aplicada `b038_spei_deposito_efectivo`.
+--
+-- La agencia puede capturar además de la CLABE: número de cuenta (10-11
+-- dígitos) y tarjeta de débito (16 dígitos, validada con Luhn en la app) en
+-- suppliers.info (spei_cuenta / spei_tarjeta) — sin DDL. El comprador ve en el
+-- panel SPEI una segunda sección "Depósito en efectivo (cajero BBVA)" con la
+-- tarjeta + instrucciones paso a paso, y sube el ticket del cajero como
+-- comprobante (mismo flujo b035: declarar → admin confirma en /cobranza).
+-- Los datos bancarios REALES viven solo en la BD (el repo es público).
+--
+-- Único cambio en BD: re-apply aditivo de list_my_marketplace_orders — el
+-- objeto `spei` gana las keys 'cuenta' y 'tarjeta' (de suppliers.info); el
+-- resto de la función queda idéntico al DDL vivo. Ver la migración aplicada
+-- para el cuerpo completo (mismo patrón que b034/b036).
+--
+-- Coordinación: si se re-aplica list_my_marketplace_orders desde otra fuente,
+-- conservar las keys spei.{clabe,banco,titular,cuenta,tarjeta,agencia} y
+-- spei_pending.

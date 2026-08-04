@@ -103,6 +103,8 @@ export function ProveedorForm({
   const [speiClabe, setSpeiClabe] = useState(info?.spei_clabe ?? '')
   const [speiBanco, setSpeiBanco] = useState(info?.spei_banco ?? '')
   const [speiTitular, setSpeiTitular] = useState(info?.spei_titular ?? '')
+  const [speiCuenta, setSpeiCuenta] = useState(info?.spei_cuenta ?? '')
+  const [speiTarjeta, setSpeiTarjeta] = useState(info?.spei_tarjeta ?? '')
 
   // Logo y fotos: suben directo a Storage y persisten al instante (modo edición).
   const [logo, setLogo] = useState(initial?.img_logo ?? null)
@@ -231,6 +233,8 @@ export function ProveedorForm({
       spei_clabe: speiClabe.trim() || undefined,
       spei_banco: speiBanco.trim() || undefined,
       spei_titular: speiTitular.trim() || undefined,
+      spei_cuenta: speiCuenta.trim() || undefined,
+      spei_tarjeta: speiTarjeta.trim() || undefined,
     }
 
     const input: ProveedorInput = {
@@ -547,6 +551,28 @@ export function ProveedorForm({
                 value={speiTitular}
                 onChange={(e) => setSpeiTitular(e.target.value)}
                 placeholder="Nombre del titular"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="prov-cuenta">Cuenta (10-11 dígitos)</Label>
+              <Input
+                id="prov-cuenta"
+                inputMode="numeric"
+                value={speiCuenta}
+                onChange={(e) => setSpeiCuenta(e.target.value)}
+                placeholder="Ej. 1545821384"
+              />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="prov-tarjeta">
+                Tarjeta de débito (depósitos en efectivo en cajero)
+              </Label>
+              <Input
+                id="prov-tarjeta"
+                inputMode="numeric"
+                value={speiTarjeta}
+                onChange={(e) => setSpeiTarjeta(e.target.value)}
+                placeholder="16 dígitos — el comprador deposita efectivo a esta tarjeta"
               />
             </div>
           </CardContent>
