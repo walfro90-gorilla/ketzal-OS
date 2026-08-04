@@ -4,6 +4,7 @@ import { headers } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { safeError } from '@/lib/errors'
+import { esBannerValido } from '@/lib/storage/banner-url'
 
 // Registro / datos del COMPRADOR B2C (terreno del marketplace).
 // El comprador es un profile de tipo 'viajero' (refactor de identidad, F1): un
@@ -291,16 +292,23 @@ export async function obtenerSpeiPedido(
 // b034: el comprador declara que ya hizo la transferencia SPEI. Queda como
 // payment_intent (provider='spei', pending) hasta que el admin la confirme en
 // Cobranza — el guard (dueño del pedido, monto ≤ saldo) vive en el RPC.
+// b035: comprobante (captura del pago) OBLIGATORIO; debe ser URL del propio
+// Storage (esBannerValido — misma defensa anti-URL-arbitraria que los banners).
 export async function enviarPagoSpei(input: {
   bookingId: string
   amount: number
   reference?: string
+  receiptUrl: string
 }): Promise<{ error: string } | { ok: true }> {
+  if (!esBannerValido(input.receiptUrl)) {
+    return { error: 'Adjunta el comprobante de tu transferencia.' }
+  }
   const supabase = await createClient()
   const { error } = await supabase.rpc('submit_spei_payment' as never, {
     p_booking_id: input.bookingId,
     p_amount: input.amount,
     p_reference: input.reference?.trim() || null,
+    p_receipt_url: input.receiptUrl,
   } as never)
   if (error) return { error: safeError(error, 'No se pudo registrar tu transferencia.') }
   return { ok: true }

@@ -25,6 +25,8 @@ export type SpeiPendiente = {
   booking_id: string
   amount: number
   reference: string | null
+  /** Comprobante del pago (captura subida por el comprador, b035). */
+  receipt_url: string | null
   created_at: string
   cliente: string
   servicio: string
@@ -74,26 +76,57 @@ export function SpeiPendientes({ rows }: { rows: SpeiPendiente[] }) {
             key={r.id}
             className="flex flex-col gap-2 rounded-lg border bg-background p-3 sm:flex-row sm:items-center sm:justify-between"
           >
-            <div className="min-w-0 space-y-0.5">
-              <p className="text-sm font-medium">
-                {r.cliente} · {mxn.format(r.amount)}
-              </p>
-              <p className="truncate text-xs text-muted-foreground">
-                {r.servicio}
-                {r.reference ? ` · Ref: ${r.reference}` : ''} ·{' '}
-                {new Intl.DateTimeFormat('es-MX', {
-                  day: 'numeric',
-                  month: 'short',
-                  hour: 'numeric',
-                  minute: '2-digit',
-                }).format(new Date(r.created_at))}
-              </p>
-              <Link
-                href={`/ventas/${r.booking_id}`}
-                className="text-xs text-primary underline-offset-2 hover:underline"
-              >
-                Ver venta →
-              </Link>
+            <div className="flex min-w-0 items-start gap-3">
+              {/* Comprobante (b035): thumbnail clicable, abre en pestaña nueva. */}
+              {r.receipt_url && (
+                <a
+                  href={r.receipt_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="shrink-0 overflow-hidden rounded-md border"
+                  aria-label="Ver comprobante"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={r.receipt_url}
+                    alt="Comprobante"
+                    className="size-14 object-cover"
+                  />
+                </a>
+              )}
+              <div className="min-w-0 space-y-0.5">
+                <p className="text-sm font-medium">
+                  {r.cliente} · {mxn.format(r.amount)}
+                </p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {r.servicio}
+                  {r.reference ? ` · Ref: ${r.reference}` : ''} ·{' '}
+                  {new Intl.DateTimeFormat('es-MX', {
+                    day: 'numeric',
+                    month: 'short',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                  }).format(new Date(r.created_at))}
+                </p>
+                <p className="flex gap-3 text-xs">
+                  {r.receipt_url && (
+                    <a
+                      href={r.receipt_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary underline-offset-2 hover:underline"
+                    >
+                      Ver comprobante →
+                    </a>
+                  )}
+                  <Link
+                    href={`/ventas/${r.booking_id}`}
+                    className="text-primary underline-offset-2 hover:underline"
+                  >
+                    Ver venta →
+                  </Link>
+                </p>
+              </div>
             </div>
             <div className="flex shrink-0 gap-2">
               <Button
