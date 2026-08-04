@@ -70,6 +70,18 @@ export async function notificar(
   )
 }
 
+/** Superadmins activos (eventos de plataforma: viajero/embajador nuevo). */
+export async function superadmins(): Promise<string[]> {
+  const svc = createServiceClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data } = await (svc as any)
+    .from('profiles')
+    .select('id')
+    .eq('active', true)
+    .eq('role', 'superadmin')
+  return ((data ?? []) as { id: string }[]).map((p) => p.id)
+}
+
 /** Admins activos de una agencia + superadmins activos (los que operan dinero). */
 export async function adminsDeAgencia(supplierId: string): Promise<string[]> {
   const svc = createServiceClient()

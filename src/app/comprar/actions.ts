@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { safeError } from '@/lib/errors'
 import { esBannerValido } from '@/lib/storage/banner-url'
-import { adminsDeAgencia, notificar } from '@/lib/push/send'
+import { adminsDeAgencia, notificar, superadmins } from '@/lib/push/send'
 
 // Registro / datos del COMPRADOR B2C (terreno del marketplace).
 // El comprador es un profile de tipo 'viajero' (refactor de identidad, F1): un
@@ -61,6 +61,20 @@ export async function registrarComprador(
     type: 'viajero',
     active: true,
   })
+
+  // b036: cuenta realmente NUEVA (identities vacío = correo ya registrado, no
+  // avisar de nuevo) ⇒ notificar a los superadmins. Best-effort.
+  if (user.identities?.length) {
+    try {
+      await notificar(await superadmins(), {
+        title: 'Viajero nuevo registrado',
+        body: `${nombre} (${email}) creó su cuenta en el marketplace.`,
+        url: '/viajeros',
+      })
+    } catch {
+      /* best-effort */
+    }
+  }
 
   return { ok: true, needsConfirmation: !data.session }
 }
@@ -123,6 +137,38 @@ export async function crearPedido(input: {
       p_booking: bookingId,
       p_ref: input.ref.trim(),
     } as never)
+  }
+
+  // b036: avisar a los admins de la agencia — llegó una cotización (pedido
+  // draft) del marketplace. Si la ficha de cliente en esa agencia se acaba de
+  // crear (primera compra ahí), se marca "cliente nuevo". Best-effort.
+  try {
+    const svc = createServiceClient()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: b } = await (svc as any)
+      .from('bookings')
+      .select('selling_supplier_id, total, customer:customers(full_name, created_at), service:services(name)')
+      .eq('id', bookingId)
+      .maybeSingle()
+    if (b?.selling_supplier_id) {
+      const clienteNuevo =
+        b.customer?.created_at &&
+        Date.now() - new Date(b.customer.created_at).getTime() < 5 * 60_000
+      const admins = await adminsDeAgencia(b.selling_supplier_id)
+      const monto = new Intl.NumberFormat('es-MX', {
+        style: 'currency',
+        currency: 'MXN',
+      }).format(Number(b.total))
+      await notificar(admins, {
+        title: clienteNuevo
+          ? 'Nueva cotización · cliente nuevo'
+          : 'Nueva cotización del marketplace',
+        body: `${b.customer?.full_name ?? 'Comprador'} — ${b.service?.name ?? 'viaje'} por ${monto}.`,
+        url: `/ventas/${bookingId}`,
+      })
+    }
+  } catch {
+    /* best-effort */
   }
 
   return { ok: true, bookingId }

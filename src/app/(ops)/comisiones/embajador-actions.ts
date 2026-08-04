@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { safeError } from '@/lib/errors'
+import { notificar, superadmins } from '@/lib/push/send'
 
 // Alta de EMBAJADOR = profile(type='embajador') con su cuenta auth (profiles.id
 // → auth.users ON DELETE CASCADE, F2). No se loguea aún; el email real es opcional
@@ -83,6 +84,17 @@ export async function crearEmbajador(input: {
         ? 'Ese código de referido ya está en uso.'
         : safeError(rowErr, 'No se pudo guardar el embajador.'),
     }
+  }
+
+  // b036: avisar a los superadmins — hay un embajador nuevo. Best-effort.
+  try {
+    await notificar(await superadmins(), {
+      title: 'Embajador nuevo',
+      body: `${nombre} se dio de alta con el código ${codigo}.`,
+      url: '/comisiones',
+    })
+  } catch {
+    /* best-effort */
   }
 
   revalidatePath('/comisiones')
