@@ -193,6 +193,52 @@ export default async function ServicioPublicoPage({
         </CardContent>
       </Card>
 
+      {/* b044: calendario de salidas — próximas con lugares (o "Agotado") y
+          pasadas recientes tachadas en gris. */}
+      {(s.all_departures ?? []).length > 0 && (
+        <section className="mt-6">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Fechas de salida
+          </h2>
+          <ul className="mt-3 flex flex-wrap gap-2">
+            {(s.all_departures ?? []).map((d) => {
+              const hoy = new Date().toISOString().slice(0, 10)
+              const pasada = d.departs_on < hoy
+              const agotada = !pasada && d.free <= 0
+              const [y, m, day] = d.departs_on.split('-').map(Number)
+              const fecha = new Intl.DateTimeFormat('es-MX', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+              }).format(new Date(y, m - 1, day))
+              return (
+                <li
+                  key={d.id}
+                  className={
+                    pasada
+                      ? 'rounded-lg border border-dashed px-3 py-1.5 text-sm text-muted-foreground/60 line-through'
+                      : agotada
+                        ? 'rounded-lg border px-3 py-1.5 text-sm text-muted-foreground'
+                        : 'rounded-lg border border-primary/30 bg-primary/5 px-3 py-1.5 text-sm font-medium'
+                  }
+                >
+                  {fecha}
+                  {!pasada && (
+                    <span
+                      className={`ml-2 text-xs ${agotada ? 'font-semibold text-red-500' : 'text-muted-foreground'}`}
+                    >
+                      {agotada
+                        ? 'Agotado'
+                        : `${d.free} ${d.free === 1 ? 'lugar' : 'lugares'}`}
+                    </span>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        </section>
+      )}
+
       {s.description && (
         <section className="mt-6">
           <p className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">

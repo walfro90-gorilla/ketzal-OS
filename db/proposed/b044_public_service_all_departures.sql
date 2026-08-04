@@ -1,0 +1,15 @@
+-- b044 — Ficha pública con calendario de salidas.
+-- Espejo de la migración aplicada `b044_public_service_all_departures`.
+--
+-- Re-apply ADITIVO de get_public_service desde el DDL vivo: se AGREGA la key
+-- `all_departures` (salidas desde current_date - 180 días, incl. agotadas,
+-- con `free` = max_capacity - seats_taken). Las keys existentes se CONSERVAN:
+-- `departures` (futuras con cupo — las vendibles que usa /comprar) y
+-- `agency.id` (nota de coordinación previa). Ver la migración aplicada para
+-- el cuerpo completo.
+--
+-- UI (/servicio/[id]): sección "Fechas de salida" — próximas en chip normal
+-- con "N lugares", agotadas con badge rojo, pasadas tachadas y en gris.
+--
+-- Coordinación: si se re-aplica get_public_service desde otra fuente,
+-- conservar `agency.id`, `departures` Y `all_departures`.
