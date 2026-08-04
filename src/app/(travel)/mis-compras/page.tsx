@@ -5,6 +5,7 @@ import { marketplaceActivo } from '@/lib/marketplace'
 import { buttonVariants } from '@/components/ui/button'
 import { OrderCard, type Order } from './order-card'
 import { PagoProcesando } from './pago-procesando'
+import { UsarCredito, type CreditoViajero } from './usar-credito'
 
 // "Mis compras" del comprador B2C (B.3). Lista sus pedidos vía RPC SECURITY
 // DEFINER (el comprador no tiene RLS sobre bookings). Aquí paga los abonos
@@ -49,14 +50,8 @@ export default async function MisComprasPage({
   // C5 (b049): créditos del viajero por cancelaciones — saldo derivado,
   // canjeables en cualquier viaje de Ketzal (los aplica la agencia al reservar).
   const { data: crData } = await supabase.rpc('list_my_credits' as never, {} as never)
-  const creditos = (
-    (crData as unknown as {
-      id: string
-      agencia: string
-      saldo_mxn: number
-      expira: string
-      vigente: boolean
-    }[]) ?? []
+  const creditos: CreditoViajero[] = (
+    (crData as unknown as (CreditoViajero & { vigente: boolean })[]) ?? []
   ).filter((c) => c.vigente && Number(c.saldo_mxn) > 0)
   const mxnFmt = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' })
 
@@ -95,7 +90,16 @@ export default async function MisComprasPage({
       ) : (
         <div className="mt-6 space-y-4">
           {orders.map((o) => (
-            <OrderCard key={o.booking_id} order={o} />
+            <div key={o.booking_id} className="space-y-2">
+              <OrderCard order={o} />
+              {/* b051: el crédito universal lo aplica el TITULAR (una agencia
+                  ajena ya no puede consumirlo). Por eso el botón vive aquí. */}
+              <UsarCredito
+                bookingId={o.booking_id}
+                saldoPedido={Number(o.balance ?? 0)}
+                creditos={creditos}
+              />
+            </div>
           ))}
         </div>
       )}

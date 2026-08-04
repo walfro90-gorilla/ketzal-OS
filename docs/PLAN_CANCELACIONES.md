@@ -26,6 +26,16 @@
 
 **DoD:** página pública accesible sin login, enlazada desde vitrina. Cero cambios de BD.
 
+## C6 — Blindaje post-security-review (**b051**) — ✅ COMPLETA + exploits reproducidos (2026-08-04)
+
+> La revisión de seguridad del PR #67 (corrida a mano: `security-review.yml` falla por falta del secret `ANTHROPIC_API_KEY` en el repo) encontró **3 hallazgos reales**, confirmados contra la BD viva y reproducidos como exploit antes/después del fix. Espejo `db/proposed/b051_credits_hardening.sql`.
+>
+> - **H2 — hueco PRE-EXISTENTE del ledger (el más grave, no lo introdujo este PR):** `authenticated` tenía **GRANT UPDATE de tabla completa sobre `payments`** y `no_mutar` solo cubre DELETE/TRUNCATE ⇒ por PostgREST cualquiera podía PATCH sus propios asientos: subir `amount_mxn` (venta "pagada" sin dinero) o borrar `credit_id` (el saldo del crédito se deriva de esa columna ⇒ gastar el mismo crédito infinitas veces). **Fix: REVOKE UPDATE + drop de `payments_scoped_upd`** — verificado antes: ninguna función ni línea de app hace UPDATE sobre payments, todo el dinero entra por RPCs que INSERTAN.
+> - **H3 — crédito acuñable:** `credits` tenía policy de INSERT ⇒ `POST /rest/v1/credits` directo. Ahora **RPC-only-write** y `cancel_booking_v2` es DEFINER con guard de dueño. Además `credito.pct` (editable por la agencia en `suppliers.info`) no tenía tope ⇒ pct=10000 convertía $100 en $10,000; ahora **crédito ≤ pagado** y pct saneados 0..100 en `effective_cancellation_policy`.
+> - **H1 — canje sin legitimación del titular:** la agencia destino controlaba ambos lados del guard (crea la venta y la ficha de cliente con el `marketplace_customer_id` del viajero) ⇒ podía consumir sola el crédito emitido por otra y volverlo pena retenida cancelando dentro de 48h. Ahora el canje exige **superadmin ∨ agencia emisora ∨ el propio titular**, y `list_customer_credits` solo muestra lo que MI agencia emitió. **El crédito sigue universal**: el viajero lo aplica desde `/mis-compras` a su pedido en cualquier agencia (botón nuevo `usar-credito.tsx` + `credito-actions.ts`). Follow-up para el mostrador cross-agencia: código de canje de un solo uso.
+>
+> Hard-test: exploit H1 con id conocido bloqueado; titular canjeando cross-agencia **funciona** (4000→2500); UPDATE de `payments` y INSERT en `credits` ⇒ *permission denied*; pct inflado acotado; cancelar venta ajena bloqueado. Invariantes 0, advisors **0 ERROR**, tsc+build+75 tests verdes.
+
 ## C1 — BD: definición + snapshot + preview (**b047**) — ✅ COMPLETA + hard-testeada (2026-08-04)
 
 > Aplicada como `ketzal_cancellation_policy` + `_fix_guard` (espejo consolidado `db/proposed/b047_cancellation_policy.sql`). Hard-test en vivo con fixtures QA (limpiadas): cascada default/override, snapshot idempotente y **congelado** (override 99% no mueve la venta ni el doc público), cross-agencia denegado, comprador acepta su pedido / no el ajeno, anon por token fail-closed, tramos 10/50/no-show + piso enganche, RLS de preview. Invariantes 0, advisors **0 ERROR**. **Bug real cachado por el hard-test:** el guard de dueño con OR trivalente (`marketplace_customer_id` null ⇒ NULL ⇒ no raise) — corregido con `coalesce(..., false)`.
