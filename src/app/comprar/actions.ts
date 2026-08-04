@@ -267,3 +267,21 @@ export async function calificar(
   if (error) return { error: safeError(error, 'No se pudo enviar tu calificación.') }
   return { ok: true }
 }
+
+// b034: el comprador declara que ya hizo la transferencia SPEI. Queda como
+// payment_intent (provider='spei', pending) hasta que el admin la confirme en
+// Cobranza — el guard (dueño del pedido, monto ≤ saldo) vive en el RPC.
+export async function enviarPagoSpei(input: {
+  bookingId: string
+  amount: number
+  reference?: string
+}): Promise<{ error: string } | { ok: true }> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc('submit_spei_payment' as never, {
+    p_booking_id: input.bookingId,
+    p_amount: input.amount,
+    p_reference: input.reference?.trim() || null,
+  } as never)
+  if (error) return { error: safeError(error, 'No se pudo registrar tu transferencia.') }
+  return { ok: true }
+}

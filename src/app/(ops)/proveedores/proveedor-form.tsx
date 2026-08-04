@@ -98,6 +98,12 @@ export function ProveedorForm({
     info?.km_traveled != null ? String(info.km_traveled) : ''
   )
 
+  // Datos SPEI de la agencia (b034): con CLABE, sus ventas del marketplace
+  // aceptan pago por transferencia directa (sin comisión de MP).
+  const [speiClabe, setSpeiClabe] = useState(info?.spei_clabe ?? '')
+  const [speiBanco, setSpeiBanco] = useState(info?.spei_banco ?? '')
+  const [speiTitular, setSpeiTitular] = useState(info?.spei_titular ?? '')
+
   // Logo y fotos: suben directo a Storage y persisten al instante (modo edición).
   const [logo, setLogo] = useState(initial?.img_logo ?? null)
   const [subiendoLogo, startLogo] = useTransition()
@@ -222,6 +228,9 @@ export function ProveedorForm({
         .map((t) => t.trim())
         .filter(Boolean),
       km_traveled: kmTraveled.trim() ? Number(kmTraveled) : undefined,
+      spei_clabe: speiClabe.trim() || undefined,
+      spei_banco: speiBanco.trim() || undefined,
+      spei_titular: speiTitular.trim() || undefined,
     }
 
     const input: ProveedorInput = {
@@ -499,6 +508,50 @@ export function ProveedorForm({
           </div>
         </CardContent>
       </Card>
+
+      {tipo === 'agency' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Pagos por transferencia (SPEI)</CardTitle>
+            <CardDescription>
+              Con CLABE capturada, los compradores del marketplace pueden pagar
+              por transferencia directa a la cuenta de la agencia (sin comisión
+              de Mercado Pago). Cada transferencia queda en revisión hasta que
+              un admin la confirme en Cobranza.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="prov-clabe">CLABE (18 dígitos)</Label>
+              <Input
+                id="prov-clabe"
+                inputMode="numeric"
+                value={speiClabe}
+                onChange={(e) => setSpeiClabe(e.target.value)}
+                placeholder="Ej. 646180157000000004"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="prov-banco">Banco</Label>
+              <Input
+                id="prov-banco"
+                value={speiBanco}
+                onChange={(e) => setSpeiBanco(e.target.value)}
+                placeholder="Ej. BBVA"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="prov-titular">Titular de la cuenta</Label>
+              <Input
+                id="prov-titular"
+                value={speiTitular}
+                onChange={(e) => setSpeiTitular(e.target.value)}
+                placeholder="Nombre del titular"
+              />
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

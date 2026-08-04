@@ -10,11 +10,12 @@ import {
 import { EmptyState } from '@/components/data/empty-state'
 import { PageHeader } from '@/components/data/page-header'
 import { mxn } from '@/components/data/format'
-import { getCobranza } from './data'
+import { getCobranza, getSpeiPendientes } from './data'
 import { CobranzaList } from './cobranza-list'
+import { SpeiPendientes } from './spei-pendientes'
 
 export default async function CobranzaPage() {
-  const data = await getCobranza()
+  const [data, spei] = await Promise.all([getCobranza(), getSpeiPendientes()])
 
   return (
     <div className="space-y-6">
@@ -22,6 +23,8 @@ export default async function CobranzaPage() {
         title="Cobranza"
         description="Ventas con saldo pendiente: el próximo pago del plan y cuánto van atrasadas."
       />
+
+      <SpeiPendientes rows={spei} />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <Card>

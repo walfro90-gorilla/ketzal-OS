@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { safeError } from '@/lib/errors'
 import { esBannerValido } from '@/lib/storage/banner-url'
+import { normalizarClabe, validarClabe } from '@/lib/domain/clabe'
 
 /** Datos de perfil público del proveedor (viven en la columna jsonb `info`). */
 export type ProveedorInfo = {
@@ -17,6 +18,11 @@ export type ProveedorInfo = {
   specialties?: string[]
   /** Kilómetros recorridos — estimado inicial que captura el fundador (seed). */
   km_traveled?: number
+  /** Datos SPEI de la agencia (b034): con CLABE, sus ventas del marketplace
+      aceptan pago por transferencia directa (sin comisión de MP). */
+  spei_clabe?: string
+  spei_banco?: string
+  spei_titular?: string
 }
 
 export type ProveedorInput = {
@@ -86,6 +92,11 @@ function limpiarInfo(info?: ProveedorInfo): ProveedorInfo | null {
     .filter(Boolean)
     .slice(0, 8)
   if (tags.length) out.specialties = tags
+  // Datos SPEI (la CLABE ya viene validada por normalizarCampos).
+  const clabe = normalizarClabe(info.spei_clabe ?? '')
+  if (clabe) out.spei_clabe = clabe
+  if (s(info.spei_banco)) out.spei_banco = s(info.spei_banco)
+  if (s(info.spei_titular)) out.spei_titular = s(info.spei_titular)
   return Object.keys(out).length ? out : null
 }
 
@@ -132,6 +143,13 @@ function normalizarCampos(input: ProveedorInput):
     const ref = normalizarReferral(input.referral_code)
     if ('error' in ref) return ref
     referralCode = ref.code
+  }
+
+  // CLABE (SPEI): si se captura, debe ser válida — una CLABE errónea manda la
+  // transferencia del comprador a una cuenta equivocada.
+  const clabe = normalizarClabe(input.info?.spei_clabe ?? '')
+  if (clabe && !validarClabe(clabe)) {
+    return { error: 'La CLABE no es válida (18 dígitos, dígito de control).' }
   }
 
   return {

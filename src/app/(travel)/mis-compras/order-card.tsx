@@ -2,12 +2,20 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { StarIcon, ChevronRightIcon, ClockIcon } from 'lucide-react'
+import {
+  StarIcon,
+  ChevronRightIcon,
+  ClockIcon,
+  CopyIcon,
+  LandmarkIcon,
+  HourglassIcon,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { crearLinkPagoMarketplace, calificar } from '@/app/comprar/actions'
+import { crearLinkPagoMarketplace, calificar, enviarPagoSpei } from '@/app/comprar/actions'
 
 export type Order = {
   booking_id: string
@@ -27,6 +35,10 @@ export type Order = {
   provider_rating: number | null
   provider_comment: string | null
   app_rating: number | null
+  /** Datos SPEI de la agencia vendedora (b034); null si no acepta transferencia. */
+  spei: { clabe: string; banco: string | null; titular: string | null; agencia: string } | null
+  /** Monto de la transferencia declarada, en revisión del admin (b034). */
+  spei_pending: number | null
 }
 
 const mxn = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' })
@@ -108,7 +120,13 @@ function StarPicker({
 }
 
 export function OrderCard({ order }: { order: Order }) {
+  const router = useRouter()
   const [busy, setBusy] = useState(false)
+  // Transferencia SPEI (b034): panel con los datos bancarios de la agencia.
+  const [speiOpen, setSpeiOpen] = useState(false)
+  const [speiRef, setSpeiRef] = useState('')
+  // 'abono' = siguiente abono del plan; 'todo' = liquidar el saldo.
+  const [speiOpcion, setSpeiOpcion] = useState<'abono' | 'todo'>('abono')
   // Calificación (viajero→proveedor + →app). Editable: submit_rating hace upsert,
   // así que se muestra lo ya calificado (read-only) con opción de editar.
   const [prov, setProv] = useState(order.provider_rating ?? 0)
@@ -133,6 +151,29 @@ export function OrderCard({ order }: { order: Order }) {
       return
     }
     window.location.href = res.url
+  }
+
+  async function copiarClabe() {
+    if (!order.spei) return
+    await navigator.clipboard.writeText(order.spei.clabe)
+    toast.success('CLABE copiada')
+  }
+
+  async function enviarSpei(amount: number) {
+    setBusy(true)
+    const res = await enviarPagoSpei({
+      bookingId: order.booking_id,
+      amount,
+      reference: speiRef,
+    })
+    setBusy(false)
+    if ('error' in res) {
+      toast.error(res.error)
+      return
+    }
+    toast.success('Transferencia registrada. La agencia la confirmará al recibirla.')
+    setSpeiOpen(false)
+    router.refresh()
   }
 
   async function enviarProveedor() {
@@ -202,42 +243,158 @@ export function OrderCard({ order }: { order: Order }) {
           </span>
         </div>
 
-        {/* Pago pendiente */}
-        {order.balance > 0 && order.service_id && (
-          <div className="flex flex-col gap-2">
-            {conPlan &&
-              (() => {
-                const aviso = abonoAviso(order.next_due_date)
-                return aviso ? (
-                  <p className={cn('flex items-center gap-1.5 text-sm font-medium', TONO[aviso.tone])}>
-                    <ClockIcon className="size-4 shrink-0" /> {aviso.text}
-                  </p>
-                ) : null
-              })()}
-            <Button
-              type="button"
-              size="touch"
-              className="w-full"
-              loading={busy}
-              onClick={() => pagar(conPlan ? order.next_due : undefined)}
-            >
-              {busy
-                ? 'Abriendo pago…'
-                : conPlan
-                  ? `Pagar siguiente abono ${mxn.format(order.next_due)}`
-                  : `Pagar ${mxn.format(order.balance)}`}
-            </Button>
-            {conPlan && order.next_due < order.balance && (
+        {/* Transferencia SPEI declarada, en revisión del admin (b034). Se ocultan
+            los botones de pago para no duplicar el cobro mientras se confirma. */}
+        {order.spei_pending != null && order.spei_pending > 0 ? (
+          <p className="flex items-start gap-1.5 rounded-lg bg-amber-500/10 p-3 text-sm font-medium text-amber-700 dark:text-amber-500">
+            <HourglassIcon className="mt-0.5 size-4 shrink-0" />
+            <span>
+              Transferencia de {mxn.format(order.spei_pending)} en revisión. La
+              agencia la confirmará al recibirla.
+            </span>
+          </p>
+        ) : (
+          /* Pago pendiente */
+          order.balance > 0 &&
+          order.service_id && (
+            <div className="flex flex-col gap-2">
+              {conPlan &&
+                (() => {
+                  const aviso = abonoAviso(order.next_due_date)
+                  return aviso ? (
+                    <p className={cn('flex items-center gap-1.5 text-sm font-medium', TONO[aviso.tone])}>
+                      <ClockIcon className="size-4 shrink-0" /> {aviso.text}
+                    </p>
+                  ) : null
+                })()}
               <Button
                 type="button"
-                variant="outline"
+                size="touch"
+                className="w-full"
                 loading={busy}
-                onClick={() => pagar(order.balance)}
+                onClick={() => pagar(conPlan ? order.next_due : undefined)}
               >
-                Liquidar todo {mxn.format(order.balance)}
+                {busy
+                  ? 'Abriendo pago…'
+                  : conPlan
+                    ? `Pagar siguiente abono ${mxn.format(order.next_due)}`
+                    : `Pagar ${mxn.format(order.balance)}`}
               </Button>
-            )}
-          </div>
+              {conPlan && order.next_due < order.balance && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  loading={busy}
+                  onClick={() => pagar(order.balance)}
+                >
+                  Liquidar todo {mxn.format(order.balance)}
+                </Button>
+              )}
+
+              {/* Pago por transferencia SPEI directa a la agencia (b034). */}
+              {order.spei && !speiOpen && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setSpeiOpen(true)}
+                >
+                  <LandmarkIcon /> Pagar por transferencia (SPEI)
+                </Button>
+              )}
+              {order.spei && speiOpen && (
+                <div className="space-y-3 rounded-lg border p-3 text-sm">
+                  <p className="font-medium">
+                    Transferencia SPEI a {order.spei.agencia}
+                  </p>
+                  {conPlan && order.next_due < order.balance && (
+                    <div className="flex flex-col gap-1.5">
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          name={`spei-monto-${order.booking_id}`}
+                          checked={speiOpcion === 'abono'}
+                          onChange={() => setSpeiOpcion('abono')}
+                        />
+                        Siguiente abono · {mxn.format(order.next_due)}
+                      </label>
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          name={`spei-monto-${order.booking_id}`}
+                          checked={speiOpcion === 'todo'}
+                          onChange={() => setSpeiOpcion('todo')}
+                        />
+                        Liquidar todo · {mxn.format(order.balance)}
+                      </label>
+                    </div>
+                  )}
+                  <div className="space-y-1 rounded-md bg-muted/50 p-2.5">
+                    <p className="flex items-center justify-between gap-2">
+                      <span className="font-mono text-[13px] tabular-nums">
+                        {order.spei.clabe}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={copiarClabe}
+                        aria-label="Copiar CLABE"
+                        className="text-muted-foreground hover:text-foreground"
+                      >
+                        <CopyIcon className="size-4" />
+                      </button>
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {[order.spei.banco, order.spei.titular]
+                        .filter(Boolean)
+                        .join(' · ') || 'CLABE de la agencia'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Monto exacto:{' '}
+                      <span className="font-semibold text-foreground">
+                        {mxn.format(
+                          conPlan && order.next_due < order.balance && speiOpcion === 'abono'
+                            ? order.next_due
+                            : order.balance
+                        )}
+                      </span>
+                    </p>
+                  </div>
+                  <input
+                    value={speiRef}
+                    onChange={(e) => setSpeiRef(e.target.value)}
+                    placeholder="Clave de rastreo o referencia (opcional)"
+                    className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30"
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      loading={busy}
+                      onClick={() =>
+                        enviarSpei(
+                          conPlan && order.next_due < order.balance && speiOpcion === 'abono'
+                            ? order.next_due
+                            : order.balance
+                        )
+                      }
+                    >
+                      Ya hice la transferencia
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      disabled={busy}
+                      onClick={() => setSpeiOpen(false)}
+                    >
+                      Cancelar
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Tu pago quedará en revisión y la agencia lo confirmará al
+                    ver la transferencia en su cuenta.
+                  </p>
+                </div>
+              )}
+            </div>
+          )
         )}
 
         {/* Calificación post-viaje */}

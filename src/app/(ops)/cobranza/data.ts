@@ -40,3 +40,14 @@ export async function getCobranza(): Promise<CobranzaData> {
   if (error || data == null) return EMPTY
   return data as unknown as CobranzaData
 }
+
+// b034: transferencias SPEI del marketplace a la espera de confirmación.
+// El RPC exige admin (guard) — para un agente regresa error ⇒ [] ⇒ sin card.
+export async function getSpeiPendientes(): Promise<
+  import('./spei-pendientes').SpeiPendiente[]
+> {
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc('list_pending_spei' as never)
+  if (error || data == null) return []
+  return data as unknown as import('./spei-pendientes').SpeiPendiente[]
+}
