@@ -21,6 +21,8 @@ import { VencimientoForm } from './vencimiento-form'
 import { PasajerosSection } from './pasajeros'
 import type { Pasajero } from './pasajeros-actions'
 import { VoucherBoton } from './voucher-boton'
+import { getSpeiPendientes } from '@/app/(ops)/cobranza/data'
+import { SpeiPendientes } from '@/app/(ops)/cobranza/spei-pendientes'
 
 type LineItem = {
   id: string
@@ -171,6 +173,13 @@ export default async function VentaDetallePage({
     .eq('booking_id' as never, id as never)
     .order('created_at' as never)
   const pasajeros = (pasajerosData ?? []) as unknown as Pasajero[]
+
+  // b034/b035: transferencia SPEI pendiente de esta venta (si la hay). Misma
+  // card y acción que /cobranza; para un agente (no admin) el RPC regresa
+  // error ⇒ [] ⇒ la card no se muestra (aprobar es de admin).
+  const speiPendientes = (await getSpeiPendientes()).filter(
+    (r) => r.booking_id === id
+  )
 
   // F4: ¿ya tiene voucher emitido? (tabla nueva, no tipada ⇒ cast). RLS acota.
   const { data: voucherRow } = await supabase
@@ -398,6 +407,8 @@ export default async function VentaDetallePage({
         schedule={(schedule ?? []) as unknown as PlanItem[]}
         cancelled={cancelada}
       />
+
+      <SpeiPendientes rows={speiPendientes} />
 
       {paymentsError || receiptsError ? (
         <Card>

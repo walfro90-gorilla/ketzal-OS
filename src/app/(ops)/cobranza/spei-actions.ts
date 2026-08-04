@@ -18,5 +18,7 @@ export async function resolverSpei(
   } as never)
   if (error) return { error: safeError(error, 'No se pudo resolver la transferencia.') }
   revalidatePath('/cobranza')
+  // La card también vive en el detalle de la venta — refrescar esas páginas.
+  revalidatePath('/ventas', 'layout')
   return { ok: true }
 }
