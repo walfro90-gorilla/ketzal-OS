@@ -11,12 +11,19 @@ self.addEventListener('push', (event) => {
   }
   const title = data.title || 'Ketzal'
   event.waitUntil(
-    self.registration.showNotification(title, {
-      body: data.body || '',
-      icon: '/icon',
-      badge: '/icon',
-      data: { url: data.url || '/' },
-    })
+    Promise.all([
+      self.registration.showNotification(title, {
+        body: data.body || '',
+        icon: '/icon',
+        badge: '/icon',
+        data: { url: data.url || '/' },
+      }),
+      // Avisar a las pestañas abiertas para que la campana se refresque al
+      // instante (sin esperar el polling ni un reload).
+      clients
+        .matchAll({ type: 'window', includeUncontrolled: true })
+        .then((wins) => wins.forEach((w) => w.postMessage({ type: 'ketzal:noti' }))),
+    ])
   )
 })
 

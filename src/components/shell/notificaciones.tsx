@@ -68,6 +68,9 @@ export function Notificaciones() {
   }, [])
 
   // SW + estado inicial. El registro es idempotente (el navegador reusa).
+  // "Tiempo real" sin infra extra: (1) el SW manda postMessage al llegar un
+  // push ⇒ refresco instantáneo; (2) refresco al recuperar el foco de la
+  // pestaña; (3) polling de respaldo cada 60s.
   useEffect(() => {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker
@@ -81,6 +84,19 @@ export function Notificaciones() {
       setPushActivo(false)
     }
     cargar()
+
+    const onSwMsg = (e: MessageEvent) => {
+      if ((e.data as { type?: string } | null)?.type === 'ketzal:noti') cargar()
+    }
+    navigator.serviceWorker?.addEventListener('message', onSwMsg)
+    const onFocus = () => cargar()
+    window.addEventListener('focus', onFocus)
+    const iv = setInterval(cargar, 60_000)
+    return () => {
+      navigator.serviceWorker?.removeEventListener('message', onSwMsg)
+      window.removeEventListener('focus', onFocus)
+      clearInterval(iv)
+    }
   }, [cargar])
 
   async function activarPush() {
