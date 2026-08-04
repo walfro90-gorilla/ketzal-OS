@@ -1,7 +1,9 @@
 'use client'
 
-import { LogOutIcon, UserIcon } from 'lucide-react'
+import Link from 'next/link'
+import { LogOutIcon, ShoppingBagIcon, UserIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { marketplaceActivo } from '@/lib/marketplace'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,6 +50,15 @@ export function UserMenu({
             </span>
           </div>
           <DropdownMenuSeparator />
+          {/* Comprar es capacidad de todo usuario (b033). El staff que compra en
+              el marketplace ve aquí sus pedidos — su nav primario es el back-office,
+              así que /mis-compras no está en el sidebar. Tras el flag. */}
+          {marketplaceActivo() && (
+            <DropdownMenuItem render={<Link href="/mis-compras" />}>
+              <ShoppingBagIcon />
+              Mis compras
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem
             variant="destructive"
             onClick={() =>
