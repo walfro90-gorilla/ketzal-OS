@@ -7,6 +7,9 @@ import { toast } from 'sonner'
 import {
   StarIcon,
   ChevronRightIcon,
+  ChevronDownIcon,
+  CircleCheckIcon,
+  CircleAlertIcon,
   ClockIcon,
   LandmarkIcon,
   HourglassIcon,
@@ -46,6 +49,8 @@ export type Order = {
   } | null
   /** Monto de la transferencia declarada, en revisión del admin (b034). */
   spei_pending: number | null
+  /** Plan de pagos (b039): calendario con acumulado; null si es de contado. */
+  plan: { seq: number; kind: string; due_date: string; amount: number; cum: number }[] | null
 }
 
 const mxn = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' })
@@ -86,6 +91,55 @@ const TONO: Record<'danger' | 'warn' | 'muted', string> = {
   danger: 'text-destructive',
   warn: 'text-amber-600 dark:text-amber-500',
   muted: 'text-muted-foreground',
+}
+
+/** Checklist del plan de pagos (b039), colapsado por default. Estado por
+ *  renglón contra lo pagado: verde = cubierto, rojo = vencido, ámbar = próximo. */
+function PlanChecklist({
+  plan,
+  paid,
+}: {
+  plan: NonNullable<Order['plan']>
+  paid: number
+}) {
+  const hoy = new Date()
+  hoy.setHours(0, 0, 0, 0)
+  const pagados = plan.filter((p) => Number(p.cum) <= paid + 0.005).length
+  return (
+    <details className="group rounded-lg border">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-sm font-medium [&::-webkit-details-marker]:hidden">
+        <span>Plan de pagos</span>
+        <span className="flex items-center gap-1.5 text-xs font-normal text-muted-foreground">
+          {pagados}/{plan.length} pagados
+          <ChevronDownIcon className="size-4 transition-transform group-open:rotate-180" />
+        </span>
+      </summary>
+      <ul className="space-y-1.5 border-t px-3 py-2.5">
+        {plan.map((p) => {
+          const [y, m, d] = p.due_date.split('-').map(Number)
+          const due = new Date(y, m - 1, d)
+          const pagado = Number(p.cum) <= paid + 0.005
+          const vencido = !pagado && due < hoy
+          const Icono = pagado ? CircleCheckIcon : vencido ? CircleAlertIcon : ClockIcon
+          const tono = pagado
+            ? 'text-emerald-600 dark:text-emerald-500'
+            : vencido
+              ? 'text-destructive'
+              : TONO.warn
+          return (
+            <li key={p.seq} className={cn('flex items-center gap-2 text-sm', tono)}>
+              <Icono className="size-4 shrink-0" />
+              <span className="flex-1">
+                {p.kind === 'enganche' || p.seq === 0 ? 'Enganche' : `Abono ${p.seq}`} ·{' '}
+                {fechaCorta(p.due_date)}
+              </span>
+              <span className="font-medium tabular-nums">{mxn.format(p.amount)}</span>
+            </li>
+          )
+        })}
+      </ul>
+    </details>
+  )
 }
 
 /** Selector de estrellas 1-5. readOnly ⇒ muestra la calificación sin editar. */
@@ -226,6 +280,11 @@ export function OrderCard({ order }: { order: Order }) {
             )}
           </span>
         </div>
+
+        {/* Plan de pagos (b039): checklist colapsado. */}
+        {order.plan && order.plan.length > 0 && (
+          <PlanChecklist plan={order.plan} paid={order.paid} />
+        )}
 
         {/* Transferencia SPEI declarada, en revisión del admin (b034). Se ocultan
             los botones de pago para no duplicar el cobro mientras se confirma. */}

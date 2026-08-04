@@ -1,0 +1,16 @@
+-- b039 — El pedido del comprador incluye su plan de pagos (checklist en
+-- /mis-compras). Espejo de la migración aplicada `b039_marketplace_orders_plan`.
+--
+-- Re-apply ADITIVO de list_my_marketplace_orders (sobre b038): key nueva
+-- `plan` — filas de payment_schedule (seq, kind, due_date, amount, cum
+-- acumulado) cuando payment_type='abonos'; null si es de contado. El viajero
+-- no tiene RLS sobre payment_schedule (tabla de agencia), por eso viaja en
+-- este RPC DEFINER ya scoped a sus propios pedidos. El cliente deriva el
+-- estado de cada renglón contra `paid`:
+--   cum <= paid            ⇒ pagado (verde)
+--   no pagado y due < hoy  ⇒ vencido (rojo)
+--   no pagado y due >= hoy ⇒ próximo (amarillo)
+-- Ver la migración aplicada para el cuerpo completo.
+--
+-- Coordinación: si se re-aplica list_my_marketplace_orders desde otra fuente,
+-- conservar las keys spei.{...}, spei_pending y plan.
