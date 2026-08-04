@@ -1,6 +1,9 @@
 import type { Metadata } from 'next'
 import { getQuote } from './data'
 import { getDocDivisa } from '@/lib/public/doc-currency'
+import { getDocPolicy } from '@/lib/public/doc-policy'
+import { PoliticaResumen } from '@/components/public/politica-resumen'
+import { AceptarPolitica } from './aceptar-politica'
 import { getBrandLogo } from '@/lib/brand'
 import { BrandMark } from '@/components/brand-mark'
 import { NotaDivisa } from '@/components/public/nota-divisa'
@@ -115,6 +118,8 @@ export default async function CotizacionPublicaPage({
   const fmt = mxnFmt
   // Origen en USD (null salvo que la cotización se haya pactado en USD).
   const divisa = await getDocDivisa('quote', token)
+  // C2: política de cancelación (snapshot congelado o la vigente) + aceptación.
+  const politica = await getDocPolicy('quote', token)
 
   // Plan de pagos: filas con saldo restante (suma pura, sin acumulador mutable).
   const total = Number(quote.total)
@@ -341,6 +346,21 @@ export default async function CotizacionPublicaPage({
               El enganche aparta tu lugar. Las fechas de los abonos son la guía
               sugerida de pago.
             </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {politica?.policy && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Política de cancelación</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <PoliticaResumen policy={politica.policy} />
+            <AceptarPolitica
+              token={token}
+              initialAcceptedAt={politica.accepted_at}
+            />
           </CardContent>
         </Card>
       )}

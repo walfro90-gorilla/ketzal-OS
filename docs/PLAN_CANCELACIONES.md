@@ -54,7 +54,9 @@
 
 **DoD:** advisors 0 ERROR; espejo `db/proposed/b047_cancellation_policy.sql`; sin tocar RPCs compartidos.
 
-## C2 — Aceptación visible en los dos carriles
+## C2 — Aceptación visible en los dos carriles — ✅ COMPLETA (2026-08-04)
+
+> Sin BD nueva (consume b047). **Marketplace**: checkbox obligatorio en `pedido-form` (cliente + guard server-side en `crearPedido`) y aceptación sellada tras crear el pedido (canal `checkout`, ip/ua, best-effort). **Cotización pública**: card "Política de cancelación" con `<PoliticaResumen>` (generado desde el jsonb — respeta overrides) + botón "Acepto" (`accept_policy_by_token`, `aceptar-politica.tsx` + `politica-actions.ts`). **OS**: `createBooking` congela snapshot al crear (best-effort); `/ventas/[id]` muestra `<PoliticaBadge>` (aceptada fecha+canal / ⚠️ pendiente) con "Registrar aceptación (WhatsApp/verbal)" canal `agente` (`politica-badge.tsx` + `politica-actions.ts` aparte, sin tocar `actions.ts` del detalle). Nuevos: `src/lib/public/doc-policy.ts` (calco doc-currency), `src/components/public/politica-resumen.tsx`. tsc+build+75 tests verdes.
 
 **Objetivo:** ninguna venta nueva nace sin política pactada.
 
