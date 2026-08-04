@@ -301,6 +301,60 @@ detalle de venta.
   per-pago → cancelar-tras-refund). Pendiente diferido a propósito (YAGNI sin
   compradores reales): refund **parcial** (hoy total).
 
+## Pago por transferencia SPEI directa (b034/b035, 2026-08-03/04) — validado manual en prod
+
+Segundo método de pago del marketplace, alterno a MP (sin comisión): el comprador
+transfiere a la **CLABE de la agencia** y declara el pago; queda **en revisión**
+hasta que un admin lo confirma. Diseño clave: **sin status nuevo de booking** (el
+pendiente vive en `payment_intents` `provider='spei'` `status='pending'`; la venta
+sigue `draft`) y **un solo camino de dinero** (aprobar reusa `confirm_online_payment`,
+que ganó `p_method` con default `'mercadopago'` — firma de 3 args del webhook intacta).
+
+- **CLABE por agencia**: `suppliers.info` (`spei_clabe/spei_banco/spei_titular`),
+  se captura en el form de proveedor (card solo-agencia) con **validador de dígito
+  de control** (`src/lib/domain/clabe.ts`, pesos 3-7-1; CLABE mala = dinero del
+  comprador a cuenta equivocada).
+- **RPCs** (b034, espejo `db/proposed/b034_spei.sql`): `submit_spei_payment`
+  (dueño del pedido, monto ≤ saldo, exige CLABE de la agencia; **dedupe**: 1 intent
+  pendiente por pedido, reintentar actualiza), `list_pending_spei` (guard admin,
+  scope por agencia; superadmin ve todo), `resolve_spei_payment` (guard
+  `is_agency_admin`/superadmin; aprobar = abono al ledger método `transferencia` +
+  cupo draft→reserved + saldo→paid; rechazar deja reintentar o pagar por MP).
+- **Comprobante OBLIGATORIO** (b035, espejo `db/proposed/b035_spei_comprobante.sql`):
+  captura JPG/PNG/WebP ≤8MB, sube del navegador a `gorilla-assets/spei/{booking}/`
+  (misma infra que fotos de proveedor; path no adivinable), URL en
+  `payment_intents.receipt_url`; el RPC **rechaza** declaraciones sin comprobante y
+  la app valida que la URL sea del propio Storage (`esBannerValido`).
+- **UI**: opción SPEI en el flujo de compra (`PagoBloque`: pago total y enganche del
+  plan) y en `/mis-compras` (abono siguiente o liquidar), con panel compartido
+  (`spei-panel.tsx`); pendiente ⇒ "en revisión" y botones de pago ocultos (anti
+  doble cobro). Admin: bandeja en `/cobranza` (thumbnail del comprobante +
+  Confirmar/Rechazar), **la misma card dentro de `/ventas/[id]`**, y KPI
+  **"Pagos por confirmar"** en el Panel (Requiere atención).
+- **Cupo**: el pending NO aparta lugar (draft). Aceptado por volumen; si al aprobar
+  ya no hay cupo, cae en el path `pagado_sin_cupo` existente (se loguea, no truena).
+
+**Hard-tests capa BD (rollback, 0 residuo):** 19/19 (b034: dedupe, guards por
+agencia, rechazo→reintento, aprobar→ledger→reserved→paid, doble-resolve bloqueado,
+regresión webhook 3-args, invariantes 0) + 5/5 (b035: sin comprobante bloqueado,
+dedupe actualiza comprobante, list lo trae, aprobar intacto).
+
+**Validación MANUAL del fundador en prod (2026-08-03/04) — ciclo completo:**
+1. **Nivel 1 (sin tocar ledger):** pedido → declarar SPEI $360 con comprobante →
+   visto en /cobranza → **Rechazar** → cancelar draft. Verificado: 0 filas en
+   `payments`, intent `rejected`, invariantes 0.
+2. **Nivel 2 (ciclo de dinero):** re-declarar → **Aprobar** (abono $360 método
+   `transferencia` COMPLETED, ligado al intent) → **Devolución** desde la venta
+   (asiento `refund` ligado, mismo método, sin tocar MP) → **Cancelar** venta.
+3. **Además** se re-validó la devolución MP con dinero real: pago de $5 (tarjeta)
+   → "Devolver por MP" → refund real + contra-asiento.
+4. **Cierre verificado en BD:** neto del ledger **$0.00**, todas las ventas de
+   prueba `cancelled`, `verificar_invariantes` = 0. Los asientos de prueba quedan
+   en la historia (regla del ledger inmutable, mismo precedente del go-live).
+
+**Estado:** MP y SPEI directo, ambos con ciclo completo probado en prod (incluidas
+devoluciones). Contabilidad neta en cero, lista para operación real.
+
 ## Reglas de oro que respeta
 
 - **Aislamiento RLS:** comprador ≠ agente; la RLS por agencia no se toca.
