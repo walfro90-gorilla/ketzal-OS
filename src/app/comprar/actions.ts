@@ -290,7 +290,25 @@ export async function generarPlanMarketplace(
     p_final_date: finalDate,
   } as never)
   if (error || !data) return { error: safeError(error, 'No se pudo crear el plan.') }
-  return { plan: data as unknown as PlanPreview }
+  const plan = data as unknown as PlanPreview
+
+  // Fecha límite de la venta AUTOMÁTICA = última fecha del plan. El comprador
+  // no puede escribir bookings (RLS) ⇒ service role, acotado a SU pedido (el
+  // RPC ya validó la propiedad; el eq extra es defensa). Best-effort.
+  if (plan.final) {
+    try {
+      const svc = createServiceClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (svc as any)
+        .from('bookings')
+        .update({ due_date: plan.final })
+        .eq('id', bookingId)
+        .eq('marketplace_customer_id', user.id)
+    } catch {
+      /* best-effort */
+    }
+  }
+  return { plan }
 }
 
 // B.3: calificación post-viaje del comprador (viajero→proveedor / →app).

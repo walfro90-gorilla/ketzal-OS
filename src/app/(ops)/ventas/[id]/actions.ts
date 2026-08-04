@@ -277,6 +277,22 @@ export async function crearPlanPagos(
   })
   if (error) return { error: safeError(error) }
 
+  // La fecha límite de pago de la venta se asigna AUTOMÁTICA = última fecha
+  // del plan recién persistido (fuente: el calendario guardado, no el input).
+  const { data: ultima } = await supabase
+    .from('payment_schedule')
+    .select('due_date')
+    .eq('booking_id', bookingId)
+    .order('due_date', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (ultima?.due_date) {
+    await supabase
+      .from('bookings')
+      .update({ due_date: ultima.due_date } as never)
+      .eq('id', bookingId)
+  }
+
   revalidatePath('/ventas/' + bookingId)
   return { ok: true }
 }

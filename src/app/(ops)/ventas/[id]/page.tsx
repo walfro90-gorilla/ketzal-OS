@@ -324,6 +324,22 @@ export default async function VentaDetallePage({
                   <span className="font-medium">
                     {formatTravelDate(booking.due_date)}
                   </span>
+                ) : booking.payment_type === 'abonos' &&
+                  (schedule?.length ?? 0) > 0 ? (
+                  // Con plan de pagos la fecha límite es AUTOMÁTICA (= última
+                  // fecha del calendario), no editable a mano.
+                  <span className="font-medium">
+                    {formatTravelDate(
+                      booking.due_date ??
+                        (schedule ?? []).reduce(
+                          (max, s) => (s.due_date > max ? s.due_date : max),
+                          ''
+                        )
+                    )}
+                    <span className="ml-2 text-xs font-normal text-muted-foreground">
+                      automática · última fecha del plan de pagos
+                    </span>
+                  </span>
                 ) : (
                   <VencimientoForm
                     bookingId={booking.id}
