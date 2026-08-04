@@ -61,7 +61,6 @@ export type ServicioFormInitial = {
   name: string
   supplier_id: string
   description: string
-  price: number
   service_type: string | null
   state_from: string
   city_from: string
@@ -112,9 +111,6 @@ export function ServicioForm({
     initial?.supplier_id ?? defaultSupplierId ?? agencias[0]?.id ?? ''
   )
   const [description, setDescription] = useState(initial?.description ?? '')
-  const [price, setPrice] = useState(
-    initial ? String(initial.price) : ''
-  )
   const [tipo, setTipo] = useState<ServicioTipo>(
     initial ? normalizarTipo(initial.service_type) : 'tour'
   )
@@ -294,7 +290,6 @@ export function ServicioForm({
   function aplicarLeido(d: ServicioLeido) {
     if (d.name) setName(d.name)
     if (d.description) setDescription(d.description)
-    if (d.price != null) setPrice(String(d.price))
     const tipoLeido = normalizarTipo(d.service_type)
     if (tipoLeido) setTipo(tipoLeido)
     if (d.state_from) setStateFrom(d.state_from)
@@ -329,11 +324,6 @@ export function ServicioForm({
       return
     }
 
-    const precio = Number(price)
-    if (price.trim() === '' || !Number.isFinite(precio) || precio < 0) {
-      setError('El precio debe ser un número mayor o igual a 0.')
-      return
-    }
 
     let cupo: number | undefined
     if (maxCapacity.trim() !== '') {
@@ -364,7 +354,6 @@ export function ServicioForm({
       name: name.trim(),
       supplier_id: supplierId,
       description: description.trim() || undefined,
-      price: precio,
       service_type: tipo || undefined,
       state_from: stateFrom.trim() || undefined,
       city_from: cityFrom.trim() || undefined,
@@ -407,7 +396,7 @@ export function ServicioForm({
         <CardHeader>
           <CardTitle>Datos del servicio</CardTitle>
           <CardDescription>
-            El nombre, la agencia dueña y el precio son obligatorios.
+            El nombre y la agencia dueña son obligatorios. El precio público (“desde”) se toma solo del pack más barato.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -459,19 +448,6 @@ export function ServicioForm({
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Qué incluye la experiencia, duración… (opcional)"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="servicio-precio">Precio (MXN) *</Label>
-              <Input
-                id="servicio-precio"
-                type="number"
-                inputMode="decimal"
-                min={0}
-                step="0.01"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                placeholder="Ej. 1500"
               />
             </div>
             <div className="space-y-2">
@@ -644,6 +620,7 @@ export function ServicioForm({
             <CardDescription>
               Precio por persona según el tipo de habitación. Deja en blanco los
               que no ofrezcas. Es solo precio: el cupo se controla en las salidas.
+              El más barato se publica como “Precios desde”.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">

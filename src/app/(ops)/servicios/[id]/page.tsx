@@ -96,7 +96,6 @@ export default async function ServicioDetallePage({
           name: servicio.name,
           supplier_id: servicio.supplier_id,
           description: servicio.description ?? '',
-          price: Number(servicio.price ?? 0),
           service_type: servicio.service_type,
           state_from: servicio.state_from ?? '',
           city_from: servicio.city_from ?? '',

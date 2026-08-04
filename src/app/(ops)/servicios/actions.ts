@@ -14,7 +14,8 @@ export type ServicioInput = {
   name: string
   supplier_id: string
   description?: string
-  price: number
+  /** Ignorado desde b046: el precio público se DERIVA del pack más barato. */
+  price?: number
   service_type?: string
   state_from?: string
   city_from?: string
@@ -92,10 +93,6 @@ function normalizarCampos(input: ServicioInput):
   if (!supplierId) {
     return { error: 'Selecciona la agencia dueña del servicio.' }
   }
-  const price = Number(input.price)
-  if (!Number.isFinite(price) || price < 0) {
-    return { error: 'El precio debe ser un número mayor o igual a 0.' }
-  }
 
   let maxCapacity: number | null = null
   if (input.max_capacity != null) {
@@ -111,7 +108,12 @@ function normalizarCampos(input: ServicioInput):
       supplier_id: supplierId,
       name,
       description: input.description?.trim() || null,
-      price,
+      // b046: el precio público ("desde") se deriva SOLO del pack más barato —
+      // una sola fuente, sin campo manual que se desincronice.
+      price: (() => {
+        const ps = limpiarPacks(input.packs)
+        return ps.length ? Math.min(...ps.map((p) => p.price)) : 0
+      })(),
       service_type: input.service_type?.trim() || null,
       state_from: input.state_from?.trim() || null,
       city_from: input.city_from?.trim() || null,
