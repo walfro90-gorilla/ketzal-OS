@@ -8,6 +8,7 @@ import {
   ChartPieIcon,
   CircleCheckIcon,
   FileTextIcon,
+  LandmarkIcon,
   TriangleAlertIcon,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
@@ -29,6 +30,7 @@ import { PageHeader } from '@/components/data/page-header'
 import { formatTravelDate, mxn } from '@/components/data/format'
 import { StatusBadge, type BookingStatus } from '@/components/data/status-badge'
 import { getClawbotResumen, type ClawbotResumen } from '../clawbot/data'
+import { getSpeiPendientes } from '../cobranza/data'
 import { BarrasTop } from '../reportes/graficas'
 import type { Reporte } from '../reportes/tipos'
 import { Dona, SerieVendidoRecibido, type PuntoSerie, type Rebanada } from './graficas'
@@ -531,6 +533,7 @@ export default async function DashboardPage({
     profileRes,
     clawbot,
     anomaliasRes,
+    speiPendientes,
   ] = await Promise.all([
       supabase.rpc('dashboard_summary'),
       supabase.rpc('reports_summary', { p_from: from, p_to: to }),
@@ -552,6 +555,8 @@ export default async function DashboardPage({
       // Anomalías de dinero (sobrepago / pagado_sin_cupo / pago_cancelado) que el
       // webhook dejó en system_log y necesitan revisión/reembolso manual.
       supabase.rpc('alertas_anomalias_dinero' as never),
+      // Transferencias SPEI declaradas por confirmar (b034); [] para no-admin.
+      getSpeiPendientes(),
     ])
 
   const d = (summaryRes.data ?? EMPTY_SUMMARY) as unknown as DashboardSummary
@@ -584,6 +589,9 @@ export default async function DashboardPage({
     ]
       .filter(Boolean)
       .join(' · ') || 'Pagos que requieren revisión'
+
+  const numSpei = speiPendientes.length
+  const montoSpei = speiPendientes.reduce((s, r) => s + Number(r.amount), 0)
 
   const ventasSaldo = d.ventas_saldo ?? []
   const proximosViajes = d.proximos_viajes ?? []
@@ -755,6 +763,22 @@ export default async function DashboardPage({
             calmDetail="No hay recordatorios pendientes por enviar."
             href="/clawbot"
             linkLabel="Ver bandeja"
+          />
+          <AtencionCard
+            tone="pendiente"
+            icon={LandmarkIcon}
+            label="Pagos por confirmar"
+            active={numSpei > 0}
+            value={mxn.format(montoSpei)}
+            detail={
+              numSpei === 1
+                ? '1 transferencia SPEI declarada por revisar'
+                : `${numSpei} transferencias SPEI declaradas por revisar`
+            }
+            calmValue="Sin transferencias"
+            calmDetail="No hay transferencias SPEI por confirmar."
+            href="/cobranza"
+            linkLabel="Ver cobranza"
           />
           <AtencionCard
             tone="danger"
