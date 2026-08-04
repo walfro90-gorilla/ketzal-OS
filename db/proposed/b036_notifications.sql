@@ -1,7 +1,16 @@
 -- b036 — Sistema de notificaciones: feed in-app + suscripciones Web Push.
--- Espejo de la migración aplicada `b036_notifications`.
+-- Espejo de las migraciones aplicadas `b036_notifications` + `b036_notifications_fix`.
 --
--- Dos tablas nuevas, cero cambios a objetos existentes:
+-- REALIDAD DESCUBIERTA AL APLICAR: `ketzal.notifications` YA existía (scaffold
+-- B2C dormido, 0 filas) con shape distinto: `message` NOT NULL, `action_url`,
+-- `type`/`priority` (enums con default 'INFO'/'NORMAL'), `is_read` default
+-- false, `read_at`. Se REUSA tal cual (el app inserta user_id/title/message/
+-- action_url y aliasea a body/url al leer); el `create table if not exists`
+-- de abajo queda como referencia del shape DESEADO pero fue NO-OP en la BD.
+-- El fix retiró las policies del scaffold (notifications_select/update/delete;
+-- la de select dejaba al superadmin ver el feed de todos ⇒ duplicados en su
+-- campana) — quedan las own-only de b036.
+--
 --  · ketzal.notifications — feed por usuario (campana en el header del OS).
 --    ESCRITURA solo del servidor (service_role): sin policy de INSERT para
 --    authenticated ⇒ nadie se inyecta notificaciones. El usuario solo LEE las
@@ -24,6 +33,11 @@ create table if not exists ketzal.notifications (
 
 create index if not exists notifications_user_created_idx
   on ketzal.notifications (user_id, created_at desc);
+
+-- b036_notifications_fix: fuera las policies del scaffold pre-existente.
+drop policy if exists notifications_select on ketzal.notifications;
+drop policy if exists notifications_update on ketzal.notifications;
+drop policy if exists notifications_delete on ketzal.notifications;
 
 alter table ketzal.notifications enable row level security;
 

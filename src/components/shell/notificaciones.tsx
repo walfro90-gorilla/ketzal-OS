@@ -55,9 +55,11 @@ export function Notificaciones() {
   const cargar = useCallback(async () => {
     const supabase = createClient()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // La tabla reusa el scaffold B2C: columnas reales message/action_url,
+    // aliaseadas aquí a body/url para el shape del componente.
     const { data } = await (supabase as any)
       .from('notifications')
-      .select('id, title, body, url, read_at, created_at')
+      .select('id, title, body:message, url:action_url, read_at, created_at')
       .order('created_at', { ascending: false })
       .limit(15)
     const rows = (data ?? []) as Noti[]
@@ -132,7 +134,7 @@ export function Notificaciones() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase as any)
       .from('notifications')
-      .update({ read_at: new Date().toISOString() })
+      .update({ read_at: new Date().toISOString(), is_read: true })
       .is('read_at', null)
     setItems((xs) => xs.map((n) => ({ ...n, read_at: n.read_at ?? 'ya' })))
     setNoLeidas(0)

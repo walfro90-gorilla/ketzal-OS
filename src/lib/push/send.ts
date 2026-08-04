@@ -26,12 +26,14 @@ export async function notificar(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = svc as any
 
+  // La tabla es del scaffold B2C (reusada): message NOT NULL y action_url;
+  // type/priority/is_read salen por default ('INFO'/'NORMAL'/false).
   await db.from('notifications').insert(
     ids.map((user_id: string) => ({
       user_id,
       title: n.title,
-      body: n.body ?? null,
-      url: n.url ?? null,
+      message: n.body ?? n.title,
+      action_url: n.url ?? null,
     }))
   )
 
