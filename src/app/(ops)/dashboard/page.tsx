@@ -643,6 +643,8 @@ export default async function DashboardPage({
   const metodoTotal = new Map<string, number>()
   let recibidoTotal = 0
   let numAbonos = 0
+  let numDevoluciones = 0
+  let montoDevuelto = 0
   for (const p of payments) {
     if (!p.paid_at) continue
     const signo = p.type === 'refund' ? -1 : 1
@@ -655,6 +657,10 @@ export default async function DashboardPage({
     metodoTotal.set(metodo, (metodoTotal.get(metodo) ?? 0) + monto)
     recibidoTotal += monto
     if (signo > 0) numAbonos += 1
+    else {
+      numDevoluciones += 1
+      montoDevuelto += Number(p.amount_mxn)
+    }
   }
 
   // Buckets continuos del rango (los días sin movimiento cuentan cero).
@@ -823,9 +829,20 @@ export default async function DashboardPage({
           <Kpi
             label="Dinero recibido"
             value={mxn.format(recibidoTotal)}
+            // Neto del periodo (abonos − devoluciones): si hubo devoluciones, el
+            // detalle las desglosa para que un neto negativo se explique solo.
             detail={
-              numAbonos > 0
-                ? `${numAbonos} ${numAbonos === 1 ? 'abono' : 'abonos'} en el periodo`
+              numAbonos > 0 || numDevoluciones > 0
+                ? [
+                    numAbonos > 0
+                      ? `${numAbonos} ${numAbonos === 1 ? 'abono' : 'abonos'}`
+                      : null,
+                    numDevoluciones > 0
+                      ? `${numDevoluciones} ${numDevoluciones === 1 ? 'devolución' : 'devoluciones'} (−${mxn.format(montoDevuelto)})`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ') + ' en el periodo'
                 : 'Sin abonos en el periodo'
             }
           />
