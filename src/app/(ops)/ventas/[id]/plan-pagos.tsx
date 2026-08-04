@@ -284,8 +284,11 @@ export function PlanPagosSection({
     })
   }
 
-  // Cancelada y sin plan: no hay nada que configurar ni mostrar.
-  if (cancelled && !hasPlan) return null
+  // Sin plan y sin nada que planear: cancelada o ya liquidada (pagado cubre el
+  // total) ⇒ no se ofrece crear un plan. Con plan existente sí se muestra
+  // (checklist en verde, congelado).
+  const liquidada = pagado + 0.005 >= total
+  if (!hasPlan && (cancelled || liquidada)) return null
 
   // ── Estado 2: ya hay plan guardado ────────────────────────────────────
   if (hasPlan) {

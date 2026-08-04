@@ -269,6 +269,19 @@ export async function crearPlanPagos(
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
+  // Venta liquidada (saldo 0) no admite plan — guard server-side, la UI ya no
+  // ofrece el form pero la acción es invocable directa.
+  // (vista no tipada en database.types.ts ⇒ cast, convención multi-agente)
+  const { data: bal } = await supabase
+    .from('bookings_with_balance' as never)
+    .select('balance' as never)
+    .eq('id' as never, bookingId as never)
+    .maybeSingle()
+  const balance = (bal as { balance?: number } | null)?.balance
+  if (balance != null && Number(balance) <= 0) {
+    return { error: 'La venta ya está liquidada: no aplica un plan de pagos.' }
+  }
+
   const { error } = await supabase.rpc('generate_payment_plan', {
     p_booking_id: bookingId,
     p_frequency: frequency,
