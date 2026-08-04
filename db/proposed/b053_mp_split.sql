@@ -1,0 +1,35 @@
+-- b053 — Mercado Pago Split + cuentas MP por agencia + asientos de cobro.
+-- Espejo de la migración aplicada `b053_mp_split`.
+--
+-- · `ketzal.mp_accounts` (supplier_id pk, mp_user_id, access_token,
+--   refresh_token, public_key, live_mode, expires_at): la cuenta MP que cada
+--   agencia conecta por OAuth marketplace. TOKENS = SECRETOS ⇒ tabla deny-all
+--   (RLS on, revoke authenticated/anon; solo service_role). JAMÁS en
+--   suppliers.info (alimenta RPCs públicos).
+-- · `payment_intents.split boolean` + `mp_fee numeric`: el checkout marca si
+--   la preferencia se creó con el token del VENDEDOR + marketplace_fee
+--   (= platform_commission_rate% del monto) ⇒ el dinero cae directo a la
+--   agencia y el fee se separa AL COBRAR.
+-- · Re-apply de confirm_online_payment (desde DDL vivo b034+p_method): al
+--   aplicar un pago MP aprobado postea en el ledger (b052):
+--     split  ⇒ 'fee_cobrado_split' (+agencia, −plataforma) — CIERRA el cargo
+--              del devengo (el fee ya se cobró en el split);
+--     no-split ⇒ 'cobro_por_cuenta' (−plataforma, +agencia por lo aplicado,
+--              available_at = +7 días) — Ketzal recibió el cash por cuenta de
+--              la agencia; payout manual (settle) al cumplirse el plazo.
+--   SPEI ('transferencia') no postea nada extra: el dinero ya llegó a la
+--   agencia; su cargo del fee es el espejo del devengo. Ledger best-effort
+--   (una excepción se loguea en system_log y NO tumba el cobro).
+-- · `mp_account_status(supplier)`: estado de conexión SIN tokens (UI), guard
+--   is_agency_admin/superadmin.
+--
+-- App: /api/mp/oauth/start (guard admin + state FIRMADO HMAC) y /callback
+-- (intercambio de code, guarda vía service role); checkout con token del
+-- vendedor + marketplace_fee cuando hay cuenta; webhook con fallback de token
+-- de vendedor (pagos split dan 404 con el token de plataforma); card
+-- "Cobros en línea (MP)" en el proveedor; página /cuentas (ledger b052) con
+-- liquidación superadmin. Envs nuevas: MP_CLIENT_ID, MP_CLIENT_SECRET
+-- (sin ellas el botón de conexión responde 501 y todo sigue como hoy).
+-- Hard-test 4/4 en rollback (cobro_por_cuenta 7d + devengo espejo, split
+-- settle, balance 0 del sistema, ledger_post revocado a authenticated).
+-- Ver la migración aplicada para los cuerpos completos.

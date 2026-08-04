@@ -65,9 +65,28 @@ export async function POST(request: Request) {
   if (!paymentId) return NextResponse.json({ ok: true })
 
   // Consultar el pago real en Mercado Pago (verificación con nuestro token).
-  const res = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+  // b053: los pagos SPLIT se crean con el token del VENDEDOR — si el token de
+  // plataforma no lo encuentra (404), se reintenta con los tokens de las
+  // cuentas MP conectadas (pocas agencias; el primero que responda gana).
+  let res = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
     headers: { Authorization: `Bearer ${token}` },
   })
+  if (res.status === 404) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: cuentas } = await (supabase as any)
+      .from('mp_accounts')
+      .select('access_token')
+    for (const c of (cuentas ?? []) as { access_token: string }[]) {
+      const intento = await fetch(
+        `https://api.mercadopago.com/v1/payments/${paymentId}`,
+        { headers: { Authorization: `Bearer ${c.access_token}` } }
+      )
+      if (intento.ok) {
+        res = intento
+        break
+      }
+    }
+  }
   if (!res.ok) {
     await logSistema(supabase, 'mp_webhook', 'error', 'pago no encontrado en MP', {
       paymentId,

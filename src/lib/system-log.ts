@@ -7,7 +7,7 @@ type ServiceClient = ReturnType<typeof createServiceClient>
 // los tipos generados a mano (otro flujo edita database.types.ts) → cast puntual.
 export async function logSistema(
   sb: ServiceClient,
-  source: 'clawbot_tick' | 'mp_webhook' | 'invariantes',
+  source: 'clawbot_tick' | 'mp_webhook' | 'mp_oauth' | 'invariantes',
   level: 'info' | 'warn' | 'error' | 'critical',
   event: string,
   detail?: unknown

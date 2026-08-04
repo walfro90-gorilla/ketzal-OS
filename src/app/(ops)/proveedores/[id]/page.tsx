@@ -107,6 +107,18 @@ export default async function ProveedorDetallePage({
   )
   const tienePerfilPublico = perfilPublico != null
 
+  // b053: estado de la cuenta MP (sin tokens; guard admin en el RPC — error ⇒
+  // se muestra como no conectada).
+  const { data: mpStatusData } = await supabase.rpc('mp_account_status' as never, {
+    p_supplier: id,
+  } as never)
+  const mpStatus = mpStatusData as unknown as {
+    connected?: boolean
+    mp_user_id?: string
+  } | null
+  const mpConectado = Boolean(mpStatus?.connected)
+  const mpUserId = mpStatus?.mp_user_id ?? null
+
   // Dar acceso (login) al proveedor es de plataforma ⇒ solo superadmin.
   const {
     data: { user },
@@ -173,6 +185,40 @@ export default async function ProveedorDetallePage({
           />
         </CardContent>
       </Card>
+
+      {/* b053: cuenta de Mercado Pago de la agencia (split al cobrar). */}
+      {proveedor.supplier_type === 'agency' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Cobros en línea (Mercado Pago)</CardTitle>
+            <CardDescription>
+              Con la cuenta MP de la agencia conectada, cada venta en línea se
+              divide al momento del cobro: el dinero cae directo a la agencia y
+              la comisión de Ketzal se separa sola. Sin cuenta conectada, las
+              ventas en línea se depositan a la agencia a los 7 días.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {mpConectado ? (
+              <p className="text-sm">
+                <span className="font-medium text-emerald-600 dark:text-emerald-500">
+                  ✓ Cuenta conectada
+                </span>{' '}
+                <span className="text-muted-foreground">
+                  (MP user {mpUserId ?? '—'})
+                </span>
+              </p>
+            ) : (
+              <a
+                href={`/api/mp/oauth/start?supplier=${proveedor.id}`}
+                className="inline-flex items-center rounded-lg border border-[#009E7E]/40 bg-[#009E7E]/10 px-3 py-2 text-sm font-semibold text-[#00805F]"
+              >
+                Conectar mi Mercado Pago →
+              </a>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {isSuperadmin && (
         <Card>

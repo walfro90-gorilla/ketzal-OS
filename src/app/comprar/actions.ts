@@ -228,9 +228,49 @@ export async function crearLinkPagoMarketplace(
   const h = await headers()
   const origin = process.env.NEXT_PUBLIC_APP_URL ?? `https://${h.get('host')}`
 
+  // b053 — SPLIT: si la agencia vendedora tiene su cuenta MP conectada, la
+  // preferencia se crea con SU token + marketplace_fee (el % de plataforma):
+  // el dinero cae directo a la agencia y el fee se separa AL COBRAR. Sin
+  // cuenta conectada: flujo actual (token de plataforma) y el ledger registra
+  // el payout a 7 días al confirmarse el pago.
+  const svcClient = createServiceClient()
+  let cobroToken = token
+  let marketplaceFee = 0
+  let esSplit = false
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: b } = await (svcClient as any)
+      .from('bookings')
+      .select('selling_supplier_id')
+      .eq('id', bookingId)
+      .maybeSingle()
+    if (b?.selling_supplier_id) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: cuenta } = await (svcClient as any)
+        .from('mp_accounts')
+        .select('access_token')
+        .eq('supplier_id', b.selling_supplier_id)
+        .maybeSingle()
+      if (cuenta?.access_token) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: cfg } = await (svcClient as any)
+          .from('app_settings')
+          .select('platform_commission_rate')
+          .limit(1)
+          .maybeSingle()
+        const pct = Number(cfg?.platform_commission_rate ?? 0)
+        cobroToken = cuenta.access_token
+        marketplaceFee = Math.round(Number(intent.amount) * (pct / 100) * 100) / 100
+        esSplit = true
+      }
+    }
+  } catch {
+    /* best-effort: sin split cae al flujo actual */
+  }
+
   const res = await fetch('https://api.mercadopago.com/checkout/preferences', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cobroToken}` },
     body: JSON.stringify({
       items: [
         {
@@ -240,6 +280,7 @@ export async function crearLinkPagoMarketplace(
           currency_id: 'MXN',
         },
       ],
+      ...(esSplit && marketplaceFee > 0 ? { marketplace_fee: marketplaceFee } : {}),
       external_reference: intent.id,
       notification_url: `${origin}/api/mp/webhook`,
       // Tras pagar, MP regresa al perfil del comprador ("Mis compras"), donde
@@ -260,6 +301,20 @@ export async function crearLinkPagoMarketplace(
   if (!res.ok) return { error: 'Mercado Pago rechazó la solicitud. Intenta de nuevo.' }
   const pref = (await res.json()) as { init_point?: string }
   if (!pref.init_point) return { error: 'Mercado Pago no devolvió un link de pago.' }
+
+  // b053: marca el intent como split (el webhook/RPC postean el asiento del
+  // fee cobrado en vez de la deuda de payout). Best-effort.
+  if (esSplit) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (svcClient as any)
+        .from('payment_intents')
+        .update({ split: true, mp_fee: marketplaceFee })
+        .eq('id', intent.id)
+    } catch {
+      /* best-effort */
+    }
+  }
 
   return { url: pref.init_point }
 }
