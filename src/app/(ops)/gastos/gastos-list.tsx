@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { Undo2Icon } from 'lucide-react'
 import { DataList, type DataColumn } from '@/components/data/data-list'
 import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
 import { mxn } from '@/components/data/format'
 import { revertirGasto } from './actions'
 import type { GastoRow } from './data'
@@ -27,22 +28,61 @@ const fmtFecha = (d: string) => {
 
 function BotonRevertir({ id }: { id: string }) {
   const [isPending, startTransition] = useTransition()
-  function onClick() {
-    const motivo = window.prompt(
-      'Revertir este gasto crea un asiento de reverso (no se borra). Motivo:'
-    )
-    if (motivo === null) return
+  const [abierto, setAbierto] = useState(false)
+  const [motivo, setMotivo] = useState('')
+
+  function confirmar() {
     startTransition(async () => {
       const res = await revertirGasto(id, motivo)
-      if ('error' in res) toast.error(res.error)
-      else toast.success('Gasto revertido')
+      if ('error' in res) {
+        toast.error(res.error)
+        return
+      }
+      toast.success('Gasto revertido')
+      setAbierto(false)
+      setMotivo('')
     })
   }
+
+  if (!abierto) {
+    return (
+      <Button variant="ghost" size="sm" onClick={() => setAbierto(true)}>
+        <Undo2Icon className="size-4" />
+        Revertir
+      </Button>
+    )
+  }
+
   return (
-    <Button variant="ghost" size="sm" onClick={onClick} disabled={isPending}>
-      <Undo2Icon className="size-4" />
-      {isPending ? 'Revirtiendo…' : 'Revertir'}
-    </Button>
+    <div className="flex flex-col gap-2 rounded-md border bg-muted/40 p-2">
+      <Textarea
+        autoFocus
+        placeholder="Motivo del reverso…"
+        value={motivo}
+        onChange={(e) => setMotivo(e.target.value)}
+        className="min-h-16 text-sm"
+      />
+      <div className="flex justify-end gap-2">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={() => setAbierto(false)}
+          disabled={isPending}
+        >
+          Cancelar
+        </Button>
+        <Button
+          type="button"
+          variant="destructive"
+          size="sm"
+          onClick={confirmar}
+          disabled={isPending || !motivo.trim()}
+        >
+          {isPending ? 'Revirtiendo…' : 'Confirmar reverso'}
+        </Button>
+      </div>
+    </div>
   )
 }
 

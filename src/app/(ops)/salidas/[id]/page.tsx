@@ -10,9 +10,67 @@ import {
 } from '@/components/ui/card'
 import { buttonVariants } from '@/components/ui/button'
 import { PageHeader } from '@/components/data/page-header'
+import { DataList, type DataColumn } from '@/components/data/data-list'
 import { mxn } from '@/components/data/format'
 import { PrinterIcon } from 'lucide-react'
 import { ESTADO_VENTA, fmtFechaSalida, type SalidaDetalle } from '../tipos'
+
+type BookingRow = SalidaDetalle['bookings'][number]
+
+const columnasVentas: DataColumn<BookingRow>[] = [
+  {
+    header: 'Cliente',
+    primary: true,
+    cell: (b) => (
+      <div className="flex flex-col">
+        {b.is_own ? (
+          <Link href={`/ventas/${b.id}`} className="font-medium hover:underline">
+            {b.customer ?? 'Sin cliente'}
+          </Link>
+        ) : (
+          <span>{b.customer ?? 'Sin cliente'}</span>
+        )}
+        <span className="text-xs font-normal text-muted-foreground">
+          {b.is_own
+            ? `${b.passengers.length}/${b.num_pax} pax`
+            : `Reventa${b.selling_agency ? ` · ${b.selling_agency}` : ''} · ${b.passengers.length}/${b.num_pax} pax`}
+        </span>
+      </div>
+    ),
+  },
+  {
+    header: 'Pax',
+    align: 'right',
+    cell: (b) => <span className="tabular-nums">{b.num_pax}</span>,
+  },
+  {
+    header: 'Estado',
+    cell: (b) => ESTADO_VENTA[b.status] ?? b.status,
+  },
+  {
+    header: 'Total',
+    align: 'right',
+    cell: (b) => (
+      <span className="tabular-nums">
+        {b.is_own && b.total != null ? mxn.format(Number(b.total)) : '—'}
+      </span>
+    ),
+  },
+  {
+    header: 'Saldo',
+    align: 'right',
+    cell: (b) =>
+      b.is_own && b.saldo != null ? (
+        <span
+          className={`tabular-nums ${Number(b.saldo) > 0 ? 'text-amber-700 dark:text-amber-400' : ''}`}
+        >
+          {mxn.format(Number(b.saldo))}
+        </span>
+      ) : (
+        <span className="tabular-nums">—</span>
+      ),
+  },
+]
 
 function Kpi({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
@@ -104,57 +162,11 @@ export default async function SalidaDetallePage({
               Aún no hay ventas en esta salida.
             </p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left text-muted-foreground">
-                    <th className="py-2 pr-3 font-medium">Cliente</th>
-                    <th className="py-2 pr-3 text-right font-medium">Pax</th>
-                    <th className="py-2 pr-3 font-medium">Estado</th>
-                    <th className="py-2 pr-3 text-right font-medium">Total</th>
-                    <th className="py-2 text-right font-medium">Saldo</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {d.bookings.map((b) => (
-                    <tr key={b.id} className="border-b last:border-0">
-                      <td className="py-2 pr-3">
-                        {b.is_own ? (
-                          <Link href={`/ventas/${b.id}`} className="hover:underline">
-                            {b.customer ?? 'Sin cliente'}
-                          </Link>
-                        ) : (
-                          <span>{b.customer ?? 'Sin cliente'}</span>
-                        )}
-                        <span className="block text-xs text-muted-foreground">
-                          {b.is_own
-                            ? `${b.passengers.length}/${b.num_pax} pax`
-                            : `Reventa${b.selling_agency ? ` · ${b.selling_agency}` : ''} · ${b.passengers.length}/${b.num_pax} pax`}
-                        </span>
-                      </td>
-                      <td className="py-2 pr-3 text-right tabular-nums">{b.num_pax}</td>
-                      <td className="py-2 pr-3">{ESTADO_VENTA[b.status] ?? b.status}</td>
-                      <td className="py-2 pr-3 text-right tabular-nums">
-                        {b.is_own && b.total != null ? mxn.format(Number(b.total)) : '—'}
-                      </td>
-                      <td className="py-2 text-right tabular-nums">
-                        {b.is_own && b.saldo != null ? (
-                          <span
-                            className={
-                              Number(b.saldo) > 0 ? 'text-amber-700 dark:text-amber-400' : ''
-                            }
-                          >
-                            {mxn.format(Number(b.saldo))}
-                          </span>
-                        ) : (
-                          '—'
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <DataList
+              columns={columnasVentas}
+              rows={d.bookings}
+              getRowKey={(b) => b.id}
+            />
           )}
         </CardContent>
       </Card>

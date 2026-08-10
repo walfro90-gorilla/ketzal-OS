@@ -217,16 +217,39 @@ del fundador — decisión de negocio, no autónoma.
 > ficha (metadata/tab title sigue crudo); CTA de `/agencias` renderiza
 > correctamente. `tsc`+`build`+`vitest` (75) limpios.
 
+### Aplicado (ciclo 12 — Cuentas/Gastos/Salidas/Comisiones, 2026-08-10, worktree `ops-polish`)
+
+Repaso de las 4 secciones señaladas en el ciclo 11 contra los primitivos de
+ciclos 1–10. Veredicto: **la mayoría ya estaba alineada** (`PageHeader`,
+`EmptyState`, `DataList`, toasts) — construir sobre esos primitivos sí se
+volvió el default, incluso en carriles de backend. Lo que sí quedó de la
+"deriva multi-agente" que el ciclo 1 ya advertía:
+
+| # | Acción | Estado |
+|---|---|---|
+| C12-1 | **`/salidas/[id]`: tabla cruda de 5 columnas → `DataList`.** Era el único `<table>` real fuera de documentos imprimibles en las 4 secciones — en móvil obligaba a scroll horizontal para leer quién vendió qué (viola el principio #4 del plan). Mismo comportamiento (link solo en ventas propias, reventas de otra agencia sin link) | ✅ |
+| C12-2 | **`window.prompt()` → formulario inline** en "Revertir gasto" (`/gastos`, `BotonRevertir`). El motivo del reverso se pedía con el prompt nativo del navegador — feo, no estilizado, mal en móvil. Ahora expande un `Textarea` + Confirmar/Cancelar en la misma fila, reusando el primitivo ya consolidado en ciclo 1 | ✅ |
+| C12-3 | **`window.confirm()` → confirmación inline** en "Liquidar" (`/cuentas`, `LiquidarBoton`, superadmin). Mismo patrón: click revela el monto a confirmar + Confirmar/Cancelar en línea, sin diálogo nativo del navegador | ✅ |
+| — | **Comisiones**: sin hallazgos — ya usa `PageHeader`/`EmptyState`, sin tablas crudas ni diálogos nativos | ✅ (sin cambios) |
+
+> Nota de método: no se pudo hacer el recorrido visual autenticado (Cuentas/
+> Gastos/Salidas requieren login de agente/superadmin, a diferencia de la
+> vitrina pública del ciclo 11) — verificado por `tsc`+`build`+`vitest` (75) y
+> reutilizando al pie de la letra primitivos ya probados visualmente en
+> ciclos anteriores (`DataList`, `Textarea`, variantes de `Button`), no
+> CSS/markup nuevo. Pendiente: un vistazo del fundador en `/salidas/[id]`,
+> `/gastos` y `/cuentas` para confirmar a ojo.
+
 ### Pendiente
 
 1. **Símbolo cuadrado de marca** → favicon/PWA + cuadrado del OG (bloqueado:
    falta el asset del ícono aislado, sin la palabra "Ketzal").
-2. **Pulido de secciones nuevas** (Cuentas, Gastos, Salidas, Comisiones,
-   Equipo/metas) con los primitivos de ciclos 1–10 — construidas por el carril
-   de backend en paralelo, sin la misma pasada de diseño (P2 del corte
-   marketplace, ver artifact del ciclo 11).
-3. **Filtros de `/explora` a un Sheet en móvil** — 5 controles en una fila es
-   denso en pantalla chica (P2 del corte marketplace).
+2. **Filtros de `/explora` a un Sheet en móvil** — 5 controles en una fila es
+   denso en pantalla chica (P2 del corte marketplace, ciclo 11).
+3. **Barrido de `window.confirm`/`window.prompt` fuera de estas 4 secciones**
+   (ej. `spei-pendientes.tsx` en `/cobranza` usa `window.confirm` para
+   aprobar/rechazar transferencias) — mismo antipatrón, fuera del alcance de
+   este ciclo (acotado a Cuentas/Gastos/Salidas/Comisiones).
 
 > El ⌘K se cerró en C4-1. La "cobranza" no se agregó al ⌘K a propósito — no es
 > una entidad buscable (vista derivada de las ventas con saldo); buscar el

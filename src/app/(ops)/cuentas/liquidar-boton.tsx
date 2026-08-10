@@ -1,6 +1,6 @@
 'use client'
 
-import { useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { liquidarCuenta } from './cuentas-actions'
@@ -21,18 +21,14 @@ export function LiquidarBoton({
   saldo: number
 }) {
   const [isPending, startTransition] = useTransition()
+  const [confirmando, setConfirmando] = useState(false)
   const mxn = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' })
+  const accion = saldo > 0 ? 'pagarle a' : 'cobrarle a'
 
   function liquidar() {
-    const accion = saldo > 0 ? 'pagarle' : 'cobrarle'
-    if (
-      !window.confirm(
-        `¿Registrar la liquidación de ${mxn.format(Math.abs(saldo))} (${accion} a ${nombre})? El dinero real ya debió moverse por fuera (SPEI/efectivo).`
-      )
-    )
-      return
     startTransition(async () => {
       const res = await liquidarCuenta({ accountType, supplierId, profileId })
+      setConfirmando(false)
       if ('error' in res) {
         toast.error(res.error)
         return
@@ -41,13 +37,41 @@ export function LiquidarBoton({
     })
   }
 
+  if (confirmando) {
+    return (
+      <span className="flex flex-wrap items-center gap-2">
+        <span className="text-xs text-muted-foreground">
+          ¿{accion} {nombre} {mxn.format(Math.abs(saldo))}? El dinero ya debió
+          moverse por fuera.
+        </span>
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          onClick={() => setConfirmando(false)}
+          disabled={isPending}
+        >
+          Cancelar
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="destructive"
+          loading={isPending}
+          onClick={liquidar}
+        >
+          Confirmar
+        </Button>
+      </span>
+    )
+  }
+
   return (
     <Button
       type="button"
       size="sm"
       variant="outline"
-      loading={isPending}
-      onClick={liquidar}
+      onClick={() => setConfirmando(true)}
     >
       Liquidar
     </Button>
