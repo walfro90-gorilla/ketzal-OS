@@ -8,6 +8,7 @@ import { buttonVariants } from '@/components/ui/button'
 import { CheckIcon, XIcon, MapPinIcon } from 'lucide-react'
 import { videoEmbedUrl } from '@/lib/video'
 import { marketplaceActivo } from '@/lib/marketplace'
+import { tituloVisible } from '@/lib/display-title'
 import { PublicHeader } from '@/components/public/public-header'
 import { PublicFooter } from '@/components/public/public-footer'
 
@@ -124,7 +125,7 @@ export default async function ServicioPublicoPage({
 
       <header className="mt-6 space-y-2">
         <h1 className="font-display text-3xl font-semibold tracking-[-0.02em] text-balance sm:text-4xl">
-          {s.name}
+          {tituloVisible(s.name)}
         </h1>
         {lugar && (
           <p className="flex items-center gap-1.5 text-muted-foreground">

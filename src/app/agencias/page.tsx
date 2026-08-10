@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { MapPinIcon, RouteIcon, Building2Icon, StarIcon } from 'lucide-react'
+import { MapPinIcon, RouteIcon, Building2Icon, StarIcon, PlusIcon } from 'lucide-react'
 import { listPublicSuppliers } from './data'
 import { marketplaceActivo } from '@/lib/marketplace'
 import { PublicHeader } from '@/components/public/public-header'
@@ -125,6 +125,22 @@ export default async function AgenciasPage() {
             </Link>
             )
           })}
+          <Link
+            href="/login"
+            className="group flex items-center gap-4 rounded-2xl border border-dashed p-4 transition-colors hover:border-primary hover:bg-primary/5"
+          >
+            <div className="flex size-16 shrink-0 items-center justify-center rounded-xl border border-dashed text-muted-foreground group-hover:border-primary group-hover:text-primary">
+              <PlusIcon className="size-6" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h2 className="font-semibold leading-tight group-hover:text-primary">
+                ¿Tienes una agencia de viajes?
+              </h2>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Súmate a Ketzal y publica tus viajes en esta vitrina.
+              </p>
+            </div>
+          </Link>
         </div>
       )}
       </main>

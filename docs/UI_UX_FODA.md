@@ -192,10 +192,41 @@ ciclo y qué queda como deuda explícita.
 
 > Nota: los OG no se pudieron verificar visualmente desde el entorno (proxy bloquea el host de Storage y no se ven imágenes renderizadas); el fallback a texto hace el cambio seguro, y el fundador confirma compartiendo un link.
 
+### Aplicado (ciclo 11 — corte marketplace, 2026-08-10, worktree `marketplace-ux`)
+
+Auditoría en vivo contra producción real (no solo lectura de código): recorrido
+en Chrome de `/explora`, `/servicio/[id]`, `/agencias` con las 2 agencias/3
+servicios reales que había en ese momento. FODA completo (con hallazgos)
+publicado como artifact visual; resumen aquí.
+
+**Hallazgo P0 (dato, no código):** un listing de QA ("TEST compra Menny", $5,
+destino inventado, sin foto) estaba **publicado en producción**, visible a
+cualquier visitante. Despublicado (`services.published=false`) con confirmación
+del fundador — decisión de negocio, no autónoma.
+
+| # | Acción | Estado |
+|---|---|---|
+| C11-1 | **Overlay de precio generado por el sistema** en toda tarjeta de `/explora` (scrim + pill sobre la imagen, mismo `Intl.NumberFormat` que el texto de abajo). Antes el único precio "grande" visible dependía de que la agencia lo quemara en su flyer — con formato propio, inconsistente y sin garantía de estar sincronizado con el precio real | ✅ |
+| C11-2 | **Normalización de títulos en MAYÚSCULAS** para mostrar (`lib/display-title.ts`, `tituloVisible`): si el nombre del servicio viene todo en mayúsculas se muestra en Capitalizado; si ya viene normal, se respeta tal cual. Aplicado en la tarjeta de `/explora` y el `<h1>` de la ficha — **metadata/SEO se deja intacta** (título crudo del agente) | ✅ |
+| C11-3 | **Placeholder de marca** (`BrandMark` + degradado jade, componente ya existente reusado) para servicios sin foto: reemplaza el pin genérico en la tarjeta del catálogo, y cierra un hueco no detectado antes — la ficha (`carrusel.tsx`) renderizaba **nada** (`return null`) sin fotos, un hueco visual real en la pantalla de venta | ✅ |
+| C11-4 | **Tarjeta CTA "¿Tienes una agencia?"** en el directorio `/agencias` (dashed border, icono +, enlaza a `/login` como el footer). Con 2 agencias el grid se sentía vacío/pobre; ahora la escasez es un gancho de conversión, no un vacío | ✅ |
+
+> Verificado en vivo (`pnpm dev`, no solo build): catálogo bajó de 3 a 2 viajes
+> tras despublicar el TEST; overlay de precio consistente en ambas tarjetas;
+> "MAZATLAN NEW YEAR EN AVION" se ve "Mazatlan New Year En Avion" en tarjeta y
+> ficha (metadata/tab title sigue crudo); CTA de `/agencias` renderiza
+> correctamente. `tsc`+`build`+`vitest` (75) limpios.
+
 ### Pendiente
 
 1. **Símbolo cuadrado de marca** → favicon/PWA + cuadrado del OG (bloqueado:
    falta el asset del ícono aislado, sin la palabra "Ketzal").
+2. **Pulido de secciones nuevas** (Cuentas, Gastos, Salidas, Comisiones,
+   Equipo/metas) con los primitivos de ciclos 1–10 — construidas por el carril
+   de backend en paralelo, sin la misma pasada de diseño (P2 del corte
+   marketplace, ver artifact del ciclo 11).
+3. **Filtros de `/explora` a un Sheet en móvil** — 5 controles en una fila es
+   denso en pantalla chica (P2 del corte marketplace).
 
 > El ⌘K se cerró en C4-1. La "cobranza" no se agregó al ⌘K a propósito — no es
 > una entidad buscable (vista derivada de las ventas con saldo); buscar el

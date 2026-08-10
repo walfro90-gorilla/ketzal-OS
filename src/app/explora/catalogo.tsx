@@ -7,6 +7,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { NativeSelect } from '@/components/ui/native-select'
+import { BrandMark } from '@/components/brand-mark'
+import { tituloVisible } from '@/lib/display-title'
 import type { PublicServiceCard } from './data'
 
 // Vitrina navegable: búsqueda + filtros por destino (estado) y tipo, en memoria
@@ -259,14 +261,21 @@ export function Catalogo({
                         className="h-full w-full object-cover transition-transform group-hover:scale-105"
                       />
                     ) : (
-                      <div className="flex h-full items-center justify-center text-muted-foreground">
-                        <MapPinIcon className="size-8" />
+                      <div className="flex h-full items-center justify-center bg-gradient-to-br from-primary/15 to-primary/5 text-primary/60">
+                        <BrandMark className="size-10" />
                       </div>
                     )}
+                    {/* Precio generado por el sistema, siempre — nunca depende de
+                        que el flyer que subió la agencia lo traiga quemado. */}
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent pt-8 pb-2 pl-3">
+                      <span className="rounded-full bg-background/90 px-2 py-0.5 text-[11px] font-semibold tabular-nums shadow-sm backdrop-blur">
+                        Desde {mxn.format(Number(s.price ?? 0))}
+                      </span>
+                    </div>
                   </div>
                   <CardContent className="flex-1 space-y-1 p-4 pb-2">
                     <h2 className="font-display line-clamp-2 font-semibold tracking-[-0.01em] group-hover:text-primary">
-                      {s.name}
+                      {tituloVisible(s.name)}
                     </h2>
                     {lugar && (
                       <p className="flex items-center gap-1 text-sm text-muted-foreground">

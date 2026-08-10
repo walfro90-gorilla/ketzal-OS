@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { BrandMark } from '@/components/brand-mark'
 
 // Carrusel ligero de fotos de la ficha (banner + galería). Sin dependencias:
 // una imagen a la vez + flechas, puntos y tira de miniaturas cuando hay más de
@@ -10,7 +11,13 @@ import { cn } from '@/lib/utils'
 export function Carrusel({ images, alt }: { images: string[]; alt: string }) {
   const [i, setI] = useState(0)
   const n = images.length
-  if (n === 0) return null
+  if (n === 0) {
+    return (
+      <div className="mt-4 flex aspect-[2/1] w-full items-center justify-center rounded-xl bg-gradient-to-br from-primary/15 to-primary/5 text-primary/60">
+        <BrandMark className="size-14" />
+      </div>
+    )
+  }
 
   const idx = Math.min(i, n - 1)
   const go = (d: number) => setI((prev) => (prev + d + n) % n)
