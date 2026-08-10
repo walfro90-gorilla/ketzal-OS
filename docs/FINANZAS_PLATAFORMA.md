@@ -1,7 +1,9 @@
 # Finanzas de plataforma — ledger balance-0 y Mercado Pago Split
 
 > Construido el 2026-08-04 (carril `finanzas-split`, migraciones b052–b053,
-> commit `e20cb46`). Contexto y decisiones en la memoria `finanzas-plataforma`.
+> commit `e20cb46`). Split **activado y validado en vivo el 2026-08-10**
+> (primera agencia conectada). Contexto y decisiones en la memoria
+> `finanzas-plataforma`.
 
 ## El problema que resuelve
 
@@ -64,7 +66,29 @@ CUÁNDO se cobra (al instante vs corte).
   (agencias): estado conectado / botón conectar + aviso del payout a 7 días.
 - **Envs**: `MP_CLIENT_ID` + `MP_CLIENT_SECRET` (app marketplace que el
   fundador crea en el panel de MP). Sin ellas: botón responde 501 y todo opera
-  como hoy.
+  como hoy. **Puestas en Vercel producción (2026-08-06/07) desde la app
+  `Ketzal_app` (id 8055388991453386) del propio Mercado Pago del fundador.**
+- **Redirect URI** de `Ketzal_app` configurado en el panel de MP
+  (`https://ketzal-os.vercel.app/api/mp/oauth/callback`, sección
+  "Configuración avanzada" → "URL de redireccionamiento"; solo aparece con
+  al menos un flujo OAuth declarado) — **2026-08-10**. Sin este paso el OAuth
+  truena con `invalid redirect_uri`; no hay endpoint de la Management API de
+  MP para ponerlo por MCP/script, es manual en el panel, una vez por app.
+
+### Validado en producción (2026-08-10)
+
+Connect real de **Wanderlust Travels Jrz** vía `/proveedores/[id]` → "Conectar
+mi Mercado Pago" → pantalla de autorización de MP → callback. Resultado:
+`mp_accounts` con `mp_user_id=479630144` (mismo MP user que procesó el pago
+SPEI de prueba de $20 validado en 2026-07-10), `live_mode=true`,
+`access_token`/`refresh_token`/`public_key` presentes, deny-all confirmado
+(RLS on, sin policies, sin GRANT a `anon`/`authenticated` — solo
+`postgres`/`service_role`). Regresión: `verificar_invariantes()` 0
+violaciones, `ledger_entries` suma $0.00 (10 asientos, plataforma
++$1,850.50 sin cambio — el connect no postea asientos, solo habilita el
+split de la próxima venta en línea), advisors security 0 ERROR, `tsc`+
+`vitest` (75 tests) limpios. **Aún no se ha corrido una venta real con el
+split activo** — el connect en sí no mueve dinero.
 
 ## Coordinación (re-applies y reglas)
 
@@ -80,8 +104,12 @@ CUÁNDO se cobra (al instante vs corte).
 
 ## Pendientes
 
-- **Fundador**: credenciales MP (`MP_CLIENT_ID`/`MP_CLIENT_SECRET` en Vercel +
-  redeploy) para activar el split real.
+- **Conectar a las demás agencias** (Border Travels y las que se den de alta)
+  repitiendo "Conectar mi Mercado Pago" en su `/proveedores/[id]`. Sin
+  conectar, sus ventas en línea siguen con `cobro_por_cuenta` (payout a 7
+  días) — sigue funcionando, solo cambia el timing.
+- **Primera venta real con split** — validar que `fee_cobrado_split` postea
+  bien contra una venta de Wanderlust cobrada en línea.
 - F3 créditos del viajero en `wallets` (espejando `credits`), payout
   automatizado, corte mensual del devengo a agencias ajenas — ver memoria
   `finanzas-plataforma`.
