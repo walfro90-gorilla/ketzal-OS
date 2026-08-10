@@ -2,11 +2,17 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { MapPinIcon } from 'lucide-react'
+import { MapPinIcon, SlidersHorizontalIcon } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { NativeSelect } from '@/components/ui/native-select'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet'
 import { BrandMark } from '@/components/brand-mark'
 import { tituloVisible } from '@/lib/display-title'
 import type { PublicServiceCard } from './data'
@@ -92,6 +98,7 @@ export function Catalogo({
   const [orden, setOrden] = useState('nombre')
   const [precioMin, setPrecioMin] = useState('')
   const [precioMax, setPrecioMax] = useState('')
+  const [filtrosOpen, setFiltrosOpen] = useState(false)
 
   // Opciones derivadas de los datos (distintos, ordenados).
   const estadoOpts = useMemo(() => {
@@ -146,66 +153,112 @@ export function Catalogo({
   const hayFiltros = Boolean(
     query || estado || tipo || precioMin || precioMax
   )
+  // Filtros "avanzados" = todo menos la búsqueda (esa siempre está a la vista).
+  // Cuentan para el badge del botón "Filtros" en móvil.
+  const numFiltrosAvanzados = [estado, tipo, precioMin, precioMax].filter(Boolean).length
+
+  const controlesAvanzados = (
+    <>
+      {estadoOpts.length > 1 && (
+        <Select label="Destino" value={estado} onChange={setEstado} options={estadoOpts} />
+      )}
+      {tipoOpts.length > 1 && (
+        <Select label="Tipo" value={tipo} onChange={setTipo} options={tipoOpts} />
+      )}
+      {servicios.length > 1 && (
+        <div className="flex items-center gap-1.5">
+          <Input
+            type="number"
+            inputMode="numeric"
+            aria-label="Precio mínimo"
+            placeholder="Mín $"
+            value={precioMin}
+            onChange={(e) => setPrecioMin(e.target.value)}
+            min={0}
+            className="w-24"
+          />
+          <span className="text-muted-foreground">–</span>
+          <Input
+            type="number"
+            inputMode="numeric"
+            aria-label="Precio máximo"
+            placeholder="Máx $"
+            value={precioMax}
+            onChange={(e) => setPrecioMax(e.target.value)}
+            min={0}
+            className="w-24"
+          />
+        </div>
+      )}
+      {servicios.length > 1 && (
+        <div className="w-full sm:ml-auto sm:w-56">
+          <NativeSelect
+            aria-label="Ordenar"
+            value={orden}
+            onChange={(e) => setOrden(e.target.value)}
+          >
+            {ORDEN_OPCIONES.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </NativeSelect>
+        </div>
+      )}
+    </>
+  )
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-2 rounded-2xl border bg-card p-3 sm:flex-row sm:flex-wrap sm:items-center sm:p-4">
-        <Input
-          type="search"
-          inputMode="search"
-          aria-label="Buscar viajes"
-          placeholder="Buscar destino, tour, agencia…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="sm:max-w-xs"
-        />
-        {estadoOpts.length > 1 && (
-          <Select label="Destino" value={estado} onChange={setEstado} options={estadoOpts} />
-        )}
-        {tipoOpts.length > 1 && (
-          <Select label="Tipo" value={tipo} onChange={setTipo} options={tipoOpts} />
-        )}
-        {servicios.length > 1 && (
-          <div className="flex items-center gap-1.5">
-            <Input
-              type="number"
-              inputMode="numeric"
-              aria-label="Precio mínimo"
-              placeholder="Mín $"
-              value={precioMin}
-              onChange={(e) => setPrecioMin(e.target.value)}
-              min={0}
-              className="w-24"
-            />
-            <span className="text-muted-foreground">–</span>
-            <Input
-              type="number"
-              inputMode="numeric"
-              aria-label="Precio máximo"
-              placeholder="Máx $"
-              value={precioMax}
-              onChange={(e) => setPrecioMax(e.target.value)}
-              min={0}
-              className="w-24"
-            />
-          </div>
-        )}
-        {servicios.length > 1 && (
-          <div className="w-full sm:ml-auto sm:w-56">
-            <NativeSelect
-              aria-label="Ordenar"
-              value={orden}
-              onChange={(e) => setOrden(e.target.value)}
-            >
-              {ORDEN_OPCIONES.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </NativeSelect>
-          </div>
-        )}
+      <div className="rounded-2xl border bg-card p-3 sm:p-4">
+        <div className="flex gap-2">
+          <Input
+            type="search"
+            inputMode="search"
+            aria-label="Buscar viajes"
+            placeholder="Buscar destino, tour, agencia…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="flex-1 sm:max-w-xs"
+          />
+          {/* Móvil: destino/tipo/precio/orden viven en un Sheet — 5 controles
+              apilados empujaban los resultados fuera de la pantalla inicial. */}
+          <Button
+            type="button"
+            variant="outline"
+            className="shrink-0 sm:hidden"
+            onClick={() => setFiltrosOpen(true)}
+          >
+            <SlidersHorizontalIcon className="size-4" />
+            Filtros{numFiltrosAvanzados > 0 ? ` (${numFiltrosAvanzados})` : ''}
+          </Button>
+        </div>
+        <div className="mt-2 hidden gap-2 sm:flex sm:flex-wrap sm:items-center">
+          {controlesAvanzados}
+        </div>
       </div>
+
+      <Sheet open={filtrosOpen} onOpenChange={setFiltrosOpen}>
+        <SheetContent
+          side="bottom"
+          className="rounded-t-xl pb-[max(1rem,env(safe-area-inset-bottom))]"
+        >
+          <SheetHeader>
+            <SheetTitle>Filtros</SheetTitle>
+          </SheetHeader>
+          <div className="flex flex-col gap-3 px-4 pb-4">
+            {controlesAvanzados}
+            <div className="flex gap-2 pt-1">
+              <Button type="button" variant="outline" className="flex-1" onClick={clear}>
+                Limpiar
+              </Button>
+              <Button type="button" className="flex-1" onClick={() => setFiltrosOpen(false)}>
+                Ver {ordenados.length === 1 ? '1 viaje' : `${ordenados.length} viajes`}
+              </Button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs text-muted-foreground" aria-live="polite">

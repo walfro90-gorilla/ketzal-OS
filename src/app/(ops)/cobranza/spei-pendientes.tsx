@@ -37,18 +37,16 @@ export type SpeiPendiente = {
 export function SpeiPendientes({ rows }: { rows: SpeiPendiente[] }) {
   const [isPending, startTransition] = useTransition()
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [confirmando, setConfirmando] = useState<{ id: string; aprobar: boolean } | null>(null)
 
   if (!rows.length) return null
 
   function resolver(row: SpeiPendiente, aprobar: boolean) {
-    const msg = aprobar
-      ? `¿Confirmas que recibiste la transferencia de ${mxn.format(row.amount)} de ${row.cliente}? Se registrará el abono.`
-      : `¿Rechazar la transferencia declarada por ${row.cliente}? Podrá volver a intentar o pagar en línea.`
-    if (!window.confirm(msg)) return
     setBusyId(row.id)
     startTransition(async () => {
       const res = await resolverSpei(row.id, aprobar)
       setBusyId(null)
+      setConfirmando(null)
       if ('error' in res) {
         toast.error(res.error)
         return
@@ -128,25 +126,51 @@ export function SpeiPendientes({ rows }: { rows: SpeiPendiente[] }) {
                 </p>
               </div>
             </div>
-            <div className="flex shrink-0 gap-2">
-              <Button
-                type="button"
-                size="sm"
-                loading={isPending && busyId === r.id}
-                onClick={() => resolver(r, true)}
-              >
-                Confirmar
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={isPending}
-                onClick={() => resolver(r, false)}
-              >
-                Rechazar
-              </Button>
-            </div>
+            {confirmando?.id === r.id ? (
+              <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 p-2">
+                <span className="text-xs text-muted-foreground">
+                  {confirmando.aprobar
+                    ? `¿Recibiste ${mxn.format(r.amount)}? Se registrará el abono.`
+                    : '¿Rechazar esta transferencia?'}
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setConfirmando(null)}
+                  disabled={isPending}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={confirmando.aprobar ? 'default' : 'destructive'}
+                  loading={isPending && busyId === r.id}
+                  onClick={() => resolver(r, confirmando.aprobar)}
+                >
+                  Sí, {confirmando.aprobar ? 'confirmar' : 'rechazar'}
+                </Button>
+              </div>
+            ) : (
+              <div className="flex shrink-0 gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => setConfirmando({ id: r.id, aprobar: true })}
+                >
+                  Confirmar
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setConfirmando({ id: r.id, aprobar: false })}
+                >
+                  Rechazar
+                </Button>
+              </div>
+            )}
           </div>
         ))}
       </CardContent>
@@ -175,20 +199,16 @@ export type SpeiRechazada = {
 export function SpeiRechazadas({ rows }: { rows: SpeiRechazada[] }) {
   const [isPending, startTransition] = useTransition()
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [confirmandoId, setConfirmandoId] = useState<string | null>(null)
 
   if (!rows.length) return null
 
   function reabrir(row: SpeiRechazada) {
-    if (
-      !window.confirm(
-        `¿Reabrir la transferencia de ${mxn.format(row.amount)} de ${row.cliente}? Volverá a "por confirmar".`
-      )
-    )
-      return
     setBusyId(row.id)
     startTransition(async () => {
       const res = await reabrirSpei(row.id)
       setBusyId(null)
+      setConfirmandoId(null)
       if ('error' in res) {
         toast.error(res.error)
         return
@@ -247,17 +267,41 @@ export function SpeiRechazadas({ rows }: { rows: SpeiRechazada[] }) {
                 </Link>
               </p>
             </div>
-            <div className="shrink-0">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                loading={isPending && busyId === r.id}
-                onClick={() => reabrir(r)}
-              >
-                Reabrir
-              </Button>
-            </div>
+            {confirmandoId === r.id ? (
+              <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/40 p-2">
+                <span className="text-xs text-muted-foreground">
+                  ¿Reabrir? Volverá a &quot;por confirmar&quot;.
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setConfirmandoId(null)}
+                  disabled={isPending}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  loading={isPending && busyId === r.id}
+                  onClick={() => reabrir(r)}
+                >
+                  Sí, reabrir
+                </Button>
+              </div>
+            ) : (
+              <div className="shrink-0">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setConfirmandoId(r.id)}
+                >
+                  Reabrir
+                </Button>
+              </div>
+            )}
           </div>
         ))}
       </CardContent>

@@ -240,16 +240,26 @@ volvió el default, incluso en carriles de backend. Lo que sí quedó de la
 > CSS/markup nuevo. Pendiente: un vistazo del fundador en `/salidas/[id]`,
 > `/gastos` y `/cuentas` para confirmar a ojo.
 
+### Aplicado (ciclo 13 — remate: Sheet de filtros + `/cobranza` sin diálogos nativos, 2026-08-10, worktree `ui-remate`)
+
+Cierra los 2 pendientes que quedaban abiertos de los ciclos 11 y 12.
+
+| # | Acción | Estado |
+|---|---|---|
+| C13-1 | **Filtros de `/explora` a un Sheet en móvil.** Corrección sobre el diagnóstico del ciclo 11: el problema real no era "5 controles en una fila" (en móvil ya iban apilados, `flex-col`) sino que **5-6 controles apilados de ancho completo empujaban los resultados fuera de la pantalla inicial** — visible recién al recorrer con viewport angosto de verdad. Ahora en móvil solo se ve buscador + botón **"Filtros"** (con badge del número de filtros activos); destino/tipo/precio/orden viven en un `Sheet` (`side="bottom"`, mismo patrón que el "Más" del bottom-tab bar) con "Limpiar" / "Ver N viajes". Desktop (`sm:`+) intacto, misma fila de siempre. Los controles NO se duplican en lógica — el mismo bloque JSX se renderiza una vez oculto (`hidden sm:flex`) y una vez dentro del Sheet, ambos atados al mismo estado | ✅ |
+| C13-2 | **`/cobranza`: `window.confirm()` → confirmación inline** en `spei-pendientes.tsx` (aprobar/rechazar transferencia SPEI, reabrir rechazada) — mismo patrón inline ya usado en ciclo 12 (Cuentas/Gastos), ahora en las 3 acciones de esta pantalla | ✅ |
+
+> Verificado en vivo (`pnpm dev`, viewport móvil real 390×844 vía Chrome):
+> el botón "Filtros" aparece solo bajo `sm`, el Sheet abre con los 4 controles
+> + "Ver 2 viajes" (cuenta en vivo), cierra correctamente. `/cobranza` no se
+> pudo probar autenticado (mismo límite que ciclo 12) — verificado por
+> `tsc`+`build`+`vitest` (75) reusando el patrón ya confirmado en vivo en
+> Cuentas/Gastos.
+
 ### Pendiente
 
 1. **Símbolo cuadrado de marca** → favicon/PWA + cuadrado del OG (bloqueado:
    falta el asset del ícono aislado, sin la palabra "Ketzal").
-2. **Filtros de `/explora` a un Sheet en móvil** — 5 controles en una fila es
-   denso en pantalla chica (P2 del corte marketplace, ciclo 11).
-3. **Barrido de `window.confirm`/`window.prompt` fuera de estas 4 secciones**
-   (ej. `spei-pendientes.tsx` en `/cobranza` usa `window.confirm` para
-   aprobar/rechazar transferencias) — mismo antipatrón, fuera del alcance de
-   este ciclo (acotado a Cuentas/Gastos/Salidas/Comisiones).
 
 > El ⌘K se cerró en C4-1. La "cobranza" no se agregó al ⌘K a propósito — no es
 > una entidad buscable (vista derivada de las ventas con saldo); buscar el
