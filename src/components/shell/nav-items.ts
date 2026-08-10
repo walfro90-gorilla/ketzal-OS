@@ -44,7 +44,9 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Clientes', href: '/clientes', icon: UsersIcon, primary: true },
   { label: 'Cotizaciones', href: '/cotizaciones', icon: FileTextIcon, primary: true },
   { label: 'Cobranza', href: '/cobranza', icon: HandCoinsIcon, primary: false },
-  { label: 'Cuentas', href: '/cuentas', icon: ScaleIcon, primary: false, adminOnly: true },
+  // b054: ya no es solo-admin — un agente con tarifa de comisión propia
+  // necesita ver su propio saldo (ledger_summary ya filtra por RLS/guard).
+  { label: 'Cuentas', href: '/cuentas', icon: ScaleIcon, primary: false },
   { label: 'Salidas', href: '/salidas', icon: BusIcon, primary: false },
   { label: 'Abordaje', href: '/abordaje', icon: QrCodeIcon, primary: false },
   { label: 'Gastos', href: '/gastos', icon: ReceiptTextIcon, primary: false, adminOnly: true },

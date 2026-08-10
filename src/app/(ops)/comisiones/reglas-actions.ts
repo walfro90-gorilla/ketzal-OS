@@ -77,3 +77,55 @@ export async function guardarReglaEmbajador(
 ): Promise<ReglaResult> {
   return guardarRegla('embajador', embajadorId, serviceId, basis, value)
 }
+
+/**
+ * Tarifa de comisión de un agente por CERRAR una venta (b054): la paga su
+ * propia agencia de su margen, no depende del servicio (una sola tarifa por
+ * agente, no por-servicio como embajador/plataforma). Base híbrida: %
+ * de la venta + fijo por pasajero, ambos a la vez. `null` la quita.
+ */
+export async function guardarReglaAgente(
+  agentId: string,
+  pct: number | null,
+  porPasajero: number | null
+): Promise<ReglaResult> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  if (pct == null && porPasajero == null) {
+    const { error } = await supabase.rpc('set_commission_rule' as never, {
+      p_service: null,
+      p_payee_type: 'agente',
+      p_scope: agentId,
+      p_basis: null,
+      p_rate: null,
+      p_unit: null,
+    } as never)
+    if (error) return { error: safeError(error) }
+    revalidatePath('/comisiones')
+    return { ok: true }
+  }
+
+  if (pct == null || !Number.isFinite(pct) || pct < 0 || pct > 100) {
+    return { error: 'El porcentaje debe estar entre 0 y 100.' }
+  }
+  if (porPasajero == null || !Number.isFinite(porPasajero) || porPasajero < 0) {
+    return { error: 'El monto por pasajero debe ser mayor o igual a cero.' }
+  }
+
+  const { error } = await supabase.rpc('set_commission_rule' as never, {
+    p_service: null,
+    p_payee_type: 'agente',
+    p_scope: agentId,
+    p_basis: 'hibrido',
+    p_rate: pct,
+    p_unit: porPasajero,
+  } as never)
+  if (error) return { error: safeError(error) }
+
+  revalidatePath('/comisiones')
+  return { ok: true }
+}

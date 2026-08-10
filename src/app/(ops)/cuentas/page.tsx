@@ -43,6 +43,7 @@ const TIPO_LABEL: Record<string, string> = {
   agencia: 'Agencia',
   embajador: 'Embajador',
   viajero: 'Viajero',
+  agente: 'Agente',
 }
 
 const KIND_LABEL: Record<string, string> = {

@@ -263,3 +263,87 @@ lo re-aplica. Espejo en `db/proposed/b019_comisiones_motor.sql`.
   unit, num_pax, total)` a `src/lib/domain/commission.ts` puro + `.test.ts`
   (percent/fijo_venta/fijo_pax + redondeo), patrón senior del repo.
 - `tsc` + `next build` limpios.
+
+---
+
+## b054 — Comisión por AGENTE individual (2026-08-10, worktree `comision-agente`)
+
+**Por qué.** El fundador pidió una cuenta en el ledger balance-0 por cada
+"user", empezando por el caso real: pagarle a un agente (no solo a su
+agencia) una comisión por cerrar la venta, de su propio margen — no del
+corte de Ketzal. Antes solo existían cuentas `plataforma`/`agencia`
+(agregada)/`embajador`/`viajero`; ningún agente individual tenía cuenta propia.
+
+**Diseño — calco exacto del patrón de embajador, dos extensiones aditivas:**
+- **4º `payee_type`/`account_type`: `agente`**, keyed por `payee_profile_id`/
+  `account_profile_id` (igual que embajador/viajero). El "a cargo" en el
+  espejo del ledger es SIEMPRE la agencia vendedora (`bookings.selling_supplier_id`)
+  — mecánica ya genérica del trigger, no hubo que decidir nada nuevo ahí:
+  la agencia cobró el 100% de la venta, le debe su corte a cada payee
+  (plataforma, agencia dueña, embajador o ahora agente) por igual.
+- **4ª `basis`: `hibrido`** — % de la venta + fijo por pasajero, **los dos a
+  la vez** (`commission_amount` suma ambos términos). Pedido explícito del
+  fundador; las otras 3 basis siguen siendo de un solo término.
+- **Auto-generación por venta**: nuevo bloque en `tg_commission_snapshot`
+  (el trigger que YA generaba `plataforma`/`agencia` automáticamente) que
+  resuelve una tarifa para `bookings.sold_by` — **opt-in**: sin tarifa
+  configurada para ESE agente, `resolve_commission_rule` regresa `basis`
+  null y no se inserta nada (mismo comportamiento que embajador, cero
+  sorpresas para agencias que no configuren nada).
+- **Alcance de la tarifa: por agente, NO por servicio.** A diferencia de
+  plataforma/embajador (que si son por-servicio), la tarifa de agente es
+  una sola (`service_id` siempre null) — decisión de simplicidad, YAGNI
+  hasta que se pida granularidad por servicio.
+- **`tg_ledger_mirror_commission` reescrito de explícito**: el `else` que
+  antes asumía "todo lo que no es plataforma/agencia es embajador" ya no es
+  seguro con 4 tipos — ahora es un `case` explícito por `payee_type`.
+
+**Funciones re-aplicadas aditivamente (DDL vivo leído antes de tocar, cero
+sorpresas):** `commission_amount` (+caso `hibrido`), `resolve_commission_rule`
+(+`agente` en el CASE de scope, calca `embajador`), `set_commission_rule`
+(+payee_type `agente`, +basis `hibrido`, guard nuevo: admin de la MISMA
+agencia que el agente objetivo, o superadmin), `tg_commission_snapshot`
+(+bloque agente), `tg_ledger_mirror_commission` (reescrito explícito),
+`ledger_statement`/`settle_ledger` (+`agente` en las listas blancas de
+autoacceso). **`ledger_summary` no necesitó cambios** — ya era genérico
+(`account_profile_id = auth.uid()` sin filtrar por tipo). RPC nuevo
+`list_agents_for_commission(p_supplier)` (lista agentes de la agencia +
+su tarifa vigente vía LEFT JOIN interno — RLS de `commission_rules` no deja
+leer `payee_type='agente'` directo, solo `agencia` propia o superadmin).
+
+**App**: card **"Tarifa de agentes"** en `/comisiones` (solo `role='admin'`,
+no superadmin — es decisión de la agencia sobre su propio margen, mismo
+espíritu que "Configuración de porcentajes"; superadmin sin agencia propia
+queda fuera a propósito, YAGNI hasta que haga falta un selector de agencia).
+Una fila por agente, dos inputs (% + $/pax), Guardar/Quitar
+(`reglas-agente.tsx`, `guardarReglaAgente` en `reglas-actions.ts`).
+**`/cuentas` deja de ser `adminOnly` en el nav** — un agente regular con
+tarifa propia necesita ver su saldo; la protección real siempre vivió en
+los RPCs (`ledger_summary` ya filtraba por `auth.uid()`), la ruta nunca
+estuvo en `ADMIN_HREFS` (proxy), así que destapar el link es solo
+descubribilidad, no una apertura de seguridad nueva.
+
+**Hard-test en vivo (prod, agencias reales, limpiado después — sin
+rollback porque tocaba `auth.uid()` vía `set request.jwt.claim.sub`, técnica
+que este repo ya usa en sus hard-tests adversariales):** tarifa 5%+$50/pax
+para el admin de Wanderlust ("wal", agente real) → venta de 2 pax × $1,000
+→ `commission_lines` agente = $200.00 exacto (100 + 100) → ledger espeja
++$200 agente / −$200 agencia, suma global sigue $0.00 → `ledger_summary`/
+`ledger_statement` como el propio agente ven su cuenta → limpieza: venta
+cancelada, comisión revertida (`kind='reverso'`, mismo patrón que
+`reverse_expense`), tarifa de prueba desactivada. `verificar_invariantes`
+0 antes y después. Advisors security 0 ERROR. `tsc`+`build`+`vitest` (75)
+limpios. **No se pudo verificar la UI visualmente** (mismo límite que
+ciclos 12/13: `/comisiones` pide login, sin credenciales de "wal" a mano)
+— confianza vía hard-test de BD + reuso de primitivos ya probados
+visualmente (`Input`, `Button`, patrón `ReglaRow`).
+
+**Pendiente/follow-up, no bloqueante:**
+- Superadmin sin agencia propia no puede configurar tarifas de agente hoy
+  (necesitaría un selector de agencia en la card, como `Tarifas de
+  embajador` no tiene porque embajador es global) — YAGNI hasta que un
+  superadmin lo pida de verdad.
+- Tarifa de agente por servicio (hoy es una sola, agencia-wide) — mismo
+  YAGNI, fácil de agregar después calcando el patrón de embajador/plataforma
+  si algún día hace falta.
+- Espejo `db/proposed/b054_comision_agente.sql`.

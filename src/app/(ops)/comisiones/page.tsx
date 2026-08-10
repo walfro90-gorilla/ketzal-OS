@@ -22,6 +22,7 @@ import {
   type ServicioBasico,
   type ReglaEmbajadorRow,
 } from './reglas-servicio'
+import { ReglasAgente, type AgenteComision } from './reglas-agente'
 import type { ReglaBasis } from './reglas-actions'
 
 type CommissionsSummary = {
@@ -55,6 +56,7 @@ export default async function ComisionesPage() {
     .eq('id', user.id)
     .single()
   const isSuperadmin = profile?.role === 'superadmin'
+  const isAdmin = profile?.role === 'admin'
 
   const [
     agenciasRes,
@@ -64,6 +66,7 @@ export default async function ComisionesPage() {
     reglasRes,
     embajadoresRes,
     reglasEmbRes,
+    agentesRes,
   ] = await Promise.all([
     supabase
       .from('suppliers')
@@ -100,6 +103,7 @@ export default async function ComisionesPage() {
           .eq('payee_type', 'embajador')
           .eq('active', true)
       : Promise.resolve({ data: [], error: null }),
+    isAdmin ? supabase.rpc('list_agents_for_commission' as never) : Promise.resolve({ data: [], error: null }),
   ])
 
   const agencias = agenciasRes.data ?? []
@@ -163,6 +167,24 @@ export default async function ComisionesPage() {
     id: s.id,
     nombre: s.name,
     agencia: agenciaPorId.get(s.supplier_id) ?? null,
+  }))
+
+  // Tarifa de agentes (solo admin de agencia, b054): una por agente, no por
+  // servicio — el RPC ya trae la tarifa vigente (LEFT JOIN, RLS de
+  // commission_rules no deja leer payee_type='agente' directo).
+  const agentesComision: AgenteComision[] = (
+    (agentesRes.data ?? []) as unknown as {
+      id: string
+      name: string
+      basis: string | null
+      rate: number | null
+      unit_amount: number | null
+    }[]
+  ).map((a) => ({
+    id: a.id,
+    nombre: a.name,
+    pct: a.basis === 'hibrido' ? Number(a.rate) : null,
+    porPasajero: a.basis === 'hibrido' ? Number(a.unit_amount) : null,
   }))
 
   const reglasEmbajador: ReglaEmbajadorRow[] = (
@@ -289,6 +311,28 @@ export default async function ComisionesPage() {
               />
             )}
             <EmbajadoresAccesos embajadores={embajadores} />
+          </CardContent>
+        </Card>
+      )}
+
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Tarifa de agentes</CardTitle>
+            <CardDescription>
+              Cuánto le pagas a cada agente de tu equipo por cerrar una venta
+              (de tu margen, no del corte de Ketzal). % de la venta + monto
+              fijo por pasajero, los dos a la vez.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {agentesRes.error ? (
+              <p className="text-sm text-destructive">
+                Error al cargar los agentes: {agentesRes.error.message}
+              </p>
+            ) : (
+              <ReglasAgente agentes={agentesComision} />
+            )}
           </CardContent>
         </Card>
       )}
