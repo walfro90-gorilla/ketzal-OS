@@ -1,36 +1,88 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Ketzal OS
 
-## Getting Started
+Back-office multi-agencia para operadoras de viajes: venta con líneas de precio,
+abonos (ledger append-only), recibos foliados, cotizaciones, comisiones,
+cobranza, salidas/manifiesto, y una vitrina pública/marketplace B2C detrás de
+un flag. Construido para las agencias reales del fundador (Wanderlust Travels,
+Border Travels, Snapshot) como el primer paso de la visión de largo plazo:
+"uberizar" los servicios turísticos de Chihuahua → México → LATAM.
 
-First, run the development server:
+Contexto de negocio, alcance y reglas de oro (no negociables) en **`CLAUDE.md`**
+— léelo antes de tocar código. Detalle del modelo de datos en
+**`docs/DATA_MODEL.md`**, arquitectura en **`docs/ARCHITECTURE.md`**.
+
+**¿Quieres saber qué hace cada pantalla y quién puede verla?** →
+**[`docs/MANUAL_USUARIO.md`](docs/MANUAL_USUARIO.md)**.
+
+## Stack
+
+- **Next.js 16** (App Router) + **TypeScript**, React 19, Tailwind 4
+- **shadcn/ui** (base-nova, sobre `@base-ui/react`, no radix)
+- **Supabase** (Postgres 17, Auth, Storage, RLS) — proyecto Gorilla-Labs,
+  schema `ketzal`. Migraciones NO viven en el repo: Supabase es la fuente de
+  verdad; los espejos de referencia están en `db/proposed/`
+  (`bNNN_` = carril backend/dinero, `mNNN_` = carril marketplace/viajero)
+- **vitest** para la lógica de dominio pura (`src/lib/domain/`)
+- **pnpm** como package manager
+- Despliegue: **Vercel** (push a `main` auto-despliega a
+  https://ketzal-os.vercel.app)
+
+## Arrancar en local
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
+cp .env.local.example .env.local   # y llena las variables (ver abajo)
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abre [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Variables de entorno
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Variable | Para qué |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Cliente de Supabase (obligatorias) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Operaciones server-side que saltan RLS (invitaciones, OAuth de MP, etc.) |
+| `GROQ_API_KEY` / `GROQ_MODEL` | Lector de volantes (PDF/imagen → servicio) en `/servicios/nuevo` |
+| `MP_ACCESS_TOKEN` | Token de plataforma de Mercado Pago (checkout sin split) |
+| `MP_CLIENT_ID` / `MP_CLIENT_SECRET` | App marketplace de MP — habilita el OAuth de split por agencia (`/api/mp/oauth/*`). Sin ellas, el botón "Conectar mi Mercado Pago" responde 501 y todo opera con el token único |
+| `MP_WEBHOOK_SECRET` | Valida las notificaciones del webhook de MP |
+| `CRON_SECRET` | Protege `/api/clawbot/tick` (el cron de recordatorios) |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` / `VAPID_SUBJECT` | Notificaciones push (Web Push) |
+| `NEXT_PUBLIC_MARKETPLACE` | Flag: enciende la vitrina B2C (`/comprar`, reseñas, etc.) |
+| `NEXT_PUBLIC_APP_URL` | Override del origin público (redirect URIs, links compartibles); si falta, se usa el origin de la request |
 
-## Learn More
+## Comandos
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+pnpm dev            # servidor de desarrollo
+pnpm build           # build de producción
+pnpm test            # vitest (lógica de dominio, src/lib/domain/)
+npx tsc --noEmit      # typecheck
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+CI (`.github/workflows/test.yml`) corre `tsc` + `pnpm test` en cada PR y en
+`main`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Estructura
 
-## Deploy on Vercel
+```
+src/app/(ops)/    back-office (agente/admin/superadmin) — venta, cobranza, catálogo, comisiones…
+src/app/(travel)/ portal del viajero — sus viajes, plan de pagos, perfil
+src/app/embajador/  portal del embajador — ganancias + link de referido
+src/app/proveedor/  portal del proveedor operativo — sus servicios, solo lectura
+src/app/explora/ , /agencias/ , /servicio/ , /comprar/   vitrina pública + checkout
+src/app/api/       endpoints (Mercado Pago, Clawbot cron)
+src/lib/domain/    lógica de dinero pura, con tests (pricing, balance, planes, etc.)
+db/proposed/       espejo de las migraciones aplicadas a Supabase (referencia, no fuente)
+docs/              contexto de negocio, modelo de datos, manual de usuario, roadmap
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Documentación
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **`CLAUDE.md`** — visión, alcance v1, reglas de oro, y el log completo de lo construido
+- **`docs/MANUAL_USUARIO.md`** — qué hace cada sección y quién tiene acceso
+- **`docs/DATA_MODEL.md`** — modelo de datos
+- **`docs/ARCHITECTURE.md`** — stack, principios, seguridad
+- **`docs/ROADMAP.md`** — fases v1 → v4
+- **`docs/WORKTREES.md`** — cómo se coordina el trabajo en carriles paralelos
