@@ -87,6 +87,43 @@ export async function verifyOtp(email: string, token: string): Promise<void> {
   cached = { token: g.access_token, expiresAt: Date.now() + g.expires_in * 1000 }
 }
 
+/**
+ * Canjea la **liga** del correo en vez de un código.
+ *
+ * La plantilla de correo de Supabase es la de Magic Link: trae una liga, no un
+ * código de 6 dígitos (para eso la plantilla tendría que incluir `{{ .Token }}`).
+ * La liga lleva el `token_hash` en la query, y GoTrue lo canjea por POST sin
+ * pasar por el navegador — así no hace falta tocar la configuración de auth de
+ * producción, que es compartida con la app.
+ *
+ * Copia la DIRECCIÓN de la liga, no le des clic: al abrirla se consume.
+ */
+export async function verifyMagicLink(link: string): Promise<void> {
+  let url: URL
+  try {
+    url = new URL(link.trim())
+  } catch {
+    throw new Error('Eso no es una liga válida. Copia la dirección del botón "Log In" del correo.')
+  }
+  const hash = url.searchParams.get('token_hash') ?? url.searchParams.get('token')
+  if (!hash) throw new Error('La liga no trae token. ¿Copiaste la dirección completa?')
+  const type = url.searchParams.get('type') || 'magiclink'
+
+  const g = asGrant(await gotrue('verify', { type, token_hash: hash }))
+  const email = await emailDelToken(g.access_token)
+  await writeStored({ email, refresh_token: g.refresh_token })
+  cached = { token: g.access_token, expiresAt: Date.now() + g.expires_in * 1000 }
+}
+
+/** El correo dueño de un access token recién emitido (la liga no lo trae). */
+async function emailDelToken(token: string): Promise<string> {
+  const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` },
+  })
+  const j = (await r.json().catch(() => ({}))) as { email?: string }
+  return j.email ?? 'desconocido'
+}
+
 /** Login por contraseña. Solo para el fallback headless por env. */
 export async function loginWithPassword(email: string, password: string): Promise<void> {
   const g = asGrant(await gotrue('token?grant_type=password', { email, password }))
