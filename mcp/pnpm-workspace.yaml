@@ -1,0 +1,4 @@
+# Hace de `mcp/` su propio workspace root, para que `pnpm install` aquí adentro no
+# herede el del repo (que no lista packages) ni obligue a `--ignore-workspace`.
+allowBuilds:
+  esbuild: true
