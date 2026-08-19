@@ -41,5 +41,6 @@ jobs:
           node-version: 22
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
-      - run: pnpm test
+      # build ANTES de test: el handshake de protocol.test.ts arranca dist/index.js.
       - run: pnpm build
+      - run: pnpm test

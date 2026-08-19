@@ -73,6 +73,20 @@ export function update<T = unknown>(
   return call('PATCH', `${table}?${query}`, patch, { Prefer: 'return=representation' }) as Promise<T[]>
 }
 
+/**
+ * Borra las filas que casen con `query` y devuelve las borradas.
+ *
+ * `return=representation` es load-bearing: sin él, un DELETE que la RLS bloquea
+ * responde 204 con cero filas y el llamador cree que borró algo.
+ */
+export async function remove<T = unknown>(table: string, query: string): Promise<T[]> {
+  const filas = (await call('DELETE', `${table}?${query}`, undefined, {
+    Prefer: 'return=representation',
+  })) as T[] | null
+  if (!filas?.length) throw new KetzalError('No existe o no tienes acceso a ese registro.')
+  return filas
+}
+
 /** Escapa un valor para un filtro de PostgREST (`eq.`, `in.`…). */
 export function q(value: string | number | boolean): string {
   return encodeURIComponent(String(value))

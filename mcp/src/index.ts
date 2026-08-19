@@ -12,6 +12,8 @@ import { McpServer } from '@modelcontextprotocol/server'
 import { serveStdio } from '@modelcontextprotocol/server/stdio'
 import { READ_ONLY, VERSION } from './config.js'
 import { log } from './log.js'
+import { registrarPrompts } from './prompts.js'
+import { registrarRecursos } from './resources.js'
 import { clearSession, readStored, sendOtp, sessionPath, verifyOtp } from './session.js'
 import { ALL_TOOLS } from './tools/index.js'
 import { registrar } from './tools/registry.js'
@@ -79,10 +81,15 @@ async function main(): Promise<void> {
   serveStdio(() => {
     const server = new McpServer(
       { name: 'ketzal', version: VERSION },
-      { capabilities: { tools: {} } },
+      { capabilities: { tools: {}, resources: {}, prompts: {} } },
     )
     const n = registrar(server, ALL_TOOLS)
-    log(`v${VERSION} · ${n} herramientas · modo ${READ_ONLY ? 'solo lectura' : 'lectura y escritura'}`)
+    const r = registrarRecursos(server)
+    const p = registrarPrompts(server)
+    log(
+      `v${VERSION} · ${n} herramientas, ${r} recursos, ${p} prompts · ` +
+        `modo ${READ_ONLY ? 'solo lectura' : 'lectura y escritura'}`,
+    )
     return server
   })
 }
