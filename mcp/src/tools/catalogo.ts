@@ -172,6 +172,7 @@ export const tools: ToolDef[] = [
       'ficha). Publicar lo hace visible a CUALQUIER visitante de internet, así que confirma ' +
       'con el usuario antes. No crea ni edita servicios: eso se hace en la app web.',
     write: true,
+    destructive: true,
     idempotent: true,
     inputSchema: z.object({
       servicio_id: z.string().describe('Id del servicio a publicar o despublicar.'),

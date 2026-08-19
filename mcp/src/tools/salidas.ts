@@ -181,6 +181,7 @@ export const tools: ToolDef[] = [
       'cambian. Si el pasajero tenía asiento, el asiento queda libre. ' +
       'El id del pasajero sale de ketzal_pasajeros, no es el id de la venta.',
     write: true,
+    destructive: true,
     inputSchema: z.object({
       pasajero_id: uuid('Id del pasajero (campo `id` de ketzal_pasajeros).'),
     }),

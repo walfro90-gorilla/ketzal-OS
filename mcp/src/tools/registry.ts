@@ -23,6 +23,14 @@ export type ToolDef = {
   write?: boolean
   /** Mueve dinero: además de `write`, exige `confirmar: true` en los argumentos. */
   money?: boolean
+  /**
+   * Borra datos o los expone a terceros anónimos, sin mover dinero.
+   * Sólo afecta la anotación `destructiveHint` que ven los clientes MCP para
+   * decidir si auto-aprueban: no es un control de seguridad (la frontera real
+   * son la RLS y los guards en SQL), pero anotar un DELETE como inofensivo sí
+   * es engañar al cliente.
+   */
+  destructive?: boolean
   /** Repetirla no produce un efecto nuevo (emitir recibo, emitir voucher). */
   idempotent?: boolean
   handler: (args: Record<string, unknown>) => Promise<unknown>
@@ -58,7 +66,7 @@ export function registrar(server: McpServer, tools: ToolDef[]): number {
         ...(t.inputSchema ? { inputSchema: t.inputSchema } : {}),
         annotations: {
           readOnlyHint: !t.write,
-          destructiveHint: Boolean(t.money),
+          destructiveHint: Boolean(t.money || t.destructive),
           idempotentHint: Boolean(t.idempotent),
           openWorldHint: false,
         },

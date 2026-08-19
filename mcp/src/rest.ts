@@ -87,7 +87,20 @@ export async function remove<T = unknown>(table: string, query: string): Promise
   return filas
 }
 
-/** Escapa un valor para un filtro de PostgREST (`eq.`, `in.`…). */
+/**
+ * Escapa un valor como **operando de un filtro simple** de PostgREST
+ * (`eq.`, `gte.`, `ilike.`…).
+ *
+ * `encodeURIComponent` codifica `&`, `=`, `,` y `%`, que es lo que impide que un
+ * valor añada o altere otro parámetro de la query. Lo que NO codifica es
+ * `!'()*-._~`, y ahí está el límite del contrato: **no basta** dentro de
+ * `in.(…)`, `or=(…)`, `select=` u `order=`, donde `,`, `(` y `)` son
+ * estructurales. Para esos contextos hace falta otro escapado — hoy ningún
+ * llamador interpola input ahí.
+ *
+ * `*` sobrevive a propósito: es el comodín de `ilike`, y ensanchar una búsqueda
+ * nunca pasa de lo que la RLS ya autoriza.
+ */
 export function q(value: string | number | boolean): string {
   return encodeURIComponent(String(value))
 }
