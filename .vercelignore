@@ -1,2 +1,5 @@
 # Worker de WhatsApp: corre en la box (PM2), no en Vercel. No lo despliegues.
 wa-sender/
+
+# Servidor MCP: se publica a npm y corre en la máquina del usuario, no en Vercel.
+mcp/

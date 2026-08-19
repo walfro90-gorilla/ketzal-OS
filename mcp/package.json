@@ -1,0 +1,28 @@
+{
+  "name": "ketzal-mcp",
+  "version": "0.1.0",
+  "description": "Servidor MCP de Ketzal OS: opera ventas, cobranza, salidas y reportes en lenguaje natural desde cualquier agente IA de terminal.",
+  "keywords": ["mcp", "model-context-protocol", "ketzal", "turismo", "supabase"],
+  "license": "MIT",
+  "type": "module",
+  "bin": { "ketzal-mcp": "dist/index.js" },
+  "main": "dist/index.js",
+  "files": ["dist", "README.md"],
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "^2.0.0",
+    "zod": "^4.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2",
+    "vitest": "^3.2.7"
+  }
+}
