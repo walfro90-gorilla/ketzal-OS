@@ -56,6 +56,13 @@ const LINEA = z.object({
 })
 
 async function crearVenta(a: Record<string, unknown>) {
+  // Sin esto el RPC recibiría un cliente con nombre nulo y reventaría por
+  // constraint (23502), que al agente le llega como error genérico.
+  if (!a.cliente_id && !String(a.cliente_nuevo ?? '').trim()) {
+    throw new KetzalError(
+      'Falta el cliente: pasa `cliente_id` (búscalo con ketzal_clientes) o `cliente_nuevo` con su nombre completo.',
+    )
+  }
   const bookingId = await rpc<string>('create_booking_with_items', {
     p_customer_id: a.cliente_id ?? null,
     p_new_customer: a.cliente_id ? null : { full_name: a.cliente_nuevo, phone: a.cliente_telefono ?? null },
