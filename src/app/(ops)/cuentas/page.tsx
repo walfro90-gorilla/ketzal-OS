@@ -54,6 +54,8 @@ const KIND_LABEL: Record<string, string> = {
   payout: 'Payout',
   liquidacion: 'Liquidación',
   ajuste: 'Ajuste',
+  credito_emitido: 'Crédito emitido al viajero',
+  credito_canjeado: 'Crédito aplicado a una compra',
 }
 
 const fecha = new Intl.DateTimeFormat('es-MX', {
@@ -161,7 +163,12 @@ export default async function CuentasPage({
                     >
                       Ver movimientos →
                     </Link>
-                    {esSuper && c.account_type !== 'plataforma' && c.saldo !== 0 && (
+                    {/* b056: el saldo de un viajero es crédito redimible en Ketzal,
+                        no retirable — `settle_ledger` lo rechaza, así que ni se ofrece. */}
+                    {esSuper &&
+                      c.account_type !== 'plataforma' &&
+                      c.account_type !== 'viajero' &&
+                      c.saldo !== 0 && (
                       <LiquidarBoton
                         accountType={c.account_type}
                         supplierId={c.account_supplier_id}
