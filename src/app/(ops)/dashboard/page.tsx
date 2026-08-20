@@ -33,6 +33,7 @@ import { getClawbotResumen, type ClawbotResumen } from '../clawbot/data'
 import { getSpeiPendientes } from '../cobranza/data'
 import { BarrasTop } from '../reportes/graficas'
 import type { Reporte } from '../reportes/tipos'
+import { ChecklistArranque, type Onboarding } from './checklist-arranque'
 import { Dona, SerieVendidoRecibido, type PuntoSerie, type Rebanada } from './graficas'
 import { RangoPanel, type PresetRango } from './rango'
 
@@ -534,6 +535,7 @@ export default async function DashboardPage({
     clawbot,
     anomaliasRes,
     speiPendientes,
+    onboardingRes,
   ] = await Promise.all([
       supabase.rpc('dashboard_summary'),
       supabase.rpc('reports_summary', { p_from: from, p_to: to }),
@@ -557,7 +559,13 @@ export default async function DashboardPage({
       supabase.rpc('alertas_anomalias_dinero' as never),
       // Transferencias SPEI declaradas por confirmar (b034); [] para no-admin.
       getSpeiPendientes(),
+      // b064: checklist de arranque. El RPC devuelve null salvo para el admin de
+      // una agencia, así que la tarjeta ni se pinta para los demás.
+      supabase.rpc('onboarding_agencia' as never),
     ])
+
+  // b064: null salvo para el admin de una agencia (el RPC lo decide).
+  const onboarding = (onboardingRes.data ?? null) as unknown as Onboarding | null
 
   const d = (summaryRes.data ?? EMPTY_SUMMARY) as unknown as DashboardSummary
   const periodo = (periodoRes.data ?? EMPTY_REPORTE) as unknown as Reporte
@@ -720,6 +728,12 @@ export default async function DashboardPage({
         <p className="text-sm text-destructive">
           Error al cargar el resumen: {summaryRes.error.message}
         </p>
+      )}
+
+      {/* b064: primeros pasos de la agencia. Sólo mientras quede algo pendiente;
+          desaparece solo al completarse (el RPC lo deriva, no hay flag). */}
+      {onboarding && onboarding.pendientes > 0 && (
+        <ChecklistArranque data={onboarding} />
       )}
 
       {/* Lo accionable AHORA (no depende del rango de fechas de abajo). */}
