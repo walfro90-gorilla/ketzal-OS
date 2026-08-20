@@ -34,6 +34,7 @@ import { getSpeiPendientes } from '../cobranza/data'
 import { BarrasTop } from '../reportes/graficas'
 import type { Reporte } from '../reportes/tipos'
 import { ChecklistArranque, type Onboarding } from './checklist-arranque'
+import { UnirseAgencia, type AgenciaParaUnirse } from './unirse-agencia'
 import { Dona, SerieVendidoRecibido, type PuntoSerie, type Rebanada } from './graficas'
 import { RangoPanel, type PresetRango } from './rango'
 
@@ -536,6 +537,7 @@ export default async function DashboardPage({
     anomaliasRes,
     speiPendientes,
     onboardingRes,
+    agenciasRes,
   ] = await Promise.all([
       supabase.rpc('dashboard_summary'),
       supabase.rpc('reports_summary', { p_from: from, p_to: to }),
@@ -562,10 +564,20 @@ export default async function DashboardPage({
       // b064: checklist de arranque. El RPC devuelve null salvo para el admin de
       // una agencia, así que la tarjeta ni se pinta para los demás.
       supabase.rpc('onboarding_agencia' as never),
+      // b065: agencias a las que un agente SIN agencia puede pedir entrar. El
+      // RPC levanta si ya perteneces a una ⇒ el error es la señal de "no aplica"
+      // y la tarjeta no se pinta.
+      supabase.rpc('list_agencies_to_join' as never),
     ])
 
   // b064: null salvo para el admin de una agencia (el RPC lo decide).
   const onboarding = (onboardingRes.data ?? null) as unknown as Onboarding | null
+
+  // b065: sólo llega con datos si el agente NO tiene agencia (si la tiene, el
+  // RPC levanta y `data` viene null).
+  const agenciasParaUnirse = (agenciasRes.data ?? null) as unknown as
+    | AgenciaParaUnirse[]
+    | null
 
   const d = (summaryRes.data ?? EMPTY_SUMMARY) as unknown as DashboardSummary
   const periodo = (periodoRes.data ?? EMPTY_REPORTE) as unknown as Reporte
@@ -735,6 +747,11 @@ export default async function DashboardPage({
       {onboarding && onboarding.pendientes > 0 && (
         <ChecklistArranque data={onboarding} />
       )}
+
+      {/* b065: el agente libre puede pedir entrar a una agencia. Ser agente
+          libre es una posición legítima, así que esto es una puerta, no un
+          error que corregir. */}
+      {agenciasParaUnirse && <UnirseAgencia agencias={agenciasParaUnirse} />}
 
       {/* Lo accionable AHORA (no depende del rango de fechas de abajo). */}
       <section aria-label="Requiere atención" className="space-y-3">
