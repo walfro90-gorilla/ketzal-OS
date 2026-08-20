@@ -13,11 +13,13 @@ import {
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { PACK_TYPES, type Pack } from '@/lib/domain/packs'
 import {
   actualizarSalida,
   crearSalida,
   eliminarSalida,
   listarSalidas,
+  type PackPriceOverrides,
   type Salida,
 } from '../actions'
 
@@ -34,17 +36,24 @@ function fechaLarga(iso: string): string {
 export function SalidasEditor({
   serviceId,
   initial,
+  packs,
 }: {
   serviceId: string
   initial: Salida[]
+  /** Paquetes del servicio: acota qué packs se pueden dar precio especial (b057). */
+  packs: Pack[]
 }) {
   const [salidas, setSalidas] = useState<Salida[]>(initial)
   const [fecha, setFecha] = useState('')
   const [cupo, setCupo] = useState('')
   // b045: ajuste de temporada en % (vacío = 0 = precio normal).
   const [pct, setPct] = useState('')
+  // b057: precios especiales por pack para la salida nueva (vacío = usa el %).
+  const [overridesNueva, setOverridesNueva] = useState<Record<string, string>>({})
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
+  const packKeys = packs.map((p) => p.key)
+  const packsDisponibles = PACK_TYPES.filter((t) => packKeys.includes(t.key))
 
   async function refrescar() {
     const res = await listarSalidas(serviceId)
@@ -67,6 +76,7 @@ export function SalidasEditor({
         departs_on: fecha,
         max_capacity: n,
         price_pct: pct.trim() === '' ? 0 : Number(pct),
+        pack_price_overrides: overridesNueva,
       })
       if ('error' in res) {
         setError(res.error)
@@ -76,6 +86,7 @@ export function SalidasEditor({
       setFecha('')
       setCupo('')
       setPct('')
+      setOverridesNueva({})
       await refrescar()
       toast.success('Salida agregada')
     })
@@ -127,6 +138,36 @@ export function SalidasEditor({
     })
   }
 
+  /** b057: guarda/quita el precio especial de un pack en una salida existente. */
+  function guardarOverride(s: Salida, packKey: string, valor: string) {
+    const actual: PackPriceOverrides = { ...(s.pack_price_overrides ?? {}) }
+    if (valor.trim() === '') {
+      delete actual[packKey]
+    } else {
+      const n = Number(valor)
+      if (!Number.isFinite(n) || n <= 0) {
+        toast.error('El precio especial debe ser mayor a 0.')
+        return
+      }
+      actual[packKey] = n
+    }
+    startTransition(async () => {
+      const res = await actualizarSalida(s.id, {
+        departs_on: s.departs_on,
+        max_capacity: s.max_capacity,
+        price_pct: s.price_pct,
+        pack_price_overrides: actual,
+      })
+      if ('error' in res) {
+        toast.error(res.error)
+        await refrescar()
+        return
+      }
+      await refrescar()
+      toast.success('Precio especial actualizado')
+    })
+  }
+
   function borrar(id: string) {
     startTransition(async () => {
       const res = await eliminarSalida(id)
@@ -156,7 +197,7 @@ export function SalidasEditor({
             {salidas.map((s) => (
               <li
                 key={s.id}
-                className="flex items-center justify-between gap-3 p-3"
+                className="flex flex-wrap items-center justify-between gap-3 p-3"
               >
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">
@@ -174,6 +215,11 @@ export function SalidasEditor({
                       >
                         · {s.price_pct > 0 ? '+' : ''}
                         {s.price_pct}% precio
+                      </span>
+                    )}
+                    {s.pack_price_overrides && (
+                      <span className="ml-1 font-semibold text-amber-600 dark:text-amber-500">
+                        · precios especiales
                       </span>
                     )}
                   </p>
@@ -225,6 +271,37 @@ export function SalidasEditor({
                     <Trash2Icon />
                   </Button>
                 </div>
+                {packsDisponibles.length > 0 && (
+                  <details className="w-full basis-full">
+                    <summary className="cursor-pointer text-xs text-muted-foreground">
+                      Precios especiales por paquete
+                    </summary>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {packsDisponibles.map((t) => (
+                        <div key={t.key} className="space-y-1">
+                          <Label
+                            htmlFor={`ov-${s.id}-${t.key}`}
+                            className="text-xs text-muted-foreground"
+                          >
+                            {t.label}
+                          </Label>
+                          <Input
+                            id={`ov-${s.id}-${t.key}`}
+                            type="number"
+                            inputMode="decimal"
+                            min={0.01}
+                            step="0.01"
+                            defaultValue={s.pack_price_overrides?.[t.key] ?? ''}
+                            placeholder="usa el %"
+                            className="w-28"
+                            disabled={isPending}
+                            onBlur={(e) => guardarOverride(s, t.key, e.target.value)}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                )}
               </li>
             ))}
           </ul>
@@ -272,6 +349,39 @@ export function SalidasEditor({
             {isPending ? 'Guardando…' : 'Agregar salida'}
           </Button>
         </div>
+
+        {packsDisponibles.length > 0 && (
+          <details>
+            <summary className="cursor-pointer text-xs text-muted-foreground">
+              Precios especiales por paquete para esta salida (opcional)
+            </summary>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {packsDisponibles.map((t) => (
+                <div key={t.key} className="space-y-1">
+                  <Label
+                    htmlFor={`nueva-ov-${t.key}`}
+                    className="text-xs text-muted-foreground"
+                  >
+                    {t.label}
+                  </Label>
+                  <Input
+                    id={`nueva-ov-${t.key}`}
+                    type="number"
+                    inputMode="decimal"
+                    min={0.01}
+                    step="0.01"
+                    value={overridesNueva[t.key] ?? ''}
+                    placeholder="usa el %"
+                    className="w-28"
+                    onChange={(e) =>
+                      setOverridesNueva((o) => ({ ...o, [t.key]: e.target.value }))
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
 
         {error && (
           <p role="alert" className="text-sm text-destructive">

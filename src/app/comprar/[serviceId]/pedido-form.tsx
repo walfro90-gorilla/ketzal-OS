@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { NativeSelect } from '@/components/ui/native-select'
 import { crearPedido } from '../actions'
-import { precioAjustado } from '@/lib/domain/pricing'
+import { precioDePack, type PackPriceOverrides } from '@/lib/domain/pricing'
 import { WaButton } from './wa-button'
 import { PagoBloque } from './pago-bloque'
 
@@ -15,7 +15,14 @@ import { PagoBloque } from './pago-bloque'
 // recalcula el precio desde los packs. Pago en línea llega en B.2.
 
 export type Pack = { key: string; label: string; price: number }
-export type Departure = { id: string; departs_on: string; free: number; price_pct?: number }
+export type Departure = {
+  id: string
+  departs_on: string
+  free: number
+  price_pct?: number
+  /** b057: precio especial por pack en esta salida — pisa el % para esos packs. */
+  pack_price_overrides?: PackPriceOverrides | null
+}
 
 const mxn = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' })
 
@@ -67,12 +74,14 @@ export function PedidoForm({
     }
   }, [refCode])
 
-  // b045: ajuste de temporada de la salida elegida (0 si no hay salidas).
-  const pct = departures.find((d) => d.id === depId)?.price_pct ?? 0
-  const precioDe = (p: Pack) => precioAjustado(p.price, pct)
+  // b045/b057: % de temporada y precios especiales por pack de la salida elegida.
+  const salidaElegida = departures.find((d) => d.id === depId)
+  const pct = salidaElegida?.price_pct ?? 0
+  const overrides = salidaElegida?.pack_price_overrides ?? null
+  const precioDe = (p: Pack) => precioDePack(p.price, p.key, pct, overrides)
   const total = useMemo(
-    () => packs.reduce((s, p) => s + precioAjustado(p.price, pct) * (qty[p.key] ?? 0), 0),
-    [packs, qty, pct],
+    () => packs.reduce((s, p) => s + precioDe(p) * (qty[p.key] ?? 0), 0),
+    [packs, qty, pct, overrides],
   )
   const totalPax = packs.reduce((s, p) => s + (qty[p.key] ?? 0), 0)
 
@@ -173,11 +182,17 @@ export function PedidoForm({
               <p className="truncate text-sm">{p.label}</p>
               <p className="text-xs text-muted-foreground tabular-nums">
                 {mxn.format(precioDe(p))} c/u
-                {pct !== 0 && (
+                {overrides?.[p.key] != null ? (
                   <span className="ml-1 text-amber-600 dark:text-amber-500">
-                    ({pct > 0 ? '+' : ''}
-                    {pct}% temporada)
+                    (precio especial)
                   </span>
+                ) : (
+                  pct !== 0 && (
+                    <span className="ml-1 text-amber-600 dark:text-amber-500">
+                      ({pct > 0 ? '+' : ''}
+                      {pct}% temporada)
+                    </span>
+                  )
                 )}
               </p>
             </div>
@@ -222,9 +237,11 @@ export function PedidoForm({
             {departures.map((d) => (
               <option key={d.id} value={d.id}>
                 {fechaLarga(d.departs_on)} · {d.free} lugares
-                {(d.price_pct ?? 0) !== 0
-                  ? ` · ${(d.price_pct ?? 0) > 0 ? '+' : ''}${d.price_pct}% temporada`
-                  : ''}
+                {d.pack_price_overrides
+                  ? ' · precio especial'
+                  : (d.price_pct ?? 0) !== 0
+                    ? ` · ${(d.price_pct ?? 0) > 0 ? '+' : ''}${d.price_pct}% temporada`
+                    : ''}
               </option>
             ))}
           </NativeSelect>

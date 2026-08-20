@@ -1,5 +1,15 @@
 import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
+import type { PackPriceOverrides } from '@/lib/domain/pricing'
+
+/** b057: salida con % de temporada y, opcional, precios especiales por pack. */
+export type DepartureConPrecio = {
+  id: string
+  departs_on: string
+  free: number
+  price_pct: number
+  pack_price_overrides: PackPriceOverrides | null
+}
 
 export type PublicService = {
   id: string
@@ -27,10 +37,10 @@ export type PublicService = {
   add_ons: unknown
   dates: unknown
   /** Salidas futuras con cupo libre (para el pedido de marketplace). */
-  departures: { id: string; departs_on: string; free: number; price_pct: number }[]
+  departures: DepartureConPrecio[]
   /** b044: calendario completo (últimos 180 días + futuras, incl. agotadas)
       para la ficha — las vendibles siguen siendo `departures`. */
-  all_departures: { id: string; departs_on: string; free: number; price_pct: number }[]
+  all_departures: DepartureConPrecio[]
   agency: {
     id: string
     name: string

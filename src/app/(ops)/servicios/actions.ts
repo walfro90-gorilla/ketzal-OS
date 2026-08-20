@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { safeError } from '@/lib/errors'
 import { esBannerValido } from '@/lib/storage/banner-url'
 import { videoEmbedUrl } from '@/lib/video'
-import { limpiarPacks, type PackInput, type Pack } from '@/lib/domain/packs'
+import { limpiarPacks, PACK_TYPES, type PackInput, type Pack } from '@/lib/domain/packs'
 
 export type ItineraryDay = { title: string; description: string }
 
@@ -419,6 +419,9 @@ export async function eliminarServicio(
 // del servicio (o superadmin) las ve/edita.
 // =============================================================================
 
+/** b057: precio especial por pack en la salida (clave = pack key, valor > 0). */
+export type PackPriceOverrides = Record<string, number>
+
 export type SalidaInput = {
   /** Fecha de salida YYYY-MM-DD (columna `date`, sin zona horaria). */
   departs_on: string
@@ -426,6 +429,8 @@ export type SalidaInput = {
   note?: string | null
   /** b045: ajuste de temporada en % (+25 alta, -10 promo). Vacío = 0. */
   price_pct?: number
+  /** b057: precios especiales por pack — pisan el % para esos packs. null/{} = ninguno. */
+  pack_price_overrides?: Record<string, number | string | null | undefined> | null
 }
 
 export type Salida = {
@@ -438,6 +443,27 @@ export type Salida = {
   note: string | null
   /** b045: ajuste de temporada en % (0 = precio normal). */
   price_pct: number
+  /** b057: precios especiales por pack (null = ninguno, usa solo el %). */
+  pack_price_overrides: PackPriceOverrides | null
+}
+
+/** b057: limpia/valida los overrides — claves conocidas, valores numéricos > 0. */
+function normalizarOverrides(
+  input?: Record<string, number | string | null | undefined> | null
+): { error: string } | { value: PackPriceOverrides | null } {
+  if (input == null) return { value: null }
+  const claves = new Set<string>(PACK_TYPES.map((t) => t.key))
+  const limpio: PackPriceOverrides = {}
+  for (const [key, valor] of Object.entries(input)) {
+    if (valor == null || valor === '') continue
+    if (!claves.has(key)) return { error: `Paquete inválido: ${key}` }
+    const n = Number(valor)
+    if (!Number.isFinite(n) || n <= 0) {
+      return { error: 'El precio especial debe ser un número mayor a 0.' }
+    }
+    limpio[key] = Math.round(n * 100) / 100
+  }
+  return { value: Object.keys(limpio).length ? limpio : null }
 }
 
 /** Hoy en local (YYYY-MM-DD), para no permitir alta de salidas en el pasado. */
@@ -460,6 +486,7 @@ function normalizarSalida(
         max_capacity: number
         note: string | null
         price_pct: number
+        pack_price_overrides: PackPriceOverrides | null
       }
     } {
   const fecha = input.departs_on?.trim()
@@ -480,12 +507,15 @@ function normalizarSalida(
   if (!Number.isFinite(pct) || pct <= -100 || pct > 500) {
     return { error: 'El ajuste de precio debe estar entre -99% y 500%.' }
   }
+  const overrides = normalizarOverrides(input.pack_price_overrides)
+  if ('error' in overrides) return overrides
   return {
     fields: {
       departs_on: fecha,
       max_capacity: cupo,
       note: input.note?.trim() || null,
       price_pct: Math.round(pct * 100) / 100,
+      pack_price_overrides: overrides.value,
     },
   }
 }
@@ -502,7 +532,9 @@ export async function listarSalidas(
 
   const { data, error } = await supabase
     .from('service_departures')
-    .select('id, departs_on, max_capacity, seats_taken, note, price_pct' as 'id, departs_on, max_capacity, seats_taken, note')
+    .select(
+      'id, departs_on, max_capacity, seats_taken, note, price_pct, pack_price_overrides' as 'id, departs_on, max_capacity, seats_taken, note'
+    )
     .eq('service_id', serviceId)
     .order('departs_on', { ascending: true })
   if (error) return { error: safeError(error) }
@@ -515,6 +547,8 @@ export async function listarSalidas(
     remaining: Math.max(0, s.max_capacity - s.seats_taken),
     note: s.note ?? null,
     price_pct: Number((s as { price_pct?: number }).price_pct ?? 0),
+    pack_price_overrides:
+      (s as { pack_price_overrides?: PackPriceOverrides | null }).pack_price_overrides ?? null,
   }))
   return { salidas }
 }

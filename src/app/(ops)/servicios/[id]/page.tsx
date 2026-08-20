@@ -123,7 +123,11 @@ export default async function ServicioDetallePage({
         }}
       />
 
-      <SalidasEditor serviceId={servicio.id} initial={salidas} />
+      <SalidasEditor
+        serviceId={servicio.id}
+        initial={salidas}
+        packs={jsonbAPacks(servicio.packs)}
+      />
 
       <Card className="border-destructive/50">
         <CardHeader>

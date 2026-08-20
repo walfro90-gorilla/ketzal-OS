@@ -9,6 +9,7 @@ import { CheckIcon, XIcon, MapPinIcon } from 'lucide-react'
 import { videoEmbedUrl } from '@/lib/video'
 import { marketplaceActivo } from '@/lib/marketplace'
 import { tituloVisible } from '@/lib/display-title'
+import { precioDePack } from '@/lib/domain/pricing'
 import { PublicHeader } from '@/components/public/public-header'
 import { PublicFooter } from '@/components/public/public-footer'
 
@@ -97,6 +98,12 @@ export default async function ServicioPublicoPage({
   if (!s) return <NotFound />
 
   const lugar = destino(s)
+  // b057: packs mínimos para calcular el "desde" por salida (override o %).
+  const packsMin: { key: string; price: number }[] = Array.isArray(s.packs)
+    ? (s.packs as { key?: string; price?: number }[])
+        .filter((p) => typeof p?.key === 'string' && typeof p?.price === 'number')
+        .map((p) => ({ key: p.key as string, price: p.price as number }))
+    : []
   // Banner primero, luego la galería (sin duplicar el banner si se repite).
   const fotos = [
     ...(s.images?.imgBanner ? [s.images.imgBanner] : []),
@@ -239,15 +246,30 @@ export default async function ServicioPublicoPage({
                         : `${d.free} ${d.free === 1 ? 'lugar' : 'lugares'}`}
                     </span>
                   )}
-                  {/* b045: precio de temporada — solo cuando difiere del base. */}
-                  {!pasada && !agotada && d.price_pct !== 0 && (
-                    <span className="ml-2 text-xs font-semibold text-amber-600 dark:text-amber-500">
-                      desde{' '}
-                      {mxn.format(
-                        Math.round(Number(s.price ?? 0) * (1 + d.price_pct / 100) * 100) / 100
-                      )}
-                    </span>
-                  )}
+                  {/* b045/b057: precio de temporada o especial — solo cuando difiere del base. */}
+                  {!pasada &&
+                    !agotada &&
+                    (d.price_pct !== 0 || d.pack_price_overrides) && (
+                      <span className="ml-2 text-xs font-semibold text-amber-600 dark:text-amber-500">
+                        desde{' '}
+                        {mxn.format(
+                          packsMin.length
+                            ? Math.min(
+                                ...packsMin.map((p) =>
+                                  precioDePack(
+                                    p.price,
+                                    p.key,
+                                    d.price_pct,
+                                    d.pack_price_overrides
+                                  )
+                                )
+                              )
+                            : Math.round(
+                                Number(s.price ?? 0) * (1 + d.price_pct / 100) * 100
+                              ) / 100
+                        )}
+                      </span>
+                    )}
                 </li>
               )
             })}

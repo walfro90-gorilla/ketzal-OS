@@ -6,3 +6,20 @@ export const total = (lines: BookingLine[], discount = 0) => subtotal(lines) - d
 /** b045: precio con ajuste de temporada (+25 alta, -10 promo), a 2 decimales. */
 export const precioAjustado = (price: number, pct: number) =>
   Math.round(price * (1 + pct / 100) * 100) / 100
+
+export type PackPriceOverrides = Record<string, number>
+
+/**
+ * b057: precio de un pack en una salida. Si la salida trae un precio especial
+ * para ese pack (promo donde cada ocupación sube un monto distinto, no un
+ * mismo %), lo usa tal cual; si no, cae a precioAjustado con el % uniforme.
+ */
+export const precioDePack = (
+  price: number,
+  packKey: string,
+  pct: number,
+  overrides?: PackPriceOverrides | null
+) => {
+  const o = overrides?.[packKey]
+  return o != null ? Math.round(o * 100) / 100 : precioAjustado(price, pct)
+}

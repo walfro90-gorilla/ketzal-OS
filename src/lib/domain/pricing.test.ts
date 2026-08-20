@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { lineTotal, precioAjustado, subtotal, total, type BookingLine } from './pricing'
+import {
+  lineTotal,
+  precioAjustado,
+  precioDePack,
+  subtotal,
+  total,
+  type BookingLine,
+} from './pricing'
 
 // Ruta de dinero: el importe que cobra una venta = Σ(cantidad × precio) − descuento.
 // Es lo que persiste create_booking_with_items y de lo que se deriva el saldo.
@@ -54,5 +61,23 @@ describe('precioAjustado (b045)', () => {
   })
   it('redondea mitades correctamente', () => {
     expect(precioAjustado(333.33, 10)).toBe(366.66)
+  })
+})
+
+describe('precioDePack (b057)', () => {
+  it('sin overrides, cae a precioAjustado', () => {
+    expect(precioDePack(1000, 'doble', 25)).toBe(1250)
+  })
+  it('usa el precio especial del pack si existe', () => {
+    expect(precioDePack(2399, 'cuadruple', 0, { cuadruple: 2699 })).toBe(2699)
+  })
+  it('el override manda: ignora el % de la salida', () => {
+    expect(precioDePack(2399, 'cuadruple', 50, { cuadruple: 2699 })).toBe(2699)
+  })
+  it('otro pack sin override en el mismo objeto cae a precioAjustado', () => {
+    expect(precioDePack(1000, 'triple', 10, { cuadruple: 2699 })).toBe(1100)
+  })
+  it('redondea el override a 2 decimales', () => {
+    expect(precioDePack(0, 'doble', 0, { doble: 999.995 })).toBe(1000)
   })
 })
