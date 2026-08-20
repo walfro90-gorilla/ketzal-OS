@@ -15,6 +15,7 @@ import {
   ChartColumnIcon,
   UsersRoundIcon,
   ShieldCheckIcon,
+  RocketIcon,
 } from 'lucide-react'
 import { isAdminRole } from '@/lib/access'
 
@@ -126,7 +127,23 @@ const STEPS: TourStep[] = [
     id: 'confianza',
     icon: ShieldCheckIcon,
     title: 'Tu dinero, a salvo',
-    body: 'El registro de pagos es a prueba de manipulación: las correcciones son reembolsos, no borrados, y los folios de recibo son atómicos por agencia. Nada se pierde ni se duplica. Puedes reabrir este tour cuando quieras con el botón "?" de arriba.',
+    body: 'El registro de pagos es a prueba de manipulación: las correcciones son reembolsos, no borrados, y los folios de recibo son atómicos por agencia. Nada se pierde ni se duplica.',
+  },
+  // b064 — Cierre del tour: lo entrega al checklist del Panel. El tour explica
+  // QUÉ es cada sección (y se ve una sola vez); el checklist dice QUÉ FALTA y
+  // vive en el Panel hasta que la agencia queda lista. De ahí en adelante, la
+  // guía es el checklist, no este tour.
+  // Redactado en condicional ("si tu agencia es nueva") porque `adminOnly`
+  // también alcanza al superadmin, que no tiene agencia propia y por lo tanto
+  // no ve la tarjeta.
+  {
+    id: 'primeros-pasos',
+    icon: RocketIcon,
+    title: 'Empieza por aquí',
+    body: 'Si tu agencia es nueva, en el Panel te espera "Primeros pasos": la lista de lo que falta para poder vender —cargar tu catálogo, invitar a tu equipo, poner tu CLABE— con un botón para resolver cada cosa. Se va tachando sola conforme avanzas y desaparece al terminar. Este tour puedes reabrirlo cuando quieras con el botón "?" de arriba.',
+    href: '/dashboard',
+    label: 'Panel',
+    adminOnly: true,
   },
 ]
 
