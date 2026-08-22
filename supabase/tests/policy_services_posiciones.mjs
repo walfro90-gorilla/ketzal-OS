@@ -1,8 +1,19 @@
 // Hard-test de `services_read` acotada (b059) desde TODAS las posiciones,
 // por HTTP con JWT real: el mismo camino de la app, RLS incluida.
+//
+// Correr con:
+//   node --env-file=.env.local supabase/tests/policy_services_posiciones.mjs
+//
+// La contrasena de las cuentas QA vive en KETZAL_QA_PASS (.env.local, ignorado
+// por git) y NUNCA se escribe aqui: este repo es publico, y la anterior quedo
+// legible en el historial de GitHub desde el commit 3828e3d.
 const U = 'https://wnujoyzdpdyxblgdtxjw.supabase.co'
 const K = 'sb_publishable_LU0E9aZNyrOqW5WdVU0MkQ_VTlFuQx3'
-const PASS = 'Ketzal-QA-2026!'
+const PASS = process.env.KETZAL_QA_PASS
+if (!PASS) {
+  console.error('Falta KETZAL_QA_PASS. Corre: node --env-file=.env.local ' + process.argv[1])
+  process.exit(1)
+}
 
 // esperado: 'todo' = 13 | 'propios+pub' = suyos + publicados ajenos | 'solo_pub' = 2
 const CUENTAS = [
