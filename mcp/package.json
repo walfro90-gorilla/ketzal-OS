@@ -4,6 +4,7 @@
   "description": "Servidor MCP de Ketzal OS: opera ventas, cobranza, salidas y reportes en lenguaje natural desde cualquier agente IA de terminal.",
   "keywords": ["mcp", "model-context-protocol", "ketzal", "turismo", "supabase"],
   "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/walfro90-gorilla/ketzal-OS.git", "directory": "mcp" },
   "type": "module",
   "bin": { "ketzal-mcp": "dist/index.js" },
   "main": "dist/index.js",

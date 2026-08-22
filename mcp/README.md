@@ -66,11 +66,11 @@ Sólo lectura (recomendado en máquinas de consulta): agrega
 
 ## Qué puede hacer
 
-32 herramientas: 16 de lectura y 16 de escritura, de las cuales 8 mueven dinero.
+33 herramientas: 17 de lectura y 16 de escritura, de las cuales 8 mueven dinero.
 
 | Área | Herramientas |
 |---|---|
-| Identidad | `whoami` |
+| Identidad | `whoami`, `agencias` |
 | Buscar | `buscar` (el ⌘K de la app) |
 | Ventas | `ventas`, `venta`, `crear_venta`, `convertir_cotizacion` |
 | Clientes | `clientes`, `crear_cliente` |
