@@ -103,6 +103,23 @@ contra-asienta. Por eso:
 - Los cobros de Mercado Pago **no se devuelven desde aquí**: el dinero tiene que
   salir primero en la API de MP, y eso vive en la app.
 
+## Cargar o editar un servicio sin la app web
+
+El MCP no crea ni edita servicios (a propósito: eso vive en `/servicios` de la app).
+Para una carga puntual desde terminal, reutiliza su cliente REST — usa tu sesión
+de `~/.config/ketzal/session.json`, respeta RLS y rota el refresh token igual que el servidor:
+
+```js
+// carga.mjs — corre con `node carga.mjs` desde cualquier ruta
+import { insert, update } from '/ruta/a/ketzal-app/mcp/dist/rest.js'
+await update('services', 'id=eq.<uuid>', { description: '…', includes: ['…'], faqs: [{ question: '…', answer: '…' }] })
+await insert('service_departures', { service_id: '<uuid>', departs_on: '2026-08-28', max_capacity: 20, note: '…' })
+```
+
+Campos que pinta la ficha pública: `description`, `packs` (precio por persona), `includes`,
+`excludes`, `itinerary` (`{title, description}[]`), `faqs` (`{question, answer}[]`), `images`,
+`yt_link` y las salidas. `add_ons` y `dates` hoy no se muestran.
+
 ## Lo que este servidor NO es
 
 Autenticarse como usuario real te da la RLS, **pero no las restricciones de la
