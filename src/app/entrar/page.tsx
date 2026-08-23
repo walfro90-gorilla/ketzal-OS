@@ -1,10 +1,11 @@
 'use client'
 
-import { Suspense, useState, useTransition } from 'react'
+import { Suspense, useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
+import { Captcha, type CaptchaHandle, faltaCaptcha } from '@/components/auth/captcha'
 import { registrarComprador } from '@/app/comprar/actions'
 import { BrandLogo } from '@/components/brand-logo'
 import { Button } from '@/components/ui/button'
@@ -34,23 +35,36 @@ function AuthCard() {
   const [error, setError] = useState<string | null>(null)
   const [enviado, setEnviado] = useState(false)
   const [pending, start] = useTransition()
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const captcha = useRef<CaptchaHandle>(null)
 
   function cambiar(m: Modo) {
     setModo(m)
     setError(null)
     setEnviado(false)
+    // Cada modo monta su propio widget: el token del anterior ya no sirve.
+    setCaptchaToken(null)
   }
 
   function entrar(e: React.FormEvent) {
     e.preventDefault()
+    const falta = faltaCaptcha(captchaToken)
+    if (falta) return setError(falta)
     setError(null)
     start(async () => {
       const supabase = createClient()
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+        options: { captchaToken: captchaToken ?? undefined },
+      })
       if (error) {
+        captcha.current?.reset()
         setError('Correo o contraseña incorrectos.')
         return
       }
+      // Bitácora (b066): el login por contraseña no toca el servidor.
+      await fetch('/api/track/login', { method: 'POST' }).catch(() => {})
       router.push('/') // resuelve por persona → /mis-compras
       router.refresh()
     })
@@ -58,10 +72,19 @@ function AuthCard() {
 
   function crear(e: React.FormEvent) {
     e.preventDefault()
+    const falta = faltaCaptcha(captchaToken)
+    if (falta) return setError(falta)
     setError(null)
     start(async () => {
-      const res = await registrarComprador({ nombre, telefono, email, password })
+      const res = await registrarComprador({
+        nombre,
+        telefono,
+        email,
+        password,
+        captchaToken: captchaToken ?? undefined,
+      })
       if ('error' in res) {
+        captcha.current?.reset()
         setError(res.error)
         return
       }
@@ -136,6 +159,7 @@ function AuthCard() {
                 {error}
               </p>
             )}
+            <Captcha ref={captcha} onToken={setCaptchaToken} />
             <Button type="submit" size="touch" className="w-full" disabled={pending}>
               {pending ? 'Entrando…' : 'Entrar'}
             </Button>
@@ -201,6 +225,7 @@ function AuthCard() {
                 {error}
               </p>
             )}
+            <Captcha ref={captcha} onToken={setCaptchaToken} />
             <Button type="submit" size="touch" className="w-full" disabled={pending}>
               {pending ? 'Creando…' : 'Crear cuenta'}
             </Button>

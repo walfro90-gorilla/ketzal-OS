@@ -14,6 +14,7 @@ import {
   Building2Icon,
   UsersRoundIcon,
   UserRoundIcon,
+  UserSearchIcon,
   ChartColumnIcon,
   HandCoinsIcon,
   ScaleIcon,
@@ -55,6 +56,9 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Reportes', href: '/reportes', icon: ChartColumnIcon, primary: false, adminOnly: true },
   { label: 'Equipo', href: '/equipo', icon: UsersRoundIcon, primary: false, adminOnly: true },
   { label: 'Viajeros', href: '/viajeros', icon: UserRoundIcon, primary: false, adminOnly: true, superadminOnly: true },
+  // Expediente por cuenta (b066). NO es superadminOnly: el admin de agencia
+  // necesita auditar a su propio equipo; `can_view_user` lo acota a su agencia.
+  { label: 'Usuarios', href: '/usuarios', icon: UserSearchIcon, primary: false, adminOnly: true },
   { label: 'Servicios', href: '/servicios', icon: MapPinIcon, primary: false, adminOnly: true },
   { label: 'Proveedores', href: '/proveedores', icon: Building2Icon, primary: false, adminOnly: true },
   // Salud (invariantes globales) y Ajustes (marca Ketzal) son de PLATAFORMA:

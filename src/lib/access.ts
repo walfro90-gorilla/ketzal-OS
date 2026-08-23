@@ -19,6 +19,7 @@ export const ADMIN_HREFS = [
   '/gastos',
   '/reportes',
   '/viajeros',
+  '/usuarios',
   '/salud',
   '/ajustes',
 ] as const

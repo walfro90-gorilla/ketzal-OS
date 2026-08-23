@@ -1,9 +1,10 @@
 'use client'
 
-import { Suspense, useState } from 'react'
+import { Suspense, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { Captcha, type CaptchaHandle, faltaCaptcha } from '@/components/auth/captcha'
 import { BrandLogo } from '@/components/brand-logo'
 import { Button } from '@/components/ui/button'
 import {
@@ -53,24 +54,34 @@ function LoginForm() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [linkSent, setLinkSent] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const captcha = useRef<CaptchaHandle>(null)
 
   const switchMode = (next: Mode) => {
     setMode(next)
     setError(null)
     setLinkSent(false)
+    // Cada modo monta su propio widget: el token del anterior ya no sirve.
+    setCaptchaToken(null)
   }
 
   const handleMagicLink = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    const falta = faltaCaptcha(captchaToken)
+    if (falta) return setError(falta)
     setLoading(true)
     setError(null)
     setLinkSent(false)
     const supabase = createClient()
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        captchaToken: captchaToken ?? undefined,
+      },
     })
     setLoading(false)
+    captcha.current?.reset()
     if (error) {
       setError('No se pudo enviar el enlace. Verifica el correo e intenta de nuevo.')
       return
@@ -80,15 +91,26 @@ function LoginForm() {
 
   const handlePassword = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    const falta = faltaCaptcha(captchaToken)
+    if (falta) return setError(falta)
     setLoading(true)
     setError(null)
     const supabase = createClient()
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+      options: { captchaToken: captchaToken ?? undefined },
+    })
     if (error) {
       setLoading(false)
+      captcha.current?.reset()
       setError('Correo o contraseña incorrectos.')
       return
     }
+    // La bitácora (b066) tampoco: el login por contraseña no toca el servidor,
+    // así que se le avisa. Va con await para que la petición no se cancele al
+    // navegar, y sin romper el login si falla.
+    await fetch('/api/track/login', { method: 'POST' }).catch(() => {})
     // SaaS: el login por contraseña NO pasa por /auth/callback, así que la
     // auto-unión a la agencia que invitó a este correo se dispara aquí. No-op si
     // no hay invitación o si ya pertenece a una agencia (mismo RPC idempotente que
@@ -200,6 +222,7 @@ function LoginForm() {
                 {error}
               </p>
             )}
+            <Captcha ref={captcha} onToken={setCaptchaToken} />
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'Enviando…' : 'Enviar enlace'}
             </Button>
@@ -234,6 +257,7 @@ function LoginForm() {
                 {error}
               </p>
             )}
+            <Captcha ref={captcha} onToken={setCaptchaToken} />
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'Entrando…' : 'Entrar'}
             </Button>

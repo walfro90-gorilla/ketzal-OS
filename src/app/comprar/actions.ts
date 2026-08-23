@@ -18,6 +18,8 @@ export type RegistroInput = {
   telefono: string
   email: string
   password: string
+  /** Token de hCaptcha resuelto en el navegador. Vacío si la protección está apagada. */
+  captchaToken?: string
 }
 
 /** Crea la cuenta de comprador (auth + fila en marketplace_customers). */
@@ -41,7 +43,12 @@ export async function registrarComprador(
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: { data: { full_name: nombre, phone: telefono } },
+    options: {
+      data: { full_name: nombre, phone: telefono },
+      // Lo resuelve el navegador y viaja hasta aquí: Auth lo verifica contra
+      // hCaptcha cuando la protección está prendida. Sin ella, undefined.
+      captchaToken: input.captchaToken,
+    },
   })
   if (error) return { error: safeError(error, 'No se pudo crear la cuenta.') }
   const user = data.user
@@ -60,6 +67,18 @@ export async function registrarComprador(
     email,
     type: 'viajero',
     active: true,
+  })
+
+  // Bitácora (b066): el alta se registra con service role porque si el proyecto
+  // exige confirmar el correo, todavía no hay sesión y `auth.uid()` sería null.
+  const cab = await headers()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (svc as any).rpc('log_user_event', {
+    p_user: user.id,
+    p_kind: 'signup',
+    p_meta: { via: 'marketplace' },
+    p_ip: (cab.get('x-forwarded-for') ?? '').split(',')[0]?.trim() || null,
+    p_user_agent: cab.get('user-agent'),
   })
 
   // b036: cuenta realmente NUEVA (identities vacío = correo ya registrado, no

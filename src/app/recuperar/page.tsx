@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { Captcha, type CaptchaHandle, faltaCaptcha } from '@/components/auth/captcha'
 import { BrandMark } from '@/components/brand-mark'
 import { Button } from '@/components/ui/button'
 import {
@@ -22,16 +23,22 @@ export default function RecuperarPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [sent, setSent] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const captcha = useRef<CaptchaHandle>(null)
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    const falta = faltaCaptcha(captchaToken)
+    if (falta) return setError(falta)
     setLoading(true)
     setError(null)
     const supabase = createClient()
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/auth/callback?next=/nueva-password`,
+      captchaToken: captchaToken ?? undefined,
     })
     setLoading(false)
+    captcha.current?.reset()
     if (error) {
       setError('No se pudo enviar el enlace. Verifica el correo e intenta de nuevo.')
       return
@@ -82,6 +89,7 @@ export default function RecuperarPage() {
                   {error}
                 </p>
               )}
+              <Captcha ref={captcha} onToken={setCaptchaToken} />
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? 'Enviando…' : 'Enviar enlace'}
               </Button>

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { safeError } from '@/lib/errors'
+import { registrarEvento } from '@/lib/tracker'
 import type { Database } from '@/lib/db/database.types'
 
 type UserRole = Database['ketzal']['Enums']['user_role']
@@ -30,6 +31,7 @@ export async function aprobarUsuario(
   if (error) {
     return { error: safeError(error) }
   }
+  await registrarEvento(supabase, userId, active ? 'activated' : 'deactivated')
 
   revalidatePath('/equipo')
   return { ok: true }
@@ -54,6 +56,9 @@ export async function asignarAgencia(
   if (error) {
     return { error: safeError(error) }
   }
+  await registrarEvento(supabase, userId, 'agency_change', {
+    agencia: supplierId ?? 'agente libre',
+  })
 
   revalidatePath('/equipo')
   return { ok: true }
@@ -78,6 +83,7 @@ export async function cambiarRol(
   if (error) {
     return { error: safeError(error) }
   }
+  await registrarEvento(supabase, userId, 'role_change', { rol: role })
 
   revalidatePath('/equipo')
   return { ok: true }

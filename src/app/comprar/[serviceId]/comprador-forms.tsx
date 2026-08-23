@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useRef, useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { registrarComprador, guardarComprador } from '../actions'
+import { Captcha, type CaptchaHandle, faltaCaptcha } from '@/components/auth/captcha'
 
 /** Alta rápida de comprador (visitante sin sesión). */
 export function RegistroComprador() {
@@ -16,13 +17,24 @@ export function RegistroComprador() {
   const [password, setPassword] = useState('')
   const [enviado, setEnviado] = useState(false)
   const [pending, start] = useTransition()
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const captcha = useRef<CaptchaHandle>(null)
   const router = useRouter()
 
   function submit(e: React.FormEvent) {
     e.preventDefault()
+    const falta = faltaCaptcha(captchaToken)
+    if (falta) return toast.error(falta)
     start(async () => {
-      const res = await registrarComprador({ nombre, telefono, email, password })
+      const res = await registrarComprador({
+        nombre,
+        telefono,
+        email,
+        password,
+        captchaToken: captchaToken ?? undefined,
+      })
       if ('error' in res) {
+        captcha.current?.reset()
         toast.error(res.error)
         return
       }
@@ -94,6 +106,7 @@ export function RegistroComprador() {
           autoComplete="new-password"
         />
       </div>
+      <Captcha ref={captcha} onToken={setCaptchaToken} />
       <Button type="submit" size="touch" disabled={pending} className="w-full">
         {pending ? 'Creando…' : 'Crear cuenta y continuar'}
       </Button>

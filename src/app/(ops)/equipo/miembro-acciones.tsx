@@ -1,9 +1,11 @@
 'use client'
 
+import Link from 'next/link'
+
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { CopyIcon, CheckIcon } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { NativeSelect } from '@/components/ui/native-select'
 import type { Database } from '@/lib/db/database.types'
 import { aprobarUsuario, asignarAgencia, cambiarRol } from './actions'
@@ -133,6 +135,14 @@ export function MiembroAcciones({
   return (
     <div className="space-y-2">
     <div className="flex flex-wrap items-center gap-2">
+      {/* b066: expediente de la cuenta (bitácora + historial). */}
+      <Link
+        href={`/usuarios/${miembro.id}`}
+        className={buttonVariants({ variant: 'ghost', size: 'sm' }) + ' h-10 md:h-7'}
+      >
+        Expediente
+      </Link>
+
       <Button
         type="button"
         variant={miembro.active ? 'outline' : 'default'}

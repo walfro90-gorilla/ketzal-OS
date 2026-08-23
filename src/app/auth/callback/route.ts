@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { homeForPersona } from '@/lib/persona'
+import { registrarEvento } from '@/lib/tracker'
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
@@ -15,6 +16,10 @@ export async function GET(request: Request) {
       const {
         data: { user },
       } = await supabase.auth.getUser()
+      // Bitácora (b066): este camino cubre magic link, Google y el enlace de
+      // recuperación. El login por contraseña no pasa por aquí: lo registra
+      // /api/track/login desde el navegador.
+      if (user) await registrarEvento(supabase, user.id, 'login', { via: 'enlace' })
       // Ruteo por persona (profiles.type). Viajero/embajador tienen su propia
       // superficie y NO deben pasar por ensure_profile (no nacen agente). Solo el
       // agente (o un usuario nuevo sin profile) sigue al flujo de back-office.
