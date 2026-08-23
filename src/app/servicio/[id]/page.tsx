@@ -22,6 +22,13 @@ const mxn = new Intl.NumberFormat('es-MX', {
   currency: 'MXN',
 })
 
+function fechaCorta(iso: string) {
+  const [y, m, day] = iso.split('-').map(Number)
+  return new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }).format(
+    new Date(y, m - 1, day)
+  )
+}
+
 function destino(s: { city_to: string | null; state_to: string | null; location: string | null }) {
   const partes = [s.city_to, s.state_to].filter(Boolean)
   return partes.length ? partes.join(', ') : s.location
@@ -111,6 +118,8 @@ export default async function ServicioPublicoPage({
         .map((p) => ({ key: p.key as string, label: p.label ?? (p.key as string), price: p.price as number }))
         .sort((a, b) => a.price - b.price)
     : []
+  const hoyISO = new Date().toISOString().slice(0, 10)
+  const notasSalida = (s.all_departures ?? []).filter((d) => d.note && d.departs_on >= hoyISO)
   // Banner primero, luego la galería (sin duplicar el banner si se repite).
   const fotos = [
     ...(s.images?.imgBanner ? [s.images.imgBanner] : []),
@@ -281,6 +290,18 @@ export default async function ServicioPublicoPage({
               )
             })}
           </ul>
+          {/* m001: nota de cada salida futura (horario, punto de reunión, preventa). */}
+          {notasSalida.length > 0 && (
+            <ul className="mt-3 space-y-1 text-sm text-muted-foreground">
+              {notasSalida.map((d) => (
+                <li key={d.id}>
+                  <span className="font-medium text-foreground">{fechaCorta(d.departs_on)}</span>
+                  {' · '}
+                  {d.note}
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       )}
 

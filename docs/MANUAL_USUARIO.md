@@ -82,7 +82,7 @@ activo.
 | `/explora` | Catálogo de viajes publicados, con filtros, precio y agencia enlazada |
 | `/agencias` | Directorio de agencias |
 | `/agencia/[id]` | Perfil público de una agencia: logo, métricas, galería, viajes, reseñas |
-| `/servicio/[id]` | Ficha de un viaje: precio "desde", calendario de salidas, temporadas, precio por persona (packs), descripción, video, incluye / no incluye, itinerario, FAQs, reseñas, CTA de compra |
+| `/servicio/[id]` | Ficha de un viaje: precio "desde", calendario de salidas (con nota de cada salida), temporadas, precio por persona (packs), descripción, video, incluye / no incluye, itinerario, FAQs, reseñas, CTA de compra |
 | `/comprar/[serviceId]` | Flujo de compra del viajero (alta rápida + resumen + pago). Vive detrás del flag `NEXT_PUBLIC_MARKETPLACE` |
 | `/entrar` | Login/registro del comprador (email + contraseña, nunca nace como agente) |
 | `/politica-cancelacion` | Política de cancelación vigente (crédito, plazos, penalizaciones) |

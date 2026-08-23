@@ -9,6 +9,8 @@ export type DepartureConPrecio = {
   free: number
   price_pct: number
   pack_price_overrides: PackPriceOverrides | null
+  /** m001: nota libre de la salida (horario, punto de reunión, preventa). */
+  note: string | null
 }
 
 export type PublicService = {
