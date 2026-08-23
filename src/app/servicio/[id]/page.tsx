@@ -104,6 +104,13 @@ export default async function ServicioPublicoPage({
         .filter((p) => typeof p?.key === 'string' && typeof p?.price === 'number')
         .map((p) => ({ key: p.key as string, price: p.price as number }))
     : []
+  // Packs con etiqueta, de menor a mayor precio, para la sección "Precio por persona".
+  const packsAll = Array.isArray(s.packs)
+    ? (s.packs as { key?: string; label?: string; price?: number }[])
+        .filter((p) => typeof p?.key === 'string' && typeof p?.price === 'number')
+        .map((p) => ({ key: p.key as string, label: p.label ?? (p.key as string), price: p.price as number }))
+        .sort((a, b) => a.price - b.price)
+    : []
   // Banner primero, luego la galería (sin duplicar el banner si se repite).
   const fotos = [
     ...(s.images?.imgBanner ? [s.images.imgBanner] : []),
@@ -273,6 +280,26 @@ export default async function ServicioPublicoPage({
                 </li>
               )
             })}
+          </ul>
+        </section>
+      )}
+
+      {/* Precio por pack (ocupación doble/triple/cuádruple…): el header solo dice "desde". */}
+      {packsAll.length > 1 && (
+        <section className="mt-6">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Precio por persona
+          </h2>
+          <ul className="mt-3 grid gap-2 sm:grid-cols-3">
+            {packsAll.map((p) => (
+              <li
+                key={p.key}
+                className="flex items-baseline justify-between rounded-lg border px-3 py-2 text-sm"
+              >
+                <span>{p.label}</span>
+                <span className="font-semibold">{mxn.format(p.price)}</span>
+              </li>
+            ))}
           </ul>
         </section>
       )}
