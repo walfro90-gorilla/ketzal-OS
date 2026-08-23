@@ -1,5 +1,6 @@
 import { StarIcon } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { SeccionTitulo } from '@/components/public/ficha-primitivos'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import type { ServiceReviews } from './data'
 
 // Estrellas 1-5 (llenas hasta `value`, redondeado). Presentacional.
@@ -27,7 +28,7 @@ export function Resenas({ reviews }: { reviews: ServiceReviews }) {
   return (
     <Card className="mt-6">
       <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
-        <CardTitle className="text-base">Reseñas de viajeros</CardTitle>
+        <SeccionTitulo icon={StarIcon}>Reseñas de viajeros</SeccionTitulo>
         {reviews.count > 0 && (
           <span className="flex items-center gap-1.5 text-sm">
             <Estrellas value={reviews.avg} />

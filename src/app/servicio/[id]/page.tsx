@@ -3,9 +3,19 @@ import Link from 'next/link'
 import { getPublicService, getServiceReviews } from './data'
 import { Carrusel } from './carrusel'
 import { Resenas } from './resenas'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { CtaBar } from './cta-bar'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { buttonVariants } from '@/components/ui/button'
-import { CheckIcon, XIcon, MapPinIcon } from 'lucide-react'
+import {
+  CheckIcon,
+  XIcon,
+  MapPinIcon,
+  ShieldCheckIcon,
+  RouteIcon,
+  CircleQuestionMarkIcon,
+  MapIcon,
+} from 'lucide-react'
+import { Plegable, SeccionTitulo } from '@/components/public/ficha-primitivos'
 import { videoEmbedUrl } from '@/lib/video'
 import { marketplaceActivo } from '@/lib/marketplace'
 import { tituloVisible } from '@/lib/display-title'
@@ -142,7 +152,7 @@ export default async function ServicioPublicoPage({
   return (
     <>
       <PublicHeader />
-      <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6 sm:py-10">
+      <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6 pb-28 sm:py-10 md:pb-10">
       <Link
         href="/explora"
         className="text-sm text-muted-foreground hover:text-foreground"
@@ -193,7 +203,8 @@ export default async function ServicioPublicoPage({
           {/* CTA de conversión: full-width y táctil (44px) en el teléfono. Con
               el flag del marketplace, "Comprar en línea" es la acción primaria y
               WhatsApp pasa a secundaria. */}
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+          {/* < md: los botones viven en la CtaBar fija; aquí sólo desde md. */}
+          <div className="hidden w-full flex-col gap-2 sm:w-auto sm:flex-row md:flex">
             {comprarOnline && (
               <Link
                 href={comprarHref}
@@ -318,14 +329,6 @@ export default async function ServicioPublicoPage({
         </section>
       )}
 
-      {s.description && (
-        <section className="mt-6">
-          <p className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
-            {s.description}
-          </p>
-        </section>
-      )}
-
       {embed && (
         <section className="mt-6">
           <div className="aspect-video w-full overflow-hidden rounded-xl bg-muted">
@@ -347,7 +350,7 @@ export default async function ServicioPublicoPage({
           {(s.includes?.length ?? 0) > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Incluye</CardTitle>
+                <SeccionTitulo icon={ShieldCheckIcon}>Incluye</SeccionTitulo>
               </CardHeader>
               <CardContent>
                 <ul className="space-y-1.5 text-sm">
@@ -364,7 +367,7 @@ export default async function ServicioPublicoPage({
           {(s.excludes?.length ?? 0) > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">No incluye</CardTitle>
+                <SeccionTitulo icon={XIcon}>No incluye</SeccionTitulo>
               </CardHeader>
               <CardContent>
                 <ul className="space-y-1.5 text-sm">
@@ -381,25 +384,35 @@ export default async function ServicioPublicoPage({
         </div>
       )}
 
+      {/* La prosa libre va DESPUÉS de lo escaneable (precio, fechas, incluye). */}
+      {s.description && (
+        <Card className="mt-6">
+          <CardHeader>
+            <SeccionTitulo icon={MapIcon}>Sobre el viaje</SeccionTitulo>
+          </CardHeader>
+          <CardContent>
+            <p className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
+              {s.description}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Itinerario */}
       {(s.itinerary?.length ?? 0) > 0 && (
         <Card className="mt-6">
           <CardHeader>
-            <CardTitle className="text-base">Itinerario</CardTitle>
+            <SeccionTitulo icon={RouteIcon}>Itinerario</SeccionTitulo>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent>
             {s.itinerary!.map((dia, i) => (
-              <div key={i}>
-                <p className="text-sm font-semibold">
-                  Día {i + 1}
-                  {dia.title ? `: ${dia.title}` : ''}
-                </p>
-                {dia.description && (
-                  <p className="mt-0.5 text-sm text-muted-foreground">
-                    {dia.description}
-                  </p>
-                )}
-              </div>
+              <Plegable
+                key={i}
+                abierto={i === 0}
+                titulo={`Día ${i + 1}${dia.title ? ` · ${dia.title}` : ''}`}
+              >
+                {dia.description}
+              </Plegable>
             ))}
           </CardContent>
         </Card>
@@ -409,16 +422,13 @@ export default async function ServicioPublicoPage({
       {(s.faqs?.length ?? 0) > 0 && (
         <Card className="mt-6">
           <CardHeader>
-            <CardTitle className="text-base">Preguntas frecuentes</CardTitle>
+            <SeccionTitulo icon={CircleQuestionMarkIcon}>Preguntas frecuentes</SeccionTitulo>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent>
             {s.faqs!.map((f, i) => (
-              <div key={i}>
-                {f.question && <p className="text-sm font-semibold">{f.question}</p>}
-                {f.answer && (
-                  <p className="mt-0.5 text-sm text-muted-foreground">{f.answer}</p>
-                )}
-              </div>
+              <Plegable key={i} titulo={f.question ?? `Pregunta ${i + 1}`}>
+                {f.answer}
+              </Plegable>
             ))}
           </CardContent>
         </Card>
@@ -427,6 +437,15 @@ export default async function ServicioPublicoPage({
       {reviews && <Resenas reviews={reviews} />}
       </main>
       <PublicFooter />
+      {/* Hueco para que la barra fija no tape el footer al llegar al fondo. */}
+      <div aria-hidden className="h-20 md:hidden" />
+      <CtaBar
+        desde={Number(s.price ?? 0)}
+        comprarHref={comprarHref}
+        comprarOnline={comprarOnline}
+        wa={wa}
+        nombre={s.name}
+      />
     </>
   )
 }
