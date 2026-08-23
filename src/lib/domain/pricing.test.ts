@@ -3,6 +3,7 @@ import {
   lineTotal,
   precioAjustado,
   precioDePack,
+  precioDesde,
   subtotal,
   total,
   type BookingLine,
@@ -79,5 +80,21 @@ describe('precioDePack (b057)', () => {
   })
   it('redondea el override a 2 decimales', () => {
     expect(precioDePack(0, 'doble', 0, { doble: 999.995 })).toBe(1000)
+  })
+})
+
+describe('precioDesde', () => {
+  const packs = [
+    { key: 'doble', price: 2799 },
+    { key: 'triple', price: 2599 },
+    { key: 'cuadruple', price: 2399 },
+  ]
+  it('es el pack más barato resuelto; un override manda sobre el %', () => {
+    expect(precioDesde(packs, 2399, 10)).toBe(2638.9)
+    expect(precioDesde(packs, 2399, 10, { cuadruple: 2199 })).toBe(2199)
+  })
+  it('sin packs cae al precio base ajustado', () => {
+    expect(precioDesde([], 2399, 0)).toBe(2399)
+    expect(precioDesde([], 2000, 25)).toBe(2500)
   })
 })

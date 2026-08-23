@@ -8,6 +8,13 @@ export const mxn = new Intl.NumberFormat('es-MX', {
   currency: 'MXN',
 })
 
+/** Sin centavos ("$2,399"): para titulares, previews sociales e imágenes OG. */
+export const mxnEntero = new Intl.NumberFormat('es-MX', {
+  style: 'currency',
+  currency: 'MXN',
+  maximumFractionDigits: 0,
+})
+
 const dateFormatter = new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium' })
 
 /** Formatea una fecha `date` (YYYY-MM-DD) sin corrimiento por zona horaria. */
@@ -16,4 +23,14 @@ export function formatTravelDate(date: string | null): string {
   const parsed = new Date(`${date}T00:00:00`)
   if (Number.isNaN(parsed.getTime())) return date
   return dateFormatter.format(parsed)
+}
+
+/** "Creel, Chihuahua" desde ciudad/estado destino; si faltan, el texto libre `location`. */
+export function destino(s: {
+  city_to: string | null
+  state_to: string | null
+  location?: string | null
+}): string | null {
+  const partes = [s.city_to, s.state_to].filter(Boolean)
+  return partes.length ? partes.join(', ') : (s.location ?? null)
 }

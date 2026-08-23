@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/sheet'
 import { BrandMark } from '@/components/brand-mark'
 import { tituloVisible } from '@/lib/display-title'
+import { destino, mxn } from '@/components/data/format'
 import type { PublicServiceCard } from './data'
 
 // Vitrina navegable: búsqueda + filtros por destino (estado) y tipo, en memoria
@@ -31,16 +32,10 @@ const TIPO_LABELS: Record<string, string> = {
 const tipoLabel = (t: string) =>
   TIPO_LABELS[t] ?? t.charAt(0).toUpperCase() + t.slice(1)
 
-const mxn = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' })
 
 /** Minúsculas y sin acentos: "Creel" ≡ "creel". */
 const normalize = (s: string) =>
   s.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '')
-
-function destino(city: string | null, state: string | null): string | null {
-  const partes = [city, state].filter(Boolean)
-  return partes.length ? partes.join(', ') : null
-}
 
 // Mismo <select> nativo que en las listas de ops (picker del SO en móvil),
 // con la API local de este catálogo (label + options → onChange del valor).
@@ -287,7 +282,7 @@ export function Catalogo({
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {ordenados.map((s) => {
-            const lugar = destino(s.city_to, s.state_to) ?? s.location
+            const lugar = destino(s)
             const agenciaId = agenciaIds[s.agency]
             return (
               // Card como contenedor (no Link): el cuerpo enlaza al servicio y la

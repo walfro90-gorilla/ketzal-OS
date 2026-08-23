@@ -23,3 +23,17 @@ export const precioDePack = (
   const o = overrides?.[packKey]
   return o != null ? Math.round(o * 100) / 100 : precioAjustado(price, pct)
 }
+
+/**
+ * Precio "desde" de una salida: el pack más barato ya resuelto (override o %).
+ * Sin packs, el precio base ajustado por temporada.
+ */
+export const precioDesde = (
+  packs: { key: string; price: number }[],
+  base: number,
+  pct: number,
+  overrides?: PackPriceOverrides | null
+) =>
+  packs.length
+    ? Math.min(...packs.map((p) => precioDePack(p.price, p.key, pct, overrides)))
+    : precioAjustado(base, pct)

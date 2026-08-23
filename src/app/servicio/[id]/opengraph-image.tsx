@@ -2,6 +2,7 @@ import { ImageResponse } from 'next/og'
 import { getPublicService, type PublicService } from './data'
 import { ogCardResponse } from '@/lib/og-card'
 import { esBannerValido } from '@/lib/storage/banner-url'
+import { formatTravelDate, mxnEntero } from '@/components/data/format'
 
 // Preview social de la ficha de servicio. Antes el og:image dependía de que el
 // servicio tuviera banner (generateMetadata) → sin banner no había preview al
@@ -15,18 +16,22 @@ export const alt = 'Viaje — Ketzal'
 export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 
-const mxn = new Intl.NumberFormat('es-MX', {
-  style: 'currency',
-  currency: 'MXN',
-  maximumFractionDigits: 0,
-})
-
 const clamp = (s: string, n: number) =>
   s.length > n ? `${s.slice(0, n - 1).trimEnd()}…` : s
 
 function destino(s: PublicService): string | null {
   const partes = [s.city_to, s.state_to].filter(Boolean)
   return partes.length ? partes.join(', ') : s.location
+}
+
+// Línea que vende: próxima salida + lugares (datos de la BD). Sin salida
+// futura, el inicio de la descripción como antes.
+function lineaVenta(s: PublicService): string | undefined {
+  const d = s.departures?.[0]
+  if (d) {
+    return `Próxima salida ${formatTravelDate(d.departs_on)} · ${d.free > 0 ? `${d.free} lugares disponibles` : 'agotado'}`
+  }
+  return s.description ? clamp(s.description.replace(/\s+/g, ' '), 66) : undefined
 }
 
 // El banner solo se usa si es una URL pública de nuestro Storage: next/og lo
@@ -58,7 +63,7 @@ export default async function Image({
   }
 
   const lugar = destino(s)
-  const precio = s.price != null ? mxn.format(Number(s.price)) : 'Consultar'
+  const precio = s.price != null ? mxnEntero.format(Number(s.price)) : 'Consultar'
   const banner = validBannerUrl(s.images?.imgBanner)
 
   // Sin banner válido: tarjeta de marca (mismo lenguaje que cotización/estado/
@@ -68,7 +73,7 @@ export default async function Image({
       eyebrow: lugar ? `Viaje · ${lugar}` : 'Viaje',
       agency: s.agency.name,
       title: s.name,
-      subtitle: s.description ? clamp(s.description, 66) : undefined,
+      subtitle: lineaVenta(s),
       figure: precio,
       figureLabel: 'Desde',
     })
@@ -123,6 +128,11 @@ export default async function Image({
           <span style={{ fontSize: 66, fontWeight: 700, lineHeight: 1.05 }}>
             {clamp(s.name, 42)}
           </span>
+          {lineaVenta(s) ? (
+            <span style={{ fontSize: 28, color: 'rgba(255,255,255,0.9)', marginTop: 10 }}>
+              {lineaVenta(s)}
+            </span>
+          ) : null}
           <div
             style={{
               display: 'flex',

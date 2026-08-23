@@ -9,30 +9,14 @@ import { CheckIcon, XIcon, MapPinIcon } from 'lucide-react'
 import { videoEmbedUrl } from '@/lib/video'
 import { marketplaceActivo } from '@/lib/marketplace'
 import { tituloVisible } from '@/lib/display-title'
-import { precioDePack } from '@/lib/domain/pricing'
+import { precioDesde } from '@/lib/domain/pricing'
+import { destino, formatTravelDate, mxn, mxnEntero } from '@/components/data/format'
 import { PublicHeader } from '@/components/public/public-header'
 import { PublicFooter } from '@/components/public/public-footer'
 
 // Ficha pública de un servicio (marketplace). Indexable (vitrina SEO).
 // El CTA "Reservar" apunta hoy a WhatsApp de la agencia; la tajada 3
 // (checkout self-service) lo reemplaza por el flujo de reserva + pago.
-
-const mxn = new Intl.NumberFormat('es-MX', {
-  style: 'currency',
-  currency: 'MXN',
-})
-
-function fechaCorta(iso: string) {
-  const [y, m, day] = iso.split('-').map(Number)
-  return new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }).format(
-    new Date(y, m - 1, day)
-  )
-}
-
-function destino(s: { city_to: string | null; state_to: string | null; location: string | null }) {
-  const partes = [s.city_to, s.state_to].filter(Boolean)
-  return partes.length ? partes.join(', ') : s.location
-}
 
 // ponytail: normalización ingenua para wa.me (MX). Si son 10 dígitos, antepone
 // 52. Suficiente para el interín; el checkout real llega en la tajada 3.
@@ -55,18 +39,40 @@ export async function generateMetadata({
 
   const lugar = destino(s)
   const title = `${s.name}${lugar ? ` · ${lugar}` : ''} — Ketzal`
-  const description =
-    s.description?.slice(0, 160) ??
-    `${s.name} con ${s.agency.name}. Desde ${mxn.format(Number(s.price ?? 0))}.`
+  const description = descripcionSocial(s)
+  const url = `/servicio/${id}`
 
   // El og:image/twitter:image los provee opengraph-image.tsx (banner-como-foto
   // si existe, o tarjeta de marca si no) — por eso aquí no se fija `images`.
   return {
     title,
     description,
-    openGraph: { title, description, type: 'website' },
+    alternates: { canonical: url },
+    openGraph: { title, description, type: 'website', url, siteName: 'Ketzal', locale: 'es_MX' },
     twitter: { card: 'summary_large_image', title, description },
   }
+}
+
+/**
+ * Descripción para el preview de WhatsApp/redes: primero lo que vende (fecha,
+ * precio, lugares, agencia — datos de la BD, nunca redactados), luego el inicio
+ * de la descripción en una sola línea. ≤160 caracteres: WhatsApp corta ahí.
+ */
+function descripcionSocial(s: NonNullable<Awaited<ReturnType<typeof getPublicService>>>): string {
+  const proxima = s.departures?.[0]
+  const datos = [
+    proxima ? `Sale ${formatTravelDate(proxima.departs_on)}` : null,
+    `desde ${mxnEntero.format(Number(s.price ?? 0))} por persona`,
+    proxima ? (proxima.free > 0 ? `${proxima.free} lugares` : 'agotado') : null,
+    s.agency.name,
+  ]
+    .filter(Boolean)
+    .join(' · ')
+  const resto = 160 - datos.length - 2
+  const texto = (s.description ?? '').replace(/\s+/g, ' ').trim()
+  if (resto < 24 || !texto) return datos
+  const corte = texto.length > resto ? `${texto.slice(0, texto.lastIndexOf(' ', resto - 1)).trimEnd()}…` : texto
+  return `${datos}. ${corte}`
 }
 
 function NotFound() {
@@ -269,20 +275,7 @@ export default async function ServicioPublicoPage({
                       <span className="ml-2 text-xs font-semibold text-amber-600 dark:text-amber-500">
                         desde{' '}
                         {mxn.format(
-                          packsMin.length
-                            ? Math.min(
-                                ...packsMin.map((p) =>
-                                  precioDePack(
-                                    p.price,
-                                    p.key,
-                                    d.price_pct,
-                                    d.pack_price_overrides
-                                  )
-                                )
-                              )
-                            : Math.round(
-                                Number(s.price ?? 0) * (1 + d.price_pct / 100) * 100
-                              ) / 100
+                          precioDesde(packsMin, Number(s.price ?? 0), d.price_pct, d.pack_price_overrides)
                         )}
                       </span>
                     )}
@@ -295,7 +288,7 @@ export default async function ServicioPublicoPage({
             <ul className="mt-3 space-y-1 text-sm text-muted-foreground">
               {notasSalida.map((d) => (
                 <li key={d.id}>
-                  <span className="font-medium text-foreground">{fechaCorta(d.departs_on)}</span>
+                  <span className="font-medium text-foreground">{formatTravelDate(d.departs_on)}</span>
                   {' · '}
                   {d.note}
                 </li>
