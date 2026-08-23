@@ -34,4 +34,12 @@ export const READ_ONLY =
  */
 export const MAX_WRITES = Number(process.env.KETZAL_MCP_MAX_WRITES ?? 20)
 
-export const VERSION = '0.1.0'
+/**
+ * Tope aparte para las escrituras que NO mueven dinero (catálogo, clientes,
+ * pasajeros). Son editables: corregir un servicio es volver a editarlo, no un
+ * contra-asiento. El freno anti-bucle sigue, pero no puede ser el mismo cupo que
+ * el del ledger o cargar un catálogo de 12 viajes con sus salidas lo agota.
+ */
+export const MAX_DATA_WRITES = Number(process.env.KETZAL_MCP_MAX_DATA_WRITES ?? 100)
+
+export const VERSION = '0.2.0'

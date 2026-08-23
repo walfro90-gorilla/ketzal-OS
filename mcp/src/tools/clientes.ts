@@ -1,6 +1,7 @@
 /** Clientes de la agencia: buscar y dar de alta. */
 import { z } from 'zod'
-import { insert, q, rpc, select } from '../rest.js'
+import { KetzalError } from '../errors.js'
+import { insert, q, rpc, select, update } from '../rest.js'
 import { getAuthUser } from '../session.js'
 import type { ToolDef } from './registry.js'
 
@@ -49,7 +50,16 @@ const esquemaAlta = z.object({
   notas: z.string().optional().describe('Notas internas sobre el cliente.'),
 })
 
-const limpiar = (s?: string) => s?.trim() || null
+const esquemaEditar = z.object({
+  cliente_id: z.string().describe('Id del cliente a editar (sale de ketzal_clientes).'),
+  nombre: z.string().min(1).optional().describe('Nombre completo.'),
+  telefono: z.string().nullish().describe('Teléfono a 10 dígitos. null lo borra.'),
+  email: z.string().nullish().describe('Correo electrónico. null lo borra.'),
+  doc_id: z.string().nullish().describe('Identificación oficial. null la borra.'),
+  notas: z.string().nullish().describe('Notas internas. null las borra.'),
+})
+
+const limpiar = (s?: string | null) => s?.trim() || null
 
 export const tools: ToolDef[] = [
   {
@@ -102,6 +112,40 @@ export const tools: ToolDef[] = [
         doc_id: limpiar(a.doc_id),
         notes: limpiar(a.notas),
       })
+    },
+  },
+  {
+    name: 'ketzal_editar_cliente',
+    title: 'Editar un cliente',
+    description:
+      'Corrige los datos de un cliente ya dado de alta: nombre, teléfono, correo, ' +
+      'identificación o notas. Edición PARCIAL: sólo se tocan los campos que mandes. ' +
+      'Úsala cuando el cliente cambie de teléfono o el nombre venga mal escrito, en vez ' +
+      'de crear un duplicado que parta su historial de compra.',
+    write: true,
+    inputSchema: esquemaEditar,
+    handler: async (args) => {
+      const a = esquemaEditar.parse(args)
+      const patch: Record<string, unknown> = {}
+      if (a.nombre !== undefined) patch.full_name = a.nombre.trim()
+      if (a.telefono !== undefined) patch.phone = limpiar(a.telefono)
+      if (a.email !== undefined) patch.email = limpiar(a.email)
+      if (a.doc_id !== undefined) patch.doc_id = limpiar(a.doc_id)
+      if (a.notas !== undefined) patch.notes = limpiar(a.notas)
+      if (!Object.keys(patch).length) {
+        throw new KetzalError('No mandaste ningún campo que cambiar.')
+      }
+
+      // Sin filas devueltas = la RLS lo bloqueó (cliente de otra agencia).
+      const filas = await update<Record<string, unknown>>(
+        'customers',
+        `id=eq.${q(a.cliente_id.trim())}&select=id,full_name,phone,email,doc_id,notes`,
+        patch,
+      )
+      if (!filas.length) {
+        throw new KetzalError('No se pudo editar: el cliente no existe o no tienes acceso.')
+      }
+      return { cliente: filas[0], cambiados: Object.keys(patch) }
     },
   },
 ]

@@ -20,6 +20,13 @@ describe('tope de escrituras', () => {
     expect(() => spendWrite()).toThrow(/Tope de/)
   })
 
+  it('el cupo de ediciones es independiente del de dinero', () => {
+    // Una edición de catálogo no puede consumir el cupo del ledger append-only.
+    for (let i = 0; i < MAX_WRITES; i++) spendWrite('datos')
+    expect(writesLeft('dinero')).toBe(MAX_WRITES)
+    expect(() => spendWrite('dinero')).not.toThrow()
+  })
+
   it('el contador refleja lo gastado', () => {
     spendWrite()
     spendWrite()

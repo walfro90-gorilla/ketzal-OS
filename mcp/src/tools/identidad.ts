@@ -59,7 +59,9 @@ export async function whoami() {
           ? `Acotado por RLS a la agencia ${agencia ?? p.supplier_id}. No ve datos de otras agencias.`
           : 'Agente libre de Ketzal (sin agencia): ve lo suyo y el catálogo de plataforma.',
     modo: READ_ONLY ? 'solo lectura' : 'lectura y escritura',
-    escrituras_disponibles: READ_ONLY ? 0 : writesLeft(),
+    escrituras_disponibles: READ_ONLY
+      ? 0
+      : { dinero: writesLeft('dinero'), ediciones: writesLeft('datos') },
   }
 }
 

@@ -74,7 +74,7 @@ export function registrar(server: McpServer, tools: ToolDef[]): number {
       async (args: Record<string, unknown>) => {
         try {
           if (t.money) requireConfirm(args?.confirmar)
-          if (t.write) spendWrite()
+          if (t.write) spendWrite(t.money ? 'dinero' : 'datos')
           return formatear(await t.handler(args ?? {}))
         } catch (e) {
           // Un error de negocio es información útil para el agente, no una caída:

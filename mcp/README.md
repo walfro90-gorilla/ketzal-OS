@@ -66,18 +66,18 @@ Sólo lectura (recomendado en máquinas de consulta): agrega
 
 ## Qué puede hacer
 
-33 herramientas: 17 de lectura y 16 de escritura, de las cuales 8 mueven dinero.
+38 herramientas: 17 de lectura y 21 de escritura, de las cuales 8 mueven dinero.
 
 | Área | Herramientas |
 |---|---|
 | Identidad | `whoami`, `agencias` |
 | Buscar | `buscar` (el ⌘K de la app) |
 | Ventas | `ventas`, `venta`, `crear_venta`, `convertir_cotizacion` |
-| Clientes | `clientes`, `crear_cliente` |
+| Clientes | `clientes`, `crear_cliente`, `editar_cliente` |
 | Dinero | `registrar_abono`, `emitir_recibo`, `emitir_voucher`, `preview_plan_pagos`, `plan_pagos`, `preview_cancelacion`, `cancelar_venta`, `devolver_pago`, `creditos`, `aplicar_credito` |
 | Cobranza | `cobranza` |
 | Operación | `salidas`, `pasajeros`, `pasajero_agregar`, `pasajero_quitar`, `asiento` |
-| Catálogo | `servicios`, `publicar_servicio` |
+| Catálogo | `servicios`, `crear_servicio`, `editar_servicio`, `crear_salida`, `editar_salida`, `publicar_servicio` |
 | Dirección | `panel`, `reportes`, `comisiones_cuentas`, `gastos`, `registrar_gasto`, `revertir_gasto` |
 
 Todas van prefijadas con `ketzal_`.
@@ -98,27 +98,35 @@ contra-asienta. Por eso:
 - `cancelar_venta` exige que le repitas la penalización que devolvió
   `preview_cancelacion`. La pena sube por tramos según los días que falten para el
   viaje, así que un preview de ayer puede estar en otro tramo hoy.
-- Hay un tope de **20 escrituras por sesión** (`KETZAL_MCP_MAX_WRITES`) como freno
-  anti-bucle. Al llegar, reinicia el servidor.
+- Hay un tope de **20 escrituras de dinero por sesión** (`KETZAL_MCP_MAX_WRITES`)
+  como freno anti-bucle. Al llegar, reinicia el servidor. Las ediciones que no
+  mueven dinero (catálogo, clientes, pasajeros) llevan un cupo aparte y más ancho
+  (`KETZAL_MCP_MAX_DATA_WRITES`, 100): se corrigen volviendo a editar, no con un
+  contra-asiento, y cargar un catálogo completo agotaría el cupo del ledger.
 - Los cobros de Mercado Pago **no se devuelven desde aquí**: el dinero tiene que
   salir primero en la API de MP, y eso vive en la app.
 
-## Cargar o editar un servicio sin la app web
+## Cargar un catálogo desde la terminal
 
-El MCP no crea ni edita servicios (a propósito: eso vive en `/servicios` de la app).
-Para una carga puntual desde terminal, reutiliza su cliente REST — usa tu sesión
-de `~/.config/ketzal/session.json`, respeta RLS y rota el refresh token igual que el servidor:
+`crear_servicio` / `editar_servicio` / `crear_salida` / `editar_salida` cubren el
+alta y la corrección completas: nombre, destino, cupo, descripción, incluye / no
+incluye, itinerario día por día, preguntas frecuentes, precios por tipo de
+habitación, y las fechas de salida con su cupo, su ajuste de temporada y sus
+precios especiales por paquete.
 
-```js
-// carga.mjs — corre con `node carga.mjs` desde cualquier ruta
-import { insert, update } from '/ruta/a/ketzal-app/mcp/dist/rest.js'
-await update('services', 'id=eq.<uuid>', { description: '…', includes: ['…'], faqs: [{ question: '…', answer: '…' }] })
-await insert('service_departures', { service_id: '<uuid>', departs_on: '2026-08-28', max_capacity: 20, note: '…' })
-```
+Dos reglas que conviene tener claras:
 
-Campos que pinta la ficha pública: `description`, `packs` (precio por persona), `includes`,
-`excludes`, `itinerary` (`{title, description}[]`), `faqs` (`{question, answer}[]`), `images`,
-`yt_link` y las salidas. `add_ons` y `dates` hoy no se muestran.
+- **La edición es parcial.** Sólo se tocan los campos que mandas; el resto queda
+  intacto. La excepción son las listas (`paquetes`, `incluye`, `itinerario`…): cada
+  una se reemplaza completa, así que mándala con todos sus elementos.
+- **El precio público "desde" se deriva** del paquete más barato (b046). No se
+  escribe a mano: cambia solo al cambiar los paquetes.
+
+Un servicio nace **sin publicar**. Se prende con `publicar_servicio` cuando esté
+listo, y desde ese momento lo ve cualquier visitante de internet.
+
+**Lo que sigue viviendo en la app web:** las fotos y el video del servicio, porque
+hay que subir el archivo a Storage. Todo lo demás se puede dictar desde aquí.
 
 ## Lo que este servidor NO es
 
@@ -127,7 +135,7 @@ interfaz**. Las reglas de navegación de la app web (qué secciones ve cada rol)
 sólo en TypeScript: no son una frontera de seguridad y nunca lo fueron — cualquier
 usuario autenticado puede llamar la API de Postgres directo desde el navegador.
 
-Por eso este servidor **no filtra herramientas por rol**: sería teatro. Las 32 se
+Por eso este servidor **no filtra herramientas por rol**: sería teatro. Las 38 se
 listan siempre, y las que tu cuenta no puede usar responden con el mensaje del guard
 en SQL, que explica por qué. La frontera real son la RLS y esos guards. Si vas a
 repartir este MCP a agentes de agencia, audítalos primero.
