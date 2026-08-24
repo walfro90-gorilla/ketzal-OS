@@ -288,10 +288,17 @@ https://claude.ai/code/artifact/7c861f9e-a500-4dbb-81b3-23d8ab910b85
 - **C14-7** Tarjeta `/explora`: un solo precio ("Desde $X / persona", se quita el
   overlay duplicado sobre la foto), pill de tipo con `Badge`, `active:scale-[0.99]`.
 
-Pendiente de la dirección elegida en el canvas: card de precio con packs +
-próxima salida + cupo (`precio-card.tsx`), salidas como lista con badges
-(`salidas.tsx`), deep-link `?salida=` a `/comprar` (opcional) y `m002` para
-"próxima salida" en el catálogo.
+- **C14-8** Dirección elegida: **A "Hoja de venta"**. `precio-card.tsx` (desde +
+  banda "Próxima salida" con `CupoBadge` + precio por ocupación en una sola card)
+  y `salidas.tsx` (lista vertical con nota m001 inline, Badge de temporada/precio
+  especial + "desde", cupo y flecha; pasadas plegadas). Cada fila vendible enlaza
+  a `/comprar?salida=<id>`, que preselecciona la salida en `pedido-form`.
+  Las direcciones B y C quedan en el canvas para un A/B futuro (cookie de
+  variante en `proxy.ts` + `track()` de Vercel Analytics en el CTA) cuando haya
+  tráfico que medir.
+
+Pendiente: `m002` para "próxima salida" en la tarjeta del catálogo; fotos del
+servicio (dato, no código).
 
 ### Pendiente
 
