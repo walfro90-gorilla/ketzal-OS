@@ -72,6 +72,26 @@ Back-office multi-agencia. Un agente cierra la venta de un tour, controla abonos
 
 ---
 
+## Contenido dinámico — demanda entrante (nota viva, 2026-08-20)
+
+**Hoy:** catálogo publicado, **cero asientos vendidos** en las 10 salidas
+futuras. El OS ya sabe qué vender y con cuánta urgencia (`ketzal_salidas`,
+`ketzal_servicios`); lo que falta es convertir ese dato en posts, tarjetas y
+video corto que traigan demanda.
+
+**Plan por niveles (nada construido aún):** N0 = prompt `post_del_dia` en el MCP
+(cero código nuevo, el humano publica) → N1 = tool `ketzal_promocionables` (lo
+vendible en una llamada, con agencia, precio, fotos y urgencia derivada) → N2 =
+publicación automática (cron + Buffer/Metricool; Meta directo solo si el volumen
+lo justifica). Imágenes con **`next/og`**, no generativas; video como slideshow
+de fotos reales, no generativo — un destino inventado por IA es publicidad
+engañosa.
+
+Regla heredada del MCP: **el LLM redacta, nunca produce cifra, fecha ni cupo.**
+
+Detalle, guardrails y checklist de pendientes en
+[`CONTENIDO_DINAMICO.md`](./CONTENIDO_DINAMICO.md).
+
 ## Fuera de alcance hasta que se decida explícitamente
 - Facturación fiscal (CFDI/SAT con PAC) — proyecto propio
 - App móvil nativa

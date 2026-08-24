@@ -163,6 +163,7 @@ Detalle completo del modelo objetivo en **`docs/DATA_MODEL.md`**. SQL propuesto 
 - `docs/ARCHITECTURE.md` — stack, principios, seguridad, qué NO hacer
 - `docs/DATA_MODEL.md` — modelo de datos v1 completo
 - `docs/ROADMAP.md` — fases v1 → v4
+- `docs/CONTENIDO_DINAMICO.md` — motor de contenido (posts/imágenes/video) desde el MCP: plan y pendientes
 - `db/proposed/001_ketzal_os_v1.sql` — migración propuesta (revisar antes de aplicar)
 
 ---
