@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button'
 import { crearLinkPagoMarketplace, calificar } from '@/app/comprar/actions'
 import { SpeiPanel } from '@/app/comprar/[serviceId]/spei-panel'
 import { MpPaymentBrick, type ResultadoBrick } from '@/app/comprar/[serviceId]/mp-payment-brick'
+import { eliminarPedido } from './pedido-actions'
 
 export type Order = {
   booking_id: string
@@ -186,6 +187,9 @@ export function OrderCard({ order }: { order: Order }) {
   const [busy, setBusy] = useState(false)
   // Monto que se le pasó al Payment Brick embebido; null = aún no se mostró.
   const [brickAmount, setBrickAmount] = useState<number | null>(null)
+  // b068: eliminar pedidos draft sin dinero, para que no se acumulen.
+  const [confirmandoEliminar, setConfirmandoEliminar] = useState(false)
+  const [eliminando, setEliminando] = useState(false)
   // Transferencia SPEI (b034): panel con los datos bancarios de la agencia.
   const [speiOpen, setSpeiOpen] = useState(false)
   // 'abono' = siguiente abono del plan; 'todo' = liquidar el saldo.
@@ -215,6 +219,19 @@ export function OrderCard({ order }: { order: Order }) {
       return
     }
     window.location.href = res.url
+  }
+
+  async function eliminar() {
+    setEliminando(true)
+    const res = await eliminarPedido(order.booking_id)
+    if ('error' in res) {
+      toast.error(res.error)
+      setEliminando(false)
+      setConfirmandoEliminar(false)
+      return
+    }
+    toast.success('Pedido eliminado.')
+    router.refresh()
   }
 
   function manejarResultadoBrick(r: ResultadoBrick) {
@@ -288,6 +305,40 @@ export function OrderCard({ order }: { order: Order }) {
                 .filter(Boolean)
                 .join(' · ')}
             </p>
+            {/* b068: solo pedidos sin ningún rastro de dinero (el RPC vuelve a
+                validarlo — este chequeo es solo para no mostrar un botón que
+                siempre fallaría). */}
+            {order.status === 'draft' && order.paid === 0 && (
+              confirmandoEliminar ? (
+                <div className="mt-1 flex items-center gap-2 text-xs">
+                  <span className="text-muted-foreground">¿Eliminar pedido?</span>
+                  <button
+                    type="button"
+                    disabled={eliminando}
+                    onClick={eliminar}
+                    className="font-medium text-destructive underline underline-offset-2 disabled:opacity-60"
+                  >
+                    {eliminando ? 'Eliminando…' : 'Sí, eliminar'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={eliminando}
+                    onClick={() => setConfirmandoEliminar(false)}
+                    className="text-muted-foreground underline underline-offset-2"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmandoEliminar(true)}
+                  className="mt-1 text-xs text-muted-foreground underline underline-offset-2 hover:text-destructive"
+                >
+                  Eliminar pedido
+                </button>
+              )
+            )}
           </div>
           <span className="shrink-0 text-right text-sm tabular-nums">
             <span className="font-semibold">{mxn.format(order.total)}</span>
