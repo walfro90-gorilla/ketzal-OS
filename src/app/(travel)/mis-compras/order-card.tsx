@@ -19,6 +19,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { crearLinkPagoMarketplace, calificar } from '@/app/comprar/actions'
 import { SpeiPanel } from '@/app/comprar/[serviceId]/spei-panel'
+import { MpPaymentBrick, type ResultadoBrick } from '@/app/comprar/[serviceId]/mp-payment-brick'
 
 export type Order = {
   booking_id: string
@@ -183,6 +184,8 @@ function StarPicker({
 export function OrderCard({ order }: { order: Order }) {
   const router = useRouter()
   const [busy, setBusy] = useState(false)
+  // Monto que se le pasó al Payment Brick embebido; null = aún no se mostró.
+  const [brickAmount, setBrickAmount] = useState<number | null>(null)
   // Transferencia SPEI (b034): panel con los datos bancarios de la agencia.
   const [speiOpen, setSpeiOpen] = useState(false)
   // 'abono' = siguiente abono del plan; 'todo' = liquidar el saldo.
@@ -201,7 +204,8 @@ export function OrderCard({ order }: { order: Order }) {
   const [savedComentario, setSavedComentario] = useState(order.provider_comment ?? '')
   const [savedApp, setSavedApp] = useState(order.app_rating ?? 0)
 
-  async function pagar(amount?: number) {
+  // Respaldo: checkout de Mercado Pago por redirect (Checkout Pro).
+  async function pagarFallback(amount?: number) {
     if (!order.service_id) return
     setBusy(true)
     const res = await crearLinkPagoMarketplace(order.booking_id, order.service_id, amount)
@@ -211,6 +215,20 @@ export function OrderCard({ order }: { order: Order }) {
       return
     }
     window.location.href = res.url
+  }
+
+  function manejarResultadoBrick(r: ResultadoBrick) {
+    setBrickAmount(null)
+    if (r.approved) {
+      toast.success('¡Pago aprobado!')
+      router.refresh()
+      return
+    }
+    if (r.status === 'pending' || r.status === 'in_process') {
+      toast.message('Tu pago está en revisión. Te avisaremos cuando se confirme.')
+      return
+    }
+    toast.error('El pago no se completó. Intenta con otra tarjeta.')
   }
 
 
@@ -310,32 +328,49 @@ export function OrderCard({ order }: { order: Order }) {
                     </p>
                   ) : null
                 })()}
-              <Button
-                type="button"
-                size="touch"
-                className="w-full"
-                loading={busy}
-                onClick={() => pagar(conPlan ? order.next_due : undefined)}
-              >
-                {busy
-                  ? 'Abriendo pago…'
-                  : conPlan
-                    ? `Pagar siguiente abono ${mxn.format(order.next_due)}`
-                    : `Pagar ${mxn.format(order.balance)}`}
-              </Button>
-              {conPlan && order.next_due < order.balance && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  loading={busy}
-                  onClick={() => pagar(order.balance)}
-                >
-                  Liquidar todo {mxn.format(order.balance)}
-                </Button>
+              {brickAmount == null ? (
+                <>
+                  <Button
+                    type="button"
+                    size="touch"
+                    className="w-full"
+                    onClick={() =>
+                      setBrickAmount(conPlan ? order.next_due : order.balance)
+                    }
+                  >
+                    {conPlan
+                      ? `Pagar siguiente abono ${mxn.format(order.next_due)}`
+                      : `Pagar ${mxn.format(order.balance)}`}
+                  </Button>
+                  {conPlan && order.next_due < order.balance && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setBrickAmount(order.balance)}
+                    >
+                      Liquidar todo {mxn.format(order.balance)}
+                    </Button>
+                  )}
+                </>
+              ) : (
+                <div className="space-y-2">
+                  <MpPaymentBrick
+                    bookingId={order.booking_id}
+                    amount={brickAmount}
+                    onResult={manejarResultadoBrick}
+                  />
+                  <button
+                    type="button"
+                    className="w-full text-center text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                    onClick={() => pagarFallback(brickAmount)}
+                  >
+                    ¿Problemas para pagar? Usa el checkout de Mercado Pago
+                  </button>
+                </div>
               )}
 
               {/* Pago por transferencia SPEI directa a la agencia (b034). */}
-              {order.spei && !speiOpen && (
+              {order.spei && !speiOpen && brickAmount == null && (
                 <Button
                   type="button"
                   variant="outline"

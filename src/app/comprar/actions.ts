@@ -6,6 +6,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { safeError } from '@/lib/errors'
 import { esBannerValido } from '@/lib/storage/banner-url'
 import { adminsDeAgencia, notificar, superadmins } from '@/lib/push/send'
+import { resolverSplitMp } from '@/lib/mp-split'
 
 // Registro / datos del COMPRADOR B2C (terreno del marketplace).
 // El comprador es un profile de tipo 'viajero' (refactor de identidad, F1): un
@@ -253,39 +254,11 @@ export async function crearLinkPagoMarketplace(
   // cuenta conectada: flujo actual (token de plataforma) y el ledger registra
   // el payout a 7 días al confirmarse el pago.
   const svcClient = createServiceClient()
-  let cobroToken = token
-  let marketplaceFee = 0
-  let esSplit = false
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: b } = await (svcClient as any)
-      .from('bookings')
-      .select('selling_supplier_id')
-      .eq('id', bookingId)
-      .maybeSingle()
-    if (b?.selling_supplier_id) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: cuenta } = await (svcClient as any)
-        .from('mp_accounts')
-        .select('access_token')
-        .eq('supplier_id', b.selling_supplier_id)
-        .maybeSingle()
-      if (cuenta?.access_token) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: cfg } = await (svcClient as any)
-          .from('app_settings')
-          .select('platform_commission_rate')
-          .limit(1)
-          .maybeSingle()
-        const pct = Number(cfg?.platform_commission_rate ?? 0)
-        cobroToken = cuenta.access_token
-        marketplaceFee = Math.round(Number(intent.amount) * (pct / 100) * 100) / 100
-        esSplit = true
-      }
-    }
-  } catch {
-    /* best-effort: sin split cae al flujo actual */
-  }
+  const { cobroToken, marketplaceFee, esSplit } = await resolverSplitMp(
+    bookingId,
+    intent.amount,
+    token
+  )
 
   const res = await fetch('https://api.mercadopago.com/checkout/preferences', {
     method: 'POST',
@@ -336,6 +309,103 @@ export async function crearLinkPagoMarketplace(
   }
 
   return { url: pref.init_point }
+}
+
+// Fase 1 (checkout embebido): cobra con el Payment Brick, sin salir de Ketzal
+// OS. Mismo intent/split que crearLinkPagoMarketplace, pero POST /v1/payments
+// (Checkout API) en vez de /checkout/preferences — no hay init_point que
+// redirigir. `formData` viene tal cual del onSubmit del Brick (token, método
+// de pago, payer...); se sobreescriben los campos que decide el servidor
+// (monto autoritativo = saldo, referencias, comisión de split) para no
+// confiar en nada que mande el cliente.
+export type ResultadoPagoBrick =
+  | { error: string }
+  | { status: string; statusDetail?: string; approved: boolean }
+
+export async function pagarConBrickMarketplace(
+  bookingId: string,
+  amount: number,
+  formData: Record<string, unknown>
+): Promise<ResultadoPagoBrick> {
+  const platformToken = process.env.MP_ACCESS_TOKEN
+  if (!platformToken) {
+    return { error: 'El pago en línea aún no está disponible. Coordina con la agencia.' }
+  }
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: 'Inicia sesión para pagar.' }
+
+  const { data, error } = await supabase.rpc('create_marketplace_payment_intent' as never, {
+    p_booking_id: bookingId,
+    p_amount: amount,
+  } as never)
+  if (error || !data) return { error: safeError(error, 'No se pudo iniciar el pago.') }
+  const intent = data as unknown as { id: string; amount: number }
+
+  const { cobroToken, marketplaceFee, esSplit } = await resolverSplitMp(
+    bookingId,
+    intent.amount,
+    platformToken
+  )
+
+  const h = await headers()
+  const origin = process.env.NEXT_PUBLIC_APP_URL ?? `https://${h.get('host')}`
+
+  const res = await fetch('https://api.mercadopago.com/v1/payments', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${cobroToken}`,
+      'X-Idempotency-Key': intent.id,
+    },
+    body: JSON.stringify({
+      ...formData,
+      transaction_amount: Number(intent.amount),
+      description: `Pedido ${bookingId.slice(0, 8)}`,
+      external_reference: intent.id,
+      notification_url: `${origin}/api/mp/webhook`,
+      ...(esSplit && marketplaceFee > 0 ? { application_fee: marketplaceFee } : {}),
+    }),
+  })
+  const pago = (await res.json()) as {
+    id?: number
+    status?: string
+    status_detail?: string
+  }
+  if (!res.ok || !pago.id) {
+    return { error: 'Mercado Pago rechazó el pago. Intenta con otra tarjeta.' }
+  }
+
+  const svcClient = createServiceClient()
+  if (esSplit) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (svcClient as any)
+        .from('payment_intents')
+        .update({ split: true, mp_fee: marketplaceFee })
+        .eq('id', intent.id)
+    } catch {
+      /* best-effort */
+    }
+  }
+
+  // Confirmación inline con la respuesta síncrona de MP — feedback inmediato
+  // al comprador. El webhook (api/mp/webhook) sigue como red de seguridad
+  // idempotente para estatus que cambian después (in_process/3DS→approved).
+  await svcClient.rpc('confirm_online_payment', {
+    p_intent_id: intent.id,
+    p_mp_payment_id: String(pago.id),
+    p_status: pago.status ?? 'pending',
+  })
+
+  return {
+    status: pago.status ?? 'pending',
+    statusDetail: pago.status_detail,
+    approved: pago.status === 'approved',
+  }
 }
 
 // B.2b: plan de pagos (enganche + abonos) para el comprador.

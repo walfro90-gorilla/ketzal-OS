@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { HourglassIcon, LandmarkIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -17,6 +18,7 @@ import {
 } from '../actions'
 import { WaButton } from './wa-button'
 import { SpeiPanel } from './spei-panel'
+import { MpPaymentBrick, type ResultadoBrick } from './mp-payment-brick'
 
 // Opciones de pago del pedido (B.2): contado (pago total) o plan (enganche 20% +
 // abonos), por Mercado Pago o por transferencia SPEI directa a la agencia (b034,
@@ -47,11 +49,14 @@ export function PagoBloque({
   waText: string
   agencyPhone: string | null
 }) {
+  const router = useRouter()
   const [modo, setModo] = useState<'contado' | 'plan'>('contado')
   const [freq, setFreq] = useState('quincenal')
   const [finalDate, setFinalDate] = useState('')
   const [preview, setPreview] = useState<PlanPreview | null>(null)
   const [busy, setBusy] = useState(false)
+  // Monto que se le pasó al Payment Brick embebido; null = aún no se mostró.
+  const [brickAmount, setBrickAmount] = useState<number | null>(null)
   // lazy init: Date.now() no puede correr en render (regla de pureza)
   const [manana] = useState(() => new Date(Date.now() + 86400000).toISOString().slice(0, 10))
 
@@ -67,7 +72,9 @@ export function PagoBloque({
   // La salida manda la fecha límite; si no hay, la que elige el comprador.
   const finalEfectiva = travelDate ?? finalDate
 
-  async function pagar(amount?: number) {
+  // Respaldo: checkout de Mercado Pago por redirect (Checkout Pro). Sigue vivo
+  // por si el Brick falla o el banco exige un 3DS que no resuelve bien.
+  async function pagarFallback(amount?: number) {
     setBusy(true)
     const res = await crearLinkPagoMarketplace(bookingId, serviceId, amount)
     if ('error' in res) {
@@ -76,6 +83,20 @@ export function PagoBloque({
       return
     }
     window.location.href = res.url // redirige a Mercado Pago
+  }
+
+  function manejarResultadoBrick(r: ResultadoBrick) {
+    if (r.approved) {
+      toast.success('¡Pago aprobado!')
+      router.push('/mis-compras')
+      return
+    }
+    if (r.status === 'pending' || r.status === 'in_process') {
+      toast.message('Tu pago está en revisión. Te avisaremos cuando se confirme.')
+      return
+    }
+    toast.error('El pago no se completó. Intenta con otra tarjeta o usa el checkout de Mercado Pago.')
+    setBrickAmount(null)
   }
 
   async function calcular() {
@@ -97,12 +118,12 @@ export function PagoBloque({
     if (!preview) return
     setBusy(true)
     const gen = await generarPlanMarketplace(bookingId, freq, travelDate ? null : finalDate)
+    setBusy(false)
     if ('error' in gen) {
       toast.error(gen.error)
-      setBusy(false)
       return
     }
-    await pagar(gen.plan.enganche) // deja busy=true; redirige a MP
+    setBrickAmount(gen.plan.enganche) // muestra el Brick con el monto del enganche
   }
 
   // Enganche por SPEI: genera el plan y abre el panel con el monto del enganche.
@@ -169,16 +190,32 @@ export function PagoBloque({
 
       {modo === 'contado' ? (
         <div className="space-y-2">
-          <Button
-            type="button"
-            size="touch"
-            className="w-full"
-            loading={busy}
-            onClick={() => pagar()}
-          >
-            {busy ? 'Abriendo pago…' : `Pagar en línea ${mxn.format(total)}`}
-          </Button>
-          {spei && !speiOpen && (
+          {brickAmount == null ? (
+            <Button
+              type="button"
+              size="touch"
+              className="w-full"
+              onClick={() => setBrickAmount(total)}
+            >
+              Pagar en línea {mxn.format(total)}
+            </Button>
+          ) : (
+            <div className="space-y-2">
+              <MpPaymentBrick
+                bookingId={bookingId}
+                amount={brickAmount}
+                onResult={manejarResultadoBrick}
+              />
+              <button
+                type="button"
+                className="w-full text-center text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                onClick={() => pagarFallback()}
+              >
+                ¿Problemas para pagar? Usa el checkout de Mercado Pago
+              </button>
+            </div>
+          )}
+          {spei && !speiOpen && brickAmount == null && (
             <Button
               type="button"
               variant="outline"
@@ -258,16 +295,33 @@ export function PagoBloque({
                   {mxn.format(preview.monto_abono)}
                 </p>
               </div>
-              <Button
-                type="button"
-                size="touch"
-                className="w-full"
-                loading={busy}
-                onClick={pagarEnganche}
-              >
-                {busy ? 'Abriendo pago…' : `Pagar enganche ${mxn.format(preview.enganche)}`}
-              </Button>
-              {spei && !speiOpen && (
+              {brickAmount == null ? (
+                <Button
+                  type="button"
+                  size="touch"
+                  className="w-full"
+                  loading={busy}
+                  onClick={pagarEnganche}
+                >
+                  {busy ? 'Calculando…' : `Pagar enganche ${mxn.format(preview.enganche)}`}
+                </Button>
+              ) : (
+                <div className="space-y-2">
+                  <MpPaymentBrick
+                    bookingId={bookingId}
+                    amount={brickAmount}
+                    onResult={manejarResultadoBrick}
+                  />
+                  <button
+                    type="button"
+                    className="w-full text-center text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+                    onClick={() => pagarFallback(brickAmount)}
+                  >
+                    ¿Problemas para pagar? Usa el checkout de Mercado Pago
+                  </button>
+                </div>
+              )}
+              {spei && !speiOpen && brickAmount == null && (
                 <Button
                   type="button"
                   variant="outline"
