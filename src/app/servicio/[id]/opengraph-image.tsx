@@ -6,8 +6,13 @@ import { formatTravelDate, mxnEntero } from '@/components/data/format'
 
 // Preview social de la ficha de servicio. Antes el og:image dependía de que el
 // servicio tuviera banner (generateMetadata) → sin banner no había preview al
-// compartir por WhatsApp. Ahora SIEMPRE hay imagen: la foto del banner a sangre
-// (con scrim + datos del viaje) si existe, o la tarjeta de marca si no.
+// compartir por WhatsApp. Ahora SIEMPRE hay imagen: el banner tal cual si
+// existe, o la tarjeta de marca compuesta si no.
+//
+// Con banner el content-type real es el del archivo en Storage (jpeg/png/webp),
+// no siempre el declarado abajo — `contentType` aquí es solo el hint estático
+// del <meta og:image:type>; los crawlers de verdad leen el header real de la
+// respuesta, no este export (por eso no hace falta volverlo dinámico).
 //
 // Estilos inline a propósito: next/og (Satori) NO soporta clases de Tailwind;
 // solo un subconjunto de CSS vía `style`. Es el mismo patrón de todos los OG
@@ -79,8 +84,28 @@ export default async function Image({
     })
   }
 
-  // Con banner: la foto del viaje a sangre + scrim inferior con nombre, destino,
-  // agencia, precio y firma de marca. La foto vende más que un card de texto.
+  // Con banner: se sirve la foto TAL CUAL (sin componer overlay con Satori).
+  // next/og no soporta salida JPEG/con calidad — una foto real compuesta ahí
+  // sale como PNG sin pérdida de ~2 MB en 2-4s, tiempo suficiente para que el
+  // crawler de WhatsApp truene y cachee "sin imagen" para siempre (bug real,
+  // reportado en vivo: el link se compartía sin miniatura pese a tener banner).
+  // El banner ya es un JPEG optimizado en Storage (~150-300 KB, <0.5s) — foto
+  // real y rápida gana sobre "bonito pero no siempre carga".
+  try {
+    const foto = await fetch(banner)
+    if (foto.ok) {
+      return new Response(foto.body, {
+        headers: {
+          'Content-Type': foto.headers.get('content-type') ?? 'image/jpeg',
+          'Cache-Control': 'public, max-age=86400, s-maxage=86400',
+        },
+      })
+    }
+  } catch {
+    /* cae a la tarjeta compuesta abajo */
+  }
+
+  // Fallback si el fetch del banner falla: la composición de siempre.
   return new ImageResponse(
     (
       <div
