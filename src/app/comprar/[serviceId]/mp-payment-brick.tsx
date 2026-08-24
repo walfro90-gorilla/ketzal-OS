@@ -56,6 +56,7 @@ export function MpPaymentBrick({
   const containerId = `mp-brick-${bookingId}`
   const brickRef = useRef<{ unmount: () => void } | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [listo, setListo] = useState(false)
 
   useEffect(() => {
     let cancelado = false
@@ -86,6 +87,11 @@ export function MpPaymentBrick({
           initialization: { amount },
           customization: { paymentMethods: { creditCard: 'all', debitCard: 'all' } },
           callbacks: {
+            // El Brick exige onReady + onError explícitos o rechaza el
+            // create() entero con "missing_required_callbacks" — ni siquiera
+            // llega a intentar cargar el SDK/red, es una validación del propio
+            // objeto de settings.
+            onReady: () => setListo(true),
             onError: (err: unknown) => {
               console.error('[MpPaymentBrick] onError', err)
               setError('Hubo un problema con el pago. Intenta de nuevo.')
@@ -125,5 +131,10 @@ export function MpPaymentBrick({
   }, [bookingId, amount])
 
   if (error) return <p className="text-sm text-destructive">{error}</p>
-  return <div id={containerId} />
+  return (
+    <div>
+      {!listo && <p className="text-sm text-muted-foreground">Cargando pago…</p>}
+      <div id={containerId} />
+    </div>
+  )
 }
