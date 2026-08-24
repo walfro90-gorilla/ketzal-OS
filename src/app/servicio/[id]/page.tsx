@@ -4,6 +4,8 @@ import { getPublicService, getServiceReviews } from './data'
 import { Carrusel } from './carrusel'
 import { Resenas } from './resenas'
 import { CtaBar } from './cta-bar'
+import { PrecioCard } from './precio-card'
+import { Salidas } from './salidas'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { buttonVariants } from '@/components/ui/button'
 import {
@@ -19,8 +21,7 @@ import { Plegable, SeccionTitulo } from '@/components/public/ficha-primitivos'
 import { videoEmbedUrl } from '@/lib/video'
 import { marketplaceActivo } from '@/lib/marketplace'
 import { tituloVisible } from '@/lib/display-title'
-import { precioDesde } from '@/lib/domain/pricing'
-import { destino, formatTravelDate, mxn, mxnEntero } from '@/components/data/format'
+import { destino, formatTravelDate, mxnEntero } from '@/components/data/format'
 import { PublicHeader } from '@/components/public/public-header'
 import { PublicFooter } from '@/components/public/public-footer'
 
@@ -134,8 +135,6 @@ export default async function ServicioPublicoPage({
         .map((p) => ({ key: p.key as string, label: p.label ?? (p.key as string), price: p.price as number }))
         .sort((a, b) => a.price - b.price)
     : []
-  const hoyISO = new Date().toISOString().slice(0, 10)
-  const notasSalida = (s.all_departures ?? []).filter((d) => d.note && d.departs_on >= hoyISO)
   // Banner primero, luego la galería (sin duplicar el banner si se repite).
   const fotos = [
     ...(s.images?.imgBanner ? [s.images.imgBanner] : []),
@@ -183,151 +182,24 @@ export default async function ServicioPublicoPage({
         </p>
       </header>
 
-      {/* Precio + CTA */}
-      <Card className="mt-6">
-        <CardContent className="flex flex-wrap items-center justify-between gap-4 p-5">
-          <div>
-            <p className="text-sm text-muted-foreground">Desde</p>
-            <p className="font-display text-3xl font-semibold tracking-[-0.02em] tabular-nums">
-              {mxn.format(Number(s.price ?? 0))}{' '}
-              <span className="text-sm font-normal text-muted-foreground">
-                por persona
-              </span>
-            </p>
-            {cupoLibre != null && (
-              <p className="mt-1 text-xs text-muted-foreground">
-                {cupoLibre > 0 ? `${cupoLibre} lugares disponibles` : 'Agotado'}
-              </p>
-            )}
-          </div>
-          {/* CTA de conversión: full-width y táctil (44px) en el teléfono. Con
-              el flag del marketplace, "Comprar en línea" es la acción primaria y
-              WhatsApp pasa a secundaria. */}
-          {/* < md: los botones viven en la CtaBar fija; aquí sólo desde md. */}
-          <div className="hidden w-full flex-col gap-2 sm:w-auto sm:flex-row md:flex">
-            {comprarOnline && (
-              <Link
-                href={comprarHref}
-                className={`${buttonVariants({ variant: 'estela', size: 'touch' })} w-full sm:w-auto`}
-              >
-                Comprar en línea
-              </Link>
-            )}
-            {wa ? (
-              <a
-                href={`${wa}?text=${encodeURIComponent(`Hola, me interesa el viaje "${s.name}".`)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`${buttonVariants({ variant: comprarOnline ? 'outline' : 'estela', size: 'touch' })} w-full sm:w-auto`}
-              >
-                Reservar por WhatsApp
-              </a>
-            ) : s.agency.email ? (
-              <a
-                href={`mailto:${s.agency.email}?subject=${encodeURIComponent(`Reserva: ${s.name}`)}`}
-                className={`${buttonVariants({ variant: comprarOnline ? 'outline' : 'estela', size: 'touch' })} w-full sm:w-auto`}
-              >
-                Pedir informes
-              </a>
-            ) : null}
-            <Link
-              href="/politica-cancelacion"
-              className="text-center text-xs text-muted-foreground underline underline-offset-2 transition-colors hover:text-foreground"
-            >
-              Política de cancelación
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
+      <PrecioCard
+        price={Number(s.price ?? 0)}
+        packs={packsAll}
+        proxima={s.departures?.[0] ?? null}
+        cupoLibre={cupoLibre}
+        comprarHref={comprarHref}
+        comprarOnline={comprarOnline}
+        waHref={wa ? `${wa}?text=${encodeURIComponent(`Hola, me interesa el viaje "${s.name}".`)}` : null}
+        mailHref={s.agency.email ? `mailto:${s.agency.email}?subject=${encodeURIComponent(`Reserva: ${s.name}`)}` : null}
+      />
 
-      {/* b044: calendario de salidas — próximas con lugares (o "Agotado") y
-          pasadas recientes tachadas en gris. */}
-      {(s.all_departures ?? []).length > 0 && (
-        <section className="mt-6">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Fechas de salida
-          </h2>
-          <ul className="mt-3 flex flex-wrap gap-2">
-            {(s.all_departures ?? []).map((d) => {
-              const hoy = new Date().toISOString().slice(0, 10)
-              const pasada = d.departs_on < hoy
-              const agotada = !pasada && d.free <= 0
-              const [y, m, day] = d.departs_on.split('-').map(Number)
-              const fecha = new Intl.DateTimeFormat('es-MX', {
-                day: 'numeric',
-                month: 'short',
-                year: 'numeric',
-              }).format(new Date(y, m - 1, day))
-              return (
-                <li
-                  key={d.id}
-                  className={
-                    pasada
-                      ? 'rounded-lg border border-dashed px-3 py-1.5 text-sm text-muted-foreground/60 line-through'
-                      : agotada
-                        ? 'rounded-lg border px-3 py-1.5 text-sm text-muted-foreground'
-                        : 'rounded-lg border border-primary/30 bg-primary/5 px-3 py-1.5 text-sm font-medium'
-                  }
-                >
-                  {fecha}
-                  {!pasada && (
-                    <span
-                      className={`ml-2 text-xs ${agotada ? 'font-semibold text-red-500' : 'text-muted-foreground'}`}
-                    >
-                      {agotada
-                        ? 'Agotado'
-                        : `${d.free} ${d.free === 1 ? 'lugar' : 'lugares'}`}
-                    </span>
-                  )}
-                  {/* b045/b057: precio de temporada o especial — solo cuando difiere del base. */}
-                  {!pasada &&
-                    !agotada &&
-                    (d.price_pct !== 0 || d.pack_price_overrides) && (
-                      <span className="ml-2 text-xs font-semibold text-amber-600 dark:text-amber-500">
-                        desde{' '}
-                        {mxn.format(
-                          precioDesde(packsMin, Number(s.price ?? 0), d.price_pct, d.pack_price_overrides)
-                        )}
-                      </span>
-                    )}
-                </li>
-              )
-            })}
-          </ul>
-          {/* m001: nota de cada salida futura (horario, punto de reunión, preventa). */}
-          {notasSalida.length > 0 && (
-            <ul className="mt-3 space-y-1 text-sm text-muted-foreground">
-              {notasSalida.map((d) => (
-                <li key={d.id}>
-                  <span className="font-medium text-foreground">{formatTravelDate(d.departs_on)}</span>
-                  {' · '}
-                  {d.note}
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      )}
-
-      {/* Precio por pack (ocupación doble/triple/cuádruple…): el header solo dice "desde". */}
-      {packsAll.length > 1 && (
-        <section className="mt-6">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Precio por persona
-          </h2>
-          <ul className="mt-3 grid gap-2 sm:grid-cols-3">
-            {packsAll.map((p) => (
-              <li
-                key={p.key}
-                className="flex items-baseline justify-between rounded-lg border px-3 py-2 text-sm"
-              >
-                <span>{p.label}</span>
-                <span className="font-semibold">{mxn.format(p.price)}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+      <Salidas
+        departures={s.all_departures ?? []}
+        packsMin={packsMin}
+        price={Number(s.price ?? 0)}
+        comprarHref={comprarHref}
+        comprarOnline={comprarOnline}
+      />
 
       {embed && (
         <section className="mt-6">
