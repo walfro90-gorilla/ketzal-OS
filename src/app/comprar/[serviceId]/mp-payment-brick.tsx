@@ -86,7 +86,10 @@ export function MpPaymentBrick({
           initialization: { amount },
           customization: { paymentMethods: { creditCard: 'all', debitCard: 'all' } },
           callbacks: {
-            onError: () => setError('Hubo un problema con el pago. Intenta de nuevo.'),
+            onError: (err: unknown) => {
+              console.error('[MpPaymentBrick] onError', err)
+              setError('Hubo un problema con el pago. Intenta de nuevo.')
+            },
             onSubmit: async ({ formData }: { formData: Record<string, unknown> }) => {
               const res = await pagarConBrickMarketplace(bookingId, amount, formData)
               if ('error' in res) {
@@ -98,8 +101,18 @@ export function MpPaymentBrick({
             },
           },
         })
-      } catch {
-        if (!cancelado) setError('No se pudo cargar el pago. Intenta de nuevo.')
+      } catch (err) {
+        // Causa #1 real de esto: un bloqueador de anuncios/privacidad filtra
+        // sdk.mercadopago.com (varias listas lo marcan como tracker). El
+        // error real queda en consola para diagnosticar sin adivinar.
+        console.error('[MpPaymentBrick] fallo al cargar/crear el Brick', err)
+        if (!cancelado) {
+          setError(
+            'No se pudo cargar el pago. Si tienes un bloqueador de anuncios/privacidad ' +
+              'activado, desactívalo para este sitio o intenta en una ventana de incógnito, ' +
+              'y vuelve a intentar.'
+          )
+        }
       }
     }
 
