@@ -1,7 +1,7 @@
 'use client'
 
-import { useRef, useState } from 'react'
-import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { ChevronLeftIcon, ChevronRightIcon, PauseIcon, PlayIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BrandMark } from '@/components/brand-mark'
 
@@ -10,10 +10,46 @@ import { BrandMark } from '@/components/brand-mark'
 // el JS sólo sigue el índice (puntos, miniatura activa) y mueve la pista desde
 // flechas/miniaturas. Flechas sólo en md+ (en el teléfono las sustituye el
 // gesto). Con una sola foto se comporta como la imagen fija de antes.
+//
+// Avanza solo cada 5 s, y se detiene cuando la persona podría estar leyendo o
+// interactuando: puntero encima, foco dentro, pestaña en segundo plano, o un
+// clic en flechas/miniaturas (ahí gana su intención y ya no se reanuda). Con
+// `prefers-reduced-motion` nunca arranca — movimiento automático es justo lo
+// que esa preferencia pide evitar. Y siempre hay botón de pausa: contenido que
+// se mueve solo tiene que poder pararse.
+const AUTO_MS = 5000
+
 export function Carrusel({ images, alt }: { images: string[]; alt: string }) {
   const [i, setI] = useState(0)
+  const [auto, setAuto] = useState(true)
+  const [enPausa, setEnPausa] = useState(false)
   const pista = useRef<HTMLDivElement>(null)
   const n = images.length
+
+  // Un tick por render de índice: equivale a un setTimeout por foto, sin
+  // arrastrar el intervalo cuando la persona navega a mano.
+  useEffect(() => {
+    if (!auto || enPausa || n < 2) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    const t = setTimeout(() => {
+      const el = pista.current
+      if (!el) return
+      const siguiente = (i + 1) % n
+      el.scrollTo({ left: siguiente * el.clientWidth, behavior: 'smooth' })
+      setI(siguiente)
+    }, AUTO_MS)
+    return () => clearTimeout(t)
+  }, [auto, enPausa, i, n])
+
+  // Pestaña en segundo plano: no tiene sentido gastar el ciclo (ni la foto que
+  // nadie ve) mientras la persona está en otra parte.
+  useEffect(() => {
+    const alCambiar = () => setEnPausa(document.visibilityState === 'hidden')
+    document.addEventListener('visibilitychange', alCambiar)
+    alCambiar()
+    return () => document.removeEventListener('visibilitychange', alCambiar)
+  }, [])
+
   if (n === 0) {
     return (
       <div className="mt-4 flex aspect-[2/1] w-full items-center justify-center rounded-xl bg-gradient-to-br from-primary/15 to-primary/5 text-primary/60">
@@ -30,6 +66,11 @@ export function Carrusel({ images, alt }: { images: string[]; alt: string }) {
     el.scrollTo({ left: k * el.clientWidth, behavior: 'smooth' })
     setI(k)
   }
+  /** Navegación explícita: gana la intención del usuario y el auto se apaga. */
+  const irAManual = (j: number) => {
+    setAuto(false)
+    irA(j)
+  }
   const onScroll = () => {
     const el = pista.current
     if (el) setI(Math.round(el.scrollLeft / el.clientWidth))
@@ -37,7 +78,13 @@ export function Carrusel({ images, alt }: { images: string[]; alt: string }) {
 
   return (
     <div className="mt-4">
-      <div className="relative aspect-[2/1] w-full overflow-hidden rounded-xl bg-muted">
+      <div
+        className="relative aspect-[2/1] w-full overflow-hidden rounded-xl bg-muted"
+        onPointerEnter={() => setEnPausa(true)}
+        onPointerLeave={() => setEnPausa(false)}
+        onFocusCapture={() => setEnPausa(true)}
+        onBlurCapture={() => setEnPausa(false)}
+      >
         <div
           ref={pista}
           onScroll={onScroll}
@@ -61,7 +108,7 @@ export function Carrusel({ images, alt }: { images: string[]; alt: string }) {
           <>
             <button
               type="button"
-              onClick={() => irA(idx - 1)}
+              onClick={() => irAManual(idx - 1)}
               aria-label="Foto anterior"
               className="absolute left-2 top-1/2 hidden size-11 -translate-y-1/2 items-center justify-center rounded-full bg-background/80 text-foreground shadow-sm transition-colors hover:bg-background focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none md:flex"
             >
@@ -69,11 +116,19 @@ export function Carrusel({ images, alt }: { images: string[]; alt: string }) {
             </button>
             <button
               type="button"
-              onClick={() => irA(idx + 1)}
+              onClick={() => irAManual(idx + 1)}
               aria-label="Foto siguiente"
               className="absolute right-2 top-1/2 hidden size-11 -translate-y-1/2 items-center justify-center rounded-full bg-background/80 text-foreground shadow-sm transition-colors hover:bg-background focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none md:flex"
             >
               <ChevronRightIcon className="size-5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setAuto((v) => !v)}
+              aria-label={auto ? 'Pausar el paso de fotos' : 'Reanudar el paso de fotos'}
+              className="absolute right-2 bottom-2 flex size-8 items-center justify-center rounded-full bg-background/80 text-foreground shadow-sm transition-colors hover:bg-background focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+            >
+              {auto ? <PauseIcon className="size-3.5" /> : <PlayIcon className="size-3.5" />}
             </button>
             <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1.5">
               {images.map((_, j) => (
@@ -93,7 +148,7 @@ export function Carrusel({ images, alt }: { images: string[]; alt: string }) {
             <button
               key={j}
               type="button"
-              onClick={() => irA(j)}
+              onClick={() => irAManual(j)}
               aria-label={`Ver foto ${j + 1}`}
               aria-current={j === idx}
               className={cn(

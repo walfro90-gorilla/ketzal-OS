@@ -22,6 +22,8 @@ import { videoEmbedUrl } from '@/lib/video'
 import { marketplaceActivo } from '@/lib/marketplace'
 import { tituloVisible } from '@/lib/display-title'
 import { destino, formatTravelDate, mxnEntero } from '@/components/data/format'
+import { AgenciaLogo } from '@/components/public/agencia-logo'
+import { Compartir } from '@/components/public/compartir'
 import { PublicHeader } from '@/components/public/public-header'
 import { PublicFooter } from '@/components/public/public-footer'
 
@@ -171,15 +173,20 @@ export default async function ServicioPublicoPage({
             {lugar}
           </p>
         )}
-        <p className="text-sm text-muted-foreground">
-          Ofrecido por{' '}
+        <p className="flex items-center gap-2 text-sm text-muted-foreground">
+          Ofrecido por
           <Link
             href={`/agencia/${s.agency.id}`}
-            className="font-medium text-foreground underline-offset-2 hover:underline"
+            className="flex items-center gap-1.5 font-medium text-foreground underline-offset-2 hover:underline"
           >
+            <AgenciaLogo url={s.agency.logo} nombre={s.agency.name} tamano="mini" />
             {s.agency.name}
           </Link>
         </p>
+
+        {/* Compartir aquí y no al final: el momento de mandarle el viaje a
+            alguien es cuando acabas de ver la foto y el título. */}
+        <Compartir titulo={tituloVisible(s.name)} texto={descripcionSocial(s)} className="pt-1" />
       </header>
 
       <PrecioCard

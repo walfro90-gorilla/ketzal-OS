@@ -5,34 +5,31 @@ import { ChevronDownIcon } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { nativeSelectClass } from '@/components/ui/native-select'
 import { cn } from '@/lib/utils'
+import {
+  banderaEmoji,
+  componerTelefono,
+  ladaDe,
+  PAISES,
+  partirTelefono,
+} from '@/lib/domain/phone'
 
-// Ladas disponibles por ahora: México por default + EEUU/Canadá.
-// EEUU y Canadá comparten +1; van como opciones separadas para que el agente
-// reconozca el país, pero componen el mismo prefijo.
-const LADAS = [
-  { key: 'MX', dial: '+52', label: '🇲🇽 +52' },
-  { key: 'US', dial: '+1', label: '🇺🇸 +1' },
-  { key: 'CA', dial: '+1', label: '🇨🇦 +1' },
-] as const
+// Las ladas salen del catálogo de `lib/domain/phone.ts`: una sola lista para el
+// selector y sus pruebas. Antes eran tres (MX/US/CA) escritas aquí; el negocio
+// ya recibe viajeros de LATAM y España.
+//
+// Varios países comparten prefijo (+1 en EEUU, Canadá y Dominicana): van como
+// opciones separadas para que se reconozca el país, aunque compongan lo mismo.
+const LADAS = PAISES.map((p) => ({
+  key: p.iso,
+  dial: `+${p.lada}`,
+  // Sólo bandera + lada: el <select> nativo muestra el texto de la opción
+  // elegida, y el nombre del país lo cortaba a media palabra. El nombre va en
+  // `title`, así que sigue estando al pasar el cursor y para un lector.
+  label: `${banderaEmoji(p.iso)} +${p.lada}`,
+  nombre: p.nombre,
+}))
 
-type LadaKey = (typeof LADAS)[number]['key']
-
-const dialOf = (key: LadaKey) =>
-  LADAS.find((l) => l.key === key)!.dial
-
-// "+52 656…" → { key: 'MX', local: '656…' }. Un valor sin lada conocida
-// (los teléfonos guardados antes de este componente) regresa key null y se
-// muestra íntegro; solo se le antepone lada cuando el usuario lo edita.
-// Se prueba la lada más larga primero por si algún día una es prefijo de otra.
-function parse(value: string): { key: LadaKey | null; local: string } {
-  const porLargo = [...LADAS].sort((a, b) => b.dial.length - a.dial.length)
-  for (const { key, dial } of porLargo) {
-    if (value.startsWith(dial)) {
-      return { key, local: value.slice(dial.length).trimStart() }
-    }
-  }
-  return { key: null, local: value }
-}
+type LadaKey = string
 
 /**
  * Input de teléfono con lada internacional. Compone un solo string
@@ -55,17 +52,14 @@ export function PhoneInput({
   disabled?: boolean
   className?: string
 }) {
-  const parsed = parse(value)
+  const { iso: isoLeido, local } = partirTelefono(value)
+  const parsed = { key: isoLeido, local }
   const [lada, setLada] = useState<LadaKey>(parsed.key ?? 'MX')
   // Si el valor llega con una lada distinta a la seleccionada (p. ej. al abrir
   // un cliente que ya tenía +1), manda el valor; entre países del mismo
   // prefijo (US/CA) se respeta la selección del usuario.
   const effective =
-    parsed.key && dialOf(parsed.key) !== dialOf(lada) ? parsed.key : lada
-
-  // Teléfono vacío queda vacío: la lada sola no es un dato.
-  const compose = (key: LadaKey, local: string) =>
-    local.trim() ? `${dialOf(key)} ${local}` : ''
+    parsed.key && ladaDe(parsed.key) !== ladaDe(lada) ? parsed.key : lada
 
   return (
     <div className={cn('flex gap-2', className)}>
@@ -83,11 +77,11 @@ export function PhoneInput({
           onChange={(e) => {
             const key = e.target.value as LadaKey
             setLada(key)
-            onChange(compose(key, parsed.local))
+            onChange(componerTelefono(key, parsed.local))
           }}
         >
           {LADAS.map((l) => (
-            <option key={l.key} value={l.key}>
+            <option key={l.key} value={l.key} title={l.nombre} aria-label={`${l.nombre} ${l.dial}`}>
               {l.label}
             </option>
           ))}
@@ -99,7 +93,7 @@ export function PhoneInput({
         type="tel"
         inputMode="tel"
         value={parsed.local}
-        onChange={(e) => onChange(compose(effective, e.target.value))}
+        onChange={(e) => onChange(componerTelefono(effective, e.target.value))}
         placeholder={placeholder}
         disabled={disabled}
         className="flex-1"

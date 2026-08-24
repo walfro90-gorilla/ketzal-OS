@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import { Label } from '@/components/ui/label'
 import { registrarComprador, guardarComprador } from '../actions'
 import { Captcha, type CaptchaHandle, faltaCaptcha } from '@/components/auth/captcha'
@@ -97,9 +98,8 @@ export function RegistroComprador() {
       </div>
       <div className="space-y-2">
         <Label htmlFor="c-pass">Contraseña *</Label>
-        <Input
+        <PasswordInput
           id="c-pass"
-          type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="Mínimo 8 caracteres"

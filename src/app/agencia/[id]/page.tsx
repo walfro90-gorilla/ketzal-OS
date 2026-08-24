@@ -15,6 +15,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card'
 import { buttonVariants } from '@/components/ui/button'
 import { marketplaceActivo } from '@/lib/marketplace'
+import { AgenciaLogo } from '@/components/public/agencia-logo'
 import { PublicHeader } from '@/components/public/public-header'
 import { PublicFooter } from '@/components/public/public-footer'
 
@@ -203,20 +204,7 @@ export default async function AgenciaPublicaPage({
 
       {/* Encabezado: logo + nombre + ubicación */}
       <header className="mt-6 flex items-center gap-4">
-        <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border bg-muted/40">
-          {a.logo ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={a.logo}
-              alt={a.name}
-              className="max-h-full max-w-full object-contain p-2"
-            />
-          ) : (
-            <span className="text-2xl font-bold text-muted-foreground">
-              {a.name.charAt(0).toUpperCase()}
-            </span>
-          )}
-        </div>
+        <AgenciaLogo url={a.logo} nombre={a.name} tamano="lg" />
         <div className="min-w-0">
           <h1 className="text-2xl font-bold sm:text-3xl">{a.name}</h1>
           {info.city_zone && (

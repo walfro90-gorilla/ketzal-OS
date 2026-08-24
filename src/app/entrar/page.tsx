@@ -17,6 +17,8 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
+import { PhoneInput } from '@/components/ui/phone-input'
 import { Label } from '@/components/ui/label'
 
 // Entrada del VIAJERO (comprador B2C): iniciar sesión o crear cuenta, con cara de
@@ -145,9 +147,8 @@ function AuthCard() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="e-pass">Contraseña</Label>
-              <Input
+              <PasswordInput
                 id="e-pass"
-                type="password"
                 value={password}
                 onChange={(ev) => setPassword(ev.target.value)}
                 required
@@ -185,15 +186,7 @@ function AuthCard() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="c-tel">Teléfono</Label>
-              <Input
-                id="c-tel"
-                type="tel"
-                inputMode="tel"
-                value={telefono}
-                onChange={(ev) => setTelefono(ev.target.value)}
-                placeholder="Ej. 656 123 4567"
-                autoComplete="tel"
-              />
+              <PhoneInput id="c-tel" value={telefono} onChange={setTelefono} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="c-email">Correo electrónico</Label>
@@ -210,9 +203,8 @@ function AuthCard() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="c-pass">Contraseña</Label>
-              <Input
+              <PasswordInput
                 id="c-pass"
-                type="password"
                 value={password}
                 onChange={(ev) => setPassword(ev.target.value)}
                 placeholder="Mínimo 8 caracteres"

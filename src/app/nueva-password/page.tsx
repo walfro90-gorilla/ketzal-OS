@@ -12,7 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/ui/password-input'
 import { Label } from '@/components/ui/label'
 
 // Ruta PROTEGIDA: se llega con la sesión de recuperación ya establecida por
@@ -69,9 +69,8 @@ export default function NuevaPasswordPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="password">Nueva contraseña</Label>
-              <Input
+              <PasswordInput
                 id="password"
-                type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -81,9 +80,8 @@ export default function NuevaPasswordPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="confirm">Confirmar contraseña</Label>
-              <Input
+              <PasswordInput
                 id="confirm"
-                type="password"
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
                 required

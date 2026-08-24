@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { MapPinIcon, RouteIcon, Building2Icon, StarIcon, PlusIcon } from 'lucide-react'
 import { listPublicSuppliers } from './data'
 import { marketplaceActivo } from '@/lib/marketplace'
+import { AgenciaLogo } from '@/components/public/agencia-logo'
 import { PublicHeader } from '@/components/public/public-header'
 import { PublicFooter } from '@/components/public/public-footer'
 
@@ -74,20 +75,7 @@ export default async function AgenciasPage() {
               href={`/agencia/${a.id}`}
               className="group flex gap-4 rounded-2xl border bg-card p-4 transition-shadow hover:shadow-md"
             >
-              <div className="flex size-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-muted/40">
-                {a.logo ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={a.logo}
-                    alt={a.name}
-                    className="max-h-full max-w-full object-contain p-1.5"
-                  />
-                ) : (
-                  <span className="text-xl font-bold text-muted-foreground">
-                    {a.name.charAt(0).toUpperCase()}
-                  </span>
-                )}
-              </div>
+              <AgenciaLogo url={a.logo} nombre={a.name} />
 
               <div className="min-w-0 flex-1">
                 <h2 className="font-semibold leading-tight group-hover:text-primary">
