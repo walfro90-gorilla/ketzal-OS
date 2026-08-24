@@ -256,6 +256,43 @@ Cierra los 2 pendientes que quedaban abiertos de los ciclos 11 y 12.
 > `tsc`+`build`+`vitest` (75) reusando el patrón ya confirmado en vivo en
 > Cuentas/Gastos.
 
+### Aplicado (ciclo 14 — ficha pública móvil primero, 2026-08-23, worktree `ficha-mobile`)
+
+Diagnóstico en prod a 390px (`/servicio/45e0a7bb…`, Creel): el precio por
+ocupación quedaba a media página, el CTA desaparecía al hacer scroll, salidas
+como chips sin cupo legible, itinerario/FAQ planos (≈5 pantallas), sin iconos ni
+swipe, y el preview de WhatsApp repetía el título en la descripción. Canvas de
+diseño (Claude Design) con estado actual + 3 direcciones + hi-fi 390px:
+https://claude.ai/code/artifact/7c861f9e-a500-4dbb-81b3-23d8ab910b85
+
+- **C14-1** Preview social con datos de venta: `og:description` = "Sale 28 ago
+  2026 · desde $2,399 por persona · 20 lugares · Border Travels. …" (≤160,
+  corte por palabra), `og:url`/`site_name`/`locale`/canonical; la imagen OG lleva
+  "Próxima salida … · N lugares". Regla: cifras y fechas salen de la BD, nunca
+  redactadas.
+- **C14-2** `CtaBar` fija (< md) con precio "desde" + Comprar/WhatsApp; los
+  botones de la card de precio pasan a `hidden md:flex` → un solo `estela`
+  visible por viewport sin JS. `main` con `pb-28 md:pb-10` + hueco tras el footer.
+- **C14-3** `components/public/ficha-primitivos.tsx`: `SeccionTitulo` (icono
+  lucide por sección), `Plegable` (`<details>` nativo: funciona sin hidratar en
+  3G/WhatsApp; `ui/accordion.tsx` sólo si se pide apertura exclusiva),
+  `CupoBadge` (agotado / últimos ≤5 / N lugares). Itinerario (día 1 abierto) y
+  FAQ plegables; la descripción baja bajo Incluye como "Sobre el viaje".
+- **C14-4** Carrusel con `scroll-snap` (swipe nativo), flechas sólo `md+`
+  (36px < 44px táctil), primera foto `fetchPriority="high"` (LCP), resto lazy.
+- **C14-5** `loading.tsx` con la silueta real (`max-w-3xl`) y placeholder de la
+  barra fija (CLS ≈ 0).
+- **C14-6** Helpers compartidos: `precioDesde` (lib/domain/pricing, +tests),
+  `destino`/`mxnEntero` en `components/data/format`; la ficha y el catálogo dejan
+  de duplicar `mxn`/`destino`/`fechaCorta`.
+- **C14-7** Tarjeta `/explora`: un solo precio ("Desde $X / persona", se quita el
+  overlay duplicado sobre la foto), pill de tipo con `Badge`, `active:scale-[0.99]`.
+
+Pendiente de la dirección elegida en el canvas: card de precio con packs +
+próxima salida + cupo (`precio-card.tsx`), salidas como lista con badges
+(`salidas.tsx`), deep-link `?salida=` a `/comprar` (opcional) y `m002` para
+"próxima salida" en el catálogo.
+
 ### Pendiente
 
 1. **Símbolo cuadrado de marca** → favicon/PWA + cuadrado del OG (bloqueado:

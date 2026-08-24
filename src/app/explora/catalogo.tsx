@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { MapPinIcon, SlidersHorizontalIcon } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { NativeSelect } from '@/components/ui/native-select'
@@ -289,7 +290,7 @@ export function Catalogo({
               // agencia es un link aparte → sin anidar <a> dentro de <a>.
               <Card
                 key={s.id}
-                className="flex h-full flex-col overflow-hidden py-0 transition-shadow hover:shadow-md"
+                className="flex h-full flex-col overflow-hidden py-0 transition-[box-shadow,transform] hover:shadow-md active:scale-[0.99]"
               >
                 <Link
                   href={`/servicio/${s.id}${refQs}`}
@@ -297,9 +298,12 @@ export function Catalogo({
                 >
                   <div className="relative aspect-[3/2] w-full overflow-hidden bg-muted">
                     {s.service_type && (
-                      <span className="absolute left-2 top-2 z-10 rounded-full bg-background/90 px-2 py-0.5 text-[11px] font-medium shadow-sm backdrop-blur">
+                      <Badge
+                        variant="secondary"
+                        className="absolute left-2 top-2 z-10 bg-background/90 shadow-sm backdrop-blur"
+                      >
                         {tipoLabel(s.service_type)}
-                      </span>
+                      </Badge>
                     )}
                     {s.image ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -313,13 +317,6 @@ export function Catalogo({
                         <BrandMark className="size-10" />
                       </div>
                     )}
-                    {/* Precio generado por el sistema, siempre — nunca depende de
-                        que el flyer que subió la agencia lo traiga quemado. */}
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent pt-8 pb-2 pl-3">
-                      <span className="rounded-full bg-background/90 px-2 py-0.5 text-[11px] font-semibold tabular-nums shadow-sm backdrop-blur">
-                        Desde {mxn.format(Number(s.price ?? 0))}
-                      </span>
-                    </div>
                   </div>
                   <CardContent className="flex-1 space-y-1 p-4 pb-2">
                     <h2 className="font-display line-clamp-2 font-semibold tracking-[-0.01em] group-hover:text-primary">
@@ -331,11 +328,15 @@ export function Catalogo({
                         {lugar}
                       </p>
                     )}
-                    <p className="flex items-baseline gap-1 pt-1 text-sm">
-                      <span className="text-muted-foreground">Desde</span>
-                      <span className="font-display text-base font-semibold tabular-nums">
+                    {/* Un solo precio, generado por el sistema (C11-1) — nunca depende
+                        de que el flyer que subió la agencia lo traiga quemado. Mismo
+                        tratamiento que la ficha: "Desde $X / persona". */}
+                    <p className="flex items-baseline gap-1.5 pt-1 text-sm">
+                      <span className="text-xs text-muted-foreground">Desde</span>
+                      <span className="font-display text-lg font-semibold tabular-nums">
                         {mxn.format(Number(s.price ?? 0))}
                       </span>
+                      <span className="text-xs text-muted-foreground">/ persona</span>
                     </p>
                   </CardContent>
                 </Link>
