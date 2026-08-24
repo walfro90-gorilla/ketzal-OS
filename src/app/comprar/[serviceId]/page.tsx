@@ -35,13 +35,16 @@ export default async function ComprarPage({
   searchParams,
 }: {
   params: Promise<{ serviceId: string }>
-  searchParams: Promise<{ ref?: string | string[] }>
+  searchParams: Promise<{ ref?: string | string[]; salida?: string | string[] }>
 }) {
   if (!marketplaceActivo()) notFound()
 
   const { serviceId } = await params
-  const { ref: refRaw } = await searchParams
+  const { ref: refRaw, salida: salidaRaw } = await searchParams
   const refCode = Array.isArray(refRaw) ? refRaw[0] : (refRaw ?? null)
+  // Salida preseleccionada desde la ficha (fila del calendario); si no existe o
+  // ya no es vendible, el form cae a la primera disponible.
+  const salidaId = Array.isArray(salidaRaw) ? salidaRaw[0] : (salidaRaw ?? null)
   const s = await getPublicService(serviceId)
   if (!s) notFound()
 
@@ -117,6 +120,7 @@ export default async function ComprarPage({
           buyerName={mc.name}
           agencyPhone={s.agency.phone}
           refCode={refCode}
+          initialDepId={salidaId}
         />
       )}
       </main>

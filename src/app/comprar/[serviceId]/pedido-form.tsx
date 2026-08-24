@@ -45,6 +45,7 @@ export function PedidoForm({
   buyerName,
   agencyPhone,
   refCode,
+  initialDepId,
 }: {
   serviceId: string
   serviceName: string
@@ -55,9 +56,13 @@ export function PedidoForm({
   /** Código de embajador del ?ref (puede perderse entre registro/confirmación;
    *  se respalda en localStorage para sobrevivir recargas del mismo navegador). */
   refCode?: string | null
+  /** Salida preseleccionada (?salida= desde la ficha). */
+  initialDepId?: string | null
 }) {
   const [qty, setQty] = useState<Record<string, number>>({})
-  const [depId, setDepId] = useState(departures[0]?.id ?? '')
+  const [depId, setDepId] = useState(
+    departures.some((d) => d.id === initialDepId) ? initialDepId! : (departures[0]?.id ?? '')
+  )
   const [orderId, setOrderId] = useState<string | null>(null)
   const [aceptaPolitica, setAceptaPolitica] = useState(false)
   const [pending, start] = useTransition()
