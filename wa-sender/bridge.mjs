@@ -55,6 +55,11 @@ const supa =
 const OPTOUT_RE = /^(stop|baja|alto|cancelar|unsubscribe|no\s*more)$/i
 
 const RECONNECT_BACKOFF_MS = [5_000, 15_000, 30_000, 60_000]
+// b069: la app vive en Vercel y esta box está detrás de NAT, así que la app NO
+// puede llamarnos. La comunicación va por ketzal.wa_session: nosotros
+// publicamos estado + QR, y de ahí leemos los comandos que manda /ajustes.
+const LATIDO_MS = 30_000
+const COMANDOS_MS = 6_000
 const log = (...a) => console.log(`[ketzal-wa ${new Date().toISOString()}]`, ...a)
 const baileysLogger = pino({ level: LOG_LEVEL })
 
@@ -65,6 +70,56 @@ const state = {
   last_qr_raw: null,
   reconnect_attempt: 0,
   msgRetryCounterCache: new NodeCache(),
+}
+
+// ── espejo del estado en Supabase (b069) ──
+// Best-effort en todos los casos: sin service key esto es no-op y el bridge
+// sigue funcionando exactamente igual que antes (se opera por los logs de PM2).
+async function publicar(patch) {
+  if (!supa) return
+  const { error } = await supa
+    .from('wa_session')
+    .upsert({ id: 1, ...patch, updated_at: new Date().toISOString() }, { onConflict: 'id' })
+  if (error) log(`publicar estado: ${error.message}`)
+}
+
+const latido = () =>
+  publicar({
+    state: state.session_state,
+    wa_number: state.wa_number,
+    last_seen_at: new Date().toISOString(),
+  })
+
+// Comandos de /ajustes. Se consumen borrándolos ANTES de actuar: si el reinicio
+// mata el proceso, no queremos que PM2 lo reviva y lo ejecute otra vez en bucle.
+async function atenderComandos() {
+  if (!supa) return
+  const { data, error } = await supa.from('wa_session').select('command').eq('id', 1).maybeSingle()
+  if (error || !data?.command) return
+  const cmd = data.command
+  await publicar({ command: null, command_at: null })
+  log(`📥 comando desde /ajustes: ${cmd}`)
+
+  if (cmd === 'restart') {
+    await publicar({ state: 'STARTING', note: 'reinicio pedido desde Ajustes' })
+    scheduleReconnect(0)
+  } else if (cmd === 'logout') {
+    try {
+      await state.sock?.logout()
+    } catch (e) {
+      log(`logout: ${e.message}`)
+    }
+    await nukeAuthDir()
+    await publicar({
+      state: 'UNPAIRED',
+      qr: null,
+      qr_at: null,
+      wa_number: null,
+      note: 'teléfono desligado desde Ajustes',
+    })
+    log('👋 desligado desde Ajustes — PM2 reinicia y saldrá QR nuevo.')
+    process.exit(0)
+  }
 }
 
 // ── auth helpers ──
@@ -147,7 +202,16 @@ async function startSocket() {
     if (qr) {
       state.session_state = 'UNPAIRED'
       state.last_qr_raw = qr
-      log('📷 QR generado — escanéalo con el WhatsApp del número Ketzal (o GET /qr).')
+      log('📷 QR generado — escanéalo con el WhatsApp del número Ketzal (o desde /ajustes).')
+      // El QR crudo va a la BD: /ajustes lo pinta. Rota cada ~20 s y la app
+      // ignora uno más viejo que un minuto.
+      await publicar({
+        state: 'UNPAIRED',
+        qr,
+        qr_at: new Date().toISOString(),
+        last_seen_at: new Date().toISOString(),
+        note: null,
+      })
       try {
         qrcode.generate(qr, { small: true })
       } catch {
@@ -162,15 +226,25 @@ async function startSocket() {
       const meJid = sock.user?.id ? jidNormalizedUser(sock.user.id) : null
       state.wa_number = meJid ? jidToPhone(meJid) : null
       log(`✅ WA CONNECTED como +${state.wa_number}`)
+      await publicar({
+        state: 'CONNECTED',
+        qr: null,
+        qr_at: null,
+        wa_number: state.wa_number,
+        last_seen_at: new Date().toISOString(),
+        note: null,
+      })
     }
     if (connection === 'close') {
       const boomErr = lastDisconnect?.error
       const statusCode = boomErr instanceof Boom ? boomErr.output?.statusCode : boomErr?.output?.statusCode
       const reasonName = Object.keys(DisconnectReason).find((k) => DisconnectReason[k] === statusCode) || `unknown(${statusCode})`
       log(`🔻 Cerrado · status=${statusCode} (${reasonName})`)
+      await publicar({ state: 'STARTING', note: `cerrado: ${reasonName}`, last_seen_at: new Date().toISOString() })
       if (statusCode === DisconnectReason.loggedOut || statusCode === DisconnectReason.badSession) {
         state.session_state = 'UNPAIRED'
         log('💥 LOGGED OUT — borrando auth, requiere re-parear (QR). PM2 reinicia.')
+        await publicar({ state: 'UNPAIRED', qr: null, qr_at: null, wa_number: null, note: 'sesión cerrada por WhatsApp' })
         await nukeAuthDir()
         process.exit(1)
       } else if (statusCode === DisconnectReason.restartRequired) {
@@ -241,6 +315,15 @@ app.post('/send', requireBearer, requireSessionReady, async (req, res) => {
 })
 
 app.listen(PORT, HOST, () => log(`🌉 ketzal-wa-bridge en http://${HOST}:${PORT}`))
+
+// Latido: sin esto /ajustes no puede distinguir "desconectado" de "la box está
+// apagada", que es la diferencia entre esperar y ir a prenderla.
+setInterval(() => latido().catch((e) => log(`latido: ${e.message}`)), LATIDO_MS).unref()
+setInterval(() => atenderComandos().catch((e) => log(`comandos: ${e.message}`)), COMANDOS_MS).unref()
+
+publicar({ state: 'STARTING', last_seen_at: new Date().toISOString(), note: 'bridge arrancando' }).catch(
+  () => {}
+)
 startSocket().catch((e) => {
   log(`startSocket fatal: ${e.message}`)
   process.exit(1)

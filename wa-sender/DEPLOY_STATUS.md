@@ -9,7 +9,9 @@
 > - **Cero efecto en el resto del OS:** las funciones del auto-envío (`clawbot_claim_pendientes`/`clawbot_marcar_bot`) solo las invoca el poller de la box (apagado) y están tras el gate. El **Clawbot in-app** (el agente manda a 1 clic desde `/clawbot`), la cobranza, el dinero y el cron que llena el outbox siguen **intactos** — NO se tocan al pausar.
 > - Código, BD (en el ledger, migración `ketzal_wa_autosend`), allowlist `saldo_sin_plan` y el matcher de STOP/BAJA quedaron **listos y verificados**; solo esperan el número.
 >
-> **Para retomar:** no hay que deshacer nada. Consigue el número dedicado y sigue el runbook de abajo desde *Checkpoint 1*. ⚠️ **Antes de prender el gate (Paso 7), revisa/limpia los pendientes viejos del outbox** (al pausar había ~116 `pendiente` acumulados por el cron in-app; algunos pueden ser recordatorios ya vencidos — no conviene mandar "tu viaje es mañana" de un viaje que ya pasó). El cap 30/24h + ventana hábil + jitter amortiguan, pero conviene depurar los stale primero.
+> **Para retomar:** no hay que deshacer nada. Consigue el número dedicado y sigue el runbook de abajo desde *Checkpoint 1*. El outbox está **en 0** (el reset del 2026-08-19 lo vació), así que ya no hay pendientes viejos que depurar antes de prender el gate — la advertencia original de ~116 `pendiente` quedó obsoleta.
+>
+> **Desde 2026-08-24 (b069) el pareo y el gate se operan desde la app**, en `/ajustes` (superadmin): ahí sale el QR, el estado de la sesión, el latido de la box, el switch del envío automático, el tope diario y un botón para llenar la bandeja. Ya no hace falta ssh para ver el QR ni SQL para prender el gate. **Requisito:** el `SUPABASE_SERVICE_ROLE_KEY` de la box (Checkpoint 1) — sin él el bridge no publica nada y la tarjeta dice *"servidor sin señal"*.
 
 > Handoff para continuar en otra sesión. Última actualización: sesión del 2026-07-22/23.
 
@@ -50,9 +52,16 @@ ssh clawbot ; nano /opt/ketzal-wa-sender/.env   # pega en SUPABASE_SERVICE_ROLE_
 ### Paso 4 — arrancar bridge + parear QR
 ```bash
 ssh clawbot 'cd /opt/ketzal-wa-sender && pm2 start ecosystem.config.cjs'
-ssh clawbot 'pm2 logs ketzal-wa-bridge --lines 40 --nostream'   # muestra el QR
+```
+Y el QR se ve **en `/ajustes`** (b069): el bridge lo publica en `ketzal.wa_session` y la
+tarjeta lo pinta, se renueva solo cada ~20 s. Los logs de PM2 siguen sirviendo de
+respaldo si la box no tiene el service key:
+```bash
+ssh clawbot 'pm2 logs ketzal-wa-bridge --lines 40 --nostream'   # el QR también sale aquí
 ```
 **Checkpoint 2:** escanear el QR con el WhatsApp del **número dedicado** (warmearlo antes).
+Desde `/ajustes` también se puede pedir **Generar QR** (reinicia el socket) y **Desligar el
+teléfono** sin entrar por ssh.
 
 ### Paso 5 — verificar sesión
 ```bash
@@ -67,6 +76,8 @@ ssh clawbot 'cd /opt/ketzal-wa-sender && node poller.mjs --test-phone <MI_NUMERO
 ```
 
 ### Paso 7 — prender producción (cuando el usuario decida)
+Desde **`/ajustes`**: el switch *Envío automático de Clawbot*, que pide confirmación
+explícita y avisa cuántos recordatorios van a salir. El SQL equivalente, por si acaso:
 ```sql
 update ketzal.app_settings set wa_auto_enabled = true where id = 1;   -- gate ON
 ```
@@ -74,6 +85,13 @@ El cron PM2 (`*/30 9-18 * * 1-5`) ya corre el poller; con el gate ON envía en h
 Luego `pm2 save` en la box.
 
 ## Follow-ups
+- ✅ **Pareo y gate desde la app** (2026-08-24, `b069_wa_session` + espejo
+  `db/proposed/b069_wa_session.sql`): tabla `ketzal.wa_session` (lectura solo superadmin,
+  escritura solo service_role) donde el bridge publica `state`/`qr`/`wa_number`/`last_seen_at`
+  y de donde lee `command` (`restart`|`logout`, puesto por el RPC `wa_send_command` con guard
+  de superadmin). La app está en Vercel y la box detrás de NAT: **la app no puede llamar a la
+  box**, así que la tabla es el buzón en los dos sentidos. Latido cada 30 s, sondeo de comandos
+  cada 6 s, todo best-effort (sin service key el bridge se comporta igual que antes).
 - ✅ **`saldo_sin_plan`** (2026-07-23): agregado al allowlist de `clawbot_claim_pendientes` (BD + espejo
   + DRY-RUN del poller). Los otros 2 de F7 (`viaje_manana_operativo`, `pago_sin_recibo`) son **internos**,
   se quedan fuera a propósito.
