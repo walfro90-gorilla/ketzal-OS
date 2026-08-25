@@ -1,0 +1,40 @@
+-- b070 — Clawbot: los recordatorios de venta cerrada no van a cotizaciones.
+--
+-- ESPEJO de la migración aplicada `b070_clawbot_solo_ventas_cerradas`.
+--
+-- El `_cb` de `clawbot_generar_recordatorios` sólo excluye `cancelled`, así que
+-- los `draft` (cotizaciones) entraban a TODAS las reglas. La 3 es de
+-- cotizaciones y filtra bien; las otras tres hablan como si la persona ya
+-- hubiera comprado:
+--
+--   "tu viaje ... es el 28/08/2026. Te contactamos para confirmar los detalles"
+--
+-- …a alguien que sólo pidió precio. Se detectó con una cotización real a 3 días
+-- del viaje, el mismo día que se encendió el gate de WhatsApp: el recordatorio
+-- ya estaba en el outbox esperando al poller.
+--
+-- Mismo patrón y misma lista blanca de b055 (`cobranza`): explícita, para que un
+-- estado nuevo en el enum no se cuele solo. Re-aplicación ADITIVA desde el DDL
+-- vivo — sólo cambian tres `where`, el resto es idéntico:
+--
+--   regla 1 (abono por vencer)  + and cb.status in ('reserved','confirmed','paid')
+--   regla 2 (abono vencido)     + and cb.status in ('reserved','confirmed','paid')
+--   regla 3 (cotización)          SIN CAMBIO — su público SON los draft
+--   regla 4 (viaje próximo)     + and cb.status in ('reserved','confirmed','paid')
+--
+-- El cuerpo completo vive en la BD (`pg_get_functiondef`); aquí se documenta el
+-- cambio para poder revisarlo desde el repo sin re-pegar 4,500 caracteres.
+--
+-- Además, saneo del outbox: el recordatorio ya generado con la regla vieja se
+-- marca `descartado` (no se borra — la bandeja es historial):
+--
+--   update ketzal.clawbot_reminders
+--      set status = 'descartado'
+--    where kind = 'viaje_proximo'
+--      and status = 'pendiente'
+--      and booking_id in (select id from ketzal.bookings where status = 'draft');
+--
+-- Verificación sobre los datos reales del día: la única venta en la ventana
+-- [hoy+1, hoy+3] era la cotización de un cliente real.
+--   antes  → le llegaba:  sí
+--   ahora  → le llegaría: no
