@@ -32,7 +32,7 @@ import makeWASocket, {
   makeCacheableSignalKeyStore,
   jidNormalizedUser,
 } from '@whiskeysockets/baileys'
-import { createClient } from '@supabase/supabase-js'
+import { crearSupa } from './supa.mjs'
 
 dotenv.config()
 
@@ -47,10 +47,9 @@ const LOG_LEVEL = process.env.KETZAL_WA_LOG_LEVEL || 'warn'
 // enviando normal y solo omite la captura (no es ruta de dinero).
 const SUPABASE_URL = process.env.SUPABASE_URL || ''
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-const supa =
-  SUPABASE_URL && SERVICE_KEY
-    ? createClient(SUPABASE_URL, SERVICE_KEY, { db: { schema: 'ketzal' }, auth: { persistSession: false } })
-    : null
+// REST plano y no @supabase/supabase-js: su realtime-js tira el proceso en
+// Node < 22 (la box corre Node 20). Ver supa.mjs.
+const supa = crearSupa(SUPABASE_URL, SERVICE_KEY)
 // Palabras de baja (el mensaje ENTERO, sin distinción de mayúsculas ni acentos).
 const OPTOUT_RE = /^(stop|baja|alto|cancelar|unsubscribe|no\s*more)$/i
 
@@ -77,10 +76,15 @@ const state = {
 // sigue funcionando exactamente igual que antes (se opera por los logs de PM2).
 async function publicar(patch) {
   if (!supa) return
-  const { error } = await supa
-    .from('wa_session')
-    .upsert({ id: 1, ...patch, updated_at: new Date().toISOString() }, { onConflict: 'id' })
-  if (error) log(`publicar estado: ${error.message}`)
+  try {
+    await supa.upsert(
+      'wa_session',
+      { id: 1, ...patch, updated_at: new Date().toISOString() },
+      { onConflict: 'id' }
+    )
+  } catch (e) {
+    log(`publicar estado: ${e.message}`)
+  }
 }
 
 const latido = () =>
@@ -94,9 +98,9 @@ const latido = () =>
 // mata el proceso, no queremos que PM2 lo reviva y lo ejecute otra vez en bucle.
 async function atenderComandos() {
   if (!supa) return
-  const { data, error } = await supa.from('wa_session').select('command').eq('id', 1).maybeSingle()
-  if (error || !data?.command) return
-  const cmd = data.command
+  const filas = await supa.select('wa_session', 'select=command&id=eq.1')
+  const cmd = filas?.[0]?.command
+  if (!cmd) return
   await publicar({ command: null, command_at: null })
   log(`📥 comando desde /ajustes: ${cmd}`)
 
@@ -150,11 +154,16 @@ async function handleInbound({ messages, type }) {
     if (!OPTOUT_RE.test(text)) continue
     const phone = localDigits(jidToPhone(jid))
     if (phone.length !== 10) continue
-    const { error } = await supa
-      .from('wa_optout')
-      .upsert({ phone, reason: `inbound: ${text.slice(0, 40)}` }, { onConflict: 'phone', ignoreDuplicates: true })
-    if (error) log(`opt-out upsert (+${phone}): ${error.message}`)
-    else log(`🚫 opt-out entrante · +${phone} · "${text.slice(0, 40)}"`)
+    try {
+      await supa.upsert(
+        'wa_optout',
+        { phone, reason: `inbound: ${text.slice(0, 40)}` },
+        { onConflict: 'phone', ignorarDuplicados: true }
+      )
+      log(`🚫 opt-out entrante · +${phone} · "${text.slice(0, 40)}"`)
+    } catch (e) {
+      log(`opt-out upsert (+${phone}): ${e.message}`)
+    }
   }
 }
 

@@ -16,15 +16,18 @@
 //   node poller.mjs --force      # ignora la ventana horaria (pruebas)
 //   node poller.mjs --test-phone 6561234567  # manda TODO a ese número (pruebas)
 
-import { createClient } from '@supabase/supabase-js'
+import { crearSupa } from './supa.mjs'
 import dotenv from 'dotenv'
 
 dotenv.config()
 
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
-  db: { schema: 'ketzal' },
-  auth: { persistSession: false },
-})
+// REST plano y no @supabase/supabase-js: su realtime-js tira el proceso en
+// Node < 22 y la box corre Node 20. Ver supa.mjs.
+const supabase = crearSupa(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
+if (!supabase) {
+  console.error('❌ Faltan SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY en el .env.')
+  process.exit(1)
+}
 const BRIDGE = (process.env.KETZAL_WA_URL || 'http://127.0.0.1:3101').replace(/\/$/, '')
 const TOKEN = process.env.KETZAL_WA_TOKEN || ''
 const DRY_RUN = process.argv.includes('--dry-run')
@@ -89,8 +92,12 @@ async function main() {
   if (!TOKEN && !DRY_RUN) return log('❌ KETZAL_WA_TOKEN vacío.')
 
   // Config (gate + cap) de la fila única app_settings.
-  const { data: cfg, error: cfgErr } = await supabase.from('app_settings').select('wa_auto_enabled, wa_daily_cap').eq('id', 1).single()
-  if (cfgErr) return log(`❌ app_settings: ${cfgErr.message}`)
+  let cfg
+  try {
+    cfg = (await supabase.select('app_settings', 'select=wa_auto_enabled,wa_daily_cap&id=eq.1'))[0]
+  } catch (e) {
+    return log(`❌ app_settings: ${e.message}`)
+  }
 
   if (!DRY_RUN && cfg?.wa_auto_enabled !== true) {
     return log('⏸️  wa_auto_enabled=false → no envío. (Prende en app_settings).')
@@ -103,25 +110,36 @@ async function main() {
   // Cap 24h (cuenta enviados).
   const cap = typeof cfg?.wa_daily_cap === 'number' ? cfg.wa_daily_cap : 30
   const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString()
-  const { count: sent24h } = await supabase.from('clawbot_reminders').select('id', { count: 'exact', head: true }).eq('status', 'enviado').gte('sent_at', since)
+  const sent24h = await supabase.count(
+    'clawbot_reminders',
+    `select=id&status=eq.enviado&sent_at=gte.${encodeURIComponent(since)}`
+  )
   const remaining = Math.max(0, cap - (sent24h ?? 0))
   log(`Cap ${cap}/24h · enviados=${sent24h ?? 0} · disponibles=${remaining}${DRY_RUN ? ' · DRY-RUN' : ''}`)
   if (remaining === 0 && !DRY_RUN) return log('Cap alcanzado.')
 
   // Blocklist (opt-out), a 10 dígitos.
-  const { data: blocks } = await supabase.from('wa_optout').select('phone')
+  const blocks = await supabase.select('wa_optout', 'select=phone')
   const blocked = new Set((blocks ?? []).map((b) => localDigits(b.phone)).filter(Boolean))
 
   // Recovery: 'enviando' colgado de una corrida previa que murió → de vuelta a pendiente.
   // (Cron single-instance: cualquier 'enviando' al arrancar es basura de un crash.)
   if (!DRY_RUN) {
-    const { error: rErr } = await supabase.from('clawbot_reminders').update({ status: 'pendiente' }).eq('status', 'enviando')
-    if (rErr) log(`⚠️  reset enviando: ${rErr.message}`)
+    try {
+      await supabase.update('clawbot_reminders', 'status=eq.enviando', { status: 'pendiente' })
+    } catch (e) {
+      log(`⚠️  reset enviando: ${e.message}`)
+    }
   }
 
   // DRY-RUN: solo lee, no claim.
   if (DRY_RUN) {
-    const { data: rows } = await supabase.from('clawbot_reminders').select('id, phone, kind, message').eq('status', 'pendiente').in('kind', ['abono_por_vencer', 'abono_vencido', 'viaje_proximo', 'cotizacion_seguimiento', 'saldo_sin_plan']).not('phone', 'is', null).order('created_at').limit(50)
+    const rows = await supabase.select(
+      'clawbot_reminders',
+      'select=id,phone,kind,message&status=eq.pendiente' +
+        '&kind=in.(abono_por_vencer,abono_vencido,viaje_proximo,cotizacion_seguimiento,saldo_sin_plan)' +
+        '&phone=not.is.null&order=created_at&limit=50'
+    )
     for (const r of rows ?? []) {
       const e164 = toE164(r.phone)
       const skip = !e164 ? 'phone_invalid' : blocked.has(localDigits(e164)) ? 'opt_out' : ''
@@ -131,8 +149,12 @@ async function main() {
   }
 
   // Claim atómico hasta 'remaining'.
-  const { data: claimed, error: claimErr } = await supabase.rpc('clawbot_claim_pendientes', { p_limit: remaining })
-  if (claimErr) return log(`❌ claim: ${claimErr.message}`)
+  let claimed
+  try {
+    claimed = await supabase.rpc('clawbot_claim_pendientes', { p_limit: remaining })
+  } catch (e) {
+    return log(`❌ claim: ${e.message}`)
+  }
   if (!claimed?.length) return log('Sin pendientes que enviar.')
   log(`${claimed.length} en claim.`)
 

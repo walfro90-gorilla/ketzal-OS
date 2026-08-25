@@ -42,14 +42,40 @@ plan `~/.claude/plans/imperative-jumping-moon.md`.
 
 ## ⏳ Pendiente (retomar exactamente aquí)
 
-### Checkpoint 1 — service role key (falta) 🔴
-`.env` en la box tiene `SUPABASE_SERVICE_ROLE_KEY=` **vacío**. El usuario debe pegarlo a mano
-(Supabase → Project Settings → API → `service_role`):
+### Checkpoint 1 — service role key ✅ HECHO (2026-08-25)
+El fundador la pegó con `nano` en `/opt/ketzal-wa-sender/.env`. Verificada contra PostgREST
+desde la box: **HTTP 200** leyendo `ketzal.wa_session` (tabla que sólo el service role ve).
+
+> ### 🪤 La trampa que destapó pegar la key
+> El bridge **crasheaba al arrancar** en cuanto el `.env` tenía service key:
+> `@supabase/supabase-js` arrastra `realtime-js`, que en **Node < 22 exige el paquete `ws`** y
+> sin él lanza `Error: Node.js 20 detected without native WebSocket support` **al construir el
+> cliente**. La box corre Node 20. Antes no se veía porque sin key el cliente nunca se creaba
+> (`supa = null`), así que el bug estaba latente desde julio y **sólo aparecía al activar la
+> función** — el poller tenía el mismo defecto, o sea que toda la ruta de auto-envío estaba
+> muerta en esta box.
+>
+> **Arreglo (2026-08-25):** `wa-sender/supa.mjs`, cliente REST mínimo sobre `fetch` (mismo
+> patrón que `mcp/src/rest.ts` y `supabase/tests/concurrencia.mjs`). Aquí no hace falta
+> realtime: son cuatro llamadas HTTP. Se quitó la dependencia `@supabase/supabase-js` de
+> `wa-sender/package.json`. **No** se tocó la versión de Node de la box: es compartida con los
+> servicios de Gorilla (orion, prometheus, extension-bridge, xvfb).
+
+### Paso 4 — arrancar bridge + parear QR ✅ ARRANCADO (2026-08-25)
+`pm2 start ecosystem.config.cjs --only ketzal-wa-bridge` corriendo en la box (id 4). Sólo el
+bridge: el poller se arranca cuando haya número y el gate sea una decisión real.
+
+**Circuito verificado end-to-end en vivo:** box → app (`state=UNPAIRED`, QR de 237 chars en
+`wa_session`, latido cada 30 s) y app → box (un `restart` encolado con `wa_send_command` fue
+consumido por el bridge en <6 s y publicó un QR nuevo). **Falta sólo escanear**, y para eso
+falta el número dedicado.
+
+Para detenerlo si no se va a parear pronto (evita el churn de reconexión de Baileys):
 ```bash
-ssh clawbot ; nano /opt/ketzal-wa-sender/.env   # pega en SUPABASE_SERVICE_ROLE_KEY=
+ssh clawbot 'pm2 stop ketzal-wa-bridge'
 ```
 
-### Paso 4 — arrancar bridge + parear QR
+<details><summary>Runbook original</summary>
 ```bash
 ssh clawbot 'cd /opt/ketzal-wa-sender && pm2 start ecosystem.config.cjs'
 ```
@@ -62,6 +88,7 @@ ssh clawbot 'pm2 logs ketzal-wa-bridge --lines 40 --nostream'   # el QR también
 **Checkpoint 2:** escanear el QR con el WhatsApp del **número dedicado** (warmearlo antes).
 Desde `/ajustes` también se puede pedir **Generar QR** (reinicia el socket) y **Desligar el
 teléfono** sin entrar por ssh.
+</details>
 
 ### Paso 5 — verificar sesión
 ```bash
