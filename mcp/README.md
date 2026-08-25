@@ -66,13 +66,18 @@ Sólo lectura (recomendado en máquinas de consulta): agrega
 
 ## Qué puede hacer
 
-38 herramientas: 17 de lectura y 21 de escritura, de las cuales 8 mueven dinero.
+37 herramientas: 17 de lectura y 20 de escritura, de las cuales 8 mueven dinero.
+
+> `convertir_cotizacion` se eliminó (b071): con el flujo estricto
+> cotización→abono→venta, una cotización solo asciende con un pago real —
+> convertir "a mano" con $0 cobrado ya no existe en ningún camino (ni app, ni
+> MCP, ni PostgREST directo: el RPC quedó revocado a `authenticated`).
 
 | Área | Herramientas |
 |---|---|
 | Identidad | `whoami`, `agencias` |
 | Buscar | `buscar` (el ⌘K de la app) |
-| Ventas | `ventas`, `venta`, `crear_venta`, `convertir_cotizacion` |
+| Ventas | `ventas`, `venta`, `crear_venta` |
 | Clientes | `clientes`, `crear_cliente`, `editar_cliente` |
 | Dinero | `registrar_abono`, `emitir_recibo`, `emitir_voucher`, `preview_plan_pagos`, `plan_pagos`, `preview_cancelacion`, `cancelar_venta`, `devolver_pago`, `creditos`, `aplicar_credito` |
 | Cobranza | `cobranza` |

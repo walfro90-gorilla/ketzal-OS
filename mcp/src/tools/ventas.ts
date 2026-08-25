@@ -1,4 +1,4 @@
-/** Ventas y cotizaciones: listar, ver detalle, convertir cotización. */
+/** Ventas y cotizaciones: listar y ver detalle. */
 import { z } from 'zod'
 import { KetzalError } from '../errors.js'
 import { q, rpc, select } from '../rest.js'
@@ -231,27 +231,9 @@ export const tools: ToolDef[] = [
     }),
     handler: verVenta,
   },
-  {
-    name: 'ketzal_convertir_cotizacion',
-    title: 'Convertir cotización en venta',
-    description:
-      'Convierte una cotización (estado `draft`) en venta reservada y le asigna folio. ' +
-      'Úsala cuando el cliente acepta la cotización. Falla si la venta ya no está en `draft`. ' +
-      'La cotización conserva su folio COT de origen.',
-    write: true,
-    inputSchema: z.object({
-      venta_id: z.string().uuid().describe('UUID de la cotización en estado `draft`.'),
-    }),
-    handler: async (args) => {
-      const { venta_id: id } = z.object({ venta_id: z.string().uuid() }).parse(args)
-      await rpc('convert_quote_to_sale', { p_booking_id: id })
-      const filas = await opcional(
-        select<{ folio: string | null; status: string }[]>(
-          'bookings',
-          `select=folio,status&id=eq.${q(id)}`,
-        ),
-      )
-      return { ok: true, venta_id: id, folio: filas?.[0]?.folio ?? null, estado: filas?.[0]?.status ?? 'reserved' }
-    },
-  },
 ]
+
+// `ketzal_convertir_cotizacion` se eliminó a propósito (b071): con el flujo
+// estricto cotización→abono→venta (b070) la única forma de que una cotización
+// ascienda es un pago real — este tool era el último camino que convertía con
+// $0 cobrado. El RPC `convert_quote_to_sale` quedó revocado a `authenticated`.
