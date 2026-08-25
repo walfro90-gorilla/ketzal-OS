@@ -12,6 +12,14 @@ export const PACK_TYPES = [
 
 export type PackKey = (typeof PACK_TYPES)[number]['key']
 
+/** Ocupación exacta por tipo de habitación (Doble = 2 pasajeros, siempre). */
+export const OCCUPANCY: Record<PackKey, number> = {
+  sencilla: 1,
+  doble: 2,
+  triple: 3,
+  cuadruple: 4,
+}
+
 /** Lo que manda la UI: tipo + precio por persona. El label lo sella el server. */
 export type PackInput = { key: string; price: number }
 

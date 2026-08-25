@@ -12,6 +12,7 @@ import { listarSalidas } from '../actions'
 import { EliminarServicio } from './eliminar-servicio'
 import { SalidasEditor } from './salidas-editor'
 import type { Pack } from '@/lib/domain/packs'
+import type { AddOn } from '@/lib/domain/addons'
 
 /** El jsonb includes/excludes → textarea: una línea por concepto. */
 function jsonbALineas(valor: unknown): string {
@@ -21,6 +22,11 @@ function jsonbALineas(valor: unknown): string {
 /** El jsonb packs → lista de paquetes {key, label, price}. */
 function jsonbAPacks(valor: unknown): Pack[] {
   return Array.isArray(valor) ? (valor as Pack[]) : []
+}
+
+/** El jsonb add_ons → lista de add-ons {key, label, price}. */
+function jsonbAAddOns(valor: unknown): AddOn[] {
+  return Array.isArray(valor) ? (valor as AddOn[]) : []
 }
 
 /** El jsonb itinerary → lista de días {title, description}. */
@@ -111,6 +117,7 @@ export default async function ServicioDetallePage({
           excludes: jsonbALineas(servicio.excludes),
           itinerary: jsonbAItinerario(servicio.itinerary),
           packs: jsonbAPacks(servicio.packs),
+          add_ons: jsonbAAddOns(servicio.add_ons),
           // `published` es columna nueva no tipada aún ⇒ cast (convención multi-agente).
           published: Boolean((servicio as { published?: boolean }).published),
           banner:

@@ -29,6 +29,7 @@ import {
 import { subirImagenServicio } from './subir-imagen'
 import { videoEmbedUrl } from '@/lib/video'
 import { PACK_TYPES, type Pack, type PackInput } from '@/lib/domain/packs'
+import type { AddOn, AddOnInput } from '@/lib/domain/addons'
 import { ImportarArchivo } from './importar-archivo'
 import { ImportarUrl } from './importar-url'
 import type { ServicioLeido } from '@/lib/ai/servicio-leido'
@@ -79,6 +80,8 @@ export type ServicioFormInitial = {
   itinerary: ItineraryDay[]
   /** Paquetes por ocupación (solo tours/paquetes). */
   packs: Pack[]
+  /** Catálogo de add-ons (lista abierta nombre + precio). */
+  add_ons: AddOn[]
   /** Si está en el catálogo público (marketplace). */
   published: boolean
   /** URL del banner (foto del catálogo público), o null. */
@@ -133,6 +136,10 @@ export function ServicioForm({
   const [excludesText, setExcludesText] = useState(initial?.excludes ?? '')
   const [itinerary, setItinerary] = useState<ItineraryDay[]>(
     initial?.itinerary ?? []
+  )
+  // Add-ons como renglones editables (nombre + precio en string, como packs).
+  const [addOns, setAddOns] = useState<{ label: string; price: string }[]>(
+    (initial?.add_ons ?? []).map((a) => ({ label: a.label, price: String(a.price) }))
   )
   // Precios por ocupación como strings (uno por tipo); vacío = no se ofrece.
   const [packPrices, setPackPrices] = useState<Record<string, string>>(() => {
@@ -269,6 +276,22 @@ export function ServicioForm({
     })
   }
 
+  // Add-ons: mismo patrón dinámico que el Itinerario (agregar/quitar renglón).
+  function agregarAddOn() {
+    setAddOns((prev) => [...prev, { label: '', price: '' }])
+  }
+  function quitarAddOn(indice: number) {
+    setAddOns((prev) => prev.filter((_, i) => i !== indice))
+  }
+  function actualizarAddOn(
+    indice: number,
+    patch: Partial<{ label: string; price: string }>
+  ) {
+    setAddOns((prev) =>
+      prev.map((a, i) => (i === indice ? { ...a, ...patch } : a))
+    )
+  }
+
   function agregarDia() {
     setItinerary((prev) => [...prev, { title: '', description: '' }])
   }
@@ -350,6 +373,24 @@ export function ServicioForm({
       }
     }
 
+    // Add-ons: renglones con nombre requieren precio > 0; vacíos se ignoran.
+    const addOnsInput: AddOnInput[] = []
+    for (const a of addOns) {
+      const label = a.label.trim()
+      const rawPrice = a.price.trim()
+      if (!label && !rawPrice) continue
+      if (!label) {
+        setError('Escribe el nombre del add-on.')
+        return
+      }
+      const p = Number(rawPrice)
+      if (!rawPrice || !Number.isFinite(p) || p <= 0) {
+        setError(`El precio de "${label}" debe ser un número mayor a 0.`)
+        return
+      }
+      addOnsInput.push({ label, price: p })
+    }
+
     const input: ServicioInput = {
       name: name.trim(),
       supplier_id: supplierId,
@@ -367,6 +408,7 @@ export function ServicioForm({
       excludes: separarLineas(excludesText),
       itinerary,
       packs,
+      add_ons: addOnsInput,
     }
 
     startTransition(async () => {
@@ -648,6 +690,64 @@ export function ServicioForm({
           </CardContent>
         </Card>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Add-ons</CardTitle>
+          <CardDescription>
+            Extras con precio propio (tirolesa, comida, seguro…). En Nueva
+            venta se eligen de esta lista con la descripción y el precio ya
+            precargados.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {addOns.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              Sin add-ons todavía. Agrega el primero.
+            </p>
+          )}
+          {addOns.map((a, i) => (
+            <div
+              key={i}
+              className="grid grid-cols-[1fr_auto_auto] items-center gap-3"
+            >
+              <Input
+                aria-label={`Nombre del add-on ${i + 1}`}
+                value={a.label}
+                onChange={(e) => actualizarAddOn(i, { label: e.target.value })}
+                placeholder="Ej. Tirolesa"
+              />
+              <Input
+                aria-label={`Precio del add-on ${i + 1}`}
+                type="number"
+                inputMode="decimal"
+                min={0}
+                step="0.01"
+                className="w-32 sm:w-40"
+                value={a.price}
+                onChange={(e) => actualizarAddOn(i, { price: e.target.value })}
+                placeholder="Precio"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => quitarAddOn(i)}
+              >
+                Quitar
+              </Button>
+            </div>
+          ))}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={agregarAddOn}
+          >
+            + Agregar add-on
+          </Button>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

@@ -39,22 +39,26 @@ import {
 } from '../actions'
 import { mxn } from '@/components/data/format'
 import { ITEM_TYPE_LABELS, PASSENGER_TYPE_LABELS } from '../ui'
-import type { Pack } from '@/lib/domain/packs'
+import { OCCUPANCY, type Pack, type PackKey } from '@/lib/domain/packs'
+import type { AddOn } from '@/lib/domain/addons'
 
 export type CustomerOption = {
   id: string
   full_name: string
   phone: string | null
 }
-// packs = precios por ocupación (sencilla/doble/triple/cuádruple). PRESET:
-// al elegir un paquete, autollena el `unit_price` de las líneas de PASAJERO
-// (no crear línea `room` suelta, o num_pax=0 y el cupo no baja). El precio
-// sigue siendo editable a mano (válvula) tras aplicar el preset.
+// packs = precios por ocupación (sencilla/doble/triple/cuádruple). Al elegir
+// un paquete se AGREGA una línea de pasajero con la cantidad = ocupación
+// (bloqueada; "Vender por separado" la libera para el caso especial). Sigue
+// siendo línea de PASAJERO (no `room` suelta, o num_pax=0 y el cupo no baja).
+// add_ons = catálogo de extras del servicio: en líneas tipo Add-on la
+// descripción se elige de ahí y precarga precio.
 export type ServiceOption = {
   id: string
   name: string
   price: number | null
   packs?: Pack[]
+  add_ons?: AddOn[]
 }
 // Una salida vendible: fecha + lugares restantes (0 = agotada).
 export type DepartureOption = { id: string; departs_on: string; remaining: number }
@@ -81,6 +85,8 @@ type LineDraft = {
   description: string
   qty: string
   unit_price: string
+  /** Paquete que originó la línea: bloquea la cantidad a su ocupación. */
+  packKey?: PackKey | null
 }
 
 // Campo con etiqueta visible (para las tarjetas móviles; los controles ya traen aria-label).
@@ -110,6 +116,7 @@ function newLine(key: number): LineDraft {
     description: '',
     qty: '1',
     unit_price: '',
+    packKey: null,
   }
 }
 
@@ -184,19 +191,39 @@ export function NuevaVentaForm({
     })
   }
 
-  // Preset de paquete: aplica el precio por persona a TODAS las líneas de
-  // pasajero (sigue editable a mano). El paquete es precio, no cabezas: el cupo
-  // baja por num_pax contra la salida.
+  // Elegir un paquete AGREGA una línea de pasajero con la ocupación exacta
+  // (Doble ⇒ 2, bloqueada; "Vender por separado" la libera) y resetea el
+  // select — elegirlo de nuevo agrega OTRA habitación del mismo tipo.
   function aplicarPaquete(key: string) {
-    setPackKey(key)
-    if (!key) return
+    if (!key) {
+      setPackKey('')
+      return
+    }
     const pack = packs.find((p) => p.key === key)
     if (!pack) return
-    setLines((prev) =>
-      prev.map((l) =>
-        l.item_type === 'passenger' ? { ...l, unit_price: String(pack.price) } : l
-      )
-    )
+    const nueva: LineDraft = {
+      key: nextKey.current++,
+      item_type: 'passenger',
+      passenger_type: 'adult',
+      description: pack.label,
+      qty: String(OCCUPANCY[pack.key]),
+      unit_price: String(pack.price),
+      packKey: pack.key,
+    }
+    setLines((prev) => {
+      // Si la única línea es la de arranque sin tocar (sin descripción ni
+      // paquete), se reemplaza — evita colar una línea fantasma de $0.
+      if (
+        prev.length === 1 &&
+        prev[0].item_type === 'passenger' &&
+        !prev[0].description.trim() &&
+        !prev[0].packKey
+      ) {
+        return [nueva]
+      }
+      return [...prev, nueva]
+    })
+    setPackKey('')
   }
 
   function updateLine(key: number, patch: Partial<LineDraft>) {
@@ -211,9 +238,9 @@ export function NuevaVentaForm({
     setLines((prev) => (prev.length > 1 ? prev.filter((l) => l.key !== key) : prev))
   }
 
-  // Un solo flujo de validación para ambos botones: venta ('reserved')
-  // o cotización ('draft'); solo cambia el status enviado a createBooking.
-  function submit(status: 'reserved' | 'draft') {
+  // Todo nace COTIZACIÓN ('draft'): el primer abono (parcial o total) la
+  // asciende solo a venta — ya no existe "venta con $0 cobrado".
+  function submit() {
     setError(null)
 
     if (newCustomerMode) {
@@ -274,14 +301,13 @@ export function NuevaVentaForm({
       discount: toMxn(discountNum, factor),
       notes: notes.trim() || undefined,
       lines: linesMxn,
-      status,
       currency: esUsd ? 'USD' : undefined,
       exchangeRate: esUsd ? rateNum : undefined,
     }
 
     startTransition(async () => {
       const result = await createBooking(input)
-      // En éxito la acción redirige (/ventas/[id] o /cotizaciones); solo llega aquí con error.
+      // En éxito la acción redirige a /cotizaciones; solo llega aquí con error.
       if (result?.error) {
         setError(result.error)
         toast.error(result.error)
@@ -291,7 +317,7 @@ export function NuevaVentaForm({
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    submit('reserved')
+    submit()
   }
 
   // --- Render-helpers de campo: una sola fuente por control, reusada en
@@ -330,25 +356,68 @@ export function NuevaVentaForm({
     </NativeSelect>
   )
 
-  const descInput = (line: LineDraft) => (
-    <Input
-      aria-label="Descripción"
-      value={line.description}
-      onChange={(e) => updateLine(line.key, { description: e.target.value })}
-      placeholder="Descripción"
-    />
-  )
+  const descInput = (line: LineDraft) => {
+    // Add-on con catálogo en el servicio: la descripción se elige de la lista
+    // y precarga también el precio. Sin catálogo, texto libre como siempre.
+    const addons = selectedService?.add_ons ?? []
+    if (line.item_type === 'addon' && addons.length > 0) {
+      return (
+        <Combobox
+          options={addons.map((a) => ({
+            value: a.key,
+            label: a.label,
+            detail: mxn.format(a.price),
+          }))}
+          value={addons.find((a) => a.label === line.description)?.key ?? ''}
+          onChange={(key) => {
+            const addon = addons.find((a) => a.key === key)
+            if (addon) {
+              updateLine(line.key, {
+                description: addon.label,
+                unit_price: String(addon.price),
+              })
+            } else {
+              updateLine(line.key, { description: '' })
+            }
+          }}
+          placeholder="Elige un add-on…"
+          emptyHint="Ningún add-on coincide."
+        />
+      )
+    }
+    return (
+      <Input
+        aria-label="Descripción"
+        value={line.description}
+        onChange={(e) => updateLine(line.key, { description: e.target.value })}
+        placeholder="Descripción"
+      />
+    )
+  }
 
   const qtyInput = (line: LineDraft) => (
-    <Input
-      aria-label="Cantidad"
-      type="number"
-      inputMode="numeric"
-      min={1}
-      step={1}
-      value={line.qty}
-      onChange={(e) => updateLine(line.key, { qty: e.target.value })}
-    />
+    <div className="space-y-1">
+      <Input
+        aria-label="Cantidad"
+        type="number"
+        inputMode="numeric"
+        min={1}
+        step={1}
+        value={line.qty}
+        // La ocupación del paquete manda (Doble ⇒ 2): cantidad bloqueada.
+        disabled={!!line.packKey}
+        onChange={(e) => updateLine(line.key, { qty: e.target.value })}
+      />
+      {line.packKey && (
+        <button
+          type="button"
+          className="text-xs text-primary underline-offset-2 hover:underline"
+          onClick={() => updateLine(line.key, { packKey: null })}
+        >
+          Vender por separado
+        </button>
+      )}
+    </div>
   )
 
   const priceInput = (line: LineDraft) => (
@@ -472,19 +541,18 @@ export function NuevaVentaForm({
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="service-select">Servicio</Label>
-            <NativeSelect
+            <Combobox
               id="service-select"
+              options={services.map((s) => ({
+                value: s.id,
+                label: s.name,
+                detail: s.price != null ? mxn.format(Number(s.price)) : null,
+              }))}
               value={serviceId}
-              onChange={(e) => handleServiceChange(e.target.value)}
-            >
-              <option value="">— A medida —</option>
-              {services.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                  {s.price != null ? ` (${mxn.format(Number(s.price))})` : ''}
-                </option>
-              ))}
-            </NativeSelect>
+              onChange={handleServiceChange}
+              placeholder="Busca un servicio… (vacío = a medida)"
+              emptyHint="Ningún servicio coincide."
+            />
           </div>
 
           {/* Con salidas dadas de alta → se elige una (con lugares libres) y de
@@ -538,8 +606,8 @@ export function NuevaVentaForm({
                 ))}
               </NativeSelect>
               <p className="text-xs text-muted-foreground">
-                Aplica el precio por persona a las líneas de pasajero. Editable
-                después.
+                Agrega una línea con la cantidad exacta de la ocupación
+                (bloqueada). Elige de nuevo para otra habitación.
               </p>
             </div>
           )}
@@ -734,22 +802,14 @@ export function NuevaVentaForm({
         </p>
       )}
 
+      {/* Todo nace cotización: el primer abono la asciende a venta solo. */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <Button
           type="submit"
           disabled={isPending}
           className="w-full sm:w-auto"
         >
-          {isPending ? 'Guardando…' : 'Guardar venta'}
-        </Button>
-        <Button
-          type="button"
-          variant="secondary"
-          disabled={isPending}
-          onClick={() => submit('draft')}
-          className="w-full sm:w-auto"
-        >
-          {isPending ? 'Guardando…' : 'Guardar como cotización'}
+          {isPending ? 'Guardando…' : 'Guardar cotización'}
         </Button>
         <Link
           href="/ventas"

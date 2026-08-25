@@ -7,6 +7,7 @@ import { safeError } from '@/lib/errors'
 import { esBannerValido } from '@/lib/storage/banner-url'
 import { videoEmbedUrl } from '@/lib/video'
 import { limpiarPacks, PACK_TYPES, type PackInput, type Pack } from '@/lib/domain/packs'
+import { limpiarAddOns, type AddOnInput, type AddOn } from '@/lib/domain/addons'
 
 export type ItineraryDay = { title: string; description: string }
 
@@ -32,6 +33,8 @@ export type ServicioInput = {
   itinerary?: ItineraryDay[]
   /** Paquetes por ocupación (solo aplica a tours). */
   packs?: PackInput[]
+  /** Catálogo de add-ons del servicio (lista abierta nombre + precio). */
+  add_ons?: AddOnInput[]
 }
 
 /**
@@ -83,6 +86,7 @@ function normalizarCampos(input: ServicioInput):
         excludes: string[]
         itinerary: ItineraryDay[]
         packs: Pack[]
+        add_ons: AddOn[]
       }
     } {
   const name = input.name?.trim()
@@ -132,6 +136,7 @@ function normalizarCampos(input: ServicioInput):
       excludes: limpiarLineas(input.excludes),
       itinerary: limpiarItinerario(input.itinerary),
       packs: limpiarPacks(input.packs),
+      add_ons: limpiarAddOns(input.add_ons),
     },
   }
 }

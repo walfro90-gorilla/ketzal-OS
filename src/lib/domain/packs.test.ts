@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { limpiarPacks, type PackInput } from './packs'
+import { limpiarPacks, OCCUPANCY, PACK_TYPES, type PackInput } from './packs'
 
 // Paquetes por ocupación (precio por persona). El helper es la frontera de
 // confianza: valida tipo, sanea precio, deduplica y sella el label — la UI no.
@@ -54,5 +54,20 @@ describe('limpiarPacks', () => {
   it('redondea el precio a 2 decimales', () => {
     const out = limpiarPacks([{ key: 'sencilla', price: 1000.005 } as PackInput])
     expect(out[0].price).toBe(1000.01)
+  })
+})
+
+describe('OCCUPANCY', () => {
+  it('sencilla=1, doble=2, triple=3, cuadruple=4', () => {
+    expect(OCCUPANCY).toEqual({ sencilla: 1, doble: 2, triple: 3, cuadruple: 4 })
+  })
+
+  it('cubre exactamente los tipos de PACK_TYPES y coincide con su label', () => {
+    for (const t of PACK_TYPES) {
+      expect(String(t.label)).toContain(String(OCCUPANCY[t.key]))
+    }
+    expect(Object.keys(OCCUPANCY).sort()).toEqual(
+      PACK_TYPES.map((t) => t.key).slice().sort()
+    )
   })
 })

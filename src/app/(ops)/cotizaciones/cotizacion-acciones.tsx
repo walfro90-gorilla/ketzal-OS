@@ -1,11 +1,9 @@
 'use client'
 
 import Link from 'next/link'
-import { useState, useTransition } from 'react'
-import { toast } from 'sonner'
+import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { Button, buttonVariants } from '@/components/ui/button'
-import { convertirCotizacion } from './actions'
 
 // Táctil en móvil (40px) sin perder lo compacto del desktop (28px).
 const accionTactil = 'h-10 md:h-7'
@@ -21,7 +19,6 @@ export function CotizacionAcciones({
   clienteNombre: string
   agenciaNombre: string
 }) {
-  const [isConverting, startConverting] = useTransition()
   const [copied, setCopied] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -49,20 +46,8 @@ export function CotizacionAcciones({
     }
   }
 
-  function handleConvertir() {
-    setError(null)
-    startConverting(async () => {
-      const result = await convertirCotizacion(bookingId)
-      // En éxito, revalidatePath saca la fila de la lista.
-      if ('error' in result) {
-        setError(result.error)
-        toast.error(result.error)
-      } else {
-        toast.success('Convertida a venta')
-      }
-    })
-  }
-
+  // b070: sin "Convertir a venta" — la única forma de que una cotización se
+  // vuelva venta es un abono real (que la asciende solo desde el Detalle).
   return (
     <div className="space-y-1">
       <div className="flex flex-wrap items-center gap-2">
@@ -106,15 +91,6 @@ export function CotizacionAcciones({
           onClick={handleCopy}
         >
           {copied ? '¡Copiado!' : 'Copiar link'}
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          className={accionTactil}
-          onClick={handleConvertir}
-          disabled={isConverting}
-        >
-          {isConverting ? 'Convirtiendo…' : 'Convertir a venta'}
         </Button>
       </div>
       {error && (

@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import type { Pack } from '@/lib/domain/packs'
+import type { AddOn } from '@/lib/domain/addons'
 import { PageHeader } from '@/components/data/page-header'
 import { NuevaVentaForm } from './nueva-venta-form'
 
@@ -25,7 +26,7 @@ export default async function NuevaVentaPage() {
 
   let servicesQuery = supabase
     .from('services')
-    .select('id, name, price, packs')
+    .select('id, name, price, packs, add_ons')
     .order('name', { ascending: true })
   if (profile?.supplier_id && profile.role !== 'superadmin') {
     servicesQuery = servicesQuery.eq('supplier_id', profile.supplier_id)
@@ -38,6 +39,7 @@ export default async function NuevaVentaPage() {
     name: s.name,
     price: s.price,
     packs: Array.isArray(s.packs) ? (s.packs as unknown as Pack[]) : [],
+    add_ons: Array.isArray(s.add_ons) ? (s.add_ons as unknown as AddOn[]) : [],
   }))
 
   // Salidas futuras (RLS las limita al dueño → coincide con el silo). Alimentan

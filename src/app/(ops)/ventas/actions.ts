@@ -28,8 +28,6 @@ export type CreateBookingInput = {
   discount: number
   notes?: string
   lines: CreateBookingLine[]
-  /** 'reserved' = venta (default) · 'draft' = cotización. */
-  status?: 'reserved' | 'draft'
   /** F6: divisa original de la venta. USD ⇒ las líneas ya vienen en MXN (el
    *  form convirtió con exchangeRate); solo se anota divisa+TC para mostrar. */
   currency?: 'MXN' | 'USD'
@@ -109,8 +107,10 @@ export async function createBooking(
     return { error: 'Selecciona un cliente o escribe el nombre del nuevo cliente.' }
   }
 
-  // 4. Crear venta + líneas de forma ATÓMICA vía RPC transaccional.
+  // 4. Crear la COTIZACIÓN + líneas de forma ATÓMICA vía RPC transaccional.
   //    El RPC recalcula totales, deriva selling/owner supplier y valida el cliente.
+  //    Siempre 'draft' (b070): el primer abono la asciende solo a venta —
+  //    ya no existe el camino "venta reservada con $0 cobrado".
   const { data: bookingId, error: rpcError } = await supabase.rpc(
     'create_booking_with_items',
     {
@@ -129,7 +129,7 @@ export async function createBooking(
         qty: l.qty,
         unit_price: l.unit_price,
       })),
-      p_status: input.status ?? 'reserved',
+      p_status: 'draft',
     }
   )
   if (rpcError || !bookingId) {
@@ -162,6 +162,5 @@ export async function createBooking(
   revalidatePath('/ventas')
   revalidatePath('/cotizaciones')
   // ?ok=<código> lo lee <FlashToasts> (shell) para el toast de éxito tras el redirect.
-  if (input.status === 'draft') redirect('/cotizaciones?ok=cotizacion-creada')
-  redirect(`/ventas/${bookingId as string}?ok=venta-creada`)
+  redirect('/cotizaciones?ok=cotizacion-creada')
 }
