@@ -9,6 +9,19 @@ const nextConfig: NextConfig = {
     // se topa en 4 MB (`MAX_BYTES`) y esto deja el aire del multipart.
     serverActions: { bodySizeLimit: "4.5mb" },
   },
+  images: {
+    // Se necesita para que el optimizador de Next (/_next/image) acepte los
+    // banners/fotos que viven en Storage — sin esto rechaza el host con
+    // "hostname not configured". Lo usa opengraph-image.tsx para no servir
+    // el archivo tal cual subido (a veces varios MB de una foto de celular).
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "wnujoyzdpdyxblgdtxjw.supabase.co",
+        pathname: "/storage/v1/object/public/**",
+      },
+    ],
+  },
 };
 
 export default nextConfig;

@@ -1,3 +1,4 @@
+import { headers } from 'next/headers'
 import { ImageResponse } from 'next/og'
 import { getPublicService, type PublicService } from './data'
 import { ogCardResponse } from '@/lib/og-card'
@@ -84,14 +85,31 @@ export default async function Image({
     })
   }
 
-  // Con banner: se sirve la foto TAL CUAL (sin componer overlay con Satori).
-  // next/og no soporta salida JPEG/con calidad — una foto real compuesta ahí
-  // sale como PNG sin pérdida de ~2 MB en 2-4s, tiempo suficiente para que el
-  // crawler de WhatsApp truene y cachee "sin imagen" para siempre (bug real,
-  // reportado en vivo: el link se compartía sin miniatura pese a tener banner).
-  // El banner ya es un JPEG optimizado en Storage (~150-300 KB, <0.5s) — foto
-  // real y rápida gana sobre "bonito pero no siempre carga".
+  // Con banner: se sirve la foto pasada por el optimizador de Next
+  // (/_next/image), NO tal cual la subió la agencia ni compuesta con Satori.
+  // Dos problemas reales, encontrados en vivo:
+  // (a) next/og no soporta salida JPEG/con calidad — una foto compuesta ahí
+  //     sale como PNG sin pérdida de ~2 MB en 2-4s.
+  // (b) el archivo tal cual subido puede pesar varios MB (foto de celular sin
+  //     comprimir) — servirlo "directo" también truena el crawler.
+  // En ambos casos WhatsApp cachea "sin imagen" para siempre. El optimizador
+  // redimensiona a 1200px y recomprime (~vía sharp en Vercel) sin depender de
+  // una librería nueva — ya viene con Next.
   try {
+    const h = await headers()
+    const origin = process.env.NEXT_PUBLIC_APP_URL ?? `https://${h.get('host')}`
+    const optimizado = await fetch(
+      `${origin}/_next/image?url=${encodeURIComponent(banner)}&w=1200&q=75`
+    )
+    if (optimizado.ok) {
+      return new Response(optimizado.body, {
+        headers: {
+          'Content-Type': optimizado.headers.get('content-type') ?? 'image/jpeg',
+          'Cache-Control': 'public, max-age=86400, s-maxage=86400',
+        },
+      })
+    }
+    // Optimizador no disponible: mejor la foto pesada que nada.
     const foto = await fetch(banner)
     if (foto.ok) {
       return new Response(foto.body, {
