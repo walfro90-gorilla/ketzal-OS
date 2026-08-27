@@ -7,8 +7,8 @@
 // La contrasena de las cuentas QA vive en KETZAL_QA_PASS (.env.local, ignorado
 // por git) y NUNCA se escribe aqui: este repo es publico, y la anterior quedo
 // legible en el historial de GitHub desde el commit 3828e3d.
-const U = 'https://wnujoyzdpdyxblgdtxjw.supabase.co'
-const K = 'sb_publishable_LU0E9aZNyrOqW5WdVU0MkQ_VTlFuQx3'
+const U = 'https://uznqmmeqwbbjkotbxwsw.supabase.co'
+const K = 'sb_publishable_10KmaCYioepqZxbdM2oIyA__hiHJNGj'
 const PASS = process.env.KETZAL_QA_PASS
 if (!PASS) {
   console.error('Falta KETZAL_QA_PASS. Corre: node --env-file=.env.local ' + process.argv[1])

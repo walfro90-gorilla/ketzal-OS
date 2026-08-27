@@ -1,0 +1,610 @@
+<title>Correos de Ketzal OS</title>
+<style>
+  :root {
+    --jade: oklch(0.532 0.109 167);
+    --jade-ink: oklch(0.985 0 0);
+    --paper: oklch(0.994 0.004 95);
+    --paper-raised: oklch(1 0.002 95);
+    --ink: oklch(0.24 0.024 168);
+    --ink-muted: oklch(0.52 0.02 165);
+    --line: oklch(0.905 0.008 100);
+    --line-strong: oklch(0.84 0.012 100);
+    --code-bg: oklch(0.965 0.008 100);
+    --amber: oklch(0.72 0.15 75);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --jade: oklch(0.62 0.11 167);
+      --jade-ink: oklch(0.145 0 0);
+      --paper: oklch(0.17 0.022 170);
+      --paper-raised: oklch(0.215 0.024 170);
+      --ink: oklch(0.96 0.006 100);
+      --ink-muted: oklch(0.72 0.02 160);
+      --line: oklch(1 0 0 / 10%);
+      --line-strong: oklch(1 0 0 / 16%);
+      --code-bg: oklch(0.24 0.026 170);
+      --amber: oklch(0.78 0.14 80);
+    }
+  }
+  :root[data-theme="dark"] {
+    --jade: oklch(0.62 0.11 167);
+    --jade-ink: oklch(0.145 0 0);
+    --paper: oklch(0.17 0.022 170);
+    --paper-raised: oklch(0.215 0.024 170);
+    --ink: oklch(0.96 0.006 100);
+    --ink-muted: oklch(0.72 0.02 160);
+    --line: oklch(1 0 0 / 10%);
+    --line-strong: oklch(1 0 0 / 16%);
+    --code-bg: oklch(0.24 0.026 170);
+    --amber: oklch(0.78 0.14 80);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 15.5px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .mono {
+    font-family: 'Geist Mono', 'SFMono-Regular', Consolas, Menlo, monospace;
+  }
+
+  main {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 0 24px 96px;
+  }
+
+  /* ---- identity bar ---- */
+  header.bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 28px 0 22px;
+  }
+  header.bar svg { flex: none; color: var(--jade); }
+  header.bar .word {
+    font-size: 13px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+  }
+  header.bar .word strong {
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  /* ---- hero ---- */
+  h1 {
+    font-size: 30px;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    margin: 4px 0 10px;
+    text-wrap: balance;
+    font-weight: 650;
+  }
+  .lede {
+    color: var(--ink-muted);
+    font-size: 16px;
+    max-width: 62ch;
+    margin: 0 0 34px;
+  }
+  .lede code { color: var(--ink); }
+
+  code {
+    font-family: 'Geist Mono', 'SFMono-Regular', Consolas, Menlo, monospace;
+    font-size: 0.88em;
+    background: var(--code-bg);
+    padding: 0.14em 0.4em;
+    border-radius: 5px;
+  }
+
+  section { margin: 48px 0; }
+
+  h2 {
+    font-size: 12.5px;
+    font-weight: 650;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin: 0 0 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  h2::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--line);
+  }
+
+  p { margin: 0 0 14px; }
+  p:last-child { margin-bottom: 0; }
+
+  /* ---- overview table ---- */
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 11px 16px; vertical-align: top; }
+  thead th {
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    font-weight: 600;
+    background: var(--paper-raised);
+    border-bottom: 1px solid var(--line);
+  }
+  tbody tr + tr td { border-top: 1px solid var(--line); }
+  tbody td:first-child { font-weight: 600; white-space: nowrap; }
+  tbody td:last-child { color: var(--ink-muted); }
+
+  /* ---- preview cards ---- */
+  .preview-card {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+    background: var(--paper-raised);
+    margin-bottom: 22px;
+  }
+  .preview-card .meta {
+    padding: 16px 18px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--line);
+  }
+  .preview-card .meta .titles h3 {
+    margin: 0 0 3px;
+    font-size: 15.5px;
+    font-weight: 650;
+  }
+  .preview-card .meta .titles .path {
+    font-size: 12.5px;
+    color: var(--ink-muted);
+  }
+  .preview-card .meta .subject {
+    font-size: 12.5px;
+    color: var(--ink-muted);
+    text-align: right;
+  }
+  .preview-card .meta .subject .label {
+    display: block;
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+  }
+  .preview-frame-wrap {
+    background:
+      linear-gradient(var(--code-bg), var(--code-bg)) padding-box;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+  }
+  iframe.preview {
+    width: 480px;
+    max-width: 100%;
+    height: 560px;
+    border: 1px solid var(--line-strong);
+    border-radius: 10px;
+    background: white;
+  }
+
+  /* ---- runbook (genuinely sequential) ---- */
+  ol.steps {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    counter-reset: step;
+    border-left: 2px solid var(--line);
+    margin-left: 13px;
+  }
+  ol.steps li {
+    counter-increment: step;
+    position: relative;
+    padding: 0 0 26px 28px;
+  }
+  ol.steps li:last-child { padding-bottom: 2px; }
+  ol.steps li::before {
+    content: counter(step);
+    position: absolute;
+    left: -14px;
+    top: -1px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--paper);
+    border: 2px solid var(--jade);
+    color: var(--jade);
+    font-family: 'Geist Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  ol.steps h4 {
+    margin: 0 0 4px;
+    font-size: 15px;
+    font-weight: 650;
+  }
+  ol.steps p { color: var(--ink-muted); font-size: 14.5px; }
+
+  a { color: var(--jade); }
+  a.link-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13.5px;
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--jade);
+  }
+  a.link-btn:hover { text-decoration: underline; }
+
+  .subjects {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 10px;
+    margin-top: 4px;
+  }
+  .subjects div {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 13px;
+    background: var(--paper-raised);
+  }
+  .subjects div .k {
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin-bottom: 3px;
+  }
+  .subjects div .v { font-size: 13.5px; font-weight: 550; }
+
+  .callout {
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--amber);
+    border-radius: 0 10px 10px 0;
+    padding: 12px 16px;
+    font-size: 14px;
+    color: var(--ink-muted);
+    background: var(--paper-raised);
+  }
+  .callout strong { color: var(--ink); }
+
+  footer {
+    margin-top: 64px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+    font-size: 12.5px;
+    color: var(--ink-muted);
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;650;700&family=Geist+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<main>
+  <header class="bar">
+    <svg width="22" height="22" viewBox="0 0 100 100" fill="none" aria-hidden="true">
+      <path d="M50 6 C76 26 76 68 50 94 C24 68 24 26 50 6 Z" fill="currentColor" opacity="0.15" />
+      <path d="M50 6 C76 26 76 68 50 94 C24 68 24 26 50 6 Z" stroke="currentColor" stroke-width="6" />
+      <path d="M50 22 L50 84" stroke="currentColor" stroke-width="6" stroke-linecap="round" />
+      <path d="M50 40 L66 31 M50 54 L67 46 M50 40 L34 31 M50 54 L33 46" stroke="currentColor" stroke-width="5" stroke-linecap="round" />
+    </svg>
+    <span class="word">Ketzal OS · <strong>Correos de Auth</strong></span>
+  </header>
+
+  <h1>Correos con marca Ketzal, no con la genérica de Supabase</h1>
+  <p class="lede">
+    Tres plantillas listas para pegar en el dashboard — nada de esto se despliega con
+    <code>git push</code>, vive solo en <code>Authentication → Emails → Templates</code>.
+    Abajo, cómo se ven de verdad, no solo el HTML crudo.
+  </p>
+
+  <section>
+    <h2>Qué reemplaza cada una</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Plantilla</th><th>Reemplaza en Supabase</th><th>Se dispara en</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Confirmar cuenta</td>
+            <td>Confirm signup</td>
+            <td>alta en <code>/entrar</code> y <code>/comprar</code></td>
+          </tr>
+          <tr>
+            <td>Magic link</td>
+            <td>Magic Link</td>
+            <td>login sin contraseña en <code>/login</code> — ahora también trae el código <code>{{ .Token }}</code> en claro</td>
+          </tr>
+          <tr>
+            <td>Recuperar contraseña</td>
+            <td>Reset Password</td>
+            <td><code>/recuperar</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:14px;">
+      <span class="callout">
+        No se tocaron <strong>Invite user</strong>, <strong>Change Email Address</strong> ni
+        <strong>Reauthentication</strong> — la app no los dispara hoy. Las invitaciones de
+        agencia usan su propio flujo (<code>agency_invitations</code>), no el invite nativo de Supabase.
+      </span>
+    </p>
+  </section>
+
+  <section>
+    <h2>Cómo se ven</h2>
+
+    <div class="preview-card">
+      <div class="meta">
+        <div class="titles">
+          <h3>Confirmar cuenta</h3>
+          <div class="path">confirm-signup.html</div>
+        </div>
+        <div class="subject"><span class="label">Asunto</span>Confirma tu cuenta en Ketzal OS</div>
+      </div>
+      <div class="preview-frame-wrap"><iframe class="preview" id="fr-confirm" title="Vista previa: Confirmar cuenta"></iframe></div>
+    </div>
+
+    <div class="preview-card">
+      <div class="meta">
+        <div class="titles">
+          <h3>Magic link</h3>
+          <div class="path">magic-link.html</div>
+        </div>
+        <div class="subject"><span class="label">Asunto</span>Tu enlace para entrar a Ketzal OS</div>
+      </div>
+      <div class="preview-frame-wrap"><iframe class="preview" id="fr-magic" title="Vista previa: Magic link"></iframe></div>
+    </div>
+
+    <div class="preview-card">
+      <div class="meta">
+        <div class="titles">
+          <h3>Recuperar contraseña</h3>
+          <div class="path">reset-password.html</div>
+        </div>
+        <div class="subject"><span class="label">Asunto</span>Recupera tu contraseña de Ketzal OS</div>
+      </div>
+      <div class="preview-frame-wrap"><iframe class="preview" id="fr-reset" title="Vista previa: Recuperar contraseña"></iframe></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Instalar — 4 pasos, en el dashboard</h2>
+    <ol class="steps">
+      <li>
+        <h4>Abre las plantillas de Auth</h4>
+        <p>
+          <a class="link-btn" href="https://supabase.com/dashboard/project/uznqmmeqwbbjkotbxwsw/auth/templates" target="_blank" rel="noopener">
+            Authentication → Emails → Templates ↗
+          </a>
+        </p>
+      </li>
+      <li>
+        <h4>Pega el HTML</h4>
+        <p>Por cada pestaña (Confirm signup / Magic Link / Reset Password), borra el cuadro "Message Body" y pega el <code>.html</code> correspondiente. Guarda.</p>
+      </li>
+      <li>
+        <h4>Pon el asunto</h4>
+        <div class="subjects">
+          <div><div class="k">Confirm signup</div><div class="v">Confirma tu cuenta en Ketzal OS</div></div>
+          <div><div class="k">Magic Link</div><div class="v">Tu enlace para entrar a Ketzal OS</div></div>
+          <div><div class="k">Reset Password</div><div class="v">Recupera tu contraseña de Ketzal OS</div></div>
+        </div>
+      </li>
+      <li>
+        <h4>Prueba con un correo real</h4>
+        <p>Pide un magic link o una recuperación real y confirma que llega con el diseño nuevo. Efecto inmediato al guardar — sin deploy, sin migración.</p>
+      </li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Dominio propio para el remitente — pendiente, sin dominio aún</h2>
+    <p>
+      Hoy el correo sale de la dirección genérica de Supabase. El HTML ya trae la marca
+      Ketzal, pero el remitente no. Para que salga de algo como
+      <code>no-responder@ketzal.mx</code>:
+    </p>
+    <ol class="steps">
+      <li>
+        <h4>Comprar el dominio</h4>
+        <p>Namecheap o GoDaddy, ~$150–300 MXN/año. No hace falta que la app viva ahí — solo se usa para enviar correo.</p>
+      </li>
+      <li>
+        <h4>Cuenta en Resend</h4>
+        <p>Recomendado: encaja con Vercel/Next.js, tier gratis generoso, guía oficial con Supabase. Alternativas: SendGrid, Postmark, AWS SES.</p>
+      </li>
+      <li>
+        <h4>Verificar el dominio</h4>
+        <p>Agrega los registros DNS que dé Resend (SPF, DKIM, de preferencia DMARC) en el panel del registrador. Sin esto el correo cae a spam o se rechaza.</p>
+      </li>
+      <li>
+        <h4>Conectar como SMTP custom en Supabase</h4>
+        <p><code>Authentication → Emails → SMTP Settings</code> → activa "Enable Custom SMTP" con host/puerto/usuario/API key de Resend y el remitente final.</p>
+      </li>
+      <li>
+        <h4>Probar de nuevo</h4>
+        <p>Un correo real, remitente correcto, que no caiga a spam.</p>
+      </li>
+    </ol>
+    <p style="margin-top:16px;">
+      <span class="callout">
+        Cuando haya dominio, las plantillas de arriba no cambian — solo cambia
+        <strong>por dónde</strong> sale el correo.
+      </span>
+    </p>
+  </section>
+
+  <footer>
+    <span>docs/EMAIL_TEMPLATES.md</span>
+    <span>Ketzal OS</span>
+  </footer>
+</main>
+
+<template id="tpl-confirm">
+<!doctype html>
+<html lang="es">
+<body style="margin:0;padding:0;background-color:#F4F2EC;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#F4F2EC;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width:480px;width:100%;background-color:#FFFFFF;border-radius:12px;overflow:hidden;border:1px solid #E7E4DA;">
+          <tr><td style="height:4px;background-color:#00805F;line-height:4px;font-size:0;">&nbsp;</td></tr>
+          <tr>
+            <td style="padding:32px 32px 8px 32px;text-align:center;">
+              <img src="https://uznqmmeqwbbjkotbxwsw.supabase.co/storage/v1/object/public/ketzal-assets/brand/logo-1784587723992.png" alt="Ketzal OS" width="140" style="display:block;margin:0 auto 24px auto;height:auto;" />
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 32px 8px 32px;">
+              <h1 style="margin:0 0 12px 0;font-size:20px;line-height:28px;color:#1C2E29;font-weight:600;">Confirma tu cuenta</h1>
+              <p style="margin:0 0 24px 0;font-size:15px;line-height:23px;color:#5B6B65;">Creaste una cuenta en Ketzal OS con el correo <strong style="color:#1C2E29;">ana.viajera@gmail.com</strong>. Confirma tu correo para empezar a usarla.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 32px 32px 32px;" align="center">
+              <a href="#" style="display:inline-block;background-color:#00805F;color:#FFFFFF;text-decoration:none;font-size:15px;font-weight:600;padding:12px 28px;border-radius:8px;">Confirmar mi cuenta</a>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 32px 32px 32px;">
+              <p style="margin:0;font-size:13px;line-height:20px;color:#8A9691;">Si el botón no funciona, copia y pega este enlace en tu navegador:<br/><a href="#" style="color:#00805F;word-break:break-all;">https://ketzal-os.vercel.app/auth/callback?token_hash=pkce_a1b2c3&amp;type=signup</a></p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:20px 32px;background-color:#F9F8F4;border-top:1px solid #E7E4DA;text-align:center;">
+              <p style="margin:0;font-size:12px;line-height:18px;color:#8A9691;">¿No creaste esta cuenta? Ignora este correo — no se activará nada.</p>
+              <p style="margin:8px 0 0 0;font-size:12px;line-height:18px;color:#8A9691;">Ketzal OS</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+</template>
+
+<template id="tpl-magic">
+<!doctype html>
+<html lang="es">
+<body style="margin:0;padding:0;background-color:#F4F2EC;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#F4F2EC;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width:480px;width:100%;background-color:#FFFFFF;border-radius:12px;overflow:hidden;border:1px solid #E7E4DA;">
+          <tr><td style="height:4px;background-color:#00805F;line-height:4px;font-size:0;">&nbsp;</td></tr>
+          <tr>
+            <td style="padding:32px 32px 8px 32px;text-align:center;">
+              <img src="https://uznqmmeqwbbjkotbxwsw.supabase.co/storage/v1/object/public/ketzal-assets/brand/logo-1784587723992.png" alt="Ketzal OS" width="140" style="display:block;margin:0 auto 24px auto;height:auto;" />
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 32px 8px 32px;">
+              <h1 style="margin:0 0 12px 0;font-size:20px;line-height:28px;color:#1C2E29;font-weight:600;">Tu enlace para entrar</h1>
+              <p style="margin:0 0 24px 0;font-size:15px;line-height:23px;color:#5B6B65;">Pediste entrar a Ketzal OS con <strong style="color:#1C2E29;">wal@gorillabs.dev</strong>. Este enlace es de un solo uso.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 32px 24px 32px;" align="center">
+              <a href="#" style="display:inline-block;background-color:#00805F;color:#FFFFFF;text-decoration:none;font-size:15px;font-weight:600;padding:12px 28px;border-radius:8px;">Entrar a Ketzal OS</a>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 32px 8px 32px;">
+              <p style="margin:0 0 8px 0;font-size:12px;line-height:18px;color:#8A9691;text-align:center;">O usa este código si prefieres escribirlo a mano:</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 32px 32px 32px;" align="center">
+              <span style="display:inline-block;font-family:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;font-size:22px;letter-spacing:4px;font-weight:700;color:#1C2E29;background-color:#F4F2EC;border:1px solid #E7E4DA;border-radius:8px;padding:10px 18px;">482913</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 32px 32px 32px;">
+              <p style="margin:0;font-size:13px;line-height:20px;color:#8A9691;">Si el botón no funciona, copia y pega este enlace en tu navegador:<br/><a href="#" style="color:#00805F;word-break:break-all;">https://ketzal-os.vercel.app/auth/callback?token_hash=pkce_d4e5f6&amp;type=magiclink</a></p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:20px 32px;background-color:#F9F8F4;border-top:1px solid #E7E4DA;text-align:center;">
+              <p style="margin:0;font-size:12px;line-height:18px;color:#8A9691;">¿No pediste este enlace? Ignora este correo — nadie puede entrar sin él.</p>
+              <p style="margin:8px 0 0 0;font-size:12px;line-height:18px;color:#8A9691;">Ketzal OS</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+</template>
+
+<template id="tpl-reset">
+<!doctype html>
+<html lang="es">
+<body style="margin:0;padding:0;background-color:#F4F2EC;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#F4F2EC;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width:480px;width:100%;background-color:#FFFFFF;border-radius:12px;overflow:hidden;border:1px solid #E7E4DA;">
+          <tr><td style="height:4px;background-color:#00805F;line-height:4px;font-size:0;">&nbsp;</td></tr>
+          <tr>
+            <td style="padding:32px 32px 8px 32px;text-align:center;">
+              <img src="https://uznqmmeqwbbjkotbxwsw.supabase.co/storage/v1/object/public/ketzal-assets/brand/logo-1784587723992.png" alt="Ketzal OS" width="140" style="display:block;margin:0 auto 24px auto;height:auto;" />
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 32px 8px 32px;">
+              <h1 style="margin:0 0 12px 0;font-size:20px;line-height:28px;color:#1C2E29;font-weight:600;">Recupera tu contraseña</h1>
+              <p style="margin:0 0 24px 0;font-size:15px;line-height:23px;color:#5B6B65;">Alguien pidió restablecer la contraseña de <strong style="color:#1C2E29;">walfro90.dev@gmail.com</strong> en Ketzal OS. Si fuiste tú, crea una nueva:</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 32px 32px 32px;" align="center">
+              <a href="#" style="display:inline-block;background-color:#00805F;color:#FFFFFF;text-decoration:none;font-size:15px;font-weight:600;padding:12px 28px;border-radius:8px;">Crear nueva contraseña</a>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 32px 32px 32px;">
+              <p style="margin:0;font-size:13px;line-height:20px;color:#8A9691;">Si el botón no funciona, copia y pega este enlace en tu navegador:<br/><a href="#" style="color:#00805F;word-break:break-all;">https://ketzal-os.vercel.app/auth/callback?token_hash=pkce_g7h8i9&amp;type=recovery</a></p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:20px 32px;background-color:#F9F8F4;border-top:1px solid #E7E4DA;text-align:center;">
+              <p style="margin:0;font-size:12px;line-height:18px;color:#8A9691;">¿No pediste esto? Ignora este correo — tu contraseña sigue siendo la misma.</p>
+              <p style="margin:8px 0 0 0;font-size:12px;line-height:18px;color:#8A9691;">Ketzal OS</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+</template>
+
+<script>
+  document.getElementById('fr-confirm').srcdoc = document.getElementById('tpl-confirm').innerHTML;
+  document.getElementById('fr-magic').srcdoc = document.getElementById('tpl-magic').innerHTML;
+  document.getElementById('fr-reset').srcdoc = document.getElementById('tpl-reset').innerHTML;
+</script>

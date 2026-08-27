@@ -1,6 +1,6 @@
 {
   "name": "ketzal-mcp",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Servidor MCP de Ketzal OS: opera ventas, cobranza, salidas y reportes en lenguaje natural desde cualquier agente IA de terminal.",
   "keywords": ["mcp", "model-context-protocol", "ketzal", "turismo", "supabase"],
   "license": "MIT",

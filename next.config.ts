@@ -17,6 +17,14 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: "https",
+        hostname: "uznqmmeqwbbjkotbxwsw.supabase.co",
+        pathname: "/storage/v1/object/public/**",
+      },
+      // Proyecto viejo (Gorilla-Labs): se conserva durante la ventana de corte
+      // para que el deploy no dependa del orden env-vars↔código. Quitar cuando
+      // el proyecto viejo se apague (cutover paso 10).
+      {
+        protocol: "https",
         hostname: "wnujoyzdpdyxblgdtxjw.supabase.co",
         pathname: "/storage/v1/object/public/**",
       },

@@ -1,11 +1,11 @@
 import { createClient } from '@/lib/supabase/client'
 
-// Sube el logo oficial al bucket público `gorilla-assets` (carpeta brand/),
+// Sube el logo oficial al bucket público `ketzal-assets` (carpeta brand/),
 // directo del navegador. Devuelve la URL pública. Acepta PNG/SVG/WebP (con
 // transparencia). El logo se sirve vía <img src>, así que un SVG es seguro
 // (no se inlinea → sin ejecución de scripts).
 
-const BUCKET = 'gorilla-assets'
+const BUCKET = 'ketzal-assets'
 const MAX_BYTES = 4 * 1024 * 1024 // 4 MB (un logo es chico)
 const TIPOS: Record<string, string> = {
   'image/png': 'png',

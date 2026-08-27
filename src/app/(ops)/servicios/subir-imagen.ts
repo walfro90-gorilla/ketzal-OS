@@ -1,12 +1,12 @@
 import { createClient } from '@/lib/supabase/client'
 
 // Subida de imágenes de un servicio (banner y galería) directo al bucket
-// público `gorilla-assets` desde el navegador. Directo (no vía server action)
+// público `ketzal-assets` desde el navegador. Directo (no vía server action)
 // para no toparse con el tope de 4.5 MB del body de una función en Vercel: las
 // fotos de un teléfono pasan ese límite fácil. El bucket ya permite INSERT
 // autenticado + lectura pública, así que no hace falta ninguna policy nueva.
 
-const BUCKET = 'gorilla-assets'
+const BUCKET = 'ketzal-assets'
 const MAX_BYTES = 8 * 1024 * 1024 // 8 MB
 const TIPOS: Record<string, string> = {
   'image/jpeg': 'jpg',

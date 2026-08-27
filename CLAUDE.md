@@ -43,7 +43,7 @@ Back-office multi-agencia: un agente cierra la venta de un tour, controla abonos
 ## Stack
 
 - **Next.js** (App Router) + **TypeScript**
-- **Supabase** (Postgres 17, Auth, Storage, RLS) — proyecto **Gorilla-Labs** (`wnujoyzdpdyxblgdtxjw`), schema **`ketzal`**
+- **Supabase** (Postgres 17, Auth, Storage, RLS) — proyecto **Ketzal-OS** (`uznqmmeqwbbjkotbxwsw`, org ECS — dedicado desde 2026-08-26; antes compartía el proyecto Gorilla-Labs), schema **`ketzal`**
 - **shadcn/ui** + Tailwind
 - Despliegue: Vercel
 

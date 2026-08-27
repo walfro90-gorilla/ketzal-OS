@@ -13,12 +13,12 @@
 export const SUPABASE_URL =
   process.env.KETZAL_SUPABASE_URL ??
   process.env.NEXT_PUBLIC_SUPABASE_URL ??
-  'https://wnujoyzdpdyxblgdtxjw.supabase.co'
+  'https://uznqmmeqwbbjkotbxwsw.supabase.co'
 
 export const SUPABASE_KEY =
   process.env.KETZAL_SUPABASE_KEY ??
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
-  'sb_publishable_LU0E9aZNyrOqW5WdVU0MkQ_VTlFuQx3'
+  'sb_publishable_10KmaCYioepqZxbdM2oIyA__hiHJNGj'
 
 /** El schema de negocio. `public` está vacío a propósito. */
 export const SCHEMA = 'ketzal'
@@ -42,4 +42,4 @@ export const MAX_WRITES = Number(process.env.KETZAL_MCP_MAX_WRITES ?? 20)
  */
 export const MAX_DATA_WRITES = Number(process.env.KETZAL_MCP_MAX_DATA_WRITES ?? 100)
 
-export const VERSION = '0.2.0'
+export const VERSION = '0.4.0'

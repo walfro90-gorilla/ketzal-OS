@@ -1,7 +1,7 @@
 # Backend de base de datos (schema `ketzal`)
 
-> **La fuente de verdad de la BD es Supabase** (proyecto Gorilla-Labs,
-> ref `wnujoyzdpdyxblgdtxjw`, schema `ketzal`). Las migraciones históricas se
+> **La fuente de verdad de la BD es Supabase** (proyecto Ketzal-OS (org ECS),
+> ref `uznqmmeqwbbjkotbxwsw`, schema `ketzal`). Las migraciones históricas se
 > aplicaron con la herramienta `apply_migration` de Supabase. Esta carpeta
 > cierra el riesgo #1 del FODA: versionar el backend para **recuperación,
 > historial y auditoría**.
@@ -18,7 +18,7 @@ este archivo se recrea el backend lógico. Generado con la Supabase CLI (abajo).
 
 ```bash
 # CLI ya instalada y proyecto ya linkeado (una sola vez):
-#   npm i -g supabase && supabase login && supabase link --project-ref wnujoyzdpdyxblgdtxjw
+#   npm i -g supabase && supabase login && supabase link --project-ref uznqmmeqwbbjkotbxwsw
 
 supabase db dump --schema ketzal -f supabase/snapshots/ketzal_schema.sql
 git diff supabase/snapshots/ketzal_schema.sql   # <- muestra el drift del schema

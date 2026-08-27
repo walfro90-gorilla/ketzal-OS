@@ -4,7 +4,7 @@
 // db/proposed/001_ketzal_os_v1.sql: focused on the Ketzal OS v1 tables only, and for
 // the pre-existing tables (suppliers, services, profiles, payments) it is a PARTIAL
 // best-effort subset of columns. Replace it when the generator supports schemas, e.g.:
-//   supabase gen types typescript --project-id wnujoyzdpdyxblgdtxjw --schema ketzal --schema public > src/lib/db/database.types.ts
+//   supabase gen types typescript --project-id uznqmmeqwbbjkotbxwsw --schema ketzal --schema public > src/lib/db/database.types.ts
 
 export type Json =
   | string
