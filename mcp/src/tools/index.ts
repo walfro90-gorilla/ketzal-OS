@@ -10,6 +10,7 @@ import { tools as clientes } from './clientes.js'
 import { tools as cobranza } from './cobranza.js'
 import { tools as salidas } from './salidas.js'
 import { tools as catalogo } from './catalogo.js'
+import { tools as fotos } from './fotos.js'
 import { tools as reportes } from './reportes.js'
 import { tools as dinero } from './dinero.js'
 import { tools as gastos } from './gastos.js'
@@ -23,6 +24,7 @@ export const ALL_TOOLS: ToolDef[] = [
   ...cobranza,
   ...salidas,
   ...catalogo,
+  ...fotos,
   ...reportes,
   ...gastos,
 ]
