@@ -7,6 +7,79 @@
 > Entrada nueva SIEMPRE aquí (arriba de la sección), nunca de vuelta en
 > CLAUDE.md.
 
+## Entradas nuevas (más reciente arriba)
+
+> **Proyecto Supabase propio + ADRs + catálogo con fotos y video (2026-08-26/28).**
+> Tres cosas encadenadas, todas disparadas por un síntoma chico: un magic link de
+> Ketzal aterrizó en `hub.gorillabs.dev` porque el Site URL de Auth era un dial
+> único compartido con el CRM/swarm y con tiendas.
+>
+> **(a) Migración a proyecto dedicado** (`uznqmmeqwbbjkotbxwsw`, org **ECS**;
+> commit `a6ca662`, decisión en `docs/adr/0015`). Se hizo ANTES de la operación
+> real, que era la única ventana barata: la capa transaccional estaba en cero
+> desde el reset del 2026-08-19. Método: `supabase db dump --schema ketzal`
+> regenerado fresco (el snapshot versionado tenía 5 semanas de atraso) y aplicado
+> como migración `ketzal_baseline`; las 6 cuentas recreadas con **mismo UUID y
+> mismo hash de contraseña** (copia DB-a-DB, nadie resetea nada); datos con
+> `session_replication_role=replica` y las 2 migraciones de datos borradas del
+> historial después. **Verificación por hashes, no por conteos**: md5 idéntico
+> viejo↔nuevo de 160 funciones (cuerpo+ACL+search_path), 80 policies, 43 tablas
+> (columnas+defaults), constraints y 26 triggers; conteos idénticos en 25 tablas;
+> FKs sin huérfanos; `verificar_invariantes` 0; advisors 0 ERROR. **Bucket
+> dedicado `ketzal-assets`** (84 objetos, hash idéntico) — el viejo
+> `gorilla-assets` era del CRM y sus policies de escritura decían "Service role"
+> pero tenían `roles={public}`: el bucket nuevo nace con INSERT/UPDATE solo
+> `authenticated`. Dos cosas que el dump NO lleva y hubo que rehacer: la
+> membresía Realtime de `notifications` y toda la config de Auth del dashboard.
+>
+> **Lección cara del cutover (3 redeploys):** las variables `NEXT_PUBLIC_*` se
+> hornean en el build, y Vercel tenía **3 copias de cada una** (una por entorno).
+> Editar una copia no bastó (el build de Production leía otra), el redeploy con
+> build cache sirvió el bundle viejo, y borrarlas todas de golpe dejó Production
+> **sin variables ⇒ 500 en todo el sitio** (`Your project's URL and Key are
+> required`, en `/middleware`, que corre en cada request). Lo que funciona: UNA
+> variable por nombre cubriendo los 3 entornos + redeploy **sin** build cache.
+> Verificar el bundle servido (`grep` del ref dentro de `/_next/static/chunks/*.js`),
+> no solo que el deploy diga READY.
+>
+> **(b) ADRs + dieta de CLAUDE.md** (commit `345218b`, `docs/adr/0001`). CLAUDE.md
+> pesaba 84KB y el 92.5% era changelog narrativo: ~21K tokens cargados en CADA
+> sesión de CADA agente para transmitir ~4KB de reglas. Se congelaron **17 ADRs
+> fundacionales** (las reglas del juego, inmutables, se sustituyen) y el changelog
+> se movió VERBATIM a este archivo. CLAUDE.md quedó en 6.6KB. Gate nuevo:
+> decisión estructural ⇒ ADR antes de mergear. De paso se repararon 3 punteros
+> podridos que la auditoría destapó: el contador de `db/proposed/README` decía
+> b017 cuando íbamos en b071, `FINANZAS_PLATAFORMA` apuntaba a una memoria de
+> codebase-memory que ya no existía en disco (la razón por la que ADR-0001 exige
+> que las decisiones vivan en git), y los avisos de WORKTREES llevaban 5 semanas
+> resueltos sin marcarse.
+>
+> **(c) Catálogo por MCP.** `ketzal_subir_fotos` (banner + galería desde archivos
+> locales, merge no destructivo del jsonb `images`) y el campo `video` de
+> `ketzal_editar_servicio` cierran el último hueco que exigía la app web. El
+> video valida con las mismas reglas que la app: sin validar, un link no
+> soportado se guarda sin error y la ficha simplemente no lo pinta — fallo
+> silencioso que el agente no detecta. `videoEmbedUrl` se **copia** de
+> `src/lib/video.ts` en vez de importarse porque el paquete se publica a npm
+> (mismo criterio que `rest.ts`). "Huasteca Potosina en Avión" quedó con banner +
+> 8 fotos + guía 4K de 5 días. Criterio al elegir el video, no obvio: se
+> descartó el mejor posicionado por ser de **RutaHuasteca, una agencia que vende
+> los mismos tours** — meter su video en la ficha de Border es publicidad gratis
+> al competidor; y otro candidato estaba **muerto (404)**, cazado con el endpoint
+> **oEmbed público de YouTube**, que da canal y disponibilidad sin API key (por
+> eso no se instaló ningún MCP de YouTube: no hay oficial, los de comunidad
+> piden API key de Google y meten código de terceros en la sesión que opera el
+> dinero).
+>
+> **(d) Cuenta QA cerrada** (`qa.ui@ketzal.local`): viajó a producción nueva como
+> superadmin activo. Desactivada en ambos proyectos (`active=false` +
+> `banned_until`). Al hacerlo salió que **nunca pudo hacer login**: se creó por
+> SQL con `confirmation_token`/`recovery_token`/`email_change_token_new` en NULL
+> en vez de `''`, y GoTrue los escanea como string no-nullable ⇒ `500 Database
+> error querying schema` en cualquier intento. Preexistente, no introducido al
+> migrar. `banned_until='infinity'` tiene el mismo problema de parseo: usar fecha
+> concreta lejana. Si algún día se recrean cuentas por SQL, los tokens van `''`.
+
 ## Construido — estado real (actualizado 2026-07-09)
 
 > El checklist de arriba quedó corto. Resumen aditivo de lo construido. Detalle vivo en la memoria del proyecto (`ketzal-project`).
