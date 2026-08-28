@@ -2,6 +2,7 @@
 import { KetzalError } from '../errors.js'
 import { insert, q, rpc, select, update } from '../rest.js'
 import { getAuthUser } from '../session.js'
+import { videoEmbedUrl } from '../video.js'
 import type { ToolDef } from './registry.js'
 import { z } from 'zod'
 
@@ -214,6 +215,16 @@ export function patchServicio(a: Record<string, unknown>): Record<string, unknow
     p.name = n
   }
   if (a.descripcion !== undefined) p.description = txt(a.descripcion)
+  if (a.video !== undefined) {
+    const v = txt(a.video)
+    if (v && !videoEmbedUrl(v)) {
+      throw new KetzalError(
+        `No es un video de YouTube ni de Vimeo: ${v}. Usa la liga normal ` +
+          '(youtube.com/watch?v=…, youtu.be/… o vimeo.com/…).',
+      )
+    }
+    p.yt_link = v
+  }
   if (a.tipo !== undefined) p.service_type = txt(a.tipo)
   if (a.origen_estado !== undefined) p.state_from = txt(a.origen_estado)
   if (a.origen_ciudad !== undefined) p.city_from = txt(a.origen_ciudad)
@@ -347,8 +358,8 @@ async function crearServicio(args: Record<string, unknown>) {
     servicio: fila,
     nota:
       'Creado SIN publicar: no aparece en el catálogo público hasta que corras ' +
-      'ketzal_publicar_servicio. Las fotos y el video se suben desde la app web ' +
-      '(/servicios), porque necesitan subir el archivo a Storage. El precio "desde" ' +
+      'ketzal_publicar_servicio. Las fotos van con ketzal_subir_fotos y el video ' +
+      'con el campo `video` de ketzal_editar_servicio. El precio "desde" ' +
       'se deriva del paquete más barato: sin paquetes queda en $0.',
   }
 }
@@ -451,6 +462,13 @@ const campoPaquetes = z
 
 const camposServicio = {
   descripcion: z.string().nullish().describe('Descripción larga del viaje.'),
+  video: z
+    .string()
+    .nullish()
+    .describe(
+      'Liga de YouTube o Vimeo que se muestra en la ficha pública. null lo quita. ' +
+        'Verifica que el video exista y NO sea de una agencia competidora antes de ponerlo.',
+    ),
   tipo: z.enum(TIPOS).nullish().describe('Tipo de servicio.'),
   origen_estado: z.string().nullish(),
   origen_ciudad: z.string().nullish().describe('Ciudad de salida (ej. Ciudad Juárez).'),
