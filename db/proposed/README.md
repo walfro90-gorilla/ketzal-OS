@@ -25,8 +25,11 @@ en la numeración, **cada carril usa su propio prefijo y su propio contador**:
 
 ### Próximo número
 
-Ambos carriles vienen en **016**. El siguiente espejo nuevo es **`b017_`**
-(backend) y **`m017_`** (marketplace).
+NO se mantiene un contador escrito aquí (se pudre: llegó a decir b017 cuando
+el real iba en b071). El número siguiente se determina SIEMPRE en vivo:
+`ls db/proposed/` + revisar `supabase_migrations.schema_migrations` (con 2
+carriles en paralelo el número se puede pisar — pasó con b046; si ya está
+tomado, recorre el tuyo). Ver ADR-0014 (`docs/adr/`).
 
 ### Legacy (grandfathered — NO renumerar)
 

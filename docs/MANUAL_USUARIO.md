@@ -1,8 +1,8 @@
 # Manual de usuario — Ketzal OS
 
 > Qué hace cada pantalla y quién puede entrar a ella. Estado al **2026-08-10**.
-> Este manual describe lo que existe HOY; para el porqué y la cronología de
-> cada pieza ver el log en `CLAUDE.md`.
+> Este manual describe lo que existe HOY; el porqué vive en `docs/adr/` y
+> la cronología de cada pieza en `docs/BITACORA.md`.
 
 ## 1. Las 4 personas de Ketzal
 

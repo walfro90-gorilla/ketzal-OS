@@ -2,8 +2,8 @@
 
 > Construido el 2026-08-04 (carril `finanzas-split`, migraciones b052–b053,
 > commit `e20cb46`). Split **activado y validado en vivo el 2026-08-10**
-> (primera agencia conectada). Contexto y decisiones en la memoria
-> `finanzas-plataforma`.
+> (primera agencia conectada). Decisiones congeladas en `docs/adr/0011`
+> (ledger espeja, registro ≠ custodia) y cronología en `docs/BITACORA.md`.
 
 ## El problema que resuelve
 
@@ -111,5 +111,5 @@ split activo** — el connect en sí no mueve dinero.
 - **Primera venta real con split** — validar que `fee_cobrado_split` postea
   bien contra una venta de Wanderlust cobrada en línea.
 - F3 créditos del viajero en `wallets` (espejando `credits`), payout
-  automatizado, corte mensual del devengo a agencias ajenas — ver memoria
-  `finanzas-plataforma`.
+  automatizado, corte mensual del devengo a agencias ajenas — ver
+  `docs/adr/0011` y la bitácora.

@@ -18,6 +18,12 @@
 > Bitácora corta de coordinación. Al abrir sesión, **lee esto primero** y aplica
 > lo pendiente. Entrada nueva arriba.
 
+- **2026-08-27 · RESUELTOS los 2 avisos de abajo** — `wa_autosend` entró al
+  ledger de `apply_migration` ese mismo 2026-07-23 (migración
+  `ketzal_wa_autosend`), y la convención de numeración `bNNN_`/`mNNN_` quedó
+  congelada en `docs/adr/0014-migraciones-bd-fuente.md`. Se conservan como
+  historia.
+
 - **2026-07-23 · del carril backend (Opus) → marketplace/viajero (Fable) — Paso 1:
   Ketzal reproducible / migración `wa_autosend` fuera del ledger.** Contexto: para
   poder reconstruir Ketzal desde cero (el candado para "recrear la BD sin riesgo"),
