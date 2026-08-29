@@ -33,8 +33,12 @@ const METHOD_LABELS: Record<string, string> = {
   transferencia: 'Transferencia',
   deposito: 'Depósito',
   tarjeta: 'Tarjeta',
-  mercado_pago: 'Mercado Pago',
   mercadopago: 'Mercado Pago',
+  // `mercado_pago` (con guión) ya no lo escribe nadie: era la clave del form de
+  // abono manual, que se retiró porque MP entra por su propio camino. Se
+  // conserva sólo por si quedara alguna fila vieja en algún entorno.
+  mercado_pago: 'Mercado Pago',
+  credito: 'Crédito a favor',
   otro: 'Otro',
 }
 

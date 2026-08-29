@@ -245,7 +245,11 @@ const METODO_DONA: {
     swatchClass: 'bg-[#eda100] dark:bg-[#c98500]',
   },
   {
-    clave: 'mercado_pago',
+    // `mercadopago` sin guión: es lo que escribe `confirm_online_payment` (su
+    // default desde b034) en TODO cobro en línea. Con la clave vieja
+    // (`mercado_pago`) esta rebanada era siempre $0 y los cobros de MP caían
+    // en "Otro" por la lista blanca de abajo.
+    clave: 'mercadopago',
     etiqueta: 'Mercado Pago',
     fillClass: 'fill-[#1baf7a] dark:fill-[#199e70]',
     swatchClass: 'bg-[#1baf7a] dark:bg-[#199e70]',

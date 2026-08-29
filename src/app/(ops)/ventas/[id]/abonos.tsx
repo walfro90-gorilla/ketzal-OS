@@ -49,12 +49,22 @@ const METODOS = [
   { value: 'transferencia', label: 'Transferencia' },
   { value: 'deposito', label: 'Depósito' },
   { value: 'tarjeta', label: 'Tarjeta' },
-  { value: 'mercado_pago', label: 'Mercado Pago' },
+  // Mercado Pago NO se registra a mano: entra por el checkout o el webhook, que
+  // asientan con su `payment_intent` y su `transaction_id`. Un abono manual
+  // etiquetado MP es dinero que no se puede conciliar contra Mercado Pago, y al
+  // devolverlo el guard entra a la rama de MP y falla por no tener referencia.
   { value: 'otro', label: 'Otro' },
 ] as const
 
+// Lo que se PUEDE capturar (METODOS) y lo que se sabe MOSTRAR no son la misma
+// lista: `mercadopago` y `credito` los escriben sus propios RPCs y hay que
+// etiquetarlos aunque nadie los elija a mano.
 const METHOD_LABELS: Record<string, string> = Object.fromEntries(
-  METODOS.map((m) => [m.value, m.label])
+  [
+    ...METODOS.map((m) => [m.value, m.label] as const),
+    ['mercadopago', 'Mercado Pago'] as const,
+    ['credito', 'Crédito a favor'] as const,
+  ].map(([v, l]) => [v, l])
 )
 
 const paidAtFormatter = new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium' })
