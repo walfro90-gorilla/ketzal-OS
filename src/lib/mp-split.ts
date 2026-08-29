@@ -39,15 +39,16 @@ export async function resolverSplitMp(
         .eq('supplier_id', b.selling_supplier_id)
         .maybeSingle()
       if (cuenta?.access_token) {
+        // b074: el fee sale del MISMO motor que el devengo (tarifa por servicio,
+        // % o fijo por pax), prorrateado por el pago. Antes se calculaba con el
+        // 10% plano de app_settings ⇒ divergía del devengo al configurar tarifas.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data: cfg } = await (svcClient as any)
-          .from('app_settings')
-          .select('platform_commission_rate')
-          .limit(1)
-          .maybeSingle()
-        const pct = Number(cfg?.platform_commission_rate ?? 0)
+        const { data: fee } = await (svcClient as any).rpc('platform_fee_for_payment', {
+          p_booking: bookingId,
+          p_amount: amount,
+        })
         cobroToken = cuenta.access_token
-        marketplaceFee = Math.round(Number(amount) * (pct / 100) * 100) / 100
+        marketplaceFee = Number(fee ?? 0)
         esSplit = true
       }
     }
