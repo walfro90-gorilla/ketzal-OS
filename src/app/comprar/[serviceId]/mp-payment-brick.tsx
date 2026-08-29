@@ -47,10 +47,16 @@ export type ResultadoBrick = { approved: boolean; status: string; statusDetail?:
 export function MpPaymentBrick({
   bookingId,
   amount,
+  amountViaje,
   onResult,
 }: {
   bookingId: string
+  /** Monto que el Brick MUESTRA y para el que genera el card token. Con gross-up
+   *  (b075) lleva el fee de MP encima. */
   amount: number
+  /** Monto del viaje que se abona a la venta (crea el intent). Sin gross-up es
+   *  igual a `amount`. */
+  amountViaje?: number
   onResult: (r: ResultadoBrick) => void
 }) {
   const containerId = `mp-brick-${bookingId}`
@@ -97,7 +103,10 @@ export function MpPaymentBrick({
               setError('Hubo un problema con el pago. Intenta de nuevo.')
             },
             onSubmit: async ({ formData }: { formData: Record<string, unknown> }) => {
-              const res = await pagarConBrickMarketplace(bookingId, amount, formData)
+              // Se paga el monto del VIAJE (crea el intent = lo que se abona); el
+              // cobro real recalcula el gross-up desde el intent, igual que el
+              // `amount` que este Brick mostró. Sin gross-up, amountViaje == amount.
+              const res = await pagarConBrickMarketplace(bookingId, amountViaje ?? amount, formData)
               if ('error' in res) {
                 toast.error(res.error)
                 // Lanzar el error hace que el Brick re-habilite el botón.
@@ -128,7 +137,7 @@ export function MpPaymentBrick({
       brickRef.current?.unmount()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bookingId, amount])
+  }, [bookingId, amount, amountViaje])
 
   if (error) return <p className="text-sm text-destructive">{error}</p>
   return (

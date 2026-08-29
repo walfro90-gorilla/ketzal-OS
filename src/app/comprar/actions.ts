@@ -254,7 +254,7 @@ export async function crearLinkPagoMarketplace(
   // cuenta conectada: flujo actual (token de plataforma) y el ledger registra
   // el payout a 7 días al confirmarse el pago.
   const svcClient = createServiceClient()
-  const { cobroToken, marketplaceFee, esSplit } = await resolverSplitMp(
+  const { cobroToken, marketplaceFee, esSplit, montoACobrar } = await resolverSplitMp(
     bookingId,
     intent.amount,
     token
@@ -266,13 +266,13 @@ export async function crearLinkPagoMarketplace(
     body: JSON.stringify({
       items: [
         {
-          // TODO Fase 4: cobrar el gross-up (montoACobrar) requiere que el
-          // checkout MUESTRE ese monto primero — cobrar distinto de lo mostrado
-          // es inaceptable. Hasta entonces se cobra intent.amount y MP descuenta
-          // su fee del reparto de la agencia.
+          // b075: con split se cobra el gross-up (viaje + fee de MP). El desglose
+          // se le mostró al viajero (desgloseCheckout) con el MISMO cálculo, así
+          // que lo cobrado == lo mostrado. El abono a la venta sigue siendo
+          // intent.amount (confirm_online_payment usa el intent, no lo cobrado).
           title: `Pedido ${bookingId.slice(0, 8)}`,
           quantity: 1,
-          unit_price: Number(intent.amount),
+          unit_price: Number(montoACobrar),
           currency_id: 'MXN',
         },
       ],
@@ -349,7 +349,7 @@ export async function pagarConBrickMarketplace(
   if (error || !data) return { error: safeError(error, 'No se pudo iniciar el pago.') }
   const intent = data as unknown as { id: string; amount: number }
 
-  const { cobroToken, marketplaceFee, esSplit } = await resolverSplitMp(
+  const { cobroToken, marketplaceFee, esSplit, montoACobrar } = await resolverSplitMp(
     bookingId,
     intent.amount,
     platformToken
@@ -367,10 +367,10 @@ export async function pagarConBrickMarketplace(
     },
     body: JSON.stringify({
       ...formData,
-      // TODO Fase 4: el gross-up (montoACobrar) exige que el Brick muestre ese
-      // monto — genera el card token para lo que muestra. Hasta cerrar la UI se
-      // cobra intent.amount.
-      transaction_amount: Number(intent.amount),
+      // b075: cobra el gross-up (mismo cálculo que el Brick mostró vía
+      // desgloseCheckout ⇒ el card token coincide con lo cobrado). El abono a la
+      // venta es intent.amount (confirm_online_payment usa el intent).
+      transaction_amount: Number(montoACobrar),
       description: `Pedido ${bookingId.slice(0, 8)}`,
       external_reference: intent.id,
       notification_url: `${origin}/api/mp/webhook`,
@@ -576,4 +576,29 @@ export async function enviarPagoSpei(input: {
     /* best-effort */
   }
   return { ok: true }
+}
+
+/**
+ * Desglose del checkout en línea ANTES de pagar (Fase 4, b075). Dado el monto
+ * del viaje, devuelve cuánto se cobrará realmente en MP (con el gross-up del fee
+ * de procesamiento) y el cargo por servicio a mostrar. El Brick se monta con
+ * `montoACobrar` para que lo que muestra sea lo que cobra.
+ *
+ * El cálculo es determinístico: `pagarConBrickMarketplace`/`crearLinkPago`
+ * recalculan el mismo gross-up desde el intent, así que el token de tarjeta que
+ * el Brick genera para `montoACobrar` coincide con lo que se cobra.
+ */
+export async function desgloseCheckout(
+  bookingId: string,
+  montoViaje: number,
+): Promise<{ montoViaje: number; montoACobrar: number; cargoProcesamiento: number; esSplit: boolean }> {
+  const token = process.env.MP_ACCESS_TOKEN ?? ''
+  // resolverSplitMp es best-effort: sin cuenta MP conectada devuelve el monto tal
+  // cual (esSplit=false, cargo 0), y el checkout se ve igual que antes de Fase 4.
+  const { montoACobrar, cargoProcesamiento, esSplit } = await resolverSplitMp(
+    bookingId,
+    montoViaje,
+    token,
+  )
+  return { montoViaje, montoACobrar, cargoProcesamiento, esSplit }
 }

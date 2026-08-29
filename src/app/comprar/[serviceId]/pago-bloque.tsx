@@ -13,6 +13,7 @@ import {
   previewPlan,
   generarPlanMarketplace,
   obtenerSpeiPedido,
+  desgloseCheckout,
   type PlanPreview,
   type SpeiInfo,
 } from '../actions'
@@ -55,8 +56,24 @@ export function PagoBloque({
   const [finalDate, setFinalDate] = useState('')
   const [preview, setPreview] = useState<PlanPreview | null>(null)
   const [busy, setBusy] = useState(false)
-  // Monto que se le pasó al Payment Brick embebido; null = aún no se mostró.
+  // Monto que MUESTRA el Payment Brick (con el gross-up del fee de MP si hay
+  // split, b075); null = aún no se mostró.
   const [brickAmount, setBrickAmount] = useState<number | null>(null)
+  // Monto del VIAJE que se abona a la venta (total o enganche); el Brick lo manda
+  // para crear el intent, mientras muestra/cobra brickAmount.
+  const [montoViaje, setMontoViaje] = useState<number | null>(null)
+  // Cargo por servicio (fee de MP que absorbe el viajero), para la leyenda. 0 sin split.
+  const [cargoProc, setCargoProc] = useState(0)
+
+  // Calcula el desglose (gross-up) y abre el Brick con el monto que se cobrará.
+  async function abrirBrick(monto: number) {
+    setBusy(true)
+    const d = await desgloseCheckout(bookingId, monto)
+    setBusy(false)
+    setMontoViaje(monto)
+    setCargoProc(d.cargoProcesamiento)
+    setBrickAmount(d.montoACobrar) // lo que el Brick muestra y cobra
+  }
   // lazy init: Date.now() no puede correr en render (regla de pureza)
   const [manana] = useState(() => new Date(Date.now() + 86400000).toISOString().slice(0, 10))
 
@@ -123,7 +140,7 @@ export function PagoBloque({
       toast.error(gen.error)
       return
     }
-    setBrickAmount(gen.plan.enganche) // muestra el Brick con el monto del enganche
+    await abrirBrick(gen.plan.enganche) // muestra el Brick con el gross-up del enganche
   }
 
   // Enganche por SPEI: genera el plan y abre el panel con el monto del enganche.
@@ -195,15 +212,18 @@ export function PagoBloque({
               type="button"
               size="touch"
               className="w-full"
-              onClick={() => setBrickAmount(total)}
+              loading={busy}
+              onClick={() => abrirBrick(total)}
             >
-              Pagar en línea {mxn.format(total)}
+              {busy ? 'Calculando…' : `Pagar en línea ${mxn.format(total)}`}
             </Button>
           ) : (
             <div className="space-y-2">
+              <DesgloseCargo viaje={montoViaje ?? total} cargo={cargoProc} total={brickAmount} />
               <MpPaymentBrick
                 bookingId={bookingId}
                 amount={brickAmount}
+                amountViaje={montoViaje ?? total}
                 onResult={manejarResultadoBrick}
               />
               <button
@@ -307,15 +327,17 @@ export function PagoBloque({
                 </Button>
               ) : (
                 <div className="space-y-2">
+                  <DesgloseCargo viaje={montoViaje ?? preview.enganche} cargo={cargoProc} total={brickAmount} />
                   <MpPaymentBrick
                     bookingId={bookingId}
                     amount={brickAmount}
+                    amountViaje={montoViaje ?? preview.enganche}
                     onResult={manejarResultadoBrick}
                   />
                   <button
                     type="button"
                     className="w-full text-center text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
-                    onClick={() => pagarFallback(brickAmount)}
+                    onClick={() => pagarFallback(montoViaje ?? preview.enganche)}
                   >
                     ¿Problemas para pagar? Usa el checkout de Mercado Pago
                   </button>
@@ -354,6 +376,37 @@ export function PagoBloque({
       )}
 
       <WaButton phone={agencyPhone} text={waText} />
+    </div>
+  )
+}
+
+/**
+ * Desglose del cobro en línea (b075): el viaje + el cargo por servicio (el fee de
+ * procesamiento de MP que absorbe el viajero) = total. Si no hay cargo (sin split
+ * con la agencia, o tasas en 0), muestra sólo el total sin desglosar.
+ */
+function DesgloseCargo({ viaje, cargo, total }: { viaje: number; cargo: number; total: number }) {
+  if (cargo <= 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Total a pagar: <span className="font-medium text-foreground">{mxn.format(total)}</span>
+      </p>
+    )
+  }
+  return (
+    <div className="rounded-md border bg-muted/40 p-3 text-sm">
+      <div className="flex justify-between">
+        <span className="text-muted-foreground">Viaje</span>
+        <span>{mxn.format(viaje)}</span>
+      </div>
+      <div className="flex justify-between">
+        <span className="text-muted-foreground">Cargo por servicio</span>
+        <span>{mxn.format(cargo)}</span>
+      </div>
+      <div className="mt-1 flex justify-between border-t pt-1 font-medium">
+        <span>Total</span>
+        <span>{mxn.format(total)}</span>
+      </div>
     </div>
   )
 }
