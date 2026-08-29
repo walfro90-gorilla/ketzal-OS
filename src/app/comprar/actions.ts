@@ -266,6 +266,10 @@ export async function crearLinkPagoMarketplace(
     body: JSON.stringify({
       items: [
         {
+          // TODO Fase 4: cobrar el gross-up (montoACobrar) requiere que el
+          // checkout MUESTRE ese monto primero — cobrar distinto de lo mostrado
+          // es inaceptable. Hasta entonces se cobra intent.amount y MP descuenta
+          // su fee del reparto de la agencia.
           title: `Pedido ${bookingId.slice(0, 8)}`,
           quantity: 1,
           unit_price: Number(intent.amount),
@@ -363,6 +367,9 @@ export async function pagarConBrickMarketplace(
     },
     body: JSON.stringify({
       ...formData,
+      // TODO Fase 4: el gross-up (montoACobrar) exige que el Brick muestre ese
+      // monto — genera el card token para lo que muestra. Hasta cerrar la UI se
+      // cobra intent.amount.
       transaction_amount: Number(intent.amount),
       description: `Pedido ${bookingId.slice(0, 8)}`,
       external_reference: intent.id,
