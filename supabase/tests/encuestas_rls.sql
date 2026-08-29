@@ -135,11 +135,19 @@ begin
   end;
   reset role;
 
-  -- Un agente sin rol admin no administra encuestas.
+  -- Un agente de la MISMA agencia pero sin rol admin: ni administra ni LEE.
+  -- (m003: antes leía los leads por PostgREST aunque el nav sea adminOnly —
+  -- lo cazó el harness HTTP, no éste, porque aquí solo suplantábamos admins.)
   if v_agente_wl is not null then
     perform set_config('request.jwt.claims',
       json_build_object('sub', v_agente_wl, 'role', 'authenticated')::text, true);
     set local role authenticated;
+    select count(*) into n from ketzal.polls where id = v_poll;
+    insert into qa values ('agente no-admin ve la encuesta',
+      case when n = 0 then 'OK: 0 filas' else 'HUECO: '||n end);
+    select count(*) into n from ketzal.poll_votes where poll_id = v_poll;
+    insert into qa values ('agente no-admin ve los leads',
+      case when n = 0 then 'OK: 0 filas' else 'HUECO: '||n end);
     begin
       insert into ketzal.polls (supplier_id, question, options, month_from, month_to, created_by)
       values (v_wl, 'agente creando', '[]'::jsonb, '2030-01-01', '2030-02-01', v_agente_wl);

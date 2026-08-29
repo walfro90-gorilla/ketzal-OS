@@ -39,9 +39,14 @@ opinión. `ip`/`ua` quedan en `meta` como evidencia auditable: si aparece abuso
 real, la escalada es hCaptcha con verify propio o una regla de Vercel WAF, y
 esta decisión se sustituye con un ADR nuevo.
 
-**PII de leads: la lee solo la agencia dueña.** `poll_votes.contact` (WhatsApp o
-correo) e ip/ua viven bajo `poll_votes_owner_sel`, que exige que la encuesta sea
-del `my_supplier_id()` del lector. La tabla es **append-only y RPC-only-write**:
+**PII de leads: la lee solo el admin de la agencia dueña.** `poll_votes.contact`
+(WhatsApp o correo) e ip/ua viven bajo `poll_votes_owner_sel`, que exige
+`is_agency_admin` sobre la encuesta. La primera versión (m002) solo pedía
+pertenencia a la agencia y **el hard-test HTTP encontró la fuga**: un agente sin
+rol admin no podía entrar a `/investigacion` (el proxy lo bloquea) pero sí leía
+los contactos con su propio JWT contra PostgREST. Corregido en **m003**: si la
+sección es de admin, la RLS tiene que decirlo — el nav no es una protección.
+La tabla es **append-only y RPC-only-write**:
 `revoke insert, update, delete, truncate ... from authenticated, anon`. Ni la
 agencia dueña puede editar un voto. El copy de la página promete "serás de los
 primeros en apartar con el mínimo" — ese contacto se pidió para eso.
@@ -73,10 +78,15 @@ y arma la salida por el flujo normal.
   Van en `meta jsonb` con whitelist y recorte a 200 chars, no en columnas.
 
 ## Verificación
-Harness `supabase/tests/encuestas_rls.sql` (13 casos, suplantando identidad con
+Harness HTTP `supabase/tests/encuestas_rls.mjs` (JWT real, 3 posiciones: admin
+de otra agencia, agente no-admin, viajero) — **23/23 OK tras m003**. Siembra su
+propio lead con service role y *verifica que quedó sembrado* antes de probar:
+sin ese control, "no ve nada" contra una tabla vacía es verde falso. Fue el que
+cazó la fuga de PII que el harness SQL no vio, porque aquél solo suplantaba
+admins. Complemento `supabase/tests/encuestas_rls.sql` (15 casos con
 `set_config`: dedupe, voto no pisado, agregados sin PII, draft y cerrada
-rechazadas, cross-agencia en lectura y escritura, append-only incluso para la
-dueña) — 13/13 OK. `superficie_anonima.mjs` ampliado: 30 pruebas, 0 expuestas
+rechazadas, cross-agencia, append-only incluso para la dueña).
+`superficie_anonima.mjs` ampliado: 30 pruebas, 0 expuestas
 (`polls` y `poll_votes` dan 401 al anon; `get_public_poll` y `submit_poll_vote`
 con uuid inventado devuelven `null` sin crear filas; meta >4KB rechazado).
 Voto real end-to-end en navegador con UTM y `fbclid` en el query string,
