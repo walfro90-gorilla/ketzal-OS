@@ -36,6 +36,7 @@ export async function proxy(request: NextRequest) {
     path === '/explora' ||
     path.startsWith('/explora/') || // catálogo público (marketplace)
     path.startsWith('/servicio/') || // ficha pública de un servicio (marketplace)
+    path.startsWith('/opina/') || // encuesta de investigación de mercado (tráfico de Meta Ads)
     path === '/agencias' || // directorio público de agencias (marketplace)
     path.startsWith('/agencia/') || // perfil público de una agencia (marketplace)
     path.startsWith('/comprar/') || // compra en línea (el visitante sin sesión se registra aquí)

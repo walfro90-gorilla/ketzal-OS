@@ -16,6 +16,7 @@ import {
   UserRoundIcon,
   UserSearchIcon,
   ChartColumnIcon,
+  VoteIcon,
   HandCoinsIcon,
   ScaleIcon,
   ReceiptTextIcon,
@@ -54,6 +55,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Clawbot', href: '/clawbot', icon: BotIcon, primary: false },
   { label: 'Comisiones', href: '/comisiones', icon: PercentIcon, primary: false, adminOnly: true },
   { label: 'Reportes', href: '/reportes', icon: ChartColumnIcon, primary: false, adminOnly: true },
+  { label: 'Investigación', href: '/investigacion', icon: VoteIcon, primary: false, adminOnly: true },
   { label: 'Equipo', href: '/equipo', icon: UsersRoundIcon, primary: false, adminOnly: true },
   { label: 'Viajeros', href: '/viajeros', icon: UserRoundIcon, primary: false, adminOnly: true, superadminOnly: true },
   // Expediente por cuenta (b066). NO es superadminOnly: el admin de agencia

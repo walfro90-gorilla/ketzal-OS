@@ -18,6 +18,7 @@ export const ADMIN_HREFS = [
   '/proveedores',
   '/gastos',
   '/reportes',
+  '/investigacion',
   '/viajeros',
   '/usuarios',
   '/salud',

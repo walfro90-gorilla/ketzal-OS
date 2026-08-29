@@ -9,6 +9,57 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Investigación de mercado: la encuesta que compra la señal antes de armar la
+> salida (m002, 2026-08-29).** Hasta hoy la agencia armaba el trip y después
+> descubría si había demanda. Ahora paga Meta Ads apuntando a `/opina/[id]`:
+> quien llega vota destino + mes **sin registrarse**, y si quiere deja WhatsApp
+> o correo — ese lead es el ROI real del anuncio. Al votar ve los resultados
+> agregados (prueba social) y las dos puertas a Ketzal: crear cuenta o
+> `/explora`. La agencia administra todo desde `/investigacion` (adminOnly):
+> curar 4–8 destinos, abrir/cerrar/reabrir, resultados en barras, lista de
+> leads con link `wa.me` y export CSV, y la liga con UTM ya puestos para pegar
+> en el anuncio. Decisiones en **ADR-0018**.
+>
+> Lo que costó pensar más que codear: **el repo no tiene ni una policy de RLS
+> para `anon`** (0 de 80), así que la escritura anónima va por 2 RPCs
+> `SECURITY DEFINER` calcados de `accept_policy_by_token` (b047) — fail-closed
+> `return null`, tope de 4KB, idempotencia en el `on conflict`. Y **hCaptcha no
+> servía**: en este repo solo funciona a través de Supabase Auth (no hay
+> `HCAPTCHA_SECRET` ni verify propio), y un endpoint de voto no pasa por Auth.
+> El antiabuso quedó en dedupe por `sha256(cookie|ip|ua)` con `unique
+> (poll_id, voter_hash)`; techo asumido y escrito: borrar la cookie o rotar de
+> IP permite re-votar. Para una encuesta de marketing, poner un captcha entre
+> el anuncio y la opinión costaba más de lo que el sesgo vale.
+>
+> `poll_votes` guarda PII, así que es append-only + RPC-only-write (`revoke
+> insert,update,delete` a `authenticated` y `anon`) y solo la agencia dueña la
+> lee; ni ella puede editar un voto. `polls`, en cambio, **no** es RPC-only: no
+> es dinero, así que el CRUD escribe directo con `is_agency_admin` en vez de
+> tres RPCs de fachada. Las opciones son `jsonb` y no tabla hija — 4–8 filas,
+> un solo escritor; editar destinos con la encuesta ya abierta lo bloquea la
+> server action.
+>
+> **Probado duro contra la BD real**: harness nuevo `supabase/tests/
+> encuestas_rls.sql` (13 casos suplantando identidad con `set_config` —
+> dedupe, voto no pisado, agregados sin PII, draft y cerrada rechazadas,
+> cross-agencia en lectura y escritura, append-only hasta para la dueña):
+> **13/13 OK**. `superficie_anonima.mjs` ampliado con las dos tablas y los dos
+> RPCs: **30 pruebas, 0 expuestas** (`polls` y `poll_votes` dan 401; uuid
+> inventado devuelve `null` sin crear filas; `meta` >4KB rechazado). Voto real
+> en navegador con `?utm_source=meta&fbclid=…`, verificado en la fila
+> resultante (hash de 64 chars, UTM y contacto guardados); recarga muestra "ya
+> votaste". Datos de prueba borrados y **verificado en 0**. 19 tests de dominio
+> nuevos, `tsc` y `next build` limpios.
+>
+> Dos cosas que encontramos de paso, ninguna causada por este carril: las
+> cuentas QA (`walfre.am+...`) **ya no existen** tras la limpieza del
+> 2026-08-23, así que `policy_services_posiciones.mjs` y el
+> `encuestas_rls.mjs` nuevo no pueden correr hoy (el segundo hace *skip*
+> explícito con exit 2, no verde falso); y `.env.local` no trae
+> `SUPABASE_SERVICE_ROLE_KEY`, por lo que no se pudieron crear cuentas
+> efímeras para cubrir el camino HTTP autenticado — la cobertura equivalente
+> quedó por SQL.
+
 > **Proyecto Supabase propio + ADRs + catálogo con fotos y video (2026-08-26/28).**
 > Tres cosas encadenadas, todas disparadas por un síntoma chico: un magic link de
 > Ketzal aterrizó en `hub.gorillabs.dev` porque el Site URL de Auth era un dial

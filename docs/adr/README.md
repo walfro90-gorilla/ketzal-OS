@@ -24,3 +24,4 @@ este índice se actualiza en el mismo diff.**
 | [0015](0015-proyecto-supabase-dedicado.md) | Proyecto Supabase dedicado (org ECS) + bucket `ketzal-assets` | aceptada |
 | [0016](0016-pagos-solo-mp.md) | Pagos: solo Mercado Pago; SPEI/efectivo manual con comprobante | aceptada |
 | [0017](0017-whatsapp-baileys-box.md) | WhatsApp: Baileys en box + buzón `wa_session`; gate OFF por default | aceptada |
+| [0018](0018-investigacion-de-mercado.md) | Investigación de mercado: encuesta pública anónima (2 RPCs DEFINER), dedupe sin captcha, lead opcional | aceptada |

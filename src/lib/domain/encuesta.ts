@@ -1,0 +1,93 @@
+// Investigación de mercado (m002): helpers puros de la encuesta pública.
+// Viven aparte de la server action para poder probarlos sin BD ni request.
+
+/** Parámetros de campaña que aceptamos guardar en poll_votes.meta. */
+const UTM_PERMITIDOS = [
+  'utm_source',
+  'utm_medium',
+  'utm_campaign',
+  'utm_content',
+  'utm_term',
+  'fbclid',
+] as const
+
+/**
+ * Whitelist de UTM: el query string de un anuncio es entrada de terceros, así
+ * que solo copiamos las llaves conocidas y recortamos el valor. Sin esto, un
+ * link manipulado infla `meta` hasta el tope de 4KB del RPC.
+ */
+export function filtrarUtm(
+  params: Record<string, string | string[] | undefined>,
+): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const k of UTM_PERMITIDOS) {
+    const raw = params[k]
+    const v = Array.isArray(raw) ? raw[0] : raw
+    if (typeof v === 'string' && v.trim()) out[k] = v.trim().slice(0, 200)
+  }
+  return out
+}
+
+/** Primer día del mes de una fecha 'YYYY-MM' o 'YYYY-MM-DD' (sin zona horaria). */
+export function primerDiaDelMes(mes: string): string | null {
+  const m = /^(\d{4})-(\d{2})/.exec(mes)
+  if (!m) return null
+  const mm = Number(m[2])
+  if (mm < 1 || mm > 12) return null
+  return `${m[1]}-${m[2]}-01`
+}
+
+/** ¿El mes elegido cae dentro del rango de la encuesta? (comparación lexicográfica de 'YYYY-MM-01'). */
+export function mesEnRango(mes: string, desde: string, hasta: string): boolean {
+  const m = primerDiaDelMes(mes)
+  const d = primerDiaDelMes(desde)
+  const h = primerDiaDelMes(hasta)
+  if (!m || !d || !h) return false
+  return m >= d && m <= h
+}
+
+/** Los meses seleccionables de una encuesta, como 'YYYY-MM'. Tope de 24 por si el rango viene absurdo. */
+export function mesesDelRango(desde: string, hasta: string): string[] {
+  const d = primerDiaDelMes(desde)
+  const h = primerDiaDelMes(hasta)
+  if (!d || !h || d > h) return []
+  const out: string[] = []
+  let [y, m] = [Number(d.slice(0, 4)), Number(d.slice(5, 7))]
+  const [hy, hm] = [Number(h.slice(0, 4)), Number(h.slice(5, 7))]
+  while ((y < hy || (y === hy && m <= hm)) && out.length < 24) {
+    out.push(`${y}-${String(m).padStart(2, '0')}`)
+    if (++m > 12) { m = 1; y++ }
+  }
+  return out
+}
+
+const MESES_ES = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+]
+
+/** '2026-11' → 'noviembre 2026'. Formateo manual: `new Date('2026-11')` corre la zona horaria. */
+export function etiquetaMes(mes: string): string {
+  const m = /^(\d{4})-(\d{2})/.exec(mes)
+  if (!m) return mes
+  const i = Number(m[2]) - 1
+  return i >= 0 && i < 12 ? `${MESES_ES[i]} ${m[1]}` : mes
+}
+
+/** Normaliza las opciones que captura el form: recorta, descarta vacías y asigna ids estables. */
+export function normalizarOpciones(labels: string[]): { id: number; label: string }[] {
+  return labels
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .slice(0, 8)
+    .map((label, i) => ({ id: i + 1, label: label.slice(0, 60) }))
+}
+
+/** Link de WhatsApp para un lead, o null si dejó correo (o basura). */
+export function linkWhatsapp(contacto: string | null): string | null {
+  if (!contacto || contacto.includes('@')) return null
+  const digitos = contacto.replace(/\D/g, '')
+  if (digitos.length < 10) return null
+  // 10 dígitos = número mexicano sin lada país.
+  return `https://wa.me/${digitos.length === 10 ? `52${digitos}` : digitos}`
+}

@@ -44,8 +44,11 @@ const chequeo = (nombre, expuesto, detalle) => {
 }
 
 // ── 1. Tablas que el anon NO debería alcanzar ────────────────────────────
+// polls/poll_votes (m002): poll_votes guarda el contacto de los leads que deja
+// el tráfico de Meta Ads — si el anon la alcanza, se filtra la PII entera.
 for (const t of ['bookings', 'payments', 'customers', 'receipts', 'profiles',
-                 'payment_schedule', 'clawbot_reminders', 'system_log', 'payment_intents']) {
+                 'payment_schedule', 'clawbot_reminders', 'system_log', 'payment_intents',
+                 'polls', 'poll_votes']) {
   const r = await anonGet(`${t}?select=*&limit=3`)
   const filas = Array.isArray(r.body) ? r.body.length : 0
   chequeo(`anon → ${t}`, filas > 0, { status: r.status, filas })
@@ -82,11 +85,36 @@ for (const [fn, arg] of [
   ['get_quote_by_token',     { p_token: '11111111-2222-3333-4444-555555555555' }],
   ['get_receipt_public',     { p_receipt_id: '11111111-2222-3333-4444-555555555555' }],
   ['get_public_service',     { p_id: '11111111-2222-3333-4444-555555555555' }],
+  // m002: la encuesta pública. Un uuid al azar no debe confirmar ni negar nada.
+  ['get_public_poll',        { p_id: '11111111-2222-3333-4444-555555555555' }],
 ]) {
   const r = await anonRpc(fn, arg)
   const vacio = r.body === null || (Array.isArray(r.body) && r.body.length === 0)
   chequeo(`anon → ${fn}(uuid inventado)`, r.status === 200 && !vacio,
     { status: r.status, respuesta: r.body })
+}
+
+// ── 4b. Voto anónimo (m002): el RPC escribe, así que se prueba que un poll
+// inventado no cree nada y que los topes de payload aguanten. ──────────────
+{
+  const r = await anonRpc('submit_poll_vote', {
+    p_poll: '11111111-2222-3333-4444-555555555555',
+    p_option: 1,
+    p_month: '2030-01-01',
+    p_voter_hash: 'hash_de_prueba_superficie_anon',
+  })
+  chequeo('anon → submit_poll_vote(poll inventado)', r.status === 200 && r.body !== null,
+    { status: r.status, respuesta: r.body })
+
+  const grande = await anonRpc('submit_poll_vote', {
+    p_poll: '11111111-2222-3333-4444-555555555555',
+    p_option: 1,
+    p_month: '2030-01-01',
+    p_voter_hash: 'hash_de_prueba_superficie_anon',
+    p_meta: { x: 'a'.repeat(5000) },
+  })
+  chequeo('anon → submit_poll_vote(meta >4KB)', grande.status === 200,
+    { status: grande.status, respuesta: JSON.stringify(grande.body).slice(0, 160) })
 }
 
 // ── 5. RPCs internos que el anon NO debería poder invocar ───────────────
