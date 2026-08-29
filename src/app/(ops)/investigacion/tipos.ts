@@ -34,7 +34,12 @@ export type EncuestaInput = {
   month_from: string
   month_to: string
   closes_at?: string | null
+  /** Solo lo usa el superadmin, que no tiene agencia propia. Al admin de
+   *  agencia se le ignora: su encuesta la fija el default `my_supplier_id()`. */
+  supplier_id?: string | null
 }
+
+export type AgenciaOpcion = { id: string; name: string }
 
 export const ESTADO_LABEL: Record<PollStatus, string> = {
   draft: 'Borrador',

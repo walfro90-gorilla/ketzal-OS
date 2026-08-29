@@ -6,19 +6,29 @@ import { PlusIcon, XIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { NativeSelect } from '@/components/ui/native-select'
 import { crearEncuesta, editarEncuesta } from './actions'
-import type { Poll } from './tipos'
+import type { AgenciaOpcion, Poll } from './tipos'
 
 // Form de encuesta. Los meses usan <input type="month"> nativo: en móvil abre
 // el selector del sistema y no arrastramos una librería de fechas.
 // Con la encuesta ya publicada, destinos y meses quedan bloqueados: cambiarlos
 // invalidaría los votos ya emitidos (la action lo vuelve a verificar).
 
-export function EncuestaForm({ poll }: { poll?: Poll }) {
+export function EncuestaForm({
+  poll,
+  agencias,
+}: {
+  poll?: Poll
+  /** Solo llega con contenido para el superadmin, que no tiene agencia propia. */
+  agencias?: AgenciaOpcion[]
+}) {
   const router = useRouter()
   const editando = Boolean(poll)
   const bloqueado = Boolean(poll && poll.status !== 'draft')
+  const eligeAgencia = Boolean(agencias?.length) && !editando
 
+  const [supplierId, setSupplierId] = useState(agencias?.[0]?.id ?? '')
   const [question, setQuestion] = useState(poll?.question ?? '')
   const [options, setOptions] = useState<string[]>(
     poll?.options.map((o) => o.label) ?? ['', '', '', ''],
@@ -38,6 +48,7 @@ export function EncuestaForm({ poll }: { poll?: Poll }) {
         month_from: desde,
         month_to: hasta,
         closes_at: cierre || null,
+        ...(eligeAgencia ? { supplier_id: supplierId } : {}),
       }
       if (poll) {
         const res = await editarEncuesta(poll.id, input)
@@ -53,6 +64,23 @@ export function EncuestaForm({ poll }: { poll?: Poll }) {
 
   return (
     <div className="max-w-xl space-y-6">
+      {eligeAgencia && (
+        <div className="space-y-2">
+          <Label htmlFor="agencia">¿De qué agencia?</Label>
+          <NativeSelect
+            id="agencia"
+            value={supplierId}
+            onChange={(e) => setSupplierId(e.target.value)}
+          >
+            {agencias?.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </NativeSelect>
+        </div>
+      )}
+
       <div className="space-y-2">
         <Label htmlFor="question">La pregunta</Label>
         <Input

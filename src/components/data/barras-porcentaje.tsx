@@ -25,7 +25,9 @@ export function BarrasPorcentaje({
       {datos.map((d, i) => {
         const pct = Math.round((d.votes / total) * 100)
         return (
-          <li key={d.label} className="space-y-1">
+          // Índice y no `label`: dos destinos pueden llamarse igual, y los
+          // option_id desconocidos colapsan todos a "Otro".
+          <li key={`${i}-${d.label}`} className="space-y-1">
             <div className="flex items-baseline justify-between gap-3 text-sm">
               <span className="font-medium">{d.label}</span>
               <span className="tabular-nums text-muted-foreground">

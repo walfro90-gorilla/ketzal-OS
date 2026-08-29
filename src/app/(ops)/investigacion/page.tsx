@@ -24,24 +24,27 @@ type Fila = Poll & { votos: number }
 export default async function InvestigacionPage() {
   const supabase = await createClient()
 
-  const [{ data: polls }, { data: votos }] = await Promise.all([
-    supabase
-      .from('polls' as never)
-      .select('id, supplier_id, question, options, month_from, month_to, status, closes_at, created_at')
-      .order('created_at', { ascending: false }),
-    // Conteo en TS: son decenas de encuestas y unos miles de votos como techo.
-    // ponytail: si el volumen crece, esto se vuelve un RPC agregado.
-    supabase.from('poll_votes' as never).select('poll_id'),
-  ])
+  const { data: polls } = await supabase
+    .from('polls' as never)
+    .select('id, supplier_id, question, options, month_from, month_to, status, closes_at, created_at')
+    .order('created_at', { ascending: false })
 
-  const porEncuesta = new Map<string, number>()
-  for (const v of (votos ?? []) as unknown as { poll_id: string }[]) {
-    porEncuesta.set(v.poll_id, (porEncuesta.get(v.poll_id) ?? 0) + 1)
-  }
-  const filas: Fila[] = ((polls ?? []) as unknown as Poll[]).map((p) => ({
-    ...p,
-    votos: porEncuesta.get(p.id) ?? 0,
-  }))
+  const lista = (polls ?? []) as unknown as Poll[]
+
+  // Un `count` por encuesta en vez de traerse los votos para contarlos en TS:
+  // PostgREST corta la respuesta en 1000 filas por default y el conteo saldría
+  // corto en silencio justo cuando la campaña funciona.
+  const conteos = await Promise.all(
+    lista.map(async (p) => {
+      const { count } = await supabase
+        .from('poll_votes' as never)
+        .select('id', { count: 'exact', head: true })
+        .eq('poll_id', p.id)
+      return count ?? 0
+    }),
+  )
+
+  const filas: Fila[] = lista.map((p, i) => ({ ...p, votos: conteos[i] }))
 
   const columns: DataColumn<Fila>[] = [
     { header: 'Pregunta', primary: true, cell: (f) => f.question },

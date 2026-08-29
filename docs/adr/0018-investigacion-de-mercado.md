@@ -52,9 +52,15 @@ agencia dueña puede editar un voto. El copy de la página promete "serás de lo
 primeros en apartar con el mínimo" — ese contacto se pidió para eso.
 
 **`polls` NO es RPC-only-write.** No es dinero ni append-only, así que el CRUD
-del back-office escribe directo con policies `is_agency_admin(supplier_id)` en
-vez de tres RPCs de fachada. La regla de oro 3 (ADR-0006) protege tablas de
-dinero; extenderla aquí sería ceremonia sin garantía extra.
+del back-office escribe directo con policies `is_agency_admin(supplier_id)` (o
+`is_superadmin()`) en vez de tres RPCs de fachada. La regla de oro 3 (ADR-0006)
+protege tablas de dinero; extenderla aquí sería ceremonia sin garantía extra.
+Lo que sí vive en la BD es el **congelamiento** (m004): un trigger impide
+cambiar `options`, el rango de meses o el `supplier_id` de una encuesta ya
+publicada. Reasignar los ids de opción dejaría los `poll_votes.option_id` ya
+emitidos apuntando a otro destino —los resultados mienten sin que nadie lo
+note—, y esa regla vivía solo en `actions.ts`: el mismo error que m003 vino a
+corregir, una capa más abajo.
 
 **Opciones como `jsonb`, no tabla hija.** Son 4–8 filas con un solo escritor;
 el conteo es `group by option_id` sobre los votos. Una tabla hija exigiría RLS,
@@ -67,6 +73,15 @@ está excluida del v1 del proyecto), auto-notificación por WhatsApp cuando gana
 un destino (carril Baileys pausado, ADR-0017), y conversión automática
 encuesta→salida. El cierre del loop es **manual**: la agencia exporta los leads
 y arma la salida por el flujo normal.
+
+**El superadmin administra igual que un admin de agencia (m004).** Las policies
+de escritura de m002 solo miraban `is_agency_admin`, que exige `role = 'admin'`
+literal: la cuenta de plataforma (superadmin, `supplier_id` NULL) veía las
+encuestas pero no podía crear ni abrir ninguna — la sección nacía rota para el
+fundador. Como no tiene agencia propia, el default `my_supplier_id()` tampoco le
+sirve: el form le muestra un selector de agencia y la acción exige ese
+`supplier_id`. Al admin de agencia se le ignora lo que mande: manda el default,
+así que nadie crea encuestas a nombre ajeno.
 
 ## Consecuencias
 - Cualquier tabla o RPC de superficie anónima que se agregue después debe
