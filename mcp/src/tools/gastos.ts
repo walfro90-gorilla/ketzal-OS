@@ -8,6 +8,8 @@
  */
 import { z } from 'zod'
 import { rpc } from '../rest.js'
+import { KetzalError } from '../errors.js'
+import { whoami } from './identidad.js'
 import type { ToolDef } from './registry.js'
 
 const CATEGORIAS = [
@@ -36,7 +38,20 @@ export const tools: ToolDef[] = [
       hasta: z.string().optional().describe('Fin del periodo YYYY-MM-DD (sólo en resumen).'),
     }),
     handler: async (a) => {
-      if (a.accion === 'por_pagar') return rpc('payables_summary')
+      if (a.accion === 'por_pagar') {
+        // `payables_summary` acota por `my_supplier_id()` y **falla abierto**: un
+        // superadmin sin agencia recibe ceros legítimos que se leen como "no debes
+        // nada". Un cero silencioso en dinero por pagar es peor que un error.
+        const yo = await whoami()
+        if (!yo.agencia) {
+          throw new KetzalError(
+            'Las cuentas por pagar se calculan por agencia y tu cuenta no tiene una ' +
+              `(${yo.rol ?? 'sin rol'}). Este reporte te daría $0 aunque haya deuda. ` +
+              'Consúltalo desde una cuenta de la agencia, o revisa /cuentas en la app.',
+          )
+        }
+        return rpc('payables_summary')
+      }
       return rpc('expenses_summary', { p_from: a.desde ?? null, p_to: a.hasta ?? null })
     },
   },

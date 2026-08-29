@@ -13,6 +13,7 @@ import { z } from 'zod'
 import { assertMontoEsperado } from '../guard.js'
 import { KetzalError } from '../errors.js'
 import { q, rpc, select } from '../rest.js'
+import { APP_URL } from '../config.js'
 import type { ToolDef } from './registry.js'
 
 const confirmar = z
@@ -219,7 +220,17 @@ export const tools: ToolDef[] = [
     inputSchema: z.object({
       venta_id: z.string().uuid().describe('Id de la venta.'),
       monto: z.number().positive().describe('Monto del abono en MXN.'),
-      metodo: z.string().optional().describe('efectivo, transferencia, deposito…'),
+      // Lista cerrada: `payment_method` entra al ledger append-only y un valor
+      // libre ("efvo", "transf") ensucia para siempre lo que se agrupa después.
+      // Son los del form de abono de la app (`METODOS` en ventas/[id]/abonos.tsx)
+      // MENOS los que no se asientan a mano: Mercado Pago entra por
+      // `confirm_online_payment` (con su intent y su id de pago real) y `credito`
+      // por `redeem_credit` (que liga el `credit_id` del que se deriva el saldo).
+      // Escribirlos aquí sería declarar dinero que nadie puede conciliar.
+      metodo: z
+        .enum(['efectivo', 'transferencia', 'deposito', 'tarjeta', 'otro'])
+        .optional()
+        .describe('Cómo entró el dinero. Default: efectivo.'),
       fecha: z.string().optional().describe('Fecha del pago YYYY-MM-DD. Default: hoy.'),
       confirmar,
     }),
@@ -237,7 +248,20 @@ export const tools: ToolDef[] = [
     inputSchema: z.object({
       pago_id: z.string().uuid().describe('Id del abono (lo devuelve ketzal_venta).'),
     }),
-    handler: async (a) => ({ folio: Number(await rpc('emit_receipt', { p_payment_id: a.pago_id })) }),
+    // `emit_receipt` devuelve folio, no el uuid de la ruta pública: el link se
+    // arma buscando el recibo recién emitido de ese pago.
+    handler: async (a) => {
+      const folio = Number(await rpc('emit_receipt', { p_payment_id: a.pago_id }))
+      const filas = await select<{ id: string }[]>(
+        'receipts',
+        `select=id&payment_id=eq.${q(String(a.pago_id))}&limit=1`,
+      ).catch(() => [])
+      return {
+        folio,
+        url: filas[0] ? `${APP_URL}/recibo/${filas[0].id}` : null,
+        nota: 'Liga pública del recibo, lista para mandar al cliente por WhatsApp.',
+      }
+    },
   },
   {
     name: 'ketzal_emitir_voucher',
@@ -251,7 +275,14 @@ export const tools: ToolDef[] = [
     inputSchema: z.object({
       venta_id: z.string().uuid().describe('Id de la venta.'),
     }),
-    handler: async (a) => ({ voucher_id: await rpc<string>('emit_voucher', { p_booking_id: a.venta_id }) }),
+    handler: async (a) => {
+      const id = await rpc<string>('emit_voucher', { p_booking_id: a.venta_id })
+      return {
+        voucher_id: id,
+        url: `${APP_URL}/voucher/${id}`,
+        nota: 'Liga pública del voucher (no muestra montos): sirve para el operador o el hotel.',
+      }
+    },
   },
   {
     name: 'ketzal_preview_plan_pagos',

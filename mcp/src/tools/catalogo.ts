@@ -40,9 +40,16 @@ async function buscar(a: Record<string, unknown>) {
 // todo el catálogo). Mismas columnas que `/servicios`.
 
 const CAMPOS_LISTA =
-  'id,name,price,service_type,state_to,city_to,max_capacity,transport_type,published'
+  'id,name,price,service_type,state_to,city_to,max_capacity,transport_type,published,supplier_id'
+// El detalle trae TODO lo que `ketzal_editar_servicio` puede escribir. No es
+// exhaustividad: `itinerary`/`faqs`/`packs` se reemplazan enteros al editar, así
+// que sin poder leerlos primero una edición parcial los borra. `faqs` es el caso
+// terminal — la app web no tiene editor de FAQs, el MCP es el único que las
+// escribe. `images` va para poder ver si un servicio tiene banner antes de
+// publicarlo (un publicado sin foto ya pasó dos veces).
 const CAMPOS_DETALLE =
-  `${CAMPOS_LISTA},supplier_id,description,packs,includes,excludes,available_from,available_to`
+  `${CAMPOS_LISTA},description,packs,includes,excludes,available_from,available_to,` +
+  'state_from,city_from,itinerary,faqs,add_ons,yt_link,images'
 
 type SalidaRow = {
   id: string
@@ -51,18 +58,33 @@ type SalidaRow = {
   seats_taken: number
   note: string | null
   price_pct: number | null
+  pack_price_overrides: Record<string, number> | null
+}
+
+/**
+ * Nombre de cada agencia por id. Una sola llamada, no una por servicio: con un
+ * superadmin multi-agencia la lista de catálogo mezcla dueños y "el tour de
+ * Creel" es ambiguo. NO se resuelve con embed de PostgREST: `services` tiene 3
+ * FKs a `suppliers` (PGRST201) y `suppliers_read` no deja ver agencias ajenas.
+ * Mismo camino que `servicios/page.tsx`.
+ */
+async function nombresDeAgencia(): Promise<Map<string, string>> {
+  const filas = await rpc<{ id: string; name: string }[]>('list_agency_names').catch(() => null)
+  return new Map((filas ?? []).map((f) => [f.id, f.name]))
 }
 
 async function servicios(a: Record<string, unknown>) {
   const id = typeof a.servicio_id === 'string' ? a.servicio_id.trim() : ''
 
   if (id) {
-    const [filas, salidas] = await Promise.all([
+    const [filas, salidas, agencias] = await Promise.all([
       select<Record<string, unknown>[]>('services', `select=${CAMPOS_DETALLE}&id=eq.${q(id)}`),
       select<SalidaRow[]>(
         'service_departures',
-        `select=id,departs_on,max_capacity,seats_taken,note,price_pct&service_id=eq.${q(id)}&order=departs_on`,
+        `select=id,departs_on,max_capacity,seats_taken,note,price_pct,pack_price_overrides` +
+          `&service_id=eq.${q(id)}&order=departs_on`,
       ),
+      nombresDeAgencia(),
     ])
     const servicio = filas[0]
     if (!servicio) {
@@ -70,8 +92,18 @@ async function servicios(a: Record<string, unknown>) {
         'No existe ese servicio, o es de otra agencia y la RLS no te lo muestra.',
       )
     }
+    const imgs = (servicio.images ?? {}) as { imgBanner?: unknown; imgAlbum?: unknown }
     return {
-      servicio,
+      servicio: {
+        ...servicio,
+        agencia: agencias.get(String(servicio.supplier_id)) ?? null,
+        // `images` cruda es ruido (URLs largas); lo accionable es si hay foto.
+        images: undefined,
+        fotos: {
+          banner: typeof imgs.imgBanner === 'string' ? imgs.imgBanner : null,
+          galeria: Array.isArray(imgs.imgAlbum) ? imgs.imgAlbum.length : 0,
+        },
+      },
       salidas: salidas.map((s) => ({
         ...s,
         // Lugares libres: misma derivación que `listarSalidas` en la app.
@@ -80,7 +112,9 @@ async function servicios(a: Record<string, unknown>) {
       })),
       nota:
         'El precio del servicio es el "desde" (pack más barato). `price_pct` es el ajuste ' +
-        'de temporada de esa salida en %: 0 = precio normal.',
+        'de temporada de esa salida en %: 0 = precio normal. OJO al editar: `paquetes`, ' +
+        '`incluye`, `no_incluye`, `itinerario` y `preguntas` se REEMPLAZAN enteros — ' +
+        'manda de vuelta lo que ves aquí más tus cambios, o se pierde lo que omitas.',
     }
   }
 
@@ -93,11 +127,19 @@ async function servicios(a: Record<string, unknown>) {
     // `= true`, así que "no publicado" es el complemento, no `is.false`.
     filtros.push(a.publicado ? 'published=is.true' : 'published=not.is.true')
   }
+  const agenciaId = typeof a.agencia_id === 'string' ? a.agencia_id.trim() : ''
+  if (agenciaId) filtros.push(`supplier_id=eq.${q(agenciaId)}`)
 
-  const lista = await select<Record<string, unknown>[]>('services', filtros.join('&'))
+  const [lista, agencias] = await Promise.all([
+    select<Record<string, unknown>[]>('services', filtros.join('&')),
+    nombresDeAgencia(),
+  ])
   return {
     num: lista.length,
-    servicios: lista,
+    servicios: lista.map((s) => ({
+      ...s,
+      agencia: agencias.get(String(s.supplier_id)) ?? null,
+    })),
     nota:
       lista.length === limite
         ? `Se cortó en el límite de ${limite}. Acota con \`texto\` o sube \`limite\`.`
@@ -557,9 +599,11 @@ export const tools: ToolDef[] = [
     title: 'Catálogo de servicios',
     description:
       'Catálogo de viajes y paquetes de la agencia (la RLS acota a los tuyos; el superadmin ' +
-      've todos). Sin argumentos lista el catálogo; con `servicio_id` devuelve el detalle ' +
-      'más sus salidas con fecha, cupo y lugares libres. Úsala para saber qué se vende, a ' +
-      'qué precio, con cuánto cupo y qué está publicado en el catálogo público.',
+      've todos, con el nombre de la agencia dueña en cada fila). Sin argumentos lista el ' +
+      'catálogo; con `servicio_id` devuelve el detalle COMPLETO —incluidos itinerario, ' +
+      'preguntas frecuentes, paquetes, video y si tiene banner— más sus salidas con fecha, ' +
+      'cupo y lugares libres. **Léelo siempre antes de editar**: las listas se reemplazan ' +
+      'enteras, así que editar sin leer borra lo que no reenvíes.',
     inputSchema: z.object({
       servicio_id: z
         .string()
@@ -570,6 +614,10 @@ export const tools: ToolDef[] = [
         .boolean()
         .optional()
         .describe('true = sólo los publicados en el catálogo público; false = sólo los que no.'),
+      agencia_id: z
+        .string()
+        .optional()
+        .describe('Filtra por agencia dueña (útil si eres superadmin y ves varias).'),
       limite: z.number().optional().describe('Máximo de servicios a devolver (1-200, default 50).'),
     }),
     handler: servicios,

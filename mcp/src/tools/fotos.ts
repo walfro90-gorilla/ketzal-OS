@@ -48,8 +48,8 @@ export function extDe(ruta: string): { ext: string; mime: string } {
  */
 export function mergeImages(
   actual: unknown,
-  cambios: { banner?: string; albumNuevas?: string[] },
-): { next: Record<string, unknown>; sinCupo: number } {
+  cambios: { banner?: string; albumNuevas?: string[]; quitar?: string[] },
+): { next: Record<string, unknown>; sinCupo: number; quitadas: number } {
   const base =
     actual && typeof actual === 'object' && !Array.isArray(actual)
       ? { ...(actual as Record<string, unknown>) }
@@ -57,11 +57,28 @@ export function mergeImages(
   if (cambios.banner) base.imgBanner = cambios.banner
 
   let sinCupo = 0
-  if (cambios.albumNuevas?.length) {
-    const lista = Array.isArray(base.imgAlbum)
+  let quitadas = 0
+  const tieneLista = cambios.albumNuevas?.length || cambios.quitar?.length
+  if (tieneLista) {
+    let lista = Array.isArray(base.imgAlbum)
       ? (base.imgAlbum as unknown[]).map(String).filter(Boolean)
       : []
-    for (const url of cambios.albumNuevas) {
+
+    // Quitar ANTES de agregar: así liberar espacio y llenarlo en la misma
+    // llamada funciona, en vez de chocar contra el tope con huecos disponibles.
+    if (cambios.quitar?.length) {
+      const fuera = new Set(cambios.quitar)
+      const antes = lista.length
+      lista = lista.filter((u) => !fuera.has(u))
+      quitadas = antes - lista.length
+      // El banner también puede ser lo que se quiere quitar.
+      if (typeof base.imgBanner === 'string' && fuera.has(base.imgBanner)) {
+        base.imgBanner = null
+        quitadas++
+      }
+    }
+
+    for (const url of cambios.albumNuevas ?? []) {
       if (lista.includes(url)) continue
       if (lista.length >= MAX_FOTOS) {
         sinCupo++
@@ -71,7 +88,7 @@ export function mergeImages(
     }
     base.imgAlbum = lista
   }
-  return { next: base, sinCupo }
+  return { next: base, sinCupo, quitadas }
 }
 
 /** Sube un archivo local al bucket público y devuelve su URL pública. */
@@ -119,8 +136,8 @@ function destinoPara(servicioId: string, slot: 'banner' | 'album', ext: string):
 async function subirFotos(args: Record<string, unknown>) {
   const a = esquema.parse(args)
   const id = a.servicio_id.trim()
-  if (!a.banner && !a.album?.length) {
-    throw new KetzalError('Manda `banner`, `album` o ambos: no hay nada que subir.')
+  if (!a.banner && !a.album?.length && !a.quitar?.length) {
+    throw new KetzalError('Manda `banner`, `album` o `quitar`: no hay nada que hacer.')
   }
 
   // RLS primero: si el servicio no es tuyo, no se sube ni un byte a Storage.
@@ -145,9 +162,10 @@ async function subirFotos(args: Record<string, unknown>) {
     albumUrls.push(await subirAStorage(f.ruta, destinoPara(id, 'album', f.ext), f.mime))
   }
 
-  const { next, sinCupo } = mergeImages(servicio.images, {
+  const { next, sinCupo, quitadas } = mergeImages(servicio.images, {
     banner: bannerUrl,
     albumNuevas: albumUrls,
+    quitar: a.quitar,
   })
   const actualizadas = await update<{ id: string }>(
     'services',
@@ -158,17 +176,22 @@ async function subirFotos(args: Record<string, unknown>) {
     throw new KetzalError('Las fotos subieron pero no se pudieron ligar al servicio (RLS).')
   }
 
-  const galeria = Array.isArray(next.imgAlbum) ? next.imgAlbum.length : 0
+  const galeria = Array.isArray(next.imgAlbum) ? (next.imgAlbum as string[]) : []
   return {
     servicio: { id, name: servicio.name },
-    banner_url: bannerUrl ?? null,
+    banner_url: (next.imgBanner as string | null) ?? null,
     album_agregadas: albumUrls,
-    galeria_total: galeria,
+    fotos_quitadas: quitadas,
+    galeria_total: galeria.length,
+    // Devolver la galería resultante es lo que hace utilizable a `quitar`: sin
+    // las URLs a la vista no hay forma de nombrar cuál foto sobra.
+    galeria: galeria,
     nota:
       'El banner es la foto principal (catálogo, ficha y preview social); la galería sale ' +
       'en el carrusel de la ficha pública.' +
       (sinCupo ? ` OJO: ${sinCupo} foto(s) ya no cupieron (tope ${MAX_FOTOS}).` : '') +
-      ' Quitar o reordenar fotos se hace desde la app web (/servicios).',
+      ' `quitar` desliga la foto de la ficha pero NO la borra de Storage. ' +
+      'Reordenar sigue siendo trabajo de la app web (/servicios).',
   }
 }
 
@@ -178,6 +201,13 @@ const esquema = z.object({
     .string()
     .optional()
     .describe('Ruta LOCAL absoluta de la foto principal. Reemplaza el banner actual.'),
+  quitar: z
+    .array(z.string())
+    .optional()
+    .describe(
+      'URLs públicas a desligar de la ficha (las que devuelve `galeria`, o el banner). ' +
+        'No borra el archivo de Storage. Se aplica antes de agregar las nuevas.',
+    ),
   album: z
     .array(z.string())
     .max(MAX_FOTOS)

@@ -36,6 +36,41 @@ describe('mergeImages', () => {
     expect(sinCupo).toBe(2)
   })
 
+  it('quitar desliga de la galería sin tocar el resto', () => {
+    const { next, quitadas } = mergeImages(
+      { imgBanner: 'b', imgAlbum: ['a', 'mala', 'c'], video: 'x' },
+      { quitar: ['mala'] },
+    )
+    expect(next.imgAlbum).toEqual(['a', 'c'])
+    expect(next.imgBanner).toBe('b')
+    expect(next.video).toBe('x')
+    expect(quitadas).toBe(1)
+  })
+
+  it('quitar también puede vaciar el banner', () => {
+    const { next, quitadas } = mergeImages({ imgBanner: 'feo', imgAlbum: [] }, { quitar: ['feo'] })
+    expect(next.imgBanner).toBeNull()
+    expect(quitadas).toBe(1)
+  })
+
+  it('quita ANTES de agregar: liberar y llenar en la misma llamada cabe', () => {
+    const llenas = Array.from({ length: 20 }, (_, i) => `u${i}`)
+    const { next, sinCupo } = mergeImages(
+      { imgAlbum: llenas },
+      { quitar: ['u0', 'u1'], albumNuevas: ['nueva1', 'nueva2'] },
+    )
+    expect((next.imgAlbum as string[]).length).toBe(20)
+    expect(next.imgAlbum).toContain('nueva1')
+    expect(next.imgAlbum).not.toContain('u0')
+    expect(sinCupo).toBe(0)
+  })
+
+  it('quitar algo que no está no rompe ni miente', () => {
+    const { next, quitadas } = mergeImages({ imgAlbum: ['a'] }, { quitar: ['no-existe'] })
+    expect(next.imgAlbum).toEqual(['a'])
+    expect(quitadas).toBe(0)
+  })
+
   it('jsonb nulo o corrupto arranca de cero', () => {
     expect(mergeImages(null, { banner: 'b' }).next).toEqual({ imgBanner: 'b' })
     expect(mergeImages(['array'], { albumNuevas: ['a'] }).next).toEqual({ imgAlbum: ['a'] })

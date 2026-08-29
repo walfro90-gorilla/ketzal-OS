@@ -23,6 +23,17 @@ export const SUPABASE_KEY =
 /** El schema de negocio. `public` está vacío a propósito. */
 export const SCHEMA = 'ketzal'
 
+/**
+ * Dominio de la app, para armar las ligas públicas de los documentos (recibo,
+ * voucher, cotización, estado de cuenta). El canal de venta es WhatsApp: un
+ * documento sin liga no se puede mandar, y un LLM adivinando la URL de un
+ * documento de dinero es peor que no tenerla.
+ */
+export const APP_URL = (process.env.KETZAL_APP_URL ?? 'https://ketzal-os.vercel.app').replace(
+  /\/+$/,
+  '',
+)
+
 /** Solo lectura: esconde por completo las herramientas de escritura. */
 export const READ_ONLY =
   process.env.KETZAL_MCP_READONLY === '1' || process.argv.includes('--read-only')

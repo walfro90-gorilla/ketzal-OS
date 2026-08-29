@@ -130,8 +130,19 @@ Dos reglas que conviene tener claras:
 Un servicio nace **sin publicar**. Se prende con `publicar_servicio` cuando esté
 listo, y desde ese momento lo ve cualquier visitante de internet.
 
-**Lo que sigue viviendo en la app web:** las fotos y el video del servicio, porque
-hay que subir el archivo a Storage. Todo lo demás se puede dictar desde aquí.
+Las fotos van con `subir_fotos` (desde archivos locales; `quitar` desliga una que
+sobre) y el video con el campo `video` de `editar_servicio`.
+
+**Lee el servicio antes de editarlo.** `editar_servicio` es parcial —sólo viaja lo
+que mandas— pero las listas (`paquetes`, `incluye`, `no_incluye`, `itinerario`,
+`preguntas`) se **reemplazan enteras**: lo que omitas se pierde. `ketzal_servicios`
+con `servicio_id` devuelve todo eso para que puedas reenviarlo con tus cambios. Las
+**preguntas frecuentes** son el caso crítico: la app web no tiene editor de FAQs, así
+que este MCP es el único lugar donde existen.
+
+**Lo que sigue viviendo en la app web:** reordenar la galería, gestionar agencias y
+proveedores (ahí viven la CLABE y el % de comisión), equipo/invitaciones/roles y los
+ajustes de plataforma.
 
 ## Lo que este servidor NO es
 
@@ -153,6 +164,7 @@ repartir este MCP a agentes de agencia, audítalos primero.
 | `KETZAL_MCP_MAX_WRITES` | Tope de escrituras por sesión (default 20) |
 | `KETZAL_EMAIL` / `KETZAL_PASSWORD` | Login sin interacción, para CI. Desaconsejado a diario: deja la contraseña en un archivo de configuración |
 | `KETZAL_SUPABASE_URL` / `KETZAL_SUPABASE_KEY` | Apuntar a otro proyecto de Supabase |
+| `KETZAL_APP_URL` | Dominio para las ligas públicas de recibo/voucher/cotización/estado (default `https://ketzal-os.vercel.app`) |
 
 ## Desarrollo
 

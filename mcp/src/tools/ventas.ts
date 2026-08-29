@@ -2,6 +2,7 @@
 import { z } from 'zod'
 import { KetzalError } from '../errors.js'
 import { q, rpc, select } from '../rest.js'
+import { APP_URL } from '../config.js'
 import type { ToolDef } from './registry.js'
 
 const ESTADOS = ['draft', 'reserved', 'confirmed', 'paid', 'cancelled'] as const
@@ -133,7 +134,7 @@ async function listarVentas(args: Record<string, unknown>) {
 const COLS_DETALLE =
   'id,folio,quote_folio,status,travel_date,due_date,num_pax,subtotal,discount,total,' +
   'currency,exchange_rate,payment_type,plan_frequency,plan_final_date,notes,cancel_reason,' +
-  'cancel_fee_mxn,cancelled_at,policy_accepted_at,created_at,owner_supplier_id,' +
+  'cancel_fee_mxn,cancelled_at,policy_accepted_at,created_at,quote_token,owner_supplier_id,' +
   'selling_supplier_id,customer_id,service_id,marketplace_customer_id,' +
   'customer:customers(id,full_name,phone,email),service:services(id,name)'
 
@@ -142,6 +143,8 @@ type Detalle = {
   customer_id: string | null
   owner_supplier_id: string
   selling_supplier_id: string
+  status: string | null
+  quote_token: string | null
   [k: string]: unknown
 }
 
@@ -188,6 +191,26 @@ async function verVenta(args: Record<string, unknown>) {
     service?: unknown
   }
 
+  // Ligas públicas de los documentos: es lo que se manda por WhatsApp. Se arman
+  // aquí, con el token/uuid que ya vino de la BD, para que el agente nunca tenga
+  // que adivinar la URL de un documento de dinero. El estado de cuenta pide su
+  // token aparte (`ensure_statement_token` lo crea la primera vez) y sólo existe
+  // para ventas cerradas — en `draft` el RPC falla y la liga se omite.
+  const rec = (recibos as { id: string; folio: number }[] | null) ?? []
+  const vou = ((vouchers as { id: string; folio: number }[] | null) ?? [])[0]
+  const tokenEstado =
+    b.status && b.status !== 'draft'
+      ? await opcional(rpc<string>('ensure_statement_token', { p_booking_id: id }))
+      : null
+
+  const links: Record<string, unknown> = {}
+  if (tokenEstado) links.estado_de_cuenta = `${APP_URL}/estado/${tokenEstado}`
+  if (b.quote_token) links.cotizacion = `${APP_URL}/cotizacion/${b.quote_token}`
+  if (vou) links.voucher = `${APP_URL}/voucher/${vou.id}`
+  if (rec.length) {
+    links.recibos = rec.map((r) => ({ folio: r.folio, url: `${APP_URL}/recibo/${r.id}` }))
+  }
+
   return {
     venta: campos,
     cliente: customer ?? null,
@@ -199,10 +222,11 @@ async function verVenta(args: Record<string, unknown>) {
     abonos,
     recibos,
     pasajeros,
-    voucher: (vouchers as unknown[] | null)?.[0] ?? null,
+    voucher: vou ?? null,
     plan_pagos: plan,
     asientos,
     creditos_del_cliente: creditos,
+    links,
   }
 }
 
