@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { Captcha, type CaptchaHandle, faltaCaptcha } from '@/components/auth/captcha'
+import { GoogleButton } from '@/components/auth/google-button'
 import { registrarComprador } from '@/app/comprar/actions'
 import { BrandLogo } from '@/components/brand-logo'
 import { Button } from '@/components/ui/button'
@@ -109,6 +110,21 @@ function AuthCard() {
         <CardDescription>Tus viajes en Ketzal. Entra o crea tu cuenta.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Arriba del alta por contraseña a propósito: para un comprador es el
+            camino de menor fricción, y sirve igual para entrar que para crear
+            cuenta (Google ya verificó el correo). Nace `viajero` como cualquier
+            alta — el tipo no depende de esta pantalla (ver GoogleButton). */}
+        <GoogleButton next="/mis-compras" disabled={pending} onError={(m) => setError(m || null)} />
+
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-card text-muted-foreground px-2">o con tu correo</span>
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 gap-2">
           <Button
             type="button"
