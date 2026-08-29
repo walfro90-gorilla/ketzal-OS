@@ -8,7 +8,7 @@
  * Del disco solo sale el `refresh_token`, en un archivo 0600. La contraseña no se
  * guarda jamás, y el config del cliente MCP queda sin secretos.
  */
-import { chmod, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { SUPABASE_KEY, SUPABASE_URL } from './config.js'
@@ -63,9 +63,14 @@ export async function readStored(): Promise<Stored | null> {
 async function writeStored(s: Stored): Promise<void> {
   const p = sessionPath()
   await mkdir(dirname(p), { recursive: true, mode: 0o700 })
-  await writeFile(p, JSON.stringify(s, null, 2) + '\n', { mode: 0o600 })
-  // `mode` de writeFile no aplica si el archivo ya existía: lo forzamos aparte.
-  await chmod(p, 0o600)
+  // Escritura ATÓMICA (archivo temporal + rename): varios procesos comparten
+  // este archivo —el servidor MCP y cualquier `ketzal-mcp` de terminal— y
+  // `writeFile` directo deja una ventana en la que otro lee un JSON a medias.
+  // `rename` dentro del mismo directorio es atómico en POSIX.
+  const tmp = `${p}.${process.pid}.tmp`
+  await writeFile(tmp, JSON.stringify(s, null, 2) + '\n', { mode: 0o600 })
+  await chmod(tmp, 0o600)
+  await rename(tmp, p)
 }
 
 export async function clearSession(): Promise<void> {
@@ -165,6 +170,18 @@ export async function getAccessToken(force = false): Promise<string> {
   return refreshing
 }
 
+/**
+ * ¿El fallo del refresh se explica porque OTRO proceso ya rotó el token?
+ *
+ * El archivo de sesión es compartido (servidor MCP + cualquier `ketzal-mcp` de
+ * terminal). Supabase rota el refresh token en cada canje, así que dos procesos
+ * que refrescan a la vez presentan el mismo token y el segundo llega tarde. Si
+ * en el disco ya hay uno distinto al que usamos, ese es el bueno.
+ */
+export function otroProcesoRoto(usado: string, enDisco: string | null | undefined): boolean {
+  return !!enDisco && enDisco !== usado
+}
+
 async function doRefresh(): Promise<string> {
   const stored = await readStored()
   if (!stored) {
@@ -180,14 +197,32 @@ async function doRefresh(): Promise<string> {
     )
   }
 
+  const canjear = async (token: string) =>
+    asGrant(await gotrue('token?grant_type=refresh_token', { refresh_token: token }))
+
   let g: Grant
   try {
-    g = asGrant(await gotrue('token?grant_type=refresh_token', { refresh_token: stored.refresh_token }))
+    g = await canjear(stored.refresh_token)
   } catch (e) {
-    throw new Error(
-      `La sesión de ${stored.email} caducó o fue revocada (${(e as Error).message}). ` +
-        'Corre `npx ketzal-mcp login` otra vez.',
-    )
+    // Reintento único releyendo el disco: si otro proceso ganó la carrera, el
+    // token bueno ya está escrito. Sin esto, dos procesos concurrentes se
+    // tumban la sesión mutuamente y hay que volver a entrar por correo.
+    const fresco = await readStored()
+    if (!otroProcesoRoto(stored.refresh_token, fresco?.refresh_token)) {
+      throw new Error(
+        `La sesión de ${stored.email} caducó o fue revocada (${(e as Error).message}). ` +
+          'Corre `npx ketzal-mcp login` otra vez.',
+      )
+    }
+    log('otro proceso rotó el token; reintentando con el del disco')
+    try {
+      g = await canjear(fresco!.refresh_token)
+    } catch (e2) {
+      throw new Error(
+        `La sesión de ${stored.email} caducó o fue revocada (${(e2 as Error).message}). ` +
+          'Corre `npx ketzal-mcp login` otra vez.',
+      )
+    }
   }
 
   // Supabase ROTA el refresh token en cada canje: si no se persiste el nuevo, el

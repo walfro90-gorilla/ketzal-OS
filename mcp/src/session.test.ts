@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { readStored, sessionPath } from './session.js'
+import { otroProcesoRoto, readStored, sessionPath } from './session.js'
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -65,5 +65,27 @@ describe('el archivo de sesión guarda solo el refresh token', () => {
     expect((await stat(p)).mode & 0o777).toBe(0o600)
 
     await rm(base, { recursive: true, force: true })
+  })
+})
+
+// La carrera que esto cubre: el servidor MCP y un `ketzal-mcp` de terminal
+// comparten el mismo session.json. Supabase ROTA el refresh token en cada
+// canje, así que el segundo proceso presenta uno ya usado y falla. Si en el
+// disco ya hay otro distinto, es que el primero ganó y ese token sirve.
+// Sin este reintento, dos procesos concurrentes se tumban la sesión y hay que
+// volver a entrar por correo (pasó dos veces en producción).
+describe('otroProcesoRoto', () => {
+  it('sí: el disco tiene un token distinto al que usamos', () => {
+    expect(otroProcesoRoto('viejo', 'nuevo')).toBe(true)
+  })
+
+  it('no: el disco sigue igual ⇒ la sesión murió de verdad', () => {
+    expect(otroProcesoRoto('viejo', 'viejo')).toBe(false)
+  })
+
+  it('no: sin sesión en disco no hay nada que reintentar', () => {
+    expect(otroProcesoRoto('viejo', null)).toBe(false)
+    expect(otroProcesoRoto('viejo', undefined)).toBe(false)
+    expect(otroProcesoRoto('viejo', '')).toBe(false)
   })
 })
