@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { otroProcesoRoto, readStored, sessionPath } from './session.js'
+import { credencialesHeadless, otroProcesoRoto, readStored, sessionPath } from './session.js'
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -87,5 +87,30 @@ describe('otroProcesoRoto', () => {
     expect(otroProcesoRoto('viejo', null)).toBe(false)
     expect(otroProcesoRoto('viejo', undefined)).toBe(false)
     expect(otroProcesoRoto('viejo', '')).toBe(false)
+  })
+})
+
+describe('credencialesHeadless', () => {
+  const e = process.env.KETZAL_EMAIL
+  const p = process.env.KETZAL_PASSWORD
+  afterEach(() => {
+    if (e === undefined) delete process.env.KETZAL_EMAIL; else process.env.KETZAL_EMAIL = e
+    if (p === undefined) delete process.env.KETZAL_PASSWORD; else process.env.KETZAL_PASSWORD = p
+  })
+
+  it('null si falta cualquiera de las dos', () => {
+    process.env.KETZAL_EMAIL = 'a@b.c'
+    delete process.env.KETZAL_PASSWORD
+    expect(credencialesHeadless()).toBeNull()
+
+    delete process.env.KETZAL_EMAIL
+    process.env.KETZAL_PASSWORD = 'x'
+    expect(credencialesHeadless()).toBeNull()
+  })
+
+  it('las devuelve cuando están ambas', () => {
+    process.env.KETZAL_EMAIL = 'a@b.c'
+    process.env.KETZAL_PASSWORD = 'x'
+    expect(credencialesHeadless()).toEqual({ email: 'a@b.c', password: 'x' })
   })
 })

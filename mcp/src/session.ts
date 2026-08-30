@@ -182,14 +182,46 @@ export function otroProcesoRoto(usado: string, enDisco: string | null | undefine
   return !!enDisco && enDisco !== usado
 }
 
+/**
+ * ¿Hay credenciales headless para rehacer el login solo?
+ *
+ * Es la red que evita la desconexión: Supabase ROTA el refresh token en cada
+ * canje y, con varios procesos MCP compartiendo `session.json` (uno por sesión
+ * de Claude Code), dos que refresquen a la vez presentan el mismo token. GoTrue
+ * lo lee como robo y **revoca la familia entera**: `Refresh Token Not Found`.
+ * Sin este fallback, ese momento obliga a un `login` manual por correo.
+ */
+export function credencialesHeadless(): { email: string; password: string } | null {
+  const email = process.env.KETZAL_EMAIL
+  const password = process.env.KETZAL_PASSWORD
+  return email && password ? { email, password } : null
+}
+
+/**
+ * Último recurso cuando el refresh token ya no sirve: rehacer el login con las
+ * credenciales de entorno. Si no las hay, se pide el login manual de siempre.
+ */
+async function rehacerLogin(email: string, causa: Error): Promise<string> {
+  const cred = credencialesHeadless()
+  if (cred) {
+    log(`refresh rechazado (${causa.message}); rehaciendo login de ${cred.email}`)
+    await loginWithPassword(cred.email, cred.password)
+    return cached!.token
+  }
+  throw new Error(
+    `La sesión de ${email} caducó o fue revocada (${causa.message}). ` +
+      'Corre `npx ketzal-mcp login` otra vez, o define KETZAL_EMAIL y KETZAL_PASSWORD ' +
+      'para que el servidor se reconecte solo.',
+  )
+}
+
 async function doRefresh(): Promise<string> {
   const stored = await readStored()
   if (!stored) {
-    const email = process.env.KETZAL_EMAIL
-    const password = process.env.KETZAL_PASSWORD
-    if (email && password) {
+    const cred = credencialesHeadless()
+    if (cred) {
       log('sin sesión en disco; entrando con KETZAL_EMAIL/KETZAL_PASSWORD')
-      await loginWithPassword(email, password)
+      await loginWithPassword(cred.email, cred.password)
       return cached!.token
     }
     throw new Error(
@@ -209,19 +241,13 @@ async function doRefresh(): Promise<string> {
     // tumban la sesión mutuamente y hay que volver a entrar por correo.
     const fresco = await readStored()
     if (!otroProcesoRoto(stored.refresh_token, fresco?.refresh_token)) {
-      throw new Error(
-        `La sesión de ${stored.email} caducó o fue revocada (${(e as Error).message}). ` +
-          'Corre `npx ketzal-mcp login` otra vez.',
-      )
+      return await rehacerLogin(stored.email, e as Error)
     }
     log('otro proceso rotó el token; reintentando con el del disco')
     try {
       g = await canjear(fresco!.refresh_token)
     } catch (e2) {
-      throw new Error(
-        `La sesión de ${stored.email} caducó o fue revocada (${(e2 as Error).message}). ` +
-          'Corre `npx ketzal-mcp login` otra vez.',
-      )
+      return await rehacerLogin(stored.email, e2 as Error)
     }
   }
 
