@@ -13,11 +13,16 @@ import {
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { getTourSteps } from './tour-steps'
+import { EMBAJADOR_STEPS, VIAJERO_STEPS } from './tour-steps-personas'
+import { marcarTourVisto } from './onboarding-actions'
 
 // Tour de onboarding con SPOTLIGHT: oscurece el fondo, resalta el ítem del nav
 // (data-tour={href}), auto-scrollea hasta él y ancla la tarjeta al lado. Los
 // pasos sin sección (bienvenida, dinero) van CENTRADOS con fondo opaco.
-// Se auto-abre una vez por dispositivo (localStorage) y se reabre con el "?".
+// Se auto-abre la primera vez y se reabre con el "?". La marca de "ya lo vio"
+// vive en `profiles.onboarded_at` (m005) — por USUARIO, no por dispositivo, que
+// es como estaba y hacía que reapareciera en cada navegador. localStorage queda
+// de respaldo para que no parpadee antes de que responda el servidor.
 const SEEN_KEY = 'ketzal_tour_seen_v1'
 const PAD = 6 // aire alrededor del elemento resaltado
 const GAP = 12 // separación entre elemento y tarjeta
@@ -48,31 +53,57 @@ function placeCard(rect: DOMRect): CSSProperties {
   return { left: clampLeft(rect.left), bottom: vh - rect.top + GAP } // arriba (ancla por bottom)
 }
 
-export function ProductTour({ role }: { role?: string | null }) {
-  const steps = useMemo(() => getTourSteps(role), [role])
+export function ProductTour({
+  role,
+  persona = 'ops',
+  seenKey = SEEN_KEY,
+  yaVisto = false,
+}: {
+  role?: string | null
+  /**
+   * Qué tour mostrar. Se recibe el NOMBRE, no los pasos: cada paso lleva un
+   * `icon` que es un componente de React, y eso no puede cruzar de un Server
+   * Component a uno de cliente ("Only plain objects can be passed…"). El build
+   * no lo detecta; revienta al abrir la página. Así que los pasos se resuelven
+   * aquí, del lado del cliente.
+   */
+  persona?: 'ops' | 'embajador' | 'viajero'
+  /** Respaldo local por persona: cada shell tiene el suyo. */
+  seenKey?: string
+  /** `profiles.onboarded_at` ya tiene fecha ⇒ no se auto-abre. */
+  yaVisto?: boolean
+}) {
+  const steps = useMemo(() => {
+    if (persona === 'embajador') return EMBAJADOR_STEPS
+    if (persona === 'viajero') return VIAJERO_STEPS
+    return getTourSteps(role)
+  }, [persona, role])
   const [open, setOpen] = useState(false)
   const [i, setI] = useState(0)
   const [rect, setRect] = useState<DOMRect | null>(null)
   const cardRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    if (yaVisto) return
     try {
-      if (!localStorage.getItem(SEEN_KEY)) {
+      if (!localStorage.getItem(seenKey)) {
         setI(0)
         setOpen(true)
       }
     } catch {
       /* SSR / modo privado: sin auto-open; el botón "?" sigue disponible. */
     }
-  }, [])
+  }, [yaVisto, seenKey])
 
   const markSeen = useCallback(() => {
     try {
-      localStorage.setItem(SEEN_KEY, '1')
+      localStorage.setItem(seenKey, '1')
     } catch {
       /* noop */
     }
-  }, [])
+    // Y en el perfil, para que no reaparezca en otro dispositivo.
+    void marcarTourVisto()
+  }, [seenKey])
 
   const close = useCallback(() => {
     setOpen(false)

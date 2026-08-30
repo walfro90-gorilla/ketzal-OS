@@ -145,6 +145,15 @@ const STEPS: TourStep[] = [
     label: 'Panel',
     adminOnly: true,
   },
+  {
+    id: 'embajadores',
+    icon: UsersRoundIcon,
+    title: 'Embajadores',
+    body: 'Gente de fuera que comparte tus viajes y gana por cada venta que trae. Los das de alta en Comisiones con su correo, les fijas la tarifa y les mandas su acceso por WhatsApp. Ojo: sin tarifa configurada no cobran nada, aunque vendan.',
+    href: '/comisiones',
+    label: 'Comisiones',
+    adminOnly: true,
+  },
 ]
 
 /** Pasos visibles según el rol (oculta los de admin a los agentes). */

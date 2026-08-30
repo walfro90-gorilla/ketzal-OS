@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getBrandLogo } from '@/lib/brand'
 import { TravelShell } from '@/components/shell/travel-shell'
+import { ProductTour } from '@/components/shell/tour/product-tour'
 
 // Layout del VIAJERO. Envuelve /mis-compras y /perfil con el shell del viaje.
 // El gate de sesión lo hace el middleware (estas rutas no son públicas); el gate
@@ -14,9 +15,25 @@ export default async function TravelLayout({
   } = await supabase.auth.getUser()
   const logoUrl = await getBrandLogo()
 
+  // El viajero tampoco tenía onboarding: llegaba a "Mis compras" vacío sin saber
+  // que puede apartar con el mínimo ni qué es el voucher.
+  const { data: perfil } = user
+    ? await supabase
+        .from('profiles' as never)
+        .select('onboarded_at')
+        .eq('id', user.id)
+        .maybeSingle()
+    : { data: null }
+  const yaVisto = Boolean((perfil as { onboarded_at: string | null } | null)?.onboarded_at)
+
   return (
     <TravelShell email={user?.email ?? null} logoUrl={logoUrl}>
       {children}
+      <ProductTour
+        persona="viajero"
+        seenKey="ketzal_tour_viajero_v1"
+        yaVisto={yaVisto}
+      />
     </TravelShell>
   )
 }

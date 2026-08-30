@@ -119,6 +119,12 @@ export default async function ComisionesPage() {
   const agenciaPorId = new Map(
     (agencias as { id: string; name: string }[]).map((a) => [a.id, a.name])
   )
+  // El superadmin no tiene agencia propia: al dar de alta un embajador tiene que
+  // decir de quién es, o quedaría huérfano y sin tarifa posible (m005).
+  const agenciasParaAlta = (agencias as { id: string; name: string }[]).map((a) => ({
+    id: a.id,
+    name: a.name,
+  }))
   const reglaPorServicio = new Map(
     (
       (reglasRes.data ?? []) as unknown as {
@@ -287,18 +293,23 @@ export default async function ComisionesPage() {
         </Card>
       )}
 
-      {isSuperadmin && (
+      {(isSuperadmin || isAdmin) && (
         <Card>
           <CardHeader>
-            <CardTitle>Tarifas de embajador</CardTitle>
+            <CardTitle>Embajadores</CardTitle>
             <CardDescription>
-              Cuánto cobra cada embajador por vender un servicio (Ketzal lo paga de
-              su corte). Elige un embajador y fija su tarifa por servicio: fijo por
-              pasajero, fijo por venta o % de la venta.
+              Da de alta a quien va a compartir tus viajes y fija cuánto gana: fijo
+              por pasajero, fijo por venta, % de la venta, o una mezcla. Quien
+              recluta paga —
+              {isSuperadmin
+                ? ' las tarifas de plataforma las cubre Ketzal.'
+                : ' los embajadores que des de alta los paga tu agencia.'}{' '}
+              Sin tarifa configurada el embajador no cobra nada, aunque traiga
+              ventas.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <CrearEmbajador />
+            <CrearEmbajador agencias={isSuperadmin ? agenciasParaAlta : undefined} />
             {embajadoresRes.error ? (
               <p className="text-sm text-destructive">
                 Error al cargar los embajadores: {embajadoresRes.error.message}

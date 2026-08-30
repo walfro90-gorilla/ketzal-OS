@@ -5,11 +5,23 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { NativeSelect } from '@/components/ui/native-select'
 import { crearEmbajador } from './embajador-actions'
 
-/** Alta rápida de embajador (nombre + código de referido, email opcional). */
-export function CrearEmbajador() {
+/** Alta rápida de embajador. El correo es OBLIGATORIO (m005): por ahí recibe su
+ *  magic-link de acceso, y antes un correo inventado dejaba la cuenta muerta sin
+ *  aviso. El superadmin además elige de qué agencia es — él no tiene una propia. */
+export function CrearEmbajador({
+  agencias,
+}: {
+  /** Solo trae contenido para el superadmin; el admin de agencia usa la suya. */
+  agencias?: { id: string; name: string }[]
+}) {
   const router = useRouter()
+  const eligeAgencia = Boolean(agencias?.length)
+  // '' = embajador DIRECTO de Ketzal (sin agencia). Es el default del
+  // superadmin: vende de todas las agencias y cobra la tarifa de cada una.
+  const [supplierId, setSupplierId] = useState('')
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [ok, setOk] = useState(false)
@@ -26,6 +38,7 @@ export function CrearEmbajador() {
         nombre,
         codigo,
         email: email.trim() || undefined,
+        ...(eligeAgencia ? { supplierId } : {}),
       })
       if ('error' in res) {
         setError(res.error)
@@ -46,6 +59,27 @@ export function CrearEmbajador() {
     >
       <p className="text-sm font-medium">Nuevo embajador</p>
       <div className="grid gap-3 sm:grid-cols-3">
+        {eligeAgencia && (
+          <div className="space-y-1.5">
+            <Label htmlFor="emb-agencia">¿Quién lo recluta?</Label>
+            <NativeSelect
+              id="emb-agencia"
+              value={supplierId}
+              onChange={(e) => setSupplierId(e.target.value)}
+            >
+              <option value="">Ketzal (embajador directo)</option>
+              {agencias?.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </NativeSelect>
+            <p className="text-xs text-muted-foreground">
+              Solo dice quién lo dio de alta. Cualquier embajador puede vender
+              viajes de todas las agencias y cobra la tarifa que cada una fijó.
+            </p>
+          </div>
+        )}
         <div className="space-y-1.5">
           <Label htmlFor="emb-nombre">Nombre</Label>
           <Input
@@ -65,13 +99,13 @@ export function CrearEmbajador() {
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="emb-email">Correo (opcional)</Label>
+          <Label htmlFor="emb-email">Correo</Label>
           <Input
             id="emb-email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="opcional"
+            placeholder="por aquí recibe su acceso"
           />
         </div>
       </div>

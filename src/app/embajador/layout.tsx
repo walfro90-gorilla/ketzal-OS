@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getBrandLogo } from '@/lib/brand'
 import { ThemeToggle } from '@/components/shell/theme-toggle'
 import { getPersona, homeForPersona } from '@/lib/persona'
+import { ProductTour } from '@/components/shell/tour/product-tour'
 
 // Portal del EMBAJADOR. Chrome mínimo (logo + salir), sin back-office ni viaje.
 // Gate de persona: solo type='embajador'; al resto lo manda a su propia superficie.
@@ -23,6 +24,15 @@ export default async function EmbajadorLayout({
   if (persona !== 'ambassador') redirect(homeForPersona(persona))
 
   const logoUrl = await getBrandLogo()
+
+  // Un embajador recién reclutado aterrizaba aquí sin saber qué hacer. El tour
+  // se auto-abre solo la primera vez (onboarded_at, m005).
+  const { data: perfil } = await supabase
+    .from('profiles' as never)
+    .select('onboarded_at')
+    .eq('id', user.id)
+    .maybeSingle()
+  const yaVisto = Boolean((perfil as { onboarded_at: string | null } | null)?.onboarded_at)
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -55,6 +65,11 @@ export default async function EmbajadorLayout({
       </header>
       <main id="contenido" className="mx-auto w-full max-w-2xl flex-1 px-4 py-6 sm:py-10">
         {children}
+        <ProductTour
+          persona="embajador"
+          seenKey="ketzal_tour_embajador_v1"
+          yaVisto={yaVisto}
+        />
       </main>
     </div>
   )

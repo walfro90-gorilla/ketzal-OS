@@ -1,4 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
+import { ComoGanas } from './como-ganas'
+import type { TarifaEmbajador } from '@/lib/domain/embajador'
 import {
   Card,
   CardContent,
@@ -33,7 +35,50 @@ type Earnings = {
 
 export default async function EmbajadorPage() {
   const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   const { data, error } = await supabase.rpc('my_ambassador_earnings' as never)
+
+  // Cuánto gana. Con m008 no hay UNA tarifa: cada agencia fija la suya y él
+  // cobra la de la agencia dueña del viaje que traiga. Si tiene un trato
+  // especial (override por persona), ese gana sobre todas.
+  const [{ data: overrideRaw }, { data: porAgenciaRaw }] = await Promise.all([
+    supabase
+      .from('commission_rules' as never)
+      .select('basis, rate, unit_amount')
+      .eq('payee_type', 'embajador')
+      .eq('scope_profile_id', user?.id ?? '')
+      .eq('active', true)
+      .maybeSingle(),
+    supabase
+      .from('commission_rules' as never)
+      .select('basis, rate, unit_amount, scope_supplier_id')
+      .eq('payee_type', 'embajador')
+      .eq('active', true)
+      .not('scope_supplier_id', 'is', null),
+  ])
+  const override = (overrideRaw ?? null) as TarifaEmbajador | null
+  const porAgencia = (porAgenciaRaw ?? []) as unknown as (TarifaEmbajador & {
+    scope_supplier_id: string
+  })[]
+
+  // Nombre de cada agencia para poder decirle "en Border ganas X". Va por el
+  // RPC `list_agency_names` (DEFINER, solo id+nombre) y NO por un join a
+  // `suppliers`: esa tabla trae correo, teléfono, comisión pactada y la CLABE
+  // de los SPEI en `info`, y su policy solo expone la agencia propia — un
+  // embajador no tiene por qué ver nada de eso para saber cuánto gana.
+  const { data: agenciasRaw } = await supabase.rpc('list_agency_names' as never)
+  const nombrePorAgencia = new Map(
+    ((agenciasRaw ?? []) as unknown as { id: string; name: string }[]).map((a) => [
+      a.id,
+      a.name,
+    ]),
+  )
+  const tarifasAgencia = porAgencia.map((r) => ({
+    agencia: nombrePorAgencia.get(r.scope_supplier_id) ?? 'Otra agencia',
+    tarifa: r as TarifaEmbajador,
+  }))
   const e = (data ?? {
     referral_code: null,
     devengado: 0,
@@ -51,6 +96,8 @@ export default async function EmbajadorPage() {
           Comparte tu link, trae viajeros y gana por cada venta.
         </p>
       </div>
+
+      <ComoGanas override={override} porAgencia={tarifasAgencia} />
 
       {error && (
         <p className="text-sm text-destructive">
