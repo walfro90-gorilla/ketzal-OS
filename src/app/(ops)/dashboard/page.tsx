@@ -27,6 +27,7 @@ import {
 import { DataList, type DataColumn } from '@/components/data/data-list'
 import { EmptyState } from '@/components/data/empty-state'
 import { PageHeader } from '@/components/data/page-header'
+import { AgenciaLogo } from '@/components/public/agencia-logo'
 import { formatTravelDate, mxn } from '@/components/data/format'
 import { StatusBadge, type BookingStatus } from '@/components/data/status-badge'
 import { getClawbotResumen, type ClawbotResumen } from '../clawbot/data'
@@ -322,15 +323,15 @@ function Kpi({
   // Haz ámbar solo cuando el KPI pide atención (ej. "Por cobrar" con saldo).
   const beam = tone === 'amber'
   return (
-    <Card className={cn(beam && 'relative', t?.card)}>
+    <Card className={cn(beam && 'relative', t?.card, 'gap-1 py-3 sm:gap-2 sm:py-6')}>
       {beam && <BorderBeam duration={9} colorFrom="#f5a524" colorTo="#f7b84b" />}
-      <CardHeader>
-        <CardDescription className={t?.text}>{label}</CardDescription>
-        <CardTitle className={cn('text-2xl tabular-nums', t?.text)}>
+      <CardHeader className="px-3 sm:px-6">
+        <CardDescription className={cn('text-xs', t?.text)}>{label}</CardDescription>
+        <CardTitle className={cn('text-xl tabular-nums sm:text-2xl', t?.text)}>
           {value}
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-3 sm:px-6">
         <p className={cn('text-xs', t?.text ?? 'text-muted-foreground')}>
           {detail}
         </p>
@@ -391,6 +392,52 @@ function AtencionCard({
   linkLabel: string
 }) {
   const t = ATENCION_TONES[tone]
+
+  // Jerarquía por estado: "todo al día" es una buena noticia y no merece una
+  // tarjeta entera — en móvil tres de estas empujaban el resumen fuera de la
+  // pantalla. Colapsa a una fila con su enlace; desde sm: vuelve a ser tarjeta,
+  // donde el espacio no es el recurso escaso. La alerta nunca se encoge: es lo
+  // único que hay que ver.
+  if (!active) {
+    return (
+      <>
+        <Link
+          href={href}
+          className="flex items-center gap-2.5 rounded-xl border bg-card px-3 py-2.5 text-sm transition-colors hover:bg-muted/50 sm:hidden"
+        >
+          <CircleCheckIcon className="size-4 shrink-0 text-success" />
+          <span className="min-w-0 flex-1 truncate">
+            <span className="text-muted-foreground">{label}: </span>
+            <span className="font-medium">{calmValue}</span>
+          </span>
+          <ArrowRightIcon className="size-3.5 shrink-0 text-muted-foreground" />
+        </Link>
+
+        <Card className="hidden sm:block">
+          <CardHeader>
+            <CardDescription className="flex items-center gap-1.5">
+              <CircleCheckIcon className="size-3.5 shrink-0 text-success" />
+              {label}
+            </CardDescription>
+            <CardTitle className="text-2xl tabular-nums text-muted-foreground">
+              {calmValue}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex items-end justify-between gap-3">
+            <p className="text-xs text-muted-foreground">{calmDetail}</p>
+            <Link
+              href={href}
+              className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-primary hover:underline"
+            >
+              {linkLabel}
+              <ArrowRightIcon className="size-3" />
+            </Link>
+          </CardContent>
+        </Card>
+      </>
+    )
+  }
+
   return (
     <Card className={active ? t.card : undefined}>
       <CardHeader>
@@ -429,6 +476,59 @@ function AtencionCard({
         </Link>
       </CardContent>
     </Card>
+  )
+}
+
+/**
+ * Cabecera de identidad de la agencia: logo, nombre y el tamaño de la
+ * operación en tres cifras. Responde "dónde estoy y qué tan grande es esto"
+ * antes de cualquier número del día — el PageHeader solo lo decía en una línea
+ * de texto gris.
+ *
+ * Las cifras son de INVENTARIO (lo que la agencia tiene), no de desempeño: el
+ * dinero vive abajo, en Resumen, y mezclarlos aquí competiría con él.
+ */
+function CabeceraAgencia({
+  nombre,
+  logo,
+  servicios,
+  clientes,
+  equipo,
+}: {
+  nombre: string
+  logo: string | null
+  servicios: number
+  clientes: number
+  equipo: number
+}) {
+  const cifras = [
+    { n: servicios, label: servicios === 1 ? 'servicio' : 'servicios' },
+    { n: clientes, label: clientes === 1 ? 'cliente' : 'clientes' },
+    { n: equipo, label: equipo === 1 ? 'persona' : 'en el equipo' },
+  ]
+  return (
+    <section
+      aria-label="Tu agencia"
+      className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-2xl border bg-card p-4"
+    >
+      <div className="flex min-w-0 items-center gap-3">
+        <AgenciaLogo url={logo} nombre={nombre} tamano="md" className="shrink-0" />
+        <div className="min-w-0">
+          <p className="truncate font-display text-lg font-semibold tracking-[-0.01em]">
+            {nombre}
+          </p>
+          <p className="text-xs text-muted-foreground">Tu agencia</p>
+        </div>
+      </div>
+      <dl className="flex flex-1 flex-wrap items-center gap-x-6 gap-y-2 sm:justify-end">
+        {cifras.map((c) => (
+          <div key={c.label} className="flex items-baseline gap-1.5">
+            <dd className="text-xl font-semibold tabular-nums">{c.n}</dd>
+            <dt className="text-xs text-muted-foreground">{c.label}</dt>
+          </div>
+        ))}
+      </dl>
+    </section>
   )
 }
 
@@ -624,14 +724,41 @@ export default async function DashboardPage({
   const numCotPend = Number(d.num_cotizaciones ?? 0)
 
   let agencia: string | null = null
+  let agenciaLogo: string | null = null
+  let numServicios = 0
+  let numClientes = 0
+  let numEquipo = 0
   const supplierId = profileRes.data?.supplier_id
   if (supplierId) {
-    const { data: supplier } = await supabase
-      .from('suppliers')
-      .select('name')
-      .eq('id', supplierId)
-      .single()
-    agencia = supplier?.name ?? null
+    // La cabecera de identidad: quién eres y de qué tamaño es tu operación.
+    // Son `count` con `head: true` (no traen filas) y la RLS ya acota cada
+    // tabla a la agencia, así que no hace falta filtrar a mano salvo en
+    // `services`, que sí es visible entre agencias por el catálogo público.
+    const [supplierRes, serviciosRes, clientesRes, equipoRes] = await Promise.all([
+      // `img_logo` no está en database.types.ts (archivo con un solo dueño) ⇒ cast.
+      supabase
+        .from('suppliers' as never)
+        .select('name, img_logo')
+        .eq('id', supplierId)
+        .single(),
+      supabase
+        .from('services')
+        .select('id', { count: 'exact', head: true })
+        .eq('supplier_id', supplierId),
+      supabase.from('customers').select('id', { count: 'exact', head: true }),
+      supabase
+        .from('profiles')
+        .select('id', { count: 'exact', head: true })
+        .eq('supplier_id', supplierId),
+    ])
+    const sup = supplierRes.data as unknown as
+      | { name: string | null; img_logo: string | null }
+      | null
+    agencia = sup?.name ?? null
+    agenciaLogo = sup?.img_logo ?? null
+    numServicios = serviciosRes.count ?? 0
+    numClientes = clientesRes.count ?? 0
+    numEquipo = equipoRes.count ?? 0
   }
 
   // ── Agregados del periodo (solo presentación; el dinero manda el RPC) ──
@@ -729,7 +856,7 @@ export default async function DashboardPage({
     <div className="space-y-6">
       <PageHeader
         title="Panel"
-        description={agencia ? `Resumen operativo de ${agencia}` : 'Resumen operativo'}
+        description={agencia ? 'Tu operación de hoy' : 'Resumen operativo'}
         action={
           <Link
             href="/ventas/nueva"
@@ -740,101 +867,28 @@ export default async function DashboardPage({
         }
       />
 
+      {/* Identidad primero: de qué agencia es este panel y de qué tamaño es la
+          operación. Antes solo lo decía la línea gris del PageHeader. */}
+      {agencia && (
+        <CabeceraAgencia
+          nombre={agencia}
+          logo={agenciaLogo}
+          servicios={numServicios}
+          clientes={numClientes}
+          equipo={numEquipo}
+        />
+      )}
+
       {summaryRes.error && (
         <p className="text-sm text-destructive">
           Error al cargar el resumen: {summaryRes.error.message}
         </p>
       )}
 
-      {/* b064: primeros pasos de la agencia. Sólo mientras quede algo pendiente;
-          desaparece solo al completarse (el RPC lo deriva, no hay flag). */}
-      {onboarding && onboarding.pendientes > 0 && (
-        <ChecklistArranque data={onboarding} />
-      )}
-
       {/* b065: el agente libre puede pedir entrar a una agencia. Ser agente
           libre es una posición legítima, así que esto es una puerta, no un
           error que corregir. */}
       {agenciasParaUnirse && <UnirseAgencia agencias={agenciasParaUnirse} />}
-
-      {/* Lo accionable AHORA (no depende del rango de fechas de abajo). */}
-      <section aria-label="Requiere atención" className="space-y-3">
-        <h2 className="font-display text-lg font-semibold tracking-[-0.01em]">
-          Requiere atención
-        </h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <AtencionCard
-            tone="danger"
-            icon={TriangleAlertIcon}
-            label="Pagos vencidos"
-            active={numVencidas > 0}
-            value={mxn.format(montoVencido)}
-            detail={
-              numVencidas === 1
-                ? '1 venta con fecha de pago vencida'
-                : `${numVencidas} ventas con fecha de pago vencida`
-            }
-            calmDetail="Ninguna venta tiene pagos vencidos."
-            href="/cobranza"
-            linkLabel="Ver cobranza"
-          />
-          <AtencionCard
-            tone="pendiente"
-            icon={FileTextIcon}
-            label="Cotizaciones por cerrar"
-            active={numCotPend > 0}
-            value={String(numCotPend)}
-            detail={
-              numCotPend === 1
-                ? '1 cotización en borrador por dar seguimiento'
-                : `${numCotPend} cotizaciones en borrador por dar seguimiento`
-            }
-            calmDetail="No hay cotizaciones pendientes."
-            href="/cotizaciones"
-            linkLabel="Ver cotizaciones"
-          />
-          <AtencionCard
-            tone="bot"
-            icon={BotIcon}
-            label="Clawbot"
-            active={Number(clawbot.total ?? 0) > 0}
-            value={String(Number(clawbot.total ?? 0))}
-            detail={clawbotDetalle(clawbot) || 'Recordatorios por enviar'}
-            calmValue="Clawbot al día"
-            calmDetail="No hay recordatorios pendientes por enviar."
-            href="/clawbot"
-            linkLabel="Ver bandeja"
-          />
-          <AtencionCard
-            tone="pendiente"
-            icon={LandmarkIcon}
-            label="Pagos por confirmar"
-            active={numSpei > 0}
-            value={mxn.format(montoSpei)}
-            detail={
-              numSpei === 1
-                ? '1 transferencia SPEI declarada por revisar'
-                : `${numSpei} transferencias SPEI declaradas por revisar`
-            }
-            calmValue="Sin transferencias"
-            calmDetail="No hay transferencias SPEI por confirmar."
-            href="/cobranza"
-            linkLabel="Ver cobranza"
-          />
-          <AtencionCard
-            tone="danger"
-            icon={BanknoteIcon}
-            label="Anomalías de pago"
-            active={numAnomalias > 0}
-            value={String(numAnomalias)}
-            detail={`${anomaliaDetalle} — revisa y reembolsa si aplica`}
-            calmValue="Pagos en orden"
-            calmDetail="Sin anomalías de pago en las últimas 3 semanas."
-            href="/salud"
-            linkLabel="Ver salud"
-          />
-        </div>
-      </section>
 
       {/* Resumen del periodo: el filtro manda sobre TODO lo de esta sección. */}
       <section aria-label="Resumen del periodo" className="space-y-4">
@@ -851,7 +905,7 @@ export default async function DashboardPage({
           </p>
         )}
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-6">
           <Kpi
             label="Vendido"
             value={mxn.format(totalVendido)}
@@ -1031,6 +1085,93 @@ export default async function DashboardPage({
           </Link>
           .
         </p>
+      </section>
+
+      {/* Lo accionable AHORA (no depende del rango de fechas de abajo). */}
+      {/* b064: primeros pasos de la agencia. Sólo mientras quede algo pendiente;
+          desaparece solo al completarse (el RPC lo deriva, no hay flag).
+          Va DESPUÉS del resumen del día: es guía de arranque, no la operación
+          de hoy — con 7 de 8 hechos empujaba los números fuera de la pantalla. */}
+      {onboarding && onboarding.pendientes > 0 && (
+        <ChecklistArranque data={onboarding} />
+      )}
+
+      <section aria-label="Requiere atención" className="space-y-3">
+        <h2 className="font-display text-lg font-semibold tracking-[-0.01em]">
+          Requiere atención
+        </h2>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+          <AtencionCard
+            tone="danger"
+            icon={TriangleAlertIcon}
+            label="Pagos vencidos"
+            active={numVencidas > 0}
+            value={mxn.format(montoVencido)}
+            detail={
+              numVencidas === 1
+                ? '1 venta con fecha de pago vencida'
+                : `${numVencidas} ventas con fecha de pago vencida`
+            }
+            calmDetail="Ninguna venta tiene pagos vencidos."
+            href="/cobranza"
+            linkLabel="Ver cobranza"
+          />
+          <AtencionCard
+            tone="pendiente"
+            icon={FileTextIcon}
+            label="Cotizaciones por cerrar"
+            active={numCotPend > 0}
+            value={String(numCotPend)}
+            detail={
+              numCotPend === 1
+                ? '1 cotización en borrador por dar seguimiento'
+                : `${numCotPend} cotizaciones en borrador por dar seguimiento`
+            }
+            calmDetail="No hay cotizaciones pendientes."
+            href="/cotizaciones"
+            linkLabel="Ver cotizaciones"
+          />
+          <AtencionCard
+            tone="bot"
+            icon={BotIcon}
+            label="Clawbot"
+            active={Number(clawbot.total ?? 0) > 0}
+            value={String(Number(clawbot.total ?? 0))}
+            detail={clawbotDetalle(clawbot) || 'Recordatorios por enviar'}
+            calmValue="Clawbot al día"
+            calmDetail="No hay recordatorios pendientes por enviar."
+            href="/clawbot"
+            linkLabel="Ver bandeja"
+          />
+          <AtencionCard
+            tone="pendiente"
+            icon={LandmarkIcon}
+            label="Pagos por confirmar"
+            active={numSpei > 0}
+            value={mxn.format(montoSpei)}
+            detail={
+              numSpei === 1
+                ? '1 transferencia SPEI declarada por revisar'
+                : `${numSpei} transferencias SPEI declaradas por revisar`
+            }
+            calmValue="Sin transferencias"
+            calmDetail="No hay transferencias SPEI por confirmar."
+            href="/cobranza"
+            linkLabel="Ver cobranza"
+          />
+          <AtencionCard
+            tone="danger"
+            icon={BanknoteIcon}
+            label="Anomalías de pago"
+            active={numAnomalias > 0}
+            value={String(numAnomalias)}
+            detail={`${anomaliaDetalle} — revisa y reembolsa si aplica`}
+            calmValue="Pagos en orden"
+            calmDetail="Sin anomalías de pago en las últimas 3 semanas."
+            href="/salud"
+            linkLabel="Ver salud"
+          />
+        </div>
       </section>
 
       {/* Operación viva (no depende del rango): deudas y salidas próximas. */}
