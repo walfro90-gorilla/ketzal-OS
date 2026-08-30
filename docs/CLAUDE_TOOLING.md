@@ -8,7 +8,7 @@
 
 | Componente | Archivo | Qué hace |
 |---|---|---|
-| **Guard anti-clobber** | `.claude/hooks/guard-shared-tree.sh` | Hook `PreToolUse(Bash)`. Bloquea `git add -A/--all/.`, `git commit -a/-am/--all`, `git push --force/-f`. Permite rutas explícitas, `--amend`, `--force-with-lease`, fetch/rebase. Falla-seguro (sobre-bloquea). **El match es por sub-comando**, no por bloque: el comando se parte por `;`, `&&`, `||`, `|` y saltos de línea, y el verbo se ancla al inicio de cada trozo. Tests en `.claude/hooks/guard-shared-tree.test.sh` (19 casos, las dos direcciones). |
+| **Guard anti-clobber** | `.claude/hooks/guard-shared-tree.sh` | Hook `PreToolUse(Bash)`. Bloquea `git add -A/--all/.`, `git commit -a/-am/--all`, `git push --force/-f`. Permite rutas explícitas, `--amend`, `--force-with-lease`, fetch/rebase. Falla-seguro (sobre-bloquea). **El match es por sub-comando**, no por bloque: el comando se parte por `;`, `&&`, `||`, `|` y saltos de línea, y el verbo se ancla al inicio de cada trozo. Tests en `.claude/hooks/guard-shared-tree.test.sh` (21 casos, las dos direcciones). |
 | **`/push-safe`** | `.claude/commands/push-safe.md` | Ritual: fetch → no-clobber → rebase → push sin force → verifica deploy Vercel. |
 | **Statusline** | `.claude/statusline.sh` | Barra: modelo · rama + ↑/↓ vs `origin` (nudge de divergencia, sin fetch) · costo. Ámbar si estás atrás. |
 | **`/nuevo-carril <n>`** | `.claude/commands/nuevo-carril.md` | Crea worktree + rama desde `origin/main` con `.env*` copiado y `pnpm install` real (worktree que sí compila). |
@@ -69,7 +69,11 @@ estaba.
 solo, con el verbo anclado al inicio. Los 19 casos del harness cubren las dos
 direcciones: lo que debe bloquear y lo que debe dejar pasar.
 
+El ancla acepta el binario invocado por ruta (`/usr/bin/...`, `./...`) y los
+prefijos `VAR=x` y `sudo`. Ese hueco lo detectó el otro agente revisando el fix
+y se cerró en el acto: costaba menos arreglarlo que documentarlo.
+
 **Techo conocido** (marcado con `ponytail:` en el propio hook): un verbo lanzado
-por `xargs` o `sh -c "..."` se escapa del ancla. Es un guard contra el descuido
-propio, no contra un adversario; cubrir eso pide un parser de shell, no más
-regex.
+por `xargs` o `sh -c "..."` sigue escapándose. Ahí sí haría falta un parser de
+shell, y no vale la pena: es un guard contra el descuido propio, y quien escribe
+`sh -c` no está distraído.

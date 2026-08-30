@@ -39,6 +39,8 @@ caso 2 "git commit --all -m 'x'"                    "commit --all"
 caso 2 "git push --force origin main"             "push --force"
 caso 2 "git push -f origin main"                  "push -f"
 caso 2 "git fetch && git push --force origin main" "force push tras otro comando"
+caso 2 "/usr/bin/git push --force origin main"    "force push por ruta absoluta"
+caso 2 "./git push --force origin main"          "force push por ruta relativa"
 
 echo "── Debe PASAR (trabajo legítimo del día a día) ──"
 caso 0 "git add src/app/page.tsx"                "add de una ruta"
