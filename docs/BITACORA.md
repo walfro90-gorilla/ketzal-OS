@@ -9,6 +9,38 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **El gate de comisión estaba puesto pero no cerraba (b076 → b077, 2026-08-30).**
+> Al integrar el carril de comisiones que quedó sin commitear, el hard-test que
+> nunca había corrido destapó que **b076 era inerte**. Su guarda decía
+> `if r.basis is null then raise`, pero `resolve_commission_rule` NUNCA devuelve
+> vacío para `payee_type='plataforma'`: cuando no hay regla cae a un último
+> recurso que retorna siempre `('percent', coalesce(platform_commission_rate,0))`.
+> Resultado: con la regla general desactivada un servicio se publicaba igual, y
+> un `INSERT ... published=true` también pasaba. El agujero que motivó el carril
+> —vender del portal devengando $0 en silencio— seguía abierto justo en su caso
+> peor.
+>
+> **b077** mide el valor en vez de la forma: bloquea si `rate <= 0` **y**
+> `unit_amount <= 0`, lo que de paso cubre los cuatro basis (percent,
+> fijo_venta, fijo_pax, híbrido) en vez de solo los tres que enumeraba el ADR.
+> Hard-test en vivo 7/7 con los dos caminos en la misma corrida —publicar con
+> 20%, con el fallback de 10%, con `fijo_pax $150`; bloqueado con todo en 0% por
+> UPDATE y por INSERT; editar un ya publicado no re-valida— y restauración
+> verificada (fallback 10, regla 20, 5 publicados, 0 basura).
+>
+> Dos cosas que quedan anotadas, no corregidas: **hay dos fuentes del % de
+> plataforma** (`commission_rules` general = 20 y
+> `app_settings.platform_commission_rate` = 10); mientras la regla esté activa
+> se cobra 20, si alguien la desactiva baja a 10 sin avisar — unificarlas es
+> decisión de negocio. Y el gate solo vigila la **transición** a publicado: un
+> servicio ya en vitrina sigue ahí aunque después le quiten la comisión.
+>
+> Contexto de proceso: este carril lo dejó otra sesión que se cerró antes de
+> commitear, con su ADR-0019 declarando verificaciones que no se habían hecho
+> (el trigger ni siquiera estaba aplicado en la BD — solo la regla sembrada).
+> Recordatorio de que "aceptada" en un ADR no es evidencia; la evidencia es la
+> corrida.
+
 > **Los 7 arreglos de la revisión + se retira la security review automática
 > (2026-08-29, PR #69).** Después de subir las encuestas (m002/m003) pedí una
 > revisión del carril completo. Encontró 10 cosas; 7 valían el arreglo, y una
