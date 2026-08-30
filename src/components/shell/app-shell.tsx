@@ -16,6 +16,9 @@ export function AppShell({
   email,
   displayName,
   role,
+  avatar,
+  tipoCuenta,
+  agenciaNombre,
   tourYaVisto,
   logoUrl = null,
   sidebarCollapsed = false,
@@ -24,6 +27,10 @@ export function AppShell({
   email: string | null
   displayName: string | null
   role: string | null
+  /** Foto, tipo de cuenta y agencia: identidad completa en el menú. */
+  avatar?: string | null
+  tipoCuenta?: string | null
+  agenciaNombre?: string | null
   /** `profiles.onboarded_at` con fecha ⇒ el tour no se auto-abre (m005). */
   tourYaVisto?: boolean
   /** Logo oficial configurado (o null → cae al ícono de marca por defecto). */
@@ -74,7 +81,16 @@ export function AppShell({
           <ProductTour role={role} yaVisto={tourYaVisto} />
           <ThemeToggle />
           {email && <Notificaciones />}
-          {email && <UserMenu email={email} displayName={displayName} />}
+          {email && (
+            <UserMenu
+              email={email}
+              displayName={displayName}
+              avatar={avatar}
+              tipoCuenta={tipoCuenta}
+              agenciaNombre={agenciaNombre}
+              role={role}
+            />
+          )}
         </div>
       </header>
 

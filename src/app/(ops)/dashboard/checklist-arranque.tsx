@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { CheckIcon, RocketIcon } from 'lucide-react'
+import { CheckIcon, ChevronDownIcon, RocketIcon } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -17,6 +17,12 @@ import { cn } from '@/lib/utils'
 // SUGERIDO, NO BLOQUEANTE: es una tarjeta más del Panel. Bloquear el OS hasta
 // completarla sería hostil, sobre todo porque dos pasos (CLABE, Mercado Pago)
 // dependen de trámites externos que no se resuelven en el momento.
+//
+// COLAPSABLE con `<details>` nativo: cero JS, cero estado, y el teclado y el
+// lector de pantalla lo entienden sin ayuda. Se abre solo mientras quede más
+// de un paso; con uno pendiente ya no vale ocupar media pantalla —el resumen
+// de la cabecera dice cuál falta— y completa se colapsa del todo. Ese era el
+// problema real: con 7 de 8 hechos seguía empujando el panel hacia abajo.
 
 export type PasoOnboarding = {
   id: string
@@ -41,32 +47,50 @@ export function ChecklistArranque({ data }: { data: Onboarding }) {
   // constancia de avance (borrarlos de la vista se siente como perder progreso).
   const pasos = [...data.pasos].sort((a, b) => Number(a.hecho) - Number(b.hecho))
 
+  // El siguiente pendiente, para nombrarlo en la cabecera cuando está colapsado:
+  // así el resumen dice QUÉ falta, no solo cuántos.
+  const siguiente = pasos.find((p) => !p.hecho)
+
   return (
-    <section
-      aria-label="Primeros pasos"
-      className="rounded-2xl bg-primary/5 p-5 ring-1 ring-primary/25"
+    <details
+      open={data.pendientes > 1}
+      className="group rounded-2xl bg-primary/5 ring-1 ring-primary/25"
     >
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <summary className="flex cursor-pointer list-none flex-wrap items-start justify-between gap-3 rounded-2xl p-5 [&::-webkit-details-marker]:hidden">
         <div className="flex items-start gap-3">
           <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/12 text-primary">
             <RocketIcon className="size-5" />
           </span>
-          <div>
+          <div className="min-w-0">
             <h2 className="font-display text-lg font-semibold tracking-[-0.01em]">
               Primeros pasos
             </h2>
             <p className="text-sm text-muted-foreground">
-              Deja lista tu agencia para vender. Puedes hacerlo en cualquier orden.
+              {/* Colapsado dice qué falta; abierto, para qué sirve la lista. */}
+              <span className="group-open:hidden">
+                {siguiente
+                  ? `Te falta: ${siguiente.titulo}`
+                  : 'Tu agencia ya está lista para vender.'}
+              </span>
+              <span className="hidden group-open:inline">
+                Deja lista tu agencia para vender. Puedes hacerlo en cualquier orden.
+              </span>
             </p>
           </div>
         </div>
-        <p className="text-sm font-medium tabular-nums text-muted-foreground">
+        <span className="flex shrink-0 items-center gap-2 text-sm font-medium tabular-nums text-muted-foreground">
           {listos} de {data.total}
-        </p>
-      </div>
+          <ChevronDownIcon
+            aria-hidden
+            className="size-4 transition-transform group-open:rotate-180"
+          />
+        </span>
+      </summary>
+
+      <div className="px-5 pb-5">
 
       <div
-        className="mt-4 h-1.5 overflow-hidden rounded-full bg-primary/15"
+        className="h-1.5 overflow-hidden rounded-full bg-primary/15"
         role="progressbar"
         aria-valuenow={pct}
         aria-valuemin={0}
@@ -117,6 +141,7 @@ export function ChecklistArranque({ data }: { data: Onboarding }) {
           </li>
         ))}
       </ul>
-    </section>
+      </div>
+    </details>
   )
 }
