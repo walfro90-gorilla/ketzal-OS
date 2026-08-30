@@ -2,7 +2,7 @@
 import { KetzalError } from '../errors.js'
 import { insert, q, rpc, select, update } from '../rest.js'
 import { getAuthUser } from '../session.js'
-import { videoEmbedUrl } from '../video.js'
+import { verificarVideo, videoEmbedUrl, type VideoInfo } from '../video.js'
 import type { ToolDef } from './registry.js'
 import { z } from 'zod'
 
@@ -413,6 +413,21 @@ async function editarServicio(args: Record<string, unknown>) {
     throw new KetzalError('No mandaste ningún campo que cambiar.')
   }
 
+  // El formato ya lo validó `patchServicio`; esto pregunta si el video EXISTE y de
+  // quién es, para que no acabe un reproductor muerto —o de la competencia— en una
+  // ficha pública. Se hace antes del UPDATE: un 404 no debe llegar a la BD.
+  let video: VideoInfo | null = null
+  if (typeof patch.yt_link === 'string' && patch.yt_link) {
+    const embed = videoEmbedUrl(patch.yt_link)!
+    try {
+      video = await verificarVideo(embed)
+    } catch (e) {
+      throw new KetzalError(
+        `No se guardó el video: ${(e as Error).message}. Verifica la liga y vuelve a intentar.`,
+      )
+    }
+  }
+
   const filas = await update<Record<string, unknown>>(
     'services',
     `id=eq.${q(a.servicio_id.trim())}&select=${CAMPOS_DETALLE}`,
@@ -424,6 +439,10 @@ async function editarServicio(args: Record<string, unknown>) {
   return {
     servicio: filas[0],
     cambiados: Object.keys(patch),
+    // Se devuelve el dueño del video para que el agente pueda cumplir lo que el
+    // schema le pide: que no sea de una agencia competidora. Sin esto tendría que
+    // creerle a la liga.
+    ...(video ? { video: { ...video, revisa: 'Confirma que el canal no sea de una agencia competidora.' } } : {}),
     nota:
       'Sólo se tocaron los campos que mandaste; el resto quedó igual. Ojo: `paquetes` ' +
       'reemplaza la lista completa, no la mezcla — manda todos los que deba tener.',
