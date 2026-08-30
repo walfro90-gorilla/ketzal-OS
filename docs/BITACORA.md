@@ -9,6 +9,46 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Los 7 arreglos de la revisión + se retira la security review automática
+> (2026-08-29, PR #69).** Después de subir las encuestas (m002/m003) pedí una
+> revisión del carril completo. Encontró 10 cosas; 7 valían el arreglo, y una
+> era vergonzosa: **la sección no le servía al fundador**. `polls_admin_ins/upd`
+> solo miraban `is_agency_admin`, que exige `role='admin'` literal, y
+> `walfre.am@gmail.com` es superadmin con `supplier_id` NULL — veía las
+> encuestas pero no podía crear ninguna ("new row violates row-level security
+> policy", comprobado en vivo). Encima las actions hacían `.update()` sin
+> `.select()`, y como PostgREST devuelve **204 sin error** cuando la RLS filtra
+> las filas, la UI decía "listo" sobre un cambio que nunca ocurrió. m004 agrega
+> la rama `is_superadmin()`, el form le muestra selector de agencia (no tiene
+> una propia) y las actions ahora avisan si no tocaron filas.
+>
+> El resto: **congelamiento a la BD** (un trigger impide cambiar destinos, meses
+> o agencia de una encuesta publicada — reasignar los ids dejaba los votos
+> emitidos apuntando a otro destino, y esa regla vivía solo en `actions.ts`: el
+> mismo error de m003 una capa más abajo); **UTM filtrados en la server action**
+> y no en el componente, que es la frontera real; **CSV injection** en el export
+> de leads (`=HYPERLINK(...)` escrito por cualquiera desde el anuncio se
+> ejecutaba al abrir el Excel — el `campo()` copiado de /reportes solo escapa
+> comillas porque allá el origen es interno); y **conteos truncados a 1000**,
+> que habrían hecho mentir a las barras justo cuando la campaña funcionara.
+>
+> **Se elimina `.github/workflows/security-review.yml`** → [ADR-0020]. Nunca
+> corrió: pide el secreto `CLAUDE_API_KEY` y el repo no tiene ninguno
+> (`gh secret list` vacío). El PR #69 fue el primero en dispararlo —hasta ahora
+> el trabajo entraba por push directo a `main`, y el workflow solo escucha
+> `pull_request`— y falló en 30s con `ANTHROPIC_API_KEY is not set`. Trampa del
+> nombre: el secreto se llama `CLAUDE_API_KEY` en GitHub; el error dice
+> `ANTHROPIC_API_KEY` porque así se llama dentro de la action. Se retira en vez
+> de dejarlo en rojo permanente: un check que siempre falla entrena a ignorar
+> los checks. Se reimplanta al entrar en operación real; la deuda tiene dueño
+> (el fundador carga el secreto). Mientras tanto la revisión es manual y
+> obligatoria en carriles de RLS, dinero, PII o superficie anónima — que no es
+> equivalente, porque depende de que alguien se acuerde.
+>
+> **Nota de proceso:** m002 y m003 se pushearon directo a `main`, saltándose el
+> gate de PR que corresponde a un carril de RLS + migraciones. El #69 ya va por
+> rama, como debía haber sido desde el principio.
+
 > **Investigación de mercado: la encuesta que compra la señal antes de armar la
 > salida (m002, 2026-08-29).** Hasta hoy la agencia armaba el trip y después
 > descubría si había demanda. Ahora paga Meta Ads apuntando a `/opina/[id]`:
