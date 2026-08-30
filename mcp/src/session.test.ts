@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { credencialesHeadless, otroProcesoRoto, readStored, sessionPath } from './session.js'
+import { KetzalError } from './errors.js'
+import {
+  credencialesHeadless,
+  getAccessToken,
+  otroProcesoRoto,
+  readStored,
+  sessionPath,
+} from './session.js'
 import { mkdtemp, readFile, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -112,5 +119,27 @@ describe('credencialesHeadless', () => {
     process.env.KETZAL_EMAIL = 'a@b.c'
     process.env.KETZAL_PASSWORD = 'x'
     expect(credencialesHeadless()).toEqual({ email: 'a@b.c', password: 'x' })
+  })
+})
+
+// Los fallos de sesión tienen que llegarle AL AGENTE, no solo a stderr:
+// `registry.ts` únicamente deja pasar el mensaje de un KetzalError, y con un
+// Error pelón el agente recibía "No se pudo completar la operación." — sin la
+// única instrucción que lo desatora (`npx ketzal-mcp login`).
+describe('los errores de sesión son KetzalError', () => {
+  const e = process.env.KETZAL_EMAIL
+  const p = process.env.KETZAL_PASSWORD
+  afterEach(() => {
+    if (e === undefined) delete process.env.KETZAL_EMAIL; else process.env.KETZAL_EMAIL = e
+    if (p === undefined) delete process.env.KETZAL_PASSWORD; else process.env.KETZAL_PASSWORD = p
+  })
+
+  it('sin sesión en disco ni credenciales: dice cómo entrar', async () => {
+    process.env.XDG_CONFIG_HOME = join(tmpdir(), 'ketzal-sin-sesion-' + process.pid)
+    delete process.env.KETZAL_EMAIL
+    delete process.env.KETZAL_PASSWORD
+
+    await expect(getAccessToken(true)).rejects.toThrow(KetzalError)
+    await expect(getAccessToken(true)).rejects.toThrow(/ketzal-mcp login/)
   })
 })
