@@ -16,6 +16,7 @@ export function AppShell({
   email,
   displayName,
   role,
+  tourYaVisto,
   logoUrl = null,
   sidebarCollapsed = false,
   children,
@@ -23,6 +24,8 @@ export function AppShell({
   email: string | null
   displayName: string | null
   role: string | null
+  /** `profiles.onboarded_at` con fecha ⇒ el tour no se auto-abre (m005). */
+  tourYaVisto?: boolean
   /** Logo oficial configurado (o null → cae al ícono de marca por defecto). */
   logoUrl?: string | null
   sidebarCollapsed?: boolean
@@ -68,7 +71,7 @@ export function AppShell({
         </Link>
         <div className="flex items-center gap-1 sm:gap-2">
           <GlobalSearch />
-          <ProductTour role={role} />
+          <ProductTour role={role} yaVisto={tourYaVisto} />
           <ThemeToggle />
           {email && <Notificaciones />}
           {email && <UserMenu email={email} displayName={displayName} />}

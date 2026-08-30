@@ -9,7 +9,14 @@ import { safeError } from '@/lib/errors'
 // manda por WhatsApp (no depende de que el correo sea real/entregable: el link se
 // comparte a mano). Al abrirlo, /auth/callback rutea por type='embajador' → /embajador.
 
-async function requireSuperadmin(): Promise<{ ok: true } | { error: string }> {
+/**
+ * Puede generar el acceso el superadmin, o el admin de la agencia dueña del
+ * embajador (m005: quien recluta también entrega el acceso, si no cada alta
+ * vuelve a pasar por el fundador).
+ */
+async function requirePuedeDarAcceso(
+  embajadorId: string,
+): Promise<{ ok: true } | { error: string }> {
   const supabase = await createClient()
   const {
     data: { user },
@@ -17,21 +24,33 @@ async function requireSuperadmin(): Promise<{ ok: true } | { error: string }> {
   if (!user) return { error: 'Inicia sesión.' }
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, supplier_id')
     .eq('id', user.id)
     .single()
-  if (profile?.role !== 'superadmin') {
-    return { error: 'Solo el god admin puede generar accesos.' }
+  if (profile?.role === 'superadmin') return { ok: true }
+
+  if (profile?.role === 'admin' && profile.supplier_id) {
+    // Se pregunta por RLS (no con service role): `profiles_embajadores_de_mi_agencia`
+    // solo devuelve fila si el embajador es de su agencia.
+    // `type` no está en database.types.ts (archivo con un solo dueño) ⇒ cast.
+    const { data: emb } = await supabase
+      .from('profiles' as never)
+      .select('id')
+      .eq('id', embajadorId)
+      .eq('type', 'embajador')
+      .eq('supplier_id', profile.supplier_id)
+      .maybeSingle()
+    if (emb) return { ok: true }
   }
-  return { ok: true }
+  return { error: 'Solo el administrador de su agencia puede generar el acceso.' }
 }
 
 export async function generarAccesoEmbajador(
   embajadorId: string
 ): Promise<{ error: string } | { link: string }> {
-  const gate = await requireSuperadmin()
-  if ('error' in gate) return gate
   if (!embajadorId) return { error: 'Falta el embajador.' }
+  const gate = await requirePuedeDarAcceso(embajadorId)
+  if ('error' in gate) return gate
 
   const svc = createServiceClient()
   // Service role: leer el correo del embajador (RLS de profiles no lo expone).

@@ -20,12 +20,13 @@ export default async function OpsLayout({
 
   let displayName: string | null = null
   let role: string | null = null
+  let tourYaVisto = false
   if (user) {
     // profiles.type no está tipado (refactor de identidad) ⇒ cast.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: profile } = await (supabase as any)
       .from('profiles')
-      .select('name, role, type, must_change_password')
+      .select('name, role, type, must_change_password, onboarded_at')
       .eq('id', user.id)
       .maybeSingle()
     // Gate de persona de toda la superficie (ops): el back-office no es para el
@@ -39,6 +40,9 @@ export default async function OpsLayout({
     if (profile.must_change_password) redirect('/nueva-password')
     displayName = profile.name ?? null
     role = profile.role ?? null
+    // m005: la marca del tour vive en el perfil, no en localStorage — antes
+    // reaparecía en cada navegador y nadie sabía quién ya lo había visto.
+    tourYaVisto = Boolean(profile.onboarded_at)
   }
 
   const logoUrl = await getBrandLogo()
@@ -48,6 +52,7 @@ export default async function OpsLayout({
       email={user?.email ?? null}
       displayName={displayName}
       role={role}
+      tourYaVisto={tourYaVisto}
       logoUrl={logoUrl}
       sidebarCollapsed={sidebarCollapsed}
     >

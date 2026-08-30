@@ -1,4 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
+import { ComoGanas } from './como-ganas'
+import type { TarifaEmbajador } from '@/lib/domain/embajador'
 import {
   Card,
   CardContent,
@@ -33,7 +35,21 @@ type Earnings = {
 
 export default async function EmbajadorPage() {
   const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
   const { data, error } = await supabase.rpc('my_ambassador_earnings' as never)
+
+  // Su tarifa vigente (m005). Sin esto el portal no puede decirle cuánto gana,
+  // que es lo primero que pregunta alguien recién reclutado.
+  const { data: reglaRaw } = await supabase
+    .from('commission_rules' as never)
+    .select('basis, rate, unit_amount')
+    .eq('payee_type', 'embajador')
+    .eq('scope_profile_id', user?.id ?? '')
+    .eq('active', true)
+    .maybeSingle()
+  const tarifa = (reglaRaw ?? null) as TarifaEmbajador | null
   const e = (data ?? {
     referral_code: null,
     devengado: 0,
@@ -51,6 +67,8 @@ export default async function EmbajadorPage() {
           Comparte tu link, trae viajeros y gana por cada venta.
         </p>
       </div>
+
+      <ComoGanas tarifa={tarifa} />
 
       {error && (
         <p className="text-sm text-destructive">

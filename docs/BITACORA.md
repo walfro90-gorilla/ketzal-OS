@@ -9,6 +9,65 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Embajadores listos para reclutar + tour para las tres personas (m005–m007,
+> 2026-08-30).** Walfre quiso empezar a conseguir embajadores reales, así que
+> primero auditamos si el flujo servía. La BD contestó sola: **0 embajadores, 0
+> códigos de referido, 0 ventas atribuidas y 0 reglas de comisión de embajador**.
+> Es decir, se podía reclutar a alguien, que trajera una venta, y **no cobraba
+> nada**. Cinco huecos, todos arreglados:
+>
+> **(1) El embajador no cobraba.** No había una sola regla `payee_type='embajador'`.
+> m005 abre las policies de `commission_rules` para que el **admin de agencia**
+> fije la tarifa de SUS embajadores (guard `is_admin_de_embajador`, DEFINER con
+> GRANT EXECUTE explícito porque vive dentro de policies — b063). Tarifa híbrida
+> `% + $ por pasajero`, reusando la basis de b054. Decisión de fondo en
+> **ADR-0021**: al embajador lo paga quien lo recluta, no Ketzal; b019 asumía lo
+> contrario y volvía al fundador cuello de botella de cada alta.
+>
+> **(2) El embajador no tenía dueño.** `crearEmbajador` nunca escribía
+> `supplier_id`, así que no se podía preguntar "los embajadores de mi agencia" ni
+> acotarlos por RLS. Ahora se ata a la agencia de quien lo da de alta.
+>
+> **(3) Solo el superadmin reclutaba** — y con un correo opcional que, si venía
+> vacío, se inventaba como `<uuid>@embajador.ketzal.local`. Ese dominio no
+> existe: el magic-link se generaba contra un buzón inalcanzable y **la cuenta
+> quedaba muerta sin aviso**. Correo obligatorio, alta y entrega de acceso
+> abiertas al admin de agencia, y botón de compartir por WhatsApp con el mensaje
+> ya redactado (que es como de verdad se le manda a alguien).
+>
+> **(4) El portal no enseñaba nada.** Abría con el link y tres ceros. Ahora abre
+> con "Cómo ganas": su tarifa en español (`Ganas 4% de la venta más $150 por cada
+> persona que viaje`), cuándo se abona y cuándo le pagan.
+>
+> **(5) El tour solo existía para el back-office** y se recordaba en localStorage,
+> o sea por dispositivo: reaparecía en cada navegador y nadie sabía quién ya lo
+> había visto. Ahora hay tour de **embajador** y de **viajero**, y la marca vive
+> en `profiles.onboarded_at` vía RPC (la tabla es RPC-only-write desde b017).
+>
+> **Dos bugs que solo aparecieron probando en vivo**, ninguno visible en el
+> código ni en el build:
+> · **m006 — solo podía existir UN embajador con tarifa en toda la plataforma.**
+> `uq_commission_rules` se creó en b019 sobre `(payee_type, scope_supplier_id,
+> service_id)`; b054 agregó `scope_profile_id` y el índice nunca se actualizó.
+> Como para un embajador `scope_supplier_id` es NULL por check, todos colapsaban
+> en la misma clave y el segundo moría con `duplicate key`. Lo destapó un caso
+> que salió verde por la razón equivocada: el harness falló con
+> `unique_violation` y lo habíamos leído como "el guard funcionó".
+> · **m007 — el embajador no podía leer su propia tarifa.** El portal decía "tu
+> tarifa todavía no está configurada" aunque estuviera puesta, porque
+> `commission_rules_sel` contemplaba a los admins pero nunca al interesado.
+>
+> Y un tercero, de React: pasar los pasos del tour como prop de un Server a un
+> Client Component revienta con *"Only plain objects can be passed to Client
+> Components"* — los pasos llevan un `icon` que es un componente. El build no lo
+> ve; sale al abrir la página. Se pasa el nombre de la persona y los pasos se
+> resuelven del lado del cliente.
+>
+> Verificado: harness `supabase/tests/embajadores_rls.sql` **12/12** con camino
+> feliz y ataques en la misma pasada · ensayo end-to-end en navegador entrando
+> como embajador real (tour, tarifa, link con su código, WhatsApp) · 137 tests ·
+> `tsc` y `next build` limpios · superficie anónima 30/0 · BD sin rastro.
+
 > **El gate de comisión estaba puesto pero no cerraba (b076 → b077, 2026-08-30).**
 > Al integrar el carril de comisiones que quedó sin commitear, el hard-test que
 > nunca había corrido destapó que **b076 era inerte**. Su guarda decía
