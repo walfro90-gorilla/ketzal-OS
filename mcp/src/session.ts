@@ -12,6 +12,7 @@ import { chmod, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { SUPABASE_KEY, SUPABASE_URL } from './config.js'
+import { KetzalError } from './errors.js'
 import { log } from './log.js'
 
 type Stored = { email: string; refresh_token: string }
@@ -147,9 +148,9 @@ export async function getAuthUser(): Promise<{ id: string; email: string }> {
   const r = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
     headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` },
   })
-  if (!r.ok) throw new Error('No se pudo leer la sesión. Corre `npx ketzal-mcp login`.')
+  if (!r.ok) throw new KetzalError('No se pudo leer la sesión. Corre `npx ketzal-mcp login`.')
   const j = (await r.json()) as { id?: string; email?: string }
-  if (!j.id) throw new Error('La sesión no trae usuario. Corre `npx ketzal-mcp login`.')
+  if (!j.id) throw new KetzalError('La sesión no trae usuario. Corre `npx ketzal-mcp login`.')
   return { id: j.id, email: j.email ?? '' }
 }
 
@@ -208,7 +209,7 @@ async function rehacerLogin(email: string, causa: Error): Promise<string> {
     await loginWithPassword(cred.email, cred.password)
     return cached!.token
   }
-  throw new Error(
+  throw new KetzalError(
     `La sesión de ${email} caducó o fue revocada (${causa.message}). ` +
       'Corre `npx ketzal-mcp login` otra vez, o define KETZAL_EMAIL y KETZAL_PASSWORD ' +
       'para que el servidor se reconecte solo.',
@@ -224,7 +225,7 @@ async function doRefresh(): Promise<string> {
       await loginWithPassword(cred.email, cred.password)
       return cached!.token
     }
-    throw new Error(
+    throw new KetzalError(
       'No hay sesión. Corre `npx ketzal-mcp login` en una terminal para entrar con tu correo.',
     )
   }
