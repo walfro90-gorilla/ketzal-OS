@@ -5,6 +5,7 @@ import {
   mensajeBienvenida,
   mensajeParaCompartir,
   waCompartir,
+  explicarMiss,
 } from './embajador'
 
 describe('explicarTarifa', () => {
@@ -54,5 +55,29 @@ describe('mensajes', () => {
   })
   it('waCompartir codifica saltos de línea', () => {
     expect(waCompartir('hola\nmundo')).toBe('https://wa.me/?text=hola%0Amundo')
+  })
+})
+
+describe('explicarMiss', () => {
+  it('traduce el motivo a algo que el admin puede accionar', () => {
+    const m = explicarMiss('sin_tarifa_de_la_agencia')
+    expect(m.titulo).toContain('no tiene tarifa')
+    expect(m.queHacer).toContain('Configúrala')
+    expect(m.accionable).toBe(true)
+  })
+  it('cubre los cuatro motivos que escribe el RPC', () => {
+    for (const r of [
+      'sin_tarifa_de_la_agencia',
+      'codigo_inexistente',
+      'tarifa_da_cero',
+      'comisiones_exceden_la_venta',
+    ]) {
+      expect(explicarMiss(r).accionable).toBe(true)
+    }
+  })
+  it('no revienta con un motivo que no conoce', () => {
+    const m = explicarMiss('motivo_del_futuro')
+    expect(m.titulo).toBe('motivo_del_futuro')
+    expect(m.accionable).toBe(false)
   })
 })
