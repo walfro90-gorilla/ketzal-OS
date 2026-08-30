@@ -27,4 +27,4 @@ este índice se actualiza en el mismo diff.**
 | [0018](0018-investigacion-de-mercado.md) | Investigación de mercado: encuesta pública anónima (2 RPCs DEFINER), dedupe sin captcha, lead opcional | aceptada |
 | [0019](0019-comision-plataforma-obligatoria-para-publicar.md) | Comisión de plataforma: default general 20% + gate que prohíbe publicar sin comisión | aceptada |
 | [0020](0020-security-review-diferida.md) | La revisión de seguridad automática se difiere hasta producción; el workflow se elimina, no se deja fallando | aceptada |
-| [0021](0021-embajadores-los-paga-quien-recluta.md) | Al embajador lo paga la agencia que lo recluta; el admin da de alta y fija tarifa | aceptada |
+| [0021](0021-embajadores-los-paga-quien-recluta.md) | Embajadores sin límite de catálogo; paga la agencia dueña del viaje con la tarifa que ella fijó | aceptada |

@@ -17,12 +17,25 @@
 > nada**. Cinco huecos, todos arreglados:
 >
 > **(1) El embajador no cobraba.** No había una sola regla `payee_type='embajador'`.
-> m005 abre las policies de `commission_rules` para que el **admin de agencia**
-> fije la tarifa de SUS embajadores (guard `is_admin_de_embajador`, DEFINER con
-> GRANT EXECUTE explícito porque vive dentro de policies — b063). Tarifa híbrida
-> `% + $ por pasajero`, reusando la basis de b054. Decisión de fondo en
-> **ADR-0021**: al embajador lo paga quien lo recluta, no Ketzal; b019 asumía lo
-> contrario y volvía al fundador cuello de botella de cada alta.
+> m005 abrió las policies para que el admin de agencia fijara la tarifa de sus
+> embajadores; **m008 cambió el modelo** tras revisarlo con el fundador, y es la
+> versión que quedó (ADR-0021):
+>
+> · Ketzal recluta embajadores **directos**, sin agencia (`supplier_id` null).
+> · **Cualquier embajador vende viajes de cualquier agencia.** Sin límite de
+>   catálogo: el que trae la venta, cobra.
+> · **Paga la agencia dueña del viaje, con la tarifa que ELLA fijó.** Este fue
+>   el punto fino: con la tarifa pegada al embajador (una sola y global, como en
+>   m005), una agencia podía acabar pagando un 10% que nunca acordó solo porque
+>   el embajador venía con esa tarifa puesta por otro. Con agencias terceras en
+>   el SaaS eso es una factura sorpresa. Ahora la tarifa es de la agencia
+>   (`scope_supplier_id`), y el override por persona sigue existiendo para el
+>   trato especial. `resolve_commission_rule` recibe la agencia de la venta y
+>   resuelve en ese orden — el mismo embajador cobra 4% + $150 en un viaje de
+>   Wanderlust y $200/pax en uno de Border, verificado en vivo.
+> · **Ningún referido falla en silencio**: `ketzal.referral_misses` guarda el
+>   motivo (`sin_tarifa_de_la_agencia`, `codigo_inexistente`, …). Lo lee el
+>   superadmin, el admin de la agencia y el propio embajador.
 >
 > **(2) El embajador no tenía dueño.** `crearEmbajador` nunca escribía
 > `supplier_id`, así que no se podía preguntar "los embajadores de mi agencia" ni
@@ -62,6 +75,14 @@
 > Components"* — los pasos llevan un `icon` que es un componente. El build no lo
 > ve; sale al abrir la página. Se pasa el nombre de la persona y los pasos se
 > resuelven del lado del cliente.
+>
+> **Un cuarto, de privacidad**, al mostrar las tarifas por agencia: el portal
+> necesitaba el NOMBRE de cada agencia, y el join directo a `suppliers` devolvía
+> null porque su policy solo expone la agencia propia. La tentación era ampliar
+> esa policy — pero `suppliers` trae correo, teléfono, comisión pactada y la
+> CLABE de los SPEI en `info`. Se resolvió reusando el RPC `list_agency_names`
+> (DEFINER, solo id+nombre) que ya existía. El harness verifica que el embajador
+> vea los nombres y **cero filas** de `suppliers` directo.
 >
 > Verificado: harness `supabase/tests/embajadores_rls.sql` **12/12** con camino
 > feliz y ataques en la misma pasada · ensayo end-to-end en navegador entrando

@@ -1,9 +1,10 @@
-# ADR-0021 — Al embajador lo paga la agencia que lo recluta, no Ketzal
+# ADR-0021 — Al embajador lo paga la agencia dueña del viaje, con la tarifa que ella fijó
 
-- Estado: aceptada · Fecha: 2026-08-30 · Sustituye parcialmente: la premisa de
-  b019 ("Ketzal paga al embajador") para embajadores de agencia
-- Alcance: `commission_rules` (policies), `ketzal.profiles.supplier_id` de los
-  embajadores, alta y acceso en `(ops)/comisiones`, portal `/embajador` (m005–m007)
+- Estado: aceptada · Fecha: 2026-08-30 · Sustituye: la premisa de b019
+  ("Ketzal paga al embajador")
+- Alcance: `commission_rules` (check, policies y resolución), `attribute_booking_by_ref`,
+  `set_booking_ambassador`, `ketzal.referral_misses`, alta y acceso en
+  `(ops)/comisiones`, portal `/embajador` (m005–m008)
 
 ## Contexto
 Walfre quiere reclutar embajadores reales que compartan viajes con su código.
@@ -19,21 +20,36 @@ fundador se vuelve el cuello de botella de cada alta y cada tarifa.
 
 ## Decisión
 
-**Quien recluta, paga.** El admin de agencia da de alta a sus embajadores y les
-fija la tarifa; esos embajadores son de su agencia y ella los paga. El
-superadmin conserva las reglas de plataforma y puede reclutar para cualquier
-agencia (eligiéndola explícitamente: no tiene una propia).
+**Cualquier embajador vende viajes de cualquier agencia.** No hay límite de
+catálogo. El que trae la venta, cobra. `supplier_id` en el perfil del embajador
+dice **quién lo reclutó**, no a qué se limita; un embajador directo de Ketzal lo
+lleva en null.
 
-**El embajador tiene dueño.** `crearEmbajador` ahora escribe `supplier_id` con
-la agencia de quien lo da de alta. Sin dueño no se puede responder "los
-embajadores de mi agencia", ni acotarlos por RLS, ni saber quién les paga. La
-regla de comisión se ata al embajador (`scope_profile_id`, como exige
-`commission_rules_scope_chk`) y la agencia se resuelve mirando ese perfil, vía
-el guard `is_admin_de_embajador()` (DEFINER, con GRANT EXECUTE explícito porque
-se evalúa dentro de policies — lección de b063).
+**Paga la agencia dueña del viaje, con LA TARIFA QUE ELLA FIJÓ.** Este es el
+punto fino. La primera versión de este ADR ataba la tarifa al embajador
+(`scope_profile_id`), una sola y global — y con eso una agencia podía acabar
+pagando un 10% que nunca acordó, solo porque el embajador venía con esa tarifa
+puesta por otro. Con agencias terceras en el SaaS eso es una factura sorpresa y
+un problema contractual. En m008 la tarifa pasa a ser **de la agencia**:
+
+- `(payee_type='embajador', scope_supplier_id=<agencia>)` = lo que esa agencia
+  paga a **cualquier** embajador que le traiga venta.
+- `(payee_type='embajador', scope_profile_id=<embajador>)` = override para un
+  embajador concreto (trato especial), y **gana** sobre la de agencia.
+
+`resolve_commission_rule` recibe ahora la agencia de la venta y resuelve en ese
+orden. El mismo embajador cobra distinto según de quién sea el viaje, que es
+justo lo que se quería.
 
 **Tarifa híbrida `% + $ por pasajero`**, reusando la basis de b054 en vez de
 inventar una nueva.
+
+**Ningún referido falla en silencio.** `attribute_booking_by_ref` devolvía null
+sin decir nada: el embajador traía la venta, no cobraba, y no había forma de
+saber por qué. Ahora deja rastro en `ketzal.referral_misses` con el motivo
+(`sin_tarifa_de_la_agencia`, `codigo_inexistente`, `tarifa_da_cero`,
+`comisiones_exceden_la_venta`). Lo lee el superadmin, el admin de la agencia y
+**el propio embajador**.
 
 **El correo del embajador es obligatorio.** Antes, si no se capturaba, se
 sintetizaba `<uuid>@embajador.ketzal.local`: un dominio que no existe, así que
@@ -48,25 +64,34 @@ todavía no está configurada" aunque estuviera puesta. Solo la suya:
 `scope_profile_id = auth.uid()`.
 
 ## Consecuencias
-- Un embajador pertenece a UNA agencia. Si alguien fuera embajador de dos, hoy
-  necesita dos cuentas. No se resuelve ahora porque no existe el caso.
-- La premisa de b019 sigue vigente para embajadores de plataforma (los que
-  reclute el superadmin sin agencia); lo que cambia es que dejan de ser el
-  único tipo posible.
-- El gate de lectura de `commission_rules` ya tiene cuatro ramas. Si crece más,
+- **Una agencia sin tarifa de embajadores configurada no paga nada**, y sus
+  viajes no generan comisión aunque un embajador los traiga. Queda registrado en
+  `referral_misses` como `sin_tarifa_de_la_agencia` — es el aviso de que hay
+  dinero dejándose de ganar por una casilla vacía.
+- El portal del embajador ya no muestra "tu tarifa" sino **la de cada agencia**:
+  cuánto gana depende del viaje que traiga. Eso hay que explicarlo al reclutar.
+- `resolve_commission_rule` pasó de 3 a 4 argumentos. Se dropeó la firma vieja
+  para no dejar una sobrecarga ambigua; los otros 4 llamadores siguen llamando
+  con 3 args gracias al default.
+- El gate de lectura de `commission_rules` ya tiene seis ramas. Si crece más,
   conviene un helper único en vez de repetir el `or`.
 
 ## Verificación
-Harness `supabase/tests/embajadores_rls.sql` — **12/12**, con el camino feliz en
-la misma pasada que los ataques: el admin dueño fija y edita la tarifa, la
-agencia vecina no ve ni el embajador ni su tarifa ni puede editarla, el agente
-raso es rechazado por RLS, el embajador ve la suya pero no la de otro y no puede
-subírsela, y el motor calcula el híbrido exacto ($10,000 con 3 pax a 4% + $150 =
-$850). El harness distingue `unique_violation` de las demás excepciones a
-propósito: así se coló un falso verde durante el desarrollo, y destapó el bug
-del índice que corrigió m006. Además, ensayo end-to-end en el navegador
-entrando como un embajador real — que fue lo que descubrió m007 y el error de
-Server→Client Component del tour.
+Harness `supabase/tests/embajadores_rls.sql`, con el camino feliz en la misma
+pasada que los ataques. Lo que prueba el modelo de m008, verificado en la BD
+real: **el mismo embajador de Ketzal cobra 4% + $150 en un viaje de Wanderlust y
+$200 por pasajero en uno de Border** — cada agencia paga lo suyo; Wanderlust no
+puede fijar la tarifa de Border (rechazado por RLS); un embajador de agencia
+también cobra de otra agencia (sin límite); el override por persona gana sobre
+la de agencia; una agencia sin tarifa no devenga; y el check rechaza la regla
+incoherente que lleve los dos scopes a la vez.
+
+El harness distingue `unique_violation` de las demás excepciones a propósito:
+así se coló un falso verde durante el desarrollo, y destapó el bug del índice
+que corrigió m006 (solo cabía UN embajador con tarifa en toda la plataforma).
+Además, ensayo end-to-end en el navegador entrando como un embajador real — que
+fue lo que descubrió m007 (no podía leer su propia tarifa) y el error de
+Server→Client Component del tour, que el build no ve.
 
 ## Fuentes
 m005/m006/m007 (`db/proposed/`), b019 (motor de comisiones), b054 (basis

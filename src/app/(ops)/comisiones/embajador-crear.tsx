@@ -19,7 +19,9 @@ export function CrearEmbajador({
 }) {
   const router = useRouter()
   const eligeAgencia = Boolean(agencias?.length)
-  const [supplierId, setSupplierId] = useState(agencias?.[0]?.id ?? '')
+  // '' = embajador DIRECTO de Ketzal (sin agencia). Es el default del
+  // superadmin: vende de todas las agencias y cobra la tarifa de cada una.
+  const [supplierId, setSupplierId] = useState('')
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [ok, setOk] = useState(false)
@@ -59,18 +61,23 @@ export function CrearEmbajador({
       <div className="grid gap-3 sm:grid-cols-3">
         {eligeAgencia && (
           <div className="space-y-1.5">
-            <Label htmlFor="emb-agencia">Agencia</Label>
+            <Label htmlFor="emb-agencia">¿Quién lo recluta?</Label>
             <NativeSelect
               id="emb-agencia"
               value={supplierId}
               onChange={(e) => setSupplierId(e.target.value)}
             >
+              <option value="">Ketzal (embajador directo)</option>
               {agencias?.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.name}
                 </option>
               ))}
             </NativeSelect>
+            <p className="text-xs text-muted-foreground">
+              Solo dice quién lo dio de alta. Cualquier embajador puede vender
+              viajes de todas las agencias y cobra la tarifa que cada una fijó.
+            </p>
           </div>
         )}
         <div className="space-y-1.5">

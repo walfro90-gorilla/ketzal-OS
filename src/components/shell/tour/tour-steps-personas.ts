@@ -27,19 +27,19 @@ export const EMBAJADOR_STEPS: TourStep[] = [
     id: 'emb-link',
     icon: ShareIcon,
     title: 'Tu link es tu herramienta',
-    body: 'Todo empieza con tu link de referido. Cualquiera que entre por ahí y compre cuenta como tuyo — aunque tarde días en decidirse. Compártelo por WhatsApp, en tus historias, donde esté tu gente.',
+    body: 'Todo empieza con tu link de referido. Cualquiera que entre por ahí y compre cuenta como tuyo — aunque tarde días en decidirse, y sea el viaje de la agencia que sea. Compártelo por WhatsApp, en tus historias, donde esté tu gente.',
   },
   {
     id: 'emb-ganas',
     icon: CoinsIcon,
     title: 'Cuánto ganas',
-    body: 'Arriba, en “Cómo ganas”, ves tu tarifa exacta. Se te abona cuando la venta se cierra, no cuando la persona da clic. Si dice que tu tarifa no está configurada, pídesela a tu agencia antes de empezar.',
+    body: 'Arriba, en “Cómo ganas”, ves cuánto pagas cada agencia: cada una pone su tarifa y tú cobras la de la agencia dueña del viaje que traigas. Se te abona cuando la venta se cierra, no cuando la persona da clic.',
   },
   {
     id: 'emb-ventas',
     icon: ChartColumnIcon,
     title: 'Tus ventas y tu saldo',
-    body: 'Aquí ves cada venta que trajiste y tres números: lo ganado, lo que ya te pagaron y lo que falta por cobrar. Tu agencia te dice cada cuándo corta y deposita.',
+    body: 'Aquí ves cada venta que trajiste y tres números: lo ganado, lo que ya te pagaron y lo que falta por cobrar. Te paga la agencia dueña de cada viaje, y ella te dice cuándo corta.',
   },
 ]
 

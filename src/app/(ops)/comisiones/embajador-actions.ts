@@ -17,10 +17,12 @@ import { notificar, superadmins } from '@/lib/push/send'
 //     si venía vacío; ese dominio no existe, así que el magic-link de acceso se
 //     generaba contra un buzón inalcanzable y la cuenta quedaba muerta sin aviso.
 //   · Recluta el admin de agencia, no solo el superadmin — si no, cada embajador
-//     nuevo pasa por el fundador. El embajador queda atado al `supplier_id` de
-//     quien lo dio de alta: sin dueño no se puede saber "los embajadores de mi
-//     agencia" ni fijarles tarifa (la regla de comisión resuelve la agencia
-//     mirando ese profile).
+//     nuevo pasa por el fundador.
+//
+// m008 — `supplier_id` dice QUIÉN LO RECLUTÓ, no a qué catálogo se limita:
+//   · Ketzal recluta embajadores DIRECTOS, sin agencia (`supplier_id` null).
+//   · Cualquier embajador vende viajes de CUALQUIER agencia. No hay límite.
+//   · Cobra la tarifa que fijó la agencia dueña del viaje (ADR-0021).
 
 /**
  * Puerta de alta de embajadores. Devuelve la agencia dueña: la del admin que
@@ -41,10 +43,9 @@ async function requireReclutador(
     .single()
 
   if (profile?.role === 'superadmin') {
-    // El superadmin no tiene agencia propia: si no dice de quién es el
-    // embajador, quedaría huérfano y sin tarifa posible.
-    if (!supplierElegido) return { error: 'Elige de qué agencia es el embajador.' }
-    return { ok: true, supplierId: supplierElegido }
+    // Sin agencia elegida = embajador DIRECTO de Ketzal (m008). No queda
+    // huérfano: cobra la tarifa de la agencia dueña de cada viaje que traiga.
+    return { ok: true, supplierId: supplierElegido || null }
   }
   if (profile?.role === 'admin' && profile.supplier_id) {
     return { ok: true, supplierId: profile.supplier_id }
