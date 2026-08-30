@@ -74,3 +74,52 @@ export function mensajeParaCompartir(link: string): string {
 export function waCompartir(texto: string): string {
   return `https://wa.me/?text=${encodeURIComponent(texto)}`
 }
+
+/**
+ * Motivos por los que un referido NO generó comisión (`referral_misses.reason`,
+ * m008). Se traducen a algo accionable: el punto de la pantalla no es informar
+ * que falló, es decir qué hacer para que no vuelva a fallar.
+ */
+export type MotivoMiss = {
+  titulo: string
+  queHacer: string
+  /** true = lo arregla la agencia y va a seguir pasando hasta que lo haga. */
+  accionable: boolean
+}
+
+const MOTIVOS: Record<string, MotivoMiss> = {
+  sin_tarifa_de_la_agencia: {
+    titulo: 'Tu agencia no tiene tarifa de embajadores',
+    queHacer:
+      'Configúrala arriba. Hasta entonces, ninguna venta que traigan tus embajadores les va a generar comisión.',
+    accionable: true,
+  },
+  codigo_inexistente: {
+    titulo: 'El código de referido no existe',
+    queHacer:
+      'Alguien compartió un código mal escrito o de un embajador que ya se dio de baja. Verifica que el embajador esté usando el link de su panel.',
+    accionable: true,
+  },
+  tarifa_da_cero: {
+    titulo: 'La tarifa calculó cero',
+    queHacer:
+      'La tarifa está en 0, o la venta no tiene pasajeros y la tarifa es por persona. Revisa la tarifa y la venta.',
+    accionable: true,
+  },
+  comisiones_exceden_la_venta: {
+    titulo: 'Las comisiones se pasaban del total de la venta',
+    queHacer:
+      'Entre plataforma, agencia, agente y embajador ya se repartía todo. El motor frenó el asiento para no dejar la venta en negativo: baja alguna tarifa.',
+    accionable: true,
+  },
+}
+
+export function explicarMiss(reason: string): MotivoMiss {
+  return (
+    MOTIVOS[reason] ?? {
+      titulo: reason,
+      queHacer: 'Motivo no reconocido; revísalo con soporte.',
+      accionable: false,
+    }
+  )
+}

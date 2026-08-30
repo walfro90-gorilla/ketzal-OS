@@ -12,6 +12,7 @@ import { PageHeader } from '@/components/data/page-header'
 import { mxn } from '@/components/data/format'
 import { TasaForm } from './tasa-form'
 import { CrearEmbajador } from './embajador-crear'
+import { ReferidosFallidos, type ReferidoFallido } from './referidos-fallidos'
 import { EmbajadoresAccesos } from './embajadores-accesos'
 import { ComisionesList, type ComisionVenta } from './comisiones-list'
 import {
@@ -124,6 +125,35 @@ export default async function ComisionesPage() {
   const agenciasParaAlta = (agencias as { id: string; name: string }[]).map((a) => ({
     id: a.id,
     name: a.name,
+  }))
+
+  // Referidos que no generaron comisión (m008). La RLS de `referral_misses` ya
+  // acota: el superadmin ve todo, el admin solo los de su agencia. Se traen los
+  // 50 más recientes — es una bandeja de revisión, no un histórico.
+  const { data: missesRaw } =
+    isSuperadmin || isAdmin
+      ? await supabase
+          .from('referral_misses' as never)
+          .select('id, ref_code, reason, created_at, bookings(folio, total)')
+          .order('created_at', { ascending: false })
+          .limit(50)
+      : { data: null }
+
+  const referidosFallidos: ReferidoFallido[] = (
+    (missesRaw ?? []) as unknown as {
+      id: string
+      ref_code: string
+      reason: string
+      created_at: string
+      bookings: { folio: string | null; total: number | null } | null
+    }[]
+  ).map((m) => ({
+    id: m.id,
+    ref_code: m.ref_code,
+    reason: m.reason,
+    created_at: m.created_at,
+    folio: m.bookings?.folio ?? null,
+    total: m.bookings?.total ?? null,
   }))
   const reglaPorServicio = new Map(
     (
@@ -299,13 +329,12 @@ export default async function ComisionesPage() {
             <CardTitle>Embajadores</CardTitle>
             <CardDescription>
               Da de alta a quien va a compartir tus viajes y fija cuánto gana: fijo
-              por pasajero, fijo por venta, % de la venta, o una mezcla. Quien
-              recluta paga —
-              {isSuperadmin
-                ? ' las tarifas de plataforma las cubre Ketzal.'
-                : ' los embajadores que des de alta los paga tu agencia.'}{' '}
+              por pasajero, fijo por venta, % de la venta, o una mezcla. Cualquier
+              embajador puede traer ventas de cualquier agencia, y{' '}
+              <strong>paga la agencia dueña del viaje con la tarifa que ella fijó</strong>
+              {isSuperadmin ? ' (la tuya cubre los viajes de plataforma).' : '.'}{' '}
               Sin tarifa configurada el embajador no cobra nada, aunque traiga
-              ventas.
+              ventas — y esas ventas aparecen abajo.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -325,6 +354,8 @@ export default async function ComisionesPage() {
           </CardContent>
         </Card>
       )}
+
+      {(isSuperadmin || isAdmin) && <ReferidosFallidos filas={referidosFallidos} />}
 
       {isAdmin && (
         <Card>
