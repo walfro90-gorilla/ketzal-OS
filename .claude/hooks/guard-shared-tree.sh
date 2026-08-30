@@ -42,9 +42,11 @@ block() {
 # El verbo se ancla al INICIO del sub-comando, para que mencionarlo dentro de
 # una cadena (un echo, un heredoc que escribe documentación) no cuente como
 # ejecutarlo. Escribir este mismo archivo disparaba el guard viejo.
-# ponytail: con el ancla, un verbo lanzado por `xargs` o `sh -c` se escapa. Es
-# un guard contra el descuido propio, no contra un adversario; si algún día hay
-# que cubrir eso, la salida es un parser de verdad y no más regex.
+# El ancla acepta el binario invocado por ruta (`/usr/bin/...`, `./...`) y los
+# prefijos `VAR=x` y `sudo`.
+# ponytail: aun así, un verbo lanzado por `xargs` o `sh -c "..."` se escapa. Ahí
+# sí hace falta un parser de shell y no más regex — y no vale la pena: es un
+# guard contra el descuido propio, y quien escribe `sh -c` no está distraído.
 sub_comandos() {
   printf '%s\n' "$1" | sed -E 's/(\|\||&&|[;|])/\n/g'
 }
@@ -52,17 +54,17 @@ sub_comandos() {
 while IFS= read -r sub; do
   [ -z "${sub// }" ] && continue
 
-  if grep -Pq '^\s*(\w+=\S+\s+)*(sudo\s+)?git\s+add\b' <<<"$sub" \
+  if grep -Pq '^\s*(\w+=\S+\s+)*(sudo\s+)?(\S*/)?git\s+add\b' <<<"$sub" \
      && grep -Pq '(\s-A\b|\s--all\b|\s\.(\s|$))' <<<"$sub"; then
     block "git add de todo el árbol (-A/--all/.) arrastra cambios de otros agentes"
   fi
 
-  if grep -Pq '^\s*(\w+=\S+\s+)*(sudo\s+)?git\s+commit\b' <<<"$sub" \
+  if grep -Pq '^\s*(\w+=\S+\s+)*(sudo\s+)?(\S*/)?git\s+commit\b' <<<"$sub" \
      && grep -Pq '((^|\s)-[a-zA-Z]*a[a-zA-Z]*(\b|=)|\s--all\b)' <<<"$sub"; then
     block "git commit -a/--all stagea cambios que no son tuyos; commitea rutas explícitas"
   fi
 
-  if grep -Pq '^\s*(\w+=\S+\s+)*(sudo\s+)?git\s+push\b' <<<"$sub" \
+  if grep -Pq '^\s*(\w+=\S+\s+)*(sudo\s+)?(\S*/)?git\s+push\b' <<<"$sub" \
      && grep -Pq '(\s-f\b|--force(?!-with-lease))' <<<"$sub"; then
     block "git push --force sobreescribe lo que otro agente pusheó; usa fetch+rebase o --force-with-lease"
   fi
