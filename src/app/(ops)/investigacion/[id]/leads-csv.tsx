@@ -2,18 +2,17 @@
 
 import { DownloadIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { campoCsv } from '@/lib/domain/encuesta'
 import type { PollVote } from '../tipos'
 
 // Export de leads: el cierre del loop v1 es manual — la agencia se lleva los
-// contactos y los trabaja por WhatsApp. Calco del CSV de /reportes (BOM + CRLF
-// para que Excel no destroce los acentos).
+// contactos y los trabaja por WhatsApp. BOM + CRLF para que Excel no destroce
+// los acentos. El escapado usa `campoCsv` y no el `campo()` de /reportes:
+// aquí el contenido lo escribe cualquiera con la liga del anuncio, así que
+// además de comillas hay que neutralizar fórmulas.
 
-function campo(v: string | number): string {
-  return `"${String(v ?? '').replace(/"/g, '""')}"`
-}
-
-function fila(...valores: Array<string | number>): string {
-  return valores.map(campo).join(',')
+function fila(...valores: Array<string | number | null | undefined>): string {
+  return valores.map(campoCsv).join(',')
 }
 
 export function LeadsCsv({

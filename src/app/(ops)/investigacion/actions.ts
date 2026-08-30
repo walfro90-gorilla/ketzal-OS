@@ -49,6 +49,21 @@ export async function crearEncuesta(
   const v = validar(input)
   if ('error' in v) return v
 
+  // El superadmin de plataforma no tiene agencia propia (`supplier_id` NULL),
+  // así que el default de columna `my_supplier_id()` no le sirve: tiene que
+  // decir de qué agencia es la encuesta. Para un admin de agencia se ignora
+  // lo que mande el cliente y manda el default — jamás se crea a nombre ajeno.
+  const { data: yo } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+  const esSuperadmin = yo?.role === 'superadmin'
+
+  if (esSuperadmin && !input.supplier_id) {
+    return { error: 'Elige de qué agencia es la encuesta.' }
+  }
+
   const { data, error } = await supabase
     .from('polls' as never)
     .insert({
@@ -57,6 +72,7 @@ export async function crearEncuesta(
       month_from: v.desde,
       month_to: v.hasta,
       closes_at: v.closes_at,
+      ...(esSuperadmin ? { supplier_id: input.supplier_id } : {}),
     } as never)
     .select('id')
     .single()
@@ -100,11 +116,16 @@ export async function editarEncuesta(
       }
     : { question: v.question, closes_at: v.closes_at, updated_at: new Date().toISOString() }
 
-  const { error } = await supabase
+  // `.select()` no es cosmético: sin él PostgREST devuelve 204 sin error
+  // cuando la RLS filtra las 0 filas, y la acción reportaría `{ok:true}` sobre
+  // un cambio que nunca ocurrió.
+  const { data: filas, error } = await supabase
     .from('polls' as never)
     .update(cambios as never)
     .eq('id', id)
+    .select('id')
   if (error) return { error: safeError(error, 'No se pudo guardar la encuesta.') }
+  if (!filas?.length) return { error: 'No tienes permiso para editar esta encuesta.' }
 
   revalidatePath('/investigacion')
   revalidatePath(`/investigacion/${id}`)
@@ -124,20 +145,23 @@ export async function cambiarEstadoEncuesta(
   if (status === 'draft') return { error: 'Una encuesta publicada no vuelve a borrador.' }
 
   if (status === 'open') {
-    const { data: actual } = await supabase
+    const { data: actual, error: errLeer } = await supabase
       .from('polls' as never)
       .select('options')
       .eq('id', id)
       .single()
-    const opciones = (actual as unknown as { options: unknown[] } | null)?.options ?? []
+    if (errLeer || !actual) return { error: 'No encontramos esa encuesta.' }
+    const opciones = (actual as unknown as { options: unknown[] }).options ?? []
     if (opciones.length < 2) return { error: 'Pon al menos 2 destinos antes de abrirla.' }
   }
 
-  const { error } = await supabase
+  const { data: filas, error } = await supabase
     .from('polls' as never)
     .update({ status, updated_at: new Date().toISOString() } as never)
     .eq('id', id)
+    .select('id')
   if (error) return { error: safeError(error, 'No se pudo cambiar el estado.') }
+  if (!filas?.length) return { error: 'No tienes permiso para cambiar esta encuesta.' }
 
   revalidatePath('/investigacion')
   revalidatePath(`/investigacion/${id}`)

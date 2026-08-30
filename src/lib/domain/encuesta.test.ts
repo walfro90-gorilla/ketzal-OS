@@ -7,6 +7,7 @@ import {
   etiquetaMes,
   normalizarOpciones,
   linkWhatsapp,
+  campoCsv,
 } from './encuesta'
 
 describe('filtrarUtm', () => {
@@ -88,6 +89,28 @@ describe('normalizarOpciones', () => {
   })
   it('topa en 8 opciones', () => {
     expect(normalizarOpciones(Array.from({ length: 12 }, (_, i) => `D${i}`))).toHaveLength(8)
+  })
+})
+
+describe('campoCsv', () => {
+  it('neutraliza fórmulas: el texto lo escribe cualquiera desde el anuncio', () => {
+    // Sin la comilla, Excel ejecuta esto al abrir el CSV de leads.
+    expect(campoCsv('=HYPERLINK("http://evil","click")')).toBe(
+      '"\'=HYPERLINK(""http://evil"",""click"")"',
+    )
+    for (const c of ['+', '-', '@', '\t', '\r']) {
+      expect(campoCsv(`${c}cmd`)).toBe(`"'${c}cmd"`)
+    }
+  })
+  it('deja el texto normal intacto y solo dobla comillas', () => {
+    expect(campoCsv('Mazatlán')).toBe('"Mazatlán"')
+    expect(campoCsv('dijo "hola"')).toBe('"dijo ""hola"""')
+    // Un signo en medio no es fórmula: no se toca.
+    expect(campoCsv('a+b')).toBe('"a+b"')
+  })
+  it('null y undefined salen como campo vacío', () => {
+    expect(campoCsv(null)).toBe('""')
+    expect(campoCsv(undefined)).toBe('""')
   })
 })
 

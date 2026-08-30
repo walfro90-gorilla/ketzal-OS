@@ -4,7 +4,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { cookies, headers } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { safeError } from '@/lib/errors'
-import { primerDiaDelMes } from '@/lib/domain/encuesta'
+import { filtrarUtm, primerDiaDelMes } from '@/lib/domain/encuesta'
 
 // m002 — Voto anónimo en la encuesta pública (sin sesión). El RPC
 // submit_poll_vote (DEFINER, anon, fail-closed) valida encuesta abierta,
@@ -62,7 +62,9 @@ export async function votarEncuesta(input: {
     p_voter_hash: voterHash,
     p_suggestion: input.suggestion?.slice(0, 280) || null,
     p_contact: input.contact?.slice(0, 120) || null,
-    p_meta: { ip, ua, ...(input.utm ?? {}) },
+    // La whitelist se aplica AQUÍ, no en page.tsx: la server action es la
+    // frontera de confianza. Un POST directo puede mandar cualquier llave.
+    p_meta: { ip, ua, ...filtrarUtm(input.utm ?? {}) },
   } as never)
 
   if (error) return { error: safeError(error, 'No se pudo registrar tu voto.') }

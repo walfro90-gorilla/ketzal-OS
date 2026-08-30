@@ -83,6 +83,19 @@ export function normalizarOpciones(labels: string[]): { id: number; label: strin
     .map((label, i) => ({ id: i + 1, label: label.slice(0, 60) }))
 }
 
+/**
+ * Campo CSV seguro. A diferencia del export de /reportes —que solo saca datos
+ * internos— aquí `suggestion` y `contact` los escribe cualquiera que abra la
+ * liga del anuncio: un valor que empiece con `=`, `+`, `-`, `@` o un control
+ * lo ejecuta Excel/Sheets al abrir el archivo. Se antepone una comilla simple
+ * para que entre como texto, y se dobla la comilla doble como manda el CSV.
+ */
+export function campoCsv(v: string | number | null | undefined): string {
+  const s = String(v ?? '')
+  const peligroso = /^[=+\-@\t\r]/.test(s)
+  return `"${(peligroso ? `'${s}` : s).replace(/"/g, '""')}"`
+}
+
 /** Link de WhatsApp para un lead, o null si dejó correo (o basura). */
 export function linkWhatsapp(contacto: string | null): string | null {
   if (!contacto || contacto.includes('@')) return null

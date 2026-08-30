@@ -97,14 +97,20 @@ for (const [fn, arg] of [
 // ── 4b. Voto anónimo (m002): el RPC escribe, así que se prueba que un poll
 // inventado no cree nada y que los topes de payload aguanten. ──────────────
 {
+  // Ojo con la polaridad: `expuesto` tiene que ser true SOLO ante el
+  // comportamiento correcto-pero-inseguro, y además hay que exigir la
+  // respuesta esperada. Un 404 (función borrada) o un 500 no son "cerrado":
+  // son el harness dejando de probar, y sin esta aserción salían verdes.
   const r = await anonRpc('submit_poll_vote', {
     p_poll: '11111111-2222-3333-4444-555555555555',
     p_option: 1,
     p_month: '2030-01-01',
     p_voter_hash: 'hash_de_prueba_superficie_anon',
   })
-  chequeo('anon → submit_poll_vote(poll inventado)', r.status === 200 && r.body !== null,
-    { status: r.status, respuesta: r.body })
+  const fallaSilenciosa = r.status !== 200 || r.body !== null
+  chequeo('anon → submit_poll_vote(poll inventado) responde 200 null',
+    fallaSilenciosa,
+    { status: r.status, respuesta: r.body, esperado: '200 con body null' })
 
   const grande = await anonRpc('submit_poll_vote', {
     p_poll: '11111111-2222-3333-4444-555555555555',
@@ -113,7 +119,10 @@ for (const [fn, arg] of [
     p_voter_hash: 'hash_de_prueba_superficie_anon',
     p_meta: { x: 'a'.repeat(5000) },
   })
-  chequeo('anon → submit_poll_vote(meta >4KB)', grande.status === 200,
+  const rechazoCorrecto =
+    grande.status === 400 && /Meta demasiado grande/.test(JSON.stringify(grande.body))
+  chequeo('anon → submit_poll_vote(meta >4KB) rechazado con 400',
+    !rechazoCorrecto,
     { status: grande.status, respuesta: JSON.stringify(grande.body).slice(0, 160) })
 }
 

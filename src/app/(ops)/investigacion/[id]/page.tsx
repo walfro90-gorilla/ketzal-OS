@@ -9,7 +9,7 @@ import { BarrasPorcentaje } from '@/components/data/barras-porcentaje'
 import { Badge } from '@/components/ui/badge'
 import { buttonVariants } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { etiquetaMes, linkWhatsapp } from '@/lib/domain/encuesta'
+import { etiquetaMes, linkWhatsapp, mesesDelRango } from '@/lib/domain/encuesta'
 import { ESTADO_LABEL, type Poll, type PollStatus, type PollVote } from '../tipos'
 import { EstadoBotones } from './estado-botones'
 import { CompartirLink } from './compartir-link'
@@ -34,6 +34,10 @@ function slug(s: string): string {
     .slice(0, 40)
 }
 
+/** Tope del listado de votos individuales (leads y sugerencias). Los agregados
+ *  no dependen de esto: salen de `count` en SQL. */
+const TOPE_LISTADO = 2000
+
 const siteUrl =
   process.env.NEXT_PUBLIC_SITE_URL ??
   (process.env.VERCEL_PROJECT_PRODUCTION_URL
@@ -48,41 +52,62 @@ export default async function EncuestaDetallePage({
   const { id } = await params
   const supabase = await createClient()
 
-  const [{ data: pollRaw }, { data: votosRaw }] = await Promise.all([
-    supabase
-      .from('polls' as never)
-      .select('id, supplier_id, question, options, month_from, month_to, status, closes_at, created_at')
-      .eq('id', id)
-      .maybeSingle(),
-    supabase
-      .from('poll_votes' as never)
-      .select('id, poll_id, option_id, preferred_month, suggestion, contact, meta, created_at')
-      .eq('poll_id', id)
-      .order('created_at', { ascending: false }),
-  ])
+  const { data: pollRaw } = await supabase
+    .from('polls' as never)
+    .select('id, supplier_id, question, options, month_from, month_to, status, closes_at, created_at')
+    .eq('id', id)
+    .maybeSingle()
 
   if (!pollRaw) notFound()
   const poll = pollRaw as unknown as Poll
-  const votos = (votosRaw ?? []) as unknown as PollVote[]
 
   const etiquetas: Record<number, string> = Object.fromEntries(
     poll.options.map((o) => [o.id, o.label]),
   )
 
-  const porDestino = new Map<number, number>()
-  const porMes = new Map<string, number>()
-  for (const v of votos) {
-    porDestino.set(v.option_id, (porDestino.get(v.option_id) ?? 0) + 1)
-    const m = v.preferred_month.slice(0, 7)
-    porMes.set(m, (porMes.get(m) ?? 0) + 1)
-  }
+  // Los agregados salen de `count` en SQL, no de contar filas traídas: PostgREST
+  // corta en 1000 y las barras mentirían justo cuando la campaña funcionó.
+  const [total, porDestino, porMes, listado] = await Promise.all([
+    supabase
+      .from('poll_votes' as never)
+      .select('id', { count: 'exact', head: true })
+      .eq('poll_id', id)
+      .then((r) => r.count ?? 0),
+    Promise.all(
+      poll.options.map(async (o) => {
+        const { count } = await supabase
+          .from('poll_votes' as never)
+          .select('id', { count: 'exact', head: true })
+          .eq('poll_id', id)
+          .eq('option_id', o.id)
+        return { label: o.label, votes: count ?? 0 }
+      }),
+    ),
+    Promise.all(
+      mesesDelRango(poll.month_from, poll.month_to).map(async (m) => {
+        const { count } = await supabase
+          .from('poll_votes' as never)
+          .select('id', { count: 'exact', head: true })
+          .eq('poll_id', id)
+          .eq('preferred_month', `${m}-01`)
+        return { label: etiquetaMes(m), votes: count ?? 0 }
+      }),
+    ),
+    // Las filas sí se traen (hacen falta el contacto y el texto), con tope
+    // explícito para que el corte sea visible en la UI y no silencioso.
+    supabase
+      .from('poll_votes' as never)
+      .select('id, poll_id, option_id, preferred_month, suggestion, contact, meta, created_at')
+      .eq('poll_id', id)
+      .order('created_at', { ascending: false })
+      .range(0, TOPE_LISTADO),
+  ])
 
-  const destinos = [...porDestino.entries()]
-    .map(([oid, n]) => ({ label: etiquetas[oid] ?? 'Otro', votes: n }))
-    .sort((a, b) => b.votes - a.votes)
-  const meses = [...porMes.entries()]
-    .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([m, n]) => ({ label: etiquetaMes(m), votes: n }))
+  const votos = (listado.data ?? []) as unknown as PollVote[]
+  const truncado = votos.length > TOPE_LISTADO
+
+  const destinos = porDestino.filter((d) => d.votes > 0).sort((a, b) => b.votes - a.votes)
+  const meses = porMes.filter((m) => m.votes > 0)
 
   const leads = votos.filter((v) => v.contact)
   const sugerencias = votos.filter((v) => v.suggestion)
@@ -131,7 +156,7 @@ export default async function EncuestaDetallePage({
             <span className="capitalize">
               {etiquetaMes(poll.month_from)} – {etiquetaMes(poll.month_to)}
             </span>
-            <span>· {votos.length} {votos.length === 1 ? 'voto' : 'votos'}</span>
+            <span>· {total} {total === 1 ? 'voto' : 'votos'}</span>
             {poll.closes_at && <span>· cierra el {poll.closes_at}</span>}
           </span>
         }
@@ -173,7 +198,7 @@ export default async function EncuestaDetallePage({
             <CardTitle className="text-base">A dónde quieren ir</CardTitle>
           </CardHeader>
           <CardContent>
-            <BarrasPorcentaje datos={destinos} total={votos.length} />
+            <BarrasPorcentaje datos={destinos} total={total} />
           </CardContent>
         </Card>
         <Card>
@@ -181,7 +206,7 @@ export default async function EncuestaDetallePage({
             <CardTitle className="text-base">Cuándo</CardTitle>
           </CardHeader>
           <CardContent>
-            <BarrasPorcentaje datos={meses} total={votos.length} />
+            <BarrasPorcentaje datos={meses} total={total} />
           </CardContent>
         </Card>
       </div>
@@ -197,6 +222,12 @@ export default async function EncuestaDetallePage({
           Quienes dejaron contacto esperando que el viaje se arme. Escríbeles cuando abras
           la salida ganadora.
         </p>
+        {truncado && (
+          <p className="text-sm text-[var(--warning)]">
+            Mostrando los {TOPE_LISTADO} votos más recientes. Los porcentajes de arriba sí
+            cuentan los {total}.
+          </p>
+        )}
         <DataList
           columns={columnasLeads}
           rows={leads}
