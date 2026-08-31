@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { safeError } from '@/lib/errors'
-import { normalizarOpciones, primerDiaDelMes } from '@/lib/domain/encuesta'
+import { largoDelRango, normalizarOpciones, primerDiaDelMes } from '@/lib/domain/encuesta'
 import type { EncuestaInput, PollStatus } from './tipos'
 
 // Investigación de mercado (m002). `polls` NO es tabla de dinero ni append-only,
@@ -33,6 +33,12 @@ function validar(input: EncuestaInput): { error: string } | Validado {
   const hasta = primerDiaDelMes(input.month_to ?? '')
   if (!desde || !hasta) return { error: 'Elige el rango de meses.' }
   if (desde > hasta) return { error: 'El mes inicial no puede ser posterior al final.' }
+  // `mesesDelRango` corta en 24: sin este guard un rango más largo perdía los
+  // meses de sobra en silencio y nadie podía votarlos.
+  // ponytail: el tope vive solo aquí, no en la BD. No es frontera de seguridad
+  // (el peor caso son meses no ofrecidos, y submit_poll_vote sí valida el rango
+  // real en SQL); si algún día hace falta blindarlo, va un check en `polls`.
+  if (largoDelRango(desde, hasta) > 24) return { error: 'El rango no puede pasar de 24 meses.' }
 
   return { question, options, desde, hasta, closes_at: input.closes_at || null }
 }
@@ -150,7 +156,8 @@ export async function cambiarEstadoEncuesta(
       .select('options')
       .eq('id', id)
       .single()
-    if (errLeer || !actual) return { error: 'No encontramos esa encuesta.' }
+    if (errLeer) return { error: safeError(errLeer, 'No se pudo leer la encuesta.') }
+    if (!actual) return { error: 'No encontramos esa encuesta.' }
     const opciones = (actual as unknown as { options: unknown[] }).options ?? []
     if (opciones.length < 2) return { error: 'Pon al menos 2 destinos antes de abrirla.' }
   }

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   filtrarUtm,
   primerDiaDelMes,
-  mesEnRango,
+  largoDelRango,
   mesesDelRango,
   etiquetaMes,
   normalizarOpciones,
@@ -40,19 +40,18 @@ describe('primerDiaDelMes', () => {
   })
 })
 
-describe('mesEnRango', () => {
-  const desde = '2026-10-01'
-  const hasta = '2027-03-01'
-  it('acepta los extremos', () => {
-    expect(mesEnRango('2026-10', desde, hasta)).toBe(true)
-    expect(mesEnRango('2027-03', desde, hasta)).toBe(true)
+describe('largoDelRango', () => {
+  it('cuenta ambos extremos y cruza el fin de año', () => {
+    expect(largoDelRango('2026-10', '2026-10')).toBe(1)
+    expect(largoDelRango('2026-10', '2027-03')).toBe(6)
   })
-  it('rechaza fuera de rango por ambos lados', () => {
-    expect(mesEnRango('2026-09', desde, hasta)).toBe(false)
-    expect(mesEnRango('2027-04', desde, hasta)).toBe(false)
+  it('pasa de 24 en el rango que truncaba en silencio', () => {
+    expect(largoDelRango('2026-01', '2027-12')).toBe(24)
+    expect(largoDelRango('2026-01', '2028-01')).toBe(25)
   })
-  it('compara por año, no solo por mes', () => {
-    expect(mesEnRango('2025-11', desde, hasta)).toBe(false)
+  it('da 0 si el rango es inválido o va al revés', () => {
+    expect(largoDelRango('2027-03', '2026-10')).toBe(0)
+    expect(largoDelRango('nope', '2026-10')).toBe(0)
   })
 })
 

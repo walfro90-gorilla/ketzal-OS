@@ -37,13 +37,16 @@ export function primerDiaDelMes(mes: string): string | null {
   return `${m[1]}-${m[2]}-01`
 }
 
-/** ¿El mes elegido cae dentro del rango de la encuesta? (comparación lexicográfica de 'YYYY-MM-01'). */
-export function mesEnRango(mes: string, desde: string, hasta: string): boolean {
-  const m = primerDiaDelMes(mes)
+/** Cuántos meses abarca el rango, contando ambos extremos. 0 si no es válido. */
+export function largoDelRango(desde: string, hasta: string): number {
   const d = primerDiaDelMes(desde)
   const h = primerDiaDelMes(hasta)
-  if (!m || !d || !h) return false
-  return m >= d && m <= h
+  if (!d || !h || d > h) return 0
+  return (
+    (Number(h.slice(0, 4)) - Number(d.slice(0, 4))) * 12 +
+    (Number(h.slice(5, 7)) - Number(d.slice(5, 7))) +
+    1
+  )
 }
 
 /** Los meses seleccionables de una encuesta, como 'YYYY-MM'. Tope de 24 por si el rango viene absurdo. */
