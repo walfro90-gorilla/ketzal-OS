@@ -9,6 +9,54 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Stack de marketing: medición server-first + SEO/AEO (m011, ADR-0025/0026,
+> 2026-08-31).** Port del stack construido y verificado en vivo en estampida
+> (transferencia completa en `docs/MARKETING_STACK_HUELLA.md`) — todo antes de
+> gastar un peso en campañas, porque el pixel necesita ~2 semanas de datos
+> para optimizar.
+>
+> **Medición (ADR-0025).** `Purchase` sale del servidor, de los caminos que
+> confirman dinero (webhook MP, Brick inline, approve SPEI en Cobranza), vía
+> Meta CAPI + GA4 Measurement Protocol con `event_id`/`transaction_id` =
+> `booking_id`. Gates del helper único `sendPurchaseEvents`: solo pedidos del
+> marketplace (`marketplace_customer_id`) y solo el PRIMER abono confirmado —
+> la venta es una conversión, no una por abono. `InitiateCheckout` al crear el
+> pedido vía `after()`. El pixel del cliente solo manda `PageView` y solo en
+> la superficie pública (allowlist de rutas; el back-office no se mide).
+> `user_data` mínimo: `external_id = sha256(booking_id)` — Meta rechaza
+> eventos sin customer info param (error 2804050, lección pagada en
+> estampida); sin email hasheado hasta que el aviso de privacidad lo cubra.
+> Atribución first-touch (utm/fbclid/gclid, localStorage 30 días) + ip/ua/
+> `_fbp`/`_fbc` capturados al crear el pedido → `bookings.attribution`
+> (jsonb, solo service role). Funnel propio `ketzal.funnel_events` deny-all +
+> `POST /api/track` (`checkout_open`/`order_created`/`pago_metodo`), sin
+> PostHog. Tarjeta de atribución en `/cuentas` (superadmin): fuente →
+> pedidos → con pago → $. Todo env-gated (`NEXT_PUBLIC_META_PIXEL_ID`,
+> `META_CAPI_TOKEN`, `NEXT_PUBLIC_GA_ID`, `GA4_API_SECRET`,
+> `META_TEST_EVENT_CODE` opcional): sin vars = no-op silencioso; nada puede
+> tumbar el webhook.
+>
+> **SEO/AEO (ADR-0026).** `robots.ts` (crawlers de IA PERMITIDOS: GPTBot,
+> OAI-SearchBot, ClaudeBot, PerplexityBot, Google-Extended; fuera back-office
+> y vistas por token), `sitemap.ts` dinámico desde `list_public_services`,
+> `llms.txt`, JSON-LD `TouristTrip` en la ficha e `ItemList` en `/explora`
+> (serializado escapando `<`). El proxy ahora deja pasar `/robots.txt`,
+> `/sitemap.xml` y `/llms.txt` — antes redirigían a /login y ningún crawler
+> los veía.
+>
+> **Probado en vivo:** m011 aplicada y verificada contra `information_schema`
+> (attribution existe; funnel_events con RLS on, 0 policies, 0 grants);
+> PostgREST anon GET/POST a `funnel_events` → 401 ambos; `/api/track` local →
+> 204 con fila real en BD (limpiada y verificada: 0 restantes), 400 con
+> evento inválido y sin body; `robots/sitemap/llms.txt` → 200 con contenido;
+> JSON-LD server-rendered visible en `curl` de la ficha (Colombia 2026).
+> `tsc` limpio, 158 tests (13 nuevos: payloads shape exacto + atribución TTL
+> + allowlist de rutas), `pnpm build` OK. **Pendiente de cuentas (Wal):**
+> Business Portfolio Meta + dataset/token CAPI, GA4 + API secret, dominio
+> propio para verificación — checklist paso a paso en
+> `docs/MARKETING_STACK_HUELLA.md`; el envío real a Meta/GA4 queda sin
+> ejercer hasta que existan esas envs (no-op verificado mientras tanto).
+
 > **Reconectar Mercado Pago, y por qué hizo falta (ADR-0024, 2026-08-31).**
 >
 > Salió de un incidente propio: un agente investigando por qué no encontraba la

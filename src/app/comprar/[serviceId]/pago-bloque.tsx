@@ -17,6 +17,7 @@ import {
   type PlanPreview,
   type SpeiInfo,
 } from '../actions'
+import { track } from '@/lib/marketing/attribution'
 import { WaButton } from './wa-button'
 import { SpeiPanel } from './spei-panel'
 import { MpPaymentBrick, type ResultadoBrick } from './mp-payment-brick'
@@ -67,6 +68,7 @@ export function PagoBloque({
 
   // Calcula el desglose (gross-up) y abre el Brick con el monto que se cobrará.
   async function abrirBrick(monto: number) {
+    track('pago_metodo', { booking_id: bookingId, service_id: serviceId, metodo: 'mp' })
     setBusy(true)
     const d = await desgloseCheckout(bookingId, monto)
     setBusy(false)
@@ -146,6 +148,7 @@ export function PagoBloque({
   // Enganche por SPEI: genera el plan y abre el panel con el monto del enganche.
   async function speiEnganche() {
     if (!preview) return
+    track('pago_metodo', { booking_id: bookingId, service_id: serviceId, metodo: 'spei' })
     setBusy(true)
     const gen = await generarPlanMarketplace(bookingId, freq, travelDate ? null : finalDate)
     setBusy(false)
@@ -242,6 +245,7 @@ export function PagoBloque({
               className="w-full"
               disabled={busy}
               onClick={() => {
+                track('pago_metodo', { booking_id: bookingId, service_id: serviceId, metodo: 'spei' })
                 setSpeiAmount(total)
                 setSpeiOpen(true)
               }}

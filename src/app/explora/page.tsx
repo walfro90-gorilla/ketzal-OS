@@ -4,6 +4,8 @@ import { listPublicSuppliers } from '../agencias/data'
 import { Catalogo } from './catalogo'
 import { PublicHeader } from '@/components/public/public-header'
 import { PublicFooter } from '@/components/public/public-footer'
+import { itemListJsonLd, serializeJsonLd } from '@/lib/marketing/jsonld'
+import { SITE_URL } from '@/lib/site-url'
 
 // Catálogo público (marketplace). SÍ indexable (a diferencia de las páginas por
 // token): es la vitrina SEO. Página autocontenida (sin la shell de /ops).
@@ -40,6 +42,15 @@ export default async function ExploraPage({
 
   return (
     <>
+      {/* ADR-0026: ItemList de la vitrina para rich results / AEO. */}
+      {servicios.length > 0 && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: serializeJsonLd(itemListJsonLd(servicios, SITE_URL)),
+          }}
+        />
+      )}
       <PublicHeader />
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:py-12">
         <header className="mb-8 space-y-2">

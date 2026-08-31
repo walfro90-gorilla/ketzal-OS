@@ -12,6 +12,7 @@ import { EmptyState } from '@/components/data/empty-state'
 import { ScaleIcon } from 'lucide-react'
 import { mxn } from '@/components/data/format'
 import { LiquidarBoton } from './liquidar-boton'
+import { AtribucionCard } from './atribucion-card'
 
 // b052 — Estado de cuenta BALANCE-0 por actor (F1 de finanzas de plataforma).
 // Superadmin ve todas las cuentas (y liquida); el admin de agencia ve la suya.
@@ -184,6 +185,9 @@ export default async function CuentasPage({
           })}
         </div>
       )}
+
+      {/* ADR-0025: atribución de marketing (solo superadmin — vista de plataforma). */}
+      {esSuper && <AtribucionCard />}
 
       {tipo && (
         <Card>

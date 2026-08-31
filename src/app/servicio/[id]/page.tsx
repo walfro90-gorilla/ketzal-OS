@@ -26,6 +26,8 @@ import { AgenciaLogo } from '@/components/public/agencia-logo'
 import { Compartir } from '@/components/public/compartir'
 import { PublicHeader } from '@/components/public/public-header'
 import { PublicFooter } from '@/components/public/public-footer'
+import { serializeJsonLd, touristTripJsonLd } from '@/lib/marketing/jsonld'
+import { SITE_URL } from '@/lib/site-url'
 
 // Ficha pública de un servicio (marketplace). Indexable (vitrina SEO).
 // El CTA "Reservar" apunta hoy a WhatsApp de la agencia; la tajada 3
@@ -152,6 +154,15 @@ export default async function ServicioPublicoPage({
 
   return (
     <>
+      {/* ADR-0026: datos estructurados citables (Google rich results + AEO). */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: serializeJsonLd(
+            touristTripJsonLd({ ...s, url: `${SITE_URL}/servicio/${id}` })
+          ),
+        }}
+      />
       <PublicHeader />
       <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6 pb-28 sm:py-10 md:pb-10">
       <Link
