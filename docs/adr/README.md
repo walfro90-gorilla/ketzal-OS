@@ -29,3 +29,4 @@ este índice se actualiza en el mismo diff.**
 | [0020](0020-security-review-diferida.md) | La revisión de seguridad automática se difiere hasta producción; el workflow se elimina, no se deja fallando | aceptada |
 | [0021](0021-embajadores-los-paga-quien-recluta.md) | Embajadores sin límite de catálogo; paga la agencia dueña del viaje con la tarifa que ella fijó | aceptada |
 | [0022](0022-referir-lo-decide-el-codigo-no-el-tipo.md) | Quién cobra por referir lo decide el `referral_code`, no `profiles.type`; auto-referido bloqueado | aceptada |
+| [0023](0023-fixtures-efimeras-en-los-hard-tests.md) | Los hard-tests crean sus cuentas y las borran; se acaban las cuentas QA permanentes y `KETZAL_QA_PASS` | aceptada |
