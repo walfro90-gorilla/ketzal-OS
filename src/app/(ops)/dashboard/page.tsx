@@ -36,6 +36,11 @@ import { BarrasTop } from '../reportes/graficas'
 import type { Reporte } from '../reportes/tipos'
 import { ChecklistArranque, type Onboarding } from './checklist-arranque'
 import { UnirseAgencia, type AgenciaParaUnirse } from './unirse-agencia'
+import {
+  ResumenPlataforma,
+  type AgenciaResumen,
+  type PersonaResumen,
+} from './resumen-plataforma'
 import { Dona, SerieVendidoRecibido, type PuntoSerie, type Rebanada } from './graficas'
 import { RangoPanel, type PresetRango } from './rango'
 
@@ -658,7 +663,7 @@ export default async function DashboardPage({
         .eq('status', 'COMPLETED')
         .gte('paid_at', from)
         .lt('paid_at', toExclusivo),
-      supabase.from('profiles').select('supplier_id').eq('id', user.id).single(),
+      supabase.from('profiles').select('supplier_id, role').eq('id', user.id).single(),
       getClawbotResumen(),
       // Anomalías de dinero (sobrepago / pagado_sin_cupo / pago_cancelado) que el
       // webhook dejó en system_log y necesitan revisión/reembolso manual.
@@ -722,6 +727,68 @@ export default async function DashboardPage({
   const montoVencido = Number(d.monto_vencido ?? 0)
   const numVencidas = Number(d.num_vencidas ?? 0)
   const numCotPend = Number(d.num_cotizaciones ?? 0)
+
+  // El superadmin no pertenece a ninguna agencia: las administra todas. Sin
+  // esto, el RPC de agente libre le ofrecía "Solicitar entrar" a las agencias
+  // del propio fundador, porque no distingue "sin agencia" de "dueño de todo".
+  const esSuperadmin =
+    (profileRes.data as { role?: string } | null)?.role === 'superadmin'
+
+  let plataformaAgencias: AgenciaResumen[] = []
+  let plataformaEmbajadores: PersonaResumen[] = []
+  let plataformaViajeros: PersonaResumen[] = []
+  let totalEmbajadores = 0
+  let totalViajeros = 0
+  if (esSuperadmin) {
+    // Viajeros y embajadores se leen por RPC DEFINER, NO por `from('profiles')`:
+    // la RLS de `profiles` es solo-propio incluso para el superadmin (medido:
+    // ve 1 fila, la suya). Una consulta directa no falla — devuelve vacío, y el
+    // panel diría "0 viajeros" con dos viajeros en la tabla. Mismos RPCs que ya
+    // usan /viajeros y /comisiones.
+    const [agsRes, viajRes, embRes] = await Promise.all([
+      supabase
+        .from('suppliers')
+        .select('id, name, img_logo')
+        .eq('supplier_type', 'agency')
+        .order('name'),
+      supabase.rpc('list_travelers' as never),
+      supabase.rpc('list_ambassadors' as never),
+    ])
+    plataformaAgencias = (
+      (agsRes.data ?? []) as unknown as {
+        id: string
+        name: string
+        img_logo: string | null
+      }[]
+    ).map((a) => ({ id: a.id, nombre: a.name, logo: a.img_logo }))
+
+    // `list_travelers` ya viene por alta descendente; el corte es solo para que
+    // el carrusel no crezca sin fin.
+    const viajeros = (viajRes.data ?? []) as unknown as {
+      id: string
+      full_name: string | null
+      email: string | null
+      image: string | null
+    }[]
+    plataformaViajeros = viajeros.slice(0, 12).map((v) => ({
+      id: v.id,
+      nombre: v.full_name ?? v.email?.split('@')[0] ?? 'Viajero',
+      avatar: v.image,
+    }))
+
+    const embs = (embRes.data ?? []) as unknown as {
+      id: string
+      name: string | null
+    }[]
+    plataformaEmbajadores = embs.slice(0, 12).map((e) => ({
+      id: e.id,
+      nombre: e.name ?? 'Embajador',
+      avatar: null, // `list_ambassadors` no expone foto; inicial y ya
+    }))
+
+    totalViajeros = viajeros.length
+    totalEmbajadores = embs.length
+  }
 
   let agencia: string | null = null
   let agenciaLogo: string | null = null
@@ -867,9 +934,19 @@ export default async function DashboardPage({
         }
       />
 
-      {/* Identidad primero: de qué agencia es este panel y de qué tamaño es la
-          operación. Antes solo lo decía la línea gris del PageHeader. */}
-      {agencia && (
+      {/* El superadmin ve la PLATAFORMA (quién se está sumando); el admin de
+          agencia ve la suya. Nunca las dos. */}
+      {esSuperadmin && (
+        <ResumenPlataforma
+          agencias={plataformaAgencias}
+          embajadores={plataformaEmbajadores}
+          viajeros={plataformaViajeros}
+          totalEmbajadores={totalEmbajadores}
+          totalViajeros={totalViajeros}
+        />
+      )}
+
+      {agencia && !esSuperadmin && (
         <CabeceraAgencia
           nombre={agencia}
           logo={agenciaLogo}
@@ -887,8 +964,12 @@ export default async function DashboardPage({
 
       {/* b065: el agente libre puede pedir entrar a una agencia. Ser agente
           libre es una posición legítima, así que esto es una puerta, no un
-          error que corregir. */}
-      {agenciasParaUnirse && <UnirseAgencia agencias={agenciasParaUnirse} />}
+          error que corregir. Al superadmin NO: `list_agencies_to_join` solo
+          mira si tienes `supplier_id`, y el suyo es null, así que le ofrecía
+          pedir permiso para entrar a sus propias agencias. */}
+      {agenciasParaUnirse && !esSuperadmin && (
+        <UnirseAgencia agencias={agenciasParaUnirse} />
+      )}
 
       {/* Resumen del periodo: el filtro manda sobre TODO lo de esta sección. */}
       <section aria-label="Resumen del periodo" className="space-y-4">
