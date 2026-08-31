@@ -200,14 +200,30 @@ export default async function ProveedorDetallePage({
           </CardHeader>
           <CardContent>
             {mpConectado ? (
-              <p className="text-sm">
-                <span className="font-medium text-emerald-600 dark:text-emerald-500">
-                  ✓ Cuenta conectada
-                </span>{' '}
-                <span className="text-muted-foreground">
-                  (MP user {mpUserId ?? '—'})
-                </span>
-              </p>
+              <div className="space-y-2">
+                <p className="text-sm">
+                  <span className="font-medium text-emerald-600 dark:text-emerald-500">
+                    ✓ Cuenta conectada
+                  </span>{' '}
+                  <span className="text-muted-foreground">
+                    (MP user {mpUserId ?? '—'})
+                  </span>
+                </p>
+                {/* Reconectar rota los tokens: el callback hace upsert sobre el
+                    mismo supplier_id, así que los viejos dejan de servir. Es la
+                    salida si se filtraron o si MP revocó el permiso. */}
+                <a
+                  href={`/api/mp/oauth/start?supplier=${proveedor.id}`}
+                  className="inline-flex items-center text-sm font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground"
+                >
+                  Reconectar
+                </a>
+                <p className="text-xs text-muted-foreground">
+                  Vuelve a autorizar con Mercado Pago y reemplaza los permisos
+                  actuales. Úsalo si cambiaste de cuenta o si sospechas que el
+                  acceso quedó expuesto.
+                </p>
+              </div>
             ) : (
               <a
                 href={`/api/mp/oauth/start?supplier=${proveedor.id}`}
