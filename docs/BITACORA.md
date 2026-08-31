@@ -9,6 +9,42 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Reconectar Mercado Pago, y por qué hizo falta (ADR-0024, 2026-08-31).**
+>
+> Salió de un incidente propio: un agente investigando por qué no encontraba la
+> conexión de MP corrió `select m.*` sobre `ketzal.mp_accounts` —tabla deny-all,
+> justamente porque guarda tokens OAuth— y el `access_token` y el
+> `refresh_token` de producción de Wanderlust quedaron impresos en un transcript.
+>
+> Al ir a rotarlos apareció el hueco real: **no había forma de hacerlo desde el
+> producto.** La tarjeta de "Cobros en línea" enseñaba el botón de conectar solo
+> cuando NO había cuenta; ya conectada decía `✓ Cuenta conectada` y nada más.
+> Rotar significaba escribir en la BD con la service key — exactamente lo que la
+> tabla deny-all existe para impedir. Guardar bien un secreto y no poder
+> cambiarlo es media solución.
+>
+> **Arreglo sin backend nuevo (#83).** El link *Reconectar* reusa
+> `/api/mp/oauth/start`, que ya traía el guard (superadmin o admin de esa
+> agencia, `supplier` firmado HMAC en `state`), y el callback ya hacía `upsert`
+> por `supplier_id`. Solo faltaba la puerta.
+> → [ADR-0024](adr/0024-rotacion-de-credenciales-de-terceros.md)
+>
+> **El segundo hallazgo lo destapó el fundador probándolo:** "le di click, pero
+> solo hace un refresh". Sí había funcionado —dos rotaciones en `system_log` a
+> las 07:07:21 y 07:07:27, `expires_at` movido de 2027-02-06 a 2027-02-27, y el
+> token nuevo validado en vivo contra `users/me` de MP (200, user 479630144)—.
+> Lo que fallaba era el acuse: el callback volvía con `?mp=conectado` desde b053
+> y **ningún componente leía ese parámetro**. La pantalla quedaba idéntica en los
+> tres casos, así que **un fallo se veía igual que un éxito** — y durante un
+> incidente eso te hace creer que rotaste cuando no. Corregido en #84.
+>
+> **Lo que Reconectar NO hace:** revocar los tokens viejos. MP emite uno nuevo en
+> cada intercambio pero los anteriores siguen vivos hasta expirar (~180 días).
+> Para una credencial expuesta el runbook es de dos pasos: revocar Ketzal en
+> **Aplicaciones autorizadas** de la cuenta MP del vendedor, y recién entonces
+> Reconectar. Queda escrito en el ADR porque el atajo de "solo reconectar" da una
+> falsa sensación de cierre.
+
 > **Los hard-tests ya se traen sus propias cuentas (ADR-0023, 2026-08-31).**
 >
 > Al cerrar el barrido de ayer quedó una consecuencia fea: borrar las cuentas QA

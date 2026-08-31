@@ -102,6 +102,27 @@ split activo** — el connect en sí no mueve dinero.
 - Kinds del ledger: `devengo · reverso · fee_cobrado_split · cobro_por_cuenta ·
   payout · liquidacion · ajuste` — agregar uno = ampliar el CHECK.
 
+## Rotar la cuenta MP de una agencia (ADR-0024)
+
+Con la cuenta ya conectada, `/proveedores/[id]` muestra **Reconectar**: vuelve a
+autorizar y el callback hace `upsert` sobre `mp_accounts`, reemplazando
+`access_token`, `refresh_token`, `public_key` y `expires_at`. Sirve para cambiar
+de cuenta MP y como primer paso al rotar.
+
+**Reconectar NO revoca lo anterior.** MP emite un token nuevo pero los ya
+emitidos siguen vivos hasta expirar. Ante una credencial **expuesta**, el orden
+es:
+
+1. Cuenta MP del vendedor → **Aplicaciones autorizadas** → revocar Ketzal.
+2. `/proveedores/[id]` → **Reconectar**.
+
+La tarjeta pinta el resultado (`?mp=conectado|cancelado|error`): si no aparece
+el acuse verde, la rotación no ocurrió.
+
+**Al depurar `mp_accounts`: nunca `select *`.** Las columnas se descubren en
+`information_schema.columns` y del token solo se reporta un booleano. Un
+`select *` sobre esta tabla vuelca credenciales de producción a pantalla.
+
 ## Pendientes
 
 - **Conectar a las demás agencias** (Border Travels y las que se den de alta)
