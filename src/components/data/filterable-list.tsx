@@ -1,6 +1,8 @@
 'use client'
 
 import { useMemo, useState, type ReactNode } from 'react'
+import { SlidersHorizontalIcon } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { NativeSelect } from '@/components/ui/native-select'
 import { Button } from '@/components/ui/button'
@@ -83,6 +85,11 @@ export function FilterableList<T>({
   const [dateTo, setDateTo] = useState('')
   // null = orden original. Ciclo por columna: asc → desc → null.
   const [sort, setSort] = useState<SortState | null>(null)
+  // Filtros plegados en móvil: apilados ocupaban ~320px antes del primer
+  // resultado. La BÚSQUEDA nunca se pliega (es lo que más se usa); lo demás
+  // vive tras un botón que dice cuántos filtros hay puestos, para que nadie
+  // los olvide activos y crea que la lista está vacía.
+  const [verFiltros, setVerFiltros] = useState(false)
 
   const toggleSort = (index: number) => {
     setSort((prev) => {
@@ -139,9 +146,16 @@ export function FilterableList<T>({
     setDateTo('')
   }
 
+  // Cuántos filtros (sin contar la búsqueda) están puestos.
+  const activos =
+    Object.values(selected).filter(Boolean).length +
+    (dateFrom ? 1 : 0) +
+    (dateTo ? 1 : 0)
+  const hayFiltros = Boolean(filters?.length) || Boolean(dateFilter)
+
   return (
     <div className="space-y-3">
-      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+      <div className="flex items-center gap-2 sm:hidden">
         <label htmlFor="filterable-list-search" className="sr-only">
           Buscar
         </label>
@@ -153,7 +167,46 @@ export function FilterableList<T>({
           placeholder={searchPlaceholder}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="sm:max-w-xs"
+          className="min-w-0 flex-1"
+        />
+        {hayFiltros && (
+          <Button
+            type="button"
+            variant={activos > 0 ? 'default' : 'outline'}
+            size="icon"
+            className="size-9 shrink-0"
+            aria-expanded={verFiltros}
+            aria-controls="filterable-list-filtros"
+            aria-label={
+              activos > 0 ? `Filtros (${activos} activos)` : 'Filtros'
+            }
+            onClick={() => setVerFiltros((v) => !v)}
+          >
+            {activos > 0 ? (
+              <span className="text-xs font-semibold tabular-nums">{activos}</span>
+            ) : (
+              <SlidersHorizontalIcon className="size-4" />
+            )}
+          </Button>
+        )}
+      </div>
+
+      <div
+        id="filterable-list-filtros"
+        className={cn(
+          'flex-col gap-2 sm:flex sm:flex-row sm:flex-wrap sm:items-center',
+          verFiltros ? 'flex' : 'hidden'
+        )}
+      >
+        {/* En sm+ la búsqueda vuelve a la misma fila que los filtros. */}
+        <Input
+          type="search"
+          inputMode="search"
+          aria-label="Buscar"
+          placeholder={searchPlaceholder}
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          className="hidden sm:block sm:max-w-xs"
         />
         {(filters ?? []).map((filter) => (
           <div key={filter.key} className="w-full sm:w-48">
@@ -177,8 +230,10 @@ export function FilterableList<T>({
           </div>
         ))}
         {dateFilter && (
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-            <span className="text-sm text-muted-foreground sm:whitespace-nowrap">
+          <div className="flex w-full items-center gap-2 sm:w-auto">
+            {/* La etiqueta se ve solo en sm+: en móvil gastaba una línea entera
+                para decir algo que los dos `input[type=date]` ya sugieren. */}
+            <span className="hidden text-sm text-muted-foreground sm:inline sm:whitespace-nowrap">
               {dateFilter.label}
             </span>
             <Input
@@ -187,12 +242,9 @@ export function FilterableList<T>({
               value={dateFrom}
               max={dateTo || undefined}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="sm:w-40"
+              className="min-w-0 flex-1 sm:w-40 sm:flex-none"
             />
-            <span
-              aria-hidden="true"
-              className="hidden text-sm text-muted-foreground sm:inline"
-            >
+            <span aria-hidden="true" className="text-sm text-muted-foreground">
               –
             </span>
             <Input
@@ -201,15 +253,28 @@ export function FilterableList<T>({
               value={dateTo}
               min={dateFrom || undefined}
               onChange={(e) => setDateTo(e.target.value)}
-              className="sm:w-40"
+              className="min-w-0 flex-1 sm:w-40 sm:flex-none"
             />
           </div>
         )}
       </div>
 
-      <p className="text-xs text-muted-foreground" aria-live="polite">
-        {filtered.length === 1 ? '1 resultado' : `${filtered.length} resultados`}
-      </p>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs text-muted-foreground" aria-live="polite">
+          {filtered.length === 1 ? '1 resultado' : `${filtered.length} resultados`}
+        </p>
+        {(activos > 0 || query) && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-xs"
+            onClick={clear}
+          >
+            Limpiar
+          </Button>
+        )}
+      </div>
 
       {filtered.length === 0 ? (
         // Hay datos pero la búsqueda no coincide: mensaje inline, sin CTA grande.

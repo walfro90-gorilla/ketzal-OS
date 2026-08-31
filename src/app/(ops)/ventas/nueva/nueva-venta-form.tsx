@@ -455,15 +455,15 @@ export function NuevaVentaForm({
   )
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <Card>
-        <CardHeader>
+    <form onSubmit={handleSubmit} className="space-y-4 pb-24 sm:space-y-6 sm:pb-0">
+      <Card className="gap-3 py-4 sm:gap-6 sm:py-6">
+        <CardHeader className="px-4 sm:px-6">
           <CardTitle>Cliente</CardTitle>
-          <CardDescription>
+          <CardDescription className="text-xs sm:text-sm">
             Elige un cliente existente o da de alta uno nuevo.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 px-4 sm:px-6">
           <div className="flex gap-2">
             <Button
               type="button"
@@ -530,15 +530,15 @@ export function NuevaVentaForm({
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
+      <Card className="gap-3 py-4 sm:gap-6 sm:py-6">
+        <CardHeader className="px-4 sm:px-6">
           <CardTitle>Servicio y fecha</CardTitle>
-          <CardDescription>
+          <CardDescription className="text-xs sm:text-sm">
             Al elegir un servicio se sugiere su precio en la primera línea de
             pasajero.
           </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
+        <CardContent className="grid gap-4 px-4 sm:grid-cols-2 sm:px-6">
           <div className="space-y-2">
             <Label htmlFor="service-select">Servicio</Label>
             <Combobox
@@ -614,14 +614,14 @@ export function NuevaVentaForm({
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
+      <Card className="gap-3 py-4 sm:gap-6 sm:py-6">
+        <CardHeader className="px-4 sm:px-6">
           <CardTitle>Líneas de la venta</CardTitle>
-          <CardDescription>
+          <CardDescription className="text-xs sm:text-sm">
             Pasajeros, habitaciones, add-ons o conceptos personalizados.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 px-4 sm:px-6">
           {/* Desktop (md+): tabla compacta */}
           <div className="hidden overflow-x-auto md:block">
             <Table>
@@ -663,7 +663,7 @@ export function NuevaVentaForm({
           {/* Móvil (<md): una tarjeta por línea */}
           <ul className="flex flex-col gap-4 md:hidden">
             {lines.map((line, i) => (
-              <li key={line.key} className="space-y-3 rounded-xl border p-4">
+              <li key={line.key} className="space-y-3 rounded-xl border p-3 sm:p-4">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium">Línea {i + 1}</span>
                   {deleteBtn(line, 'icon-touch')}
@@ -713,11 +713,11 @@ export function NuevaVentaForm({
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
+      <Card className="gap-3 py-4 sm:gap-6 sm:py-6">
+        <CardHeader className="px-4 sm:px-6">
           <CardTitle>Totales</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 px-4 sm:px-6">
           {/* F6: divisa de captura. USD ⇒ precios en dólares; el MXN queda
               autoritativo (× TC) al guardar. */}
           <div className="flex flex-wrap items-end gap-3">
@@ -803,23 +803,44 @@ export function NuevaVentaForm({
       )}
 
       {/* Todo nace cotización: el primer abono la asciende a venta solo. */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <Button
-          type="submit"
-          disabled={isPending}
-          className="w-full sm:w-auto"
-        >
+      {/* Escritorio: los botones al final, como cualquier formulario largo. */}
+      <div className="hidden gap-3 sm:flex sm:flex-row sm:items-center">
+        <Button type="submit" disabled={isPending} className="sm:w-auto">
           {isPending ? 'Guardando…' : 'Guardar cotización'}
         </Button>
         <Link
           href="/ventas"
-          className={cn(
-            buttonVariants({ variant: 'outline' }),
-            'w-full sm:w-auto'
-          )}
+          className={cn(buttonVariants({ variant: 'outline' }), 'sm:w-auto')}
         >
           Cancelar
         </Link>
+      </div>
+
+      {/* Móvil: barra fija con el total y la acción. En un teléfono este
+          formulario mide varias pantallas, así que el total quedaba fuera de
+          vista justo mientras se arma la venta —que es cuando importa— y
+          guardar exigía recorrerlo entero. Va por debajo de la bottom bar
+          (z-30 contra z-40) y sobre ella en pantalla (bottom-16). */}
+      <div className="fixed inset-x-0 bottom-16 z-30 border-t bg-background/95 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur supports-backdrop-filter:bg-background/80 sm:hidden">
+        <div className="flex items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-muted-foreground">
+              Total{esUsd ? ' (USD)' : ''}
+            </p>
+            <p className="truncate text-lg font-semibold tabular-nums">
+              {money.format(totalNum)}
+            </p>
+          </div>
+          <Link
+            href="/ventas"
+            className={cn(buttonVariants({ variant: 'ghost' }), 'shrink-0')}
+          >
+            Cancelar
+          </Link>
+          <Button type="submit" disabled={isPending} className="shrink-0">
+            {isPending ? 'Guardando…' : 'Guardar'}
+          </Button>
+        </div>
       </div>
     </form>
   )

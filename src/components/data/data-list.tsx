@@ -145,46 +145,53 @@ export function DataList<T>({
         </Table>
       </div>
 
-      {/* Móvil (<md): tarjetas apiladas */}
-      <ul className="flex flex-col gap-3 md:hidden">
+      {/* Móvil (<md): filas densas, no fichas.
+          Antes cada columna era un renglón etiqueta/valor, así que una venta
+          con 5 columnas ocupaba ~180px y en pantalla cabían dos. Ahora se lee
+          como un movimiento bancario: identidad y cifra arriba, el contexto
+          debajo en una línea. Las etiquetas se van porque el dato ya se explica
+          solo ("15 dic 2026" no necesita que le digan "Fecha") — salvo en las
+          columnas marcadas `fullWidthOnCard`, que son las que sí las piden. */}
+      <ul className="flex flex-col gap-2 md:hidden">
         {rows.map((row) => {
-          const rest = columns.filter(
-            (c, i) => i !== primaryIndex && !c.hideOnCard
+          const visibles = columns.filter((c, i) => i !== primaryIndex && !c.hideOnCard)
+          // La primera columna alineada a la derecha es la cifra protagonista
+          // (total, saldo, monto); sube a la cabecera junto al nombre.
+          const destacada = visibles.find((c) => c.align === 'right')
+          const anchas = visibles.filter((c) => c.fullWidthOnCard)
+          const contexto = visibles.filter(
+            (c) => c !== destacada && !c.fullWidthOnCard
           )
           const card = (
-            <div className="flex flex-col gap-2 rounded-xl border bg-card p-4">
-              <div className="text-base font-medium">{primaryCol.cell(row)}</div>
-              {rest.length > 0 && (
-                <dl className="flex flex-col gap-1.5 text-sm">
-                  {rest.map((col, i) =>
-                    col.fullWidthOnCard ? (
-                      <div key={i} className="space-y-1.5">
-                        <dt className="text-muted-foreground">
-                          {col.cardLabel ?? col.header}
-                        </dt>
-                        <dd>{col.cell(row)}</dd>
-                      </div>
-                    ) : (
-                      <div
-                        key={i}
-                        className="flex items-center justify-between gap-4"
-                      >
-                        <dt className="shrink-0 text-muted-foreground">
-                          {col.cardLabel ?? col.header}
-                        </dt>
-                        <dd
-                          className={cn(
-                            'text-right',
-                            col.align === 'right' && 'tabular-nums'
-                          )}
-                        >
-                          {col.cell(row)}
-                        </dd>
-                      </div>
-                    )
-                  )}
-                </dl>
+            <div className="flex flex-col gap-1 rounded-xl border bg-card px-3.5 py-3">
+              <div className="flex items-baseline justify-between gap-3">
+                <div className="min-w-0 flex-1 truncate font-medium">
+                  {primaryCol.cell(row)}
+                </div>
+                {destacada && (
+                  <div className="shrink-0 tabular-nums">{destacada.cell(row)}</div>
+                )}
+              </div>
+
+              {contexto.length > 0 && (
+                <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted-foreground">
+                  {contexto.map((col, i) => (
+                    <span key={i} className="flex min-w-0 items-center gap-1.5">
+                      {i > 0 && <span aria-hidden>·</span>}
+                      <span className="truncate">{col.cell(row)}</span>
+                    </span>
+                  ))}
+                </div>
               )}
+
+              {anchas.map((col, i) => (
+                <div key={i} className="mt-1 space-y-1 text-sm">
+                  <p className="text-xs text-muted-foreground">
+                    {col.cardLabel ?? col.header}
+                  </p>
+                  <div>{col.cell(row)}</div>
+                </div>
+              ))}
             </div>
           )
           return (
