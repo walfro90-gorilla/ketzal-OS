@@ -3694,6 +3694,7 @@ begin
     'full_name',   m.name,
     'email',       m.email,
     'phone',       m.phone,
+    'image',       m.image,
     'created_at',  m.created_at,
     'num_compras', (select count(*) from ketzal.bookings b
                      where b.marketplace_customer_id = m.id)

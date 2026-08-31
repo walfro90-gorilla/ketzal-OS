@@ -9,6 +9,47 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **El panel del god admin deja de ser el panel de una agencia (m009, 2026-08-30).**
+>
+> El superadmin abría `/dashboard` y leía **"Border Travels · Tu agencia"** —
+> una de las tres agencias del fundador, no "todas". Peor: más abajo le salía
+> **"Vendes como agente libre · Solicitar entrar"**, ofreciéndole *pedir permiso*
+> para entrar a sus propias agencias. No era un bug de copy: `list_agencies_to_join`
+> decide por `supplier_id`, y el del superadmin es `null`, así que el RPC no
+> distingue "sin agencia" de "dueño de todo". Verificado impersonando su uid: el
+> RPC devuelve las dos agencias.
+>
+> En su lugar el panel responde la pregunta que sí es suya —**quién se está
+> sumando a Ketzal**—: tres cifras (agencias · embajadores · viajeros, cada una
+> enlazando a su sección) y tres carruseles de logos y caras. Scroll horizontal
+> con `snap-x` y CSS puro: sin librería, sin JS, sin estado. Con dos logos se ve
+> como una fila normal; con veinte, el gesto ya está (probado inyectando 12
+> elementos: `scrollWidth` 960 sobre `clientWidth`, la sección no crece ni
+> desborda).
+>
+> **La trampa que casi se cuela.** La primera versión leía los viajeros con
+> `from('profiles').eq('type','viajero')`. Compila, no lanza error y devuelve
+> `[]` — porque la RLS de `profiles` es **solo-propio incluso para el superadmin**.
+> Medido: `select count(*) from ketzal.profiles` como él devuelve **1**, la suya.
+> El panel habría dicho "0 viajeros" con dos viajeros en la tabla, y nada en el
+> build, el typecheck ni la pantalla lo habría delatado. Es la misma familia de
+> falso verde que `m006`: *el vacío no es evidencia de que el gate funcione*.
+> La versión buena reusa los RPCs DEFINER que ya usan `/viajeros` y `/comisiones`
+> (`list_travelers`, `list_ambassadors`).
+>
+> **m009** es el único cambio de BD: una llave `image` más en el jsonb de
+> `list_travelers`, para que el carrusel muestre la foto del viajero y no solo su
+> inicial. Aditivo (los consumidores leen por llave, `/viajeros` ni se entera) y
+> re-aplicado desde el DDL vivo, no desde una copia. El gate `is_superadmin()`
+> no se tocó, y se verificó en las tres posiciones: superadmin **2**, viajero
+> **0**, admin de agencia **0** (y ese admin sigue viendo **1** agencia, la suya).
+>
+> Medidas: la sección mide **198px** en escritorio (tres columnas — el carrusel
+> dejaba media pantalla vacía a la derecha) y **451px** en móvil, contra 503px de
+> la primera versión apilada. Sin regresión para el admin de agencia: sigue
+> viendo su cabecera con logo y cifras, y no ve nada de esto (verificado en el
+> navegador con la sesión de Border Travels).
+
 > **Panel del admin rediseñado + cierre de carriles zombis (2026-08-30).**
 >
 > **Panel (PR #76, solo presentación** — ni un RPC, ni una action, ni una
