@@ -112,6 +112,12 @@ muestra dinero):
     `MP_CLIENT_ID`/`MP_CLIENT_SECRET`): el dinero cae **directo** a la
     cuenta de la agencia y la comisión de Ketzal se separa sola al
     momento del cobro.
+  - **Cambiar o rotar la cuenta conectada**: el mismo `/proveedores/[id]`
+    muestra **Reconectar**. Vuelve a pedir la autorización y reemplaza los
+    permisos guardados; la tarjeta avisa en verde si funcionó. Si lo que
+    quieres es cerrarle el paso a un acceso comprometido, primero revoca a
+    Ketzal en *Aplicaciones autorizadas* de tu cuenta de Mercado Pago y
+    después reconecta — reconectar solo no cancela lo anterior.
 - **SPEI directo / efectivo en cajero**: el viajero sube un comprobante,
   un admin lo aprueba desde `/cobranza`.
 - **Plan de pagos**: enganche % configurable + abonos programados hasta la
