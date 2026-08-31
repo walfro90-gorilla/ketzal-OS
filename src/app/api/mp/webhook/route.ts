@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { logSistema } from '@/lib/system-log'
 import { mpSignatureValid } from '@/lib/mp-signature'
 import { adminsDeAgencia, notificar } from '@/lib/push/send'
+import { sendPurchaseEvents } from '@/lib/marketing/conversions'
 
 const mxn = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' })
 
@@ -140,6 +141,9 @@ export async function POST(request: Request) {
           url: `/ventas/${intent.booking_id}`,
         })
       }
+      // ADR-0025: Purchase server-side (Meta CAPI + GA4). El helper gatea a
+      // pedidos del marketplace y al primer abono confirmado; nunca lanza.
+      if (intent?.booking_id) await sendPurchaseEvents(intent.booking_id)
     } catch {
       /* best-effort */
     }

@@ -31,3 +31,5 @@ este índice se actualiza en el mismo diff.**
 | [0022](0022-referir-lo-decide-el-codigo-no-el-tipo.md) | Quién cobra por referir lo decide el `referral_code`, no `profiles.type`; auto-referido bloqueado | aceptada |
 | [0023](0023-fixtures-efimeras-en-los-hard-tests.md) | Los hard-tests crean sus cuentas y las borran; se acaban las cuentas QA permanentes y `KETZAL_QA_PASS` | aceptada |
 | [0024](0024-rotacion-de-credenciales-de-terceros.md) | Rotar credenciales de terceros se hace desde la app (Reconectar); revocar en MP es el paso que sí mata las viejas | aceptada |
+| [0025](0025-medicion-server-first.md) | Medición server-first: Purchase desde donde se confirma el dinero; pixel solo PageView; funnel propio | aceptada |
+| [0026](0026-seo-aeo-tecnico.md) | SEO/AEO técnico: crawlers de IA permitidos, JSON-LD TouristTrip, code-first sin Cloudflare/GTM | aceptada |

@@ -4,6 +4,8 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { Toaster } from "@/components/ui/sonner";
 import { Analytics } from "@vercel/analytics/next";
+import { Trackers } from "@/components/marketing/trackers";
+import { SITE_URL } from "@/lib/site-url";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -24,17 +26,10 @@ const bricolage = Bricolage_Grotesque({
   weight: ["500", "600", "700"],
 });
 
-// URL base para resolver imágenes OG a absolutas (WhatsApp/Telegram las exigen).
-// En Vercel usamos el dominio de producción; override con NEXT_PUBLIC_SITE_URL
-// si algún día hay dominio propio. ponytail: un env, sin config extra.
-const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ??
-  (process.env.VERCEL_PROJECT_PRODUCTION_URL
-    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-    : "http://localhost:3000");
-
 export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
+  // URL base para resolver imágenes OG a absolutas (WhatsApp/Telegram las
+  // exigen). Vive en lib/site-url (la comparten sitemap/robots/llms/CAPI).
+  metadataBase: new URL(SITE_URL),
   applicationName: "Ketzal OS",
   title: "Ketzal OS",
   description: "Back-office de ventas para agencias de viajes",
@@ -76,6 +71,9 @@ export default function RootLayout({
           <Toaster />
         </Providers>
         <Analytics />
+        {/* ADR-0025: pixel Meta (solo PageView) + GA4 + first-touch, solo en
+            la superficie pública del marketplace y env-gated. */}
+        <Trackers />
       </body>
     </html>
   );

@@ -43,6 +43,9 @@ export async function proxy(request: NextRequest) {
     path === '/politica-cancelacion' || // política de cancelación (texto legal público)
     path.startsWith('/recuperar') ||
     path === '/sw.js' || // service worker (b036): el navegador lo re-fetchea sin contexto de página
+    path === '/robots.txt' || // SEO/AEO (ADR-0026): sin esto los crawlers caen en /login
+    path === '/sitemap.xml' ||
+    path === '/llms.txt' ||
     path.startsWith('/api/') // endpoints (p.ej. webhook de Mercado Pago) manejan su propia auth
   if (!user && !isPublic) {
     const url = request.nextUrl.clone(); url.pathname = '/login'; return NextResponse.redirect(url)

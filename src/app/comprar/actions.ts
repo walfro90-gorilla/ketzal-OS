@@ -1,12 +1,14 @@
 'use server'
 
-import { headers } from 'next/headers'
+import { headers, cookies } from 'next/headers'
+import { after } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { safeError } from '@/lib/errors'
 import { esBannerValido } from '@/lib/storage/banner-url'
 import { adminsDeAgencia, notificar, superadmins } from '@/lib/push/send'
 import { resolverSplitMp } from '@/lib/mp-split'
+import { sendCheckoutEvents, sendPurchaseEvents } from '@/lib/marketing/conversions'
 
 // Registro / datos del COMPRADOR B2C (terreno del marketplace).
 // El comprador es un profile de tipo 'viajero' (refactor de identidad, F1): un
@@ -128,6 +130,14 @@ export async function guardarComprador(input: {
 // confía en el precio del cliente). Sin pago aún: el checkout en línea es B.2.
 export type PedidoItem = { pack_key: string; label: string; qty: number }
 
+// ADR-0025: claves de atribución first-touch que acepta el servidor; lo demás
+// del cliente se stripea. fbp/fbc son cookies del pixel con formato fijo.
+const ATTR_KEYS = [
+  'source', 'medium', 'campaign', 'content', 'term',
+  'fbclid', 'gclid', 'landing', 'first_touch_at',
+] as const
+const FB_COOKIE_RE = /^fb\.1\.\d+\.[\w.-]+$/
+
 export async function crearPedido(input: {
   serviceId: string
   travelDate: string | null
@@ -136,6 +146,8 @@ export async function crearPedido(input: {
   ref?: string | null
   /** C2: el comprador marcó "acepto la política de cancelación". Obligatorio. */
   aceptaPolitica?: boolean
+  /** ADR-0025: first-touch (utm/fbclid/gclid) persistido por el cliente. */
+  attribution?: Record<string, unknown> | null
 }): Promise<{ error: string } | { ok: true; bookingId: string }> {
   const supabase = await createClient()
   const {
@@ -172,6 +184,44 @@ export async function crearPedido(input: {
   } catch {
     /* best-effort */
   }
+
+  // ADR-0025: atribución de marketing del pedido. First-touch del cliente
+  // (solo claves permitidas) + captura server: ip, user-agent y cookies
+  // _fbp/_fbc del pixel — el único momento en que el navegador del comprador
+  // habla con nuestro servidor. El comprador no puede escribir bookings (RLS)
+  // ⇒ service role acotado a SU pedido. Best-effort: no rompe la compra.
+  try {
+    const h = await headers()
+    const jar = await cookies()
+    const attr: Record<string, string> = {}
+    for (const k of ATTR_KEYS) {
+      const v = input.attribution?.[k]
+      if (typeof v === 'string' && v && v.length <= 300) attr[k] = v
+    }
+    const fbp = jar.get('_fbp')?.value
+    const fbc = jar.get('_fbc')?.value
+    if (fbp && FB_COOKIE_RE.test(fbp)) attr.fbp = fbp
+    if (fbc && FB_COOKIE_RE.test(fbc)) attr.fbc = fbc
+    const ip = h.get('x-forwarded-for')?.split(',')[0]?.trim()
+    if (ip) attr.ip = ip
+    const ua = h.get('user-agent')?.slice(0, 300)
+    if (ua) attr.ua = ua
+    if (Object.keys(attr).length > 0) {
+      const svc = createServiceClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (svc as any)
+        .from('bookings')
+        .update({ attribution: attr })
+        .eq('id', bookingId)
+        .eq('marketplace_customer_id', user.id)
+    }
+  } catch {
+    /* best-effort */
+  }
+
+  // ADR-0025: InitiateCheckout/begin_checkout tras responder — cero latencia
+  // añadida al comprador. El helper es no-op sin envs y nunca lanza.
+  after(() => sendCheckoutEvents(bookingId))
 
   // Atribución del embajador por ?ref. BEST-EFFORT: si algo falla (código
   // inválido, sin tarifa, etc.) el RPC devuelve null y la compra NO se rompe.
@@ -407,6 +457,13 @@ export async function pagarConBrickMarketplace(
     p_mp_payment_id: String(pago.id),
     p_status: pago.status ?? 'pending',
   })
+
+  // ADR-0025: Purchase server-side (Meta CAPI + GA4) tras responder. El helper
+  // gatea al primer abono confirmado del pedido y dedupea con el webhook por
+  // event_id = booking_id. No-op sin envs; nunca lanza.
+  if (pago.status === 'approved') {
+    after(() => sendPurchaseEvents(bookingId))
+  }
 
   return {
     status: pago.status ?? 'pending',

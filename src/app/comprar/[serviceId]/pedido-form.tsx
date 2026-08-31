@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { NativeSelect } from '@/components/ui/native-select'
 import { crearPedido } from '../actions'
 import { precioDePack, type PackPriceOverrides } from '@/lib/domain/pricing'
+import { getAttribution, track } from '@/lib/marketing/attribution'
 import { WaButton } from './wa-button'
 import { PagoBloque } from './pago-bloque'
 
@@ -67,6 +68,11 @@ export function PedidoForm({
   const [aceptaPolitica, setAceptaPolitica] = useState(false)
   const [pending, start] = useTransition()
 
+  // ADR-0025: funnel — llegó al checkout (la BD solo ve pedidos creados).
+  useEffect(() => {
+    track('checkout_open', { service_id: serviceId })
+  }, [serviceId])
+
   // El ?ref llega en la URL; puede perderse tras registro/confirmación de correo.
   // Se respalda en localStorage y se usa el de la URL o el respaldo.
   useEffect(() => {
@@ -119,11 +125,15 @@ export function PedidoForm({
         items,
         ref,
         aceptaPolitica,
+        // ADR-0025: first-touch (utm/fbclid/gclid) persistido en localStorage;
+        // el servidor lo filtra por allowlist y le suma ip/ua/fbp/fbc.
+        attribution: (getAttribution() as Record<string, unknown> | null) ?? undefined,
       })
       if ('error' in res) {
         toast.error(res.error)
         return
       }
+      track('order_created', { service_id: serviceId, booking_id: res.bookingId })
       // El ref ya se aplicó a este pedido; se limpia para no atribuir otro futuro.
       try {
         localStorage.removeItem(REF_KEY)
