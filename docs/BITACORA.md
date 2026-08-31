@@ -9,6 +9,43 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Los hard-tests ya se traen sus propias cuentas (ADR-0023, 2026-08-31).**
+>
+> Al cerrar el barrido de ayer quedó una consecuencia fea: borrar las cuentas QA
+> dejó sin correr `encuestas_rls.mjs`, justo el harness que había cazado la fuga
+> de PII de m002. Al mirarlo de cerca resultó que **no era la primera vez**:
+> `policy_services_posiciones.mjs` llevaba muerto desde la limpieza del
+> 2026-08-23 por exactamente lo mismo, y nadie se enteró.
+>
+> El problema no era haber borrado las cuentas, era que existieran. Cuentas QA
+> permanentes te dan a elegir entre dos formas de perder: dejarlas vivas y
+> acumular credenciales con rol alto en producción —`qa.ui` con
+> `role='superadmin'` seis días—, o borrarlas y que los tests se apaguen **en
+> silencio**. El de encuestas hasta tenía una rama que saltaba las posiciones
+> inexistentes con un aviso: un test que se auto-desactiva.
+>
+> Ahora las cuentas viven lo que dura la corrida. `supabase/tests/_fixtures.mjs`
+> las crea por Admin API con contraseña aleatoria por corrida (nunca impresa,
+> nunca en `.env`), inserta su `profiles`, devuelve el JWT, y el harness llama
+> `destruir()` en un `finally` que **verifica** —relee y falla si quedó alguna
+> viva—. `KETZAL_QA_PASS` desaparece: ya no hay credencial de QA que guardar.
+> → [ADR-0023](adr/0023-fixtures-efimeras-en-los-hard-tests.md)
+>
+> **El barrido de restos se probó con un crash de verdad, sin querer.** Un
+> `| head -6` cerró el pipe y mató el proceso antes del `finally`; quedaron 4
+> cuentas vivas. La corrida siguiente imprimió `⚠ barridos 4 restos de una
+> corrida anterior` y cerró en 0. Mejor evidencia que cualquier simulacro.
+>
+> De paso, `policy_services_posiciones.mjs` tenía clavado `TOTAL = 13,
+> PUBLICADOS = 2` y el catálogo real ya iba en **14 y 6**: resucitarlo tal cual
+> lo habría dejado en rojo por la razón equivocada, que es como se entrena a
+> ignorar un check (ADR-0020). Ahora las cifras se derivan con service role y la
+> agencia de prueba se elige por ser la que más servicios internos tiene.
+>
+> Verde en vivo: encuestas **23/23 sin fugas**, posiciones **12/12**,
+> `superficie_anonima` 30 pruebas · 0 expuestas. Después: 6 usuarios, 0 con
+> prefijo `qa.`, 0 profiles huérfanos.
+
 > **Se van las cuentas QA, y con ellas un superadmin olvidado (2026-08-30).**
 >
 > Barrido de pendientes tras cerrar investigación de mercado. Vivían cuatro
