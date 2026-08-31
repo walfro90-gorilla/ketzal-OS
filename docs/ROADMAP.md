@@ -92,6 +92,31 @@ Regla heredada del MCP: **el LLM redacta, nunca produce cifra, fecha ni cupo.**
 Detalle, guardrails y checklist de pendientes en
 [`CONTENIDO_DINAMICO.md`](./CONTENIDO_DINAMICO.md).
 
+## Prestadores locales y add-ons con dueño (nota viva, 2026-08-30)
+
+**De dónde sale.** Al preguntar el fundador si `profiles.type='proveedor'` servía
+para registrar a los prestadores de un viaje a Creel (tirolesa, motos, caballos)
+y venderles el servicio desde la app, salió que el modelo confunde dos cosas:
+
+- `suppliers` con `supplier_type != 'agency'` = la **empresa** que presta. Es la
+  que hace falta. Hoy: **0 filas**, solo las 2 agencias.
+- `profiles.type='proveedor'` = el **login** de esa empresa para ver `/proveedor`
+  (sus servicios, read-only). Opcional, y hoy también en 0.
+
+Agentes **no**: al agente se le paga comisión sobre lo que vendió; al prestador
+se le paga un costo. Flujo de dinero opuesto, y el costo ya vive en
+`expenses` + CxP.
+
+**El hueco real.** Los extras son `services.add_ons`, un jsonb de
+`{key, label, price}`: **sin `supplier_id` y sin costo**. Se le cobra la tirolesa
+al viajero, pero el sistema no sabe a quién se le debe ni cuánto — así que ese
+margen no aparece en ningún reporte y el pago al prestador se hace de memoria.
+
+**Lo mínimo que lo cierra** (nada construido): `add_ons` gana `supplier_id` y
+`cost` opcionales → el add-on vendido genera su CxP contra el prestador al
+confirmarse la venta → el margen del extra se deriva como el resto del dinero
+(ADR-0005). Alta de prestadores: reusar `/proveedores`, que ya existe.
+
 ## Fuera de alcance hasta que se decida explícitamente
 - Facturación fiscal (CFDI/SAT con PAC) — proyecto propio
 - App móvil nativa

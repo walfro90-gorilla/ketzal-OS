@@ -6,6 +6,7 @@ import {
   mensajeParaCompartir,
   waCompartir,
   explicarMiss,
+  normalizarCodigoReferido,
 } from './embajador'
 
 describe('explicarTarifa', () => {
@@ -58,6 +59,25 @@ describe('mensajes', () => {
   })
 })
 
+describe('normalizarCodigoReferido', () => {
+  it('sube a mayúsculas y quita espacios', () => {
+    expect(normalizarCodigoReferido('  wal ref  ')).toEqual({ code: 'WALREF' })
+  })
+  it('vacío significa quitar el código, no error', () => {
+    expect(normalizarCodigoReferido('')).toEqual({ code: null })
+    expect(normalizarCodigoReferido(null)).toEqual({ code: null })
+    expect(normalizarCodigoReferido(undefined)).toEqual({ code: null })
+  })
+  it('acepta letras, números, guion y guion bajo', () => {
+    expect(normalizarCodigoReferido('WAL_2026-B')).toEqual({ code: 'WAL_2026-B' })
+  })
+  it('rechaza lo que no cabe en una URL ni se dicta por teléfono', () => {
+    for (const malo of ['AB', 'a'.repeat(33), 'con.punto', 'ñandú', 'a/b']) {
+      expect(normalizarCodigoReferido(malo)).toHaveProperty('error')
+    }
+  })
+})
+
 describe('explicarMiss', () => {
   it('traduce el motivo a algo que el admin puede accionar', () => {
     const m = explicarMiss('sin_tarifa_de_la_agencia')
@@ -65,15 +85,24 @@ describe('explicarMiss', () => {
     expect(m.queHacer).toContain('Configúrala')
     expect(m.accionable).toBe(true)
   })
-  it('cubre los cuatro motivos que escribe el RPC', () => {
+  it('cubre los motivos accionables que escribe el RPC', () => {
     for (const r of [
       'sin_tarifa_de_la_agencia',
       'codigo_inexistente',
       'tarifa_da_cero',
       'comisiones_exceden_la_venta',
+      'perfil_inactivo',
     ]) {
       expect(explicarMiss(r).accionable).toBe(true)
     }
+  })
+  // m010: el único motivo que NO se arregla. Marcarlo accionable mandaría al
+  // admin a buscar una avería donde el motor hizo justo lo que debía.
+  it('el auto-referido se explica pero no se acciona', () => {
+    const m = explicarMiss('auto_referido')
+    expect(m.titulo).toContain('sí mismo')
+    expect(m.accionable).toBe(false)
+    expect(m.queHacer).toContain('nada que arreglar')
   })
   it('no revienta con un motivo que no conoce', () => {
     const m = explicarMiss('motivo_del_futuro')

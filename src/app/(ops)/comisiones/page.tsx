@@ -215,12 +215,14 @@ export default async function ComisionesPage() {
       basis: string | null
       rate: number | null
       unit_amount: number | null
+      referral_code: string | null
     }[]
   ).map((a) => ({
     id: a.id,
     nombre: a.name,
     pct: a.basis === 'hibrido' ? Number(a.rate) : null,
     porPasajero: a.basis === 'hibrido' ? Number(a.unit_amount) : null,
+    codigo: a.referral_code, // m010
   }))
 
   const reglasEmbajador: ReglaEmbajadorRow[] = (
@@ -360,11 +362,13 @@ export default async function ComisionesPage() {
       {isAdmin && (
         <Card>
           <CardHeader>
-            <CardTitle>Tarifa de agentes</CardTitle>
+            <CardTitle>Agentes: tarifa y código de referido</CardTitle>
             <CardDescription>
               Cuánto le pagas a cada agente de tu equipo por cerrar una venta
-              (de tu margen, no del corte de Ketzal). % de la venta + monto
-              fijo por pasajero, los dos a la vez.
+              (de tu margen, no del corte de Ketzal): % de la venta + monto fijo
+              por pasajero, los dos a la vez. Y dale su código de referido si
+              además comparte viajes — esas ventas le pagan con la tarifa de
+              embajadores, no con esta.
             </CardDescription>
           </CardHeader>
           <CardContent>

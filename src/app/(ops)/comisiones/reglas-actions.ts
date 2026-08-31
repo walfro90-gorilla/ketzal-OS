@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { safeError } from '@/lib/errors'
+import { normalizarCodigoReferido } from '@/lib/domain/embajador'
 
 // Modo de comisión por servicio. 'global' = sin regla (para plataforma usa el %
 // global de app_settings; para embajador significa "sin tarifa" ⇒ no atribuye).
@@ -123,6 +124,40 @@ export async function guardarReglaAgente(
     p_basis: 'hibrido',
     p_rate: pct,
     p_unit: porPasajero,
+  } as never)
+  if (error) return { error: safeError(error) }
+
+  revalidatePath('/comisiones')
+  return { ok: true }
+}
+
+/**
+ * m010: código de referido de un agente. Un agente que comparte el link del
+ * marketplace no cobraba nada — `attribute_booking_by_ref` solo resolvía
+ * códigos de `type='embajador'`, así que el suyo caía en `referral_misses`
+ * como `codigo_inexistente`. Con código, su referido paga la tarifa de
+ * embajador de la agencia (ADR-0021: paga quien recluta).
+ *
+ * `null`/vacío quita el código. La validación de formato se repite en la BD
+ * (`ketzal.set_referral_code`): esta es para dar el mensaje bueno sin ir al
+ * servidor, la de allá es la que manda.
+ */
+export async function guardarCodigoReferido(
+  profileId: string,
+  codigo: string | null
+): Promise<ReglaResult> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const norm = normalizarCodigoReferido(codigo)
+  if ('error' in norm) return { error: norm.error }
+
+  const { error } = await supabase.rpc('set_referral_code' as never, {
+    p_profile: profileId,
+    p_code: norm.code,
   } as never)
   if (error) return { error: safeError(error) }
 

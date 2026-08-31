@@ -9,46 +9,59 @@
 
 ## Entradas nuevas (más reciente arriba)
 
-> **El panel del god admin deja de ser el panel de una agencia (m009, 2026-08-30).**
+> **Un agente también refiere (m010 + ADR-0022, 2026-08-30).**
 >
-> El superadmin abría `/dashboard` y leía **"Border Travels · Tu agencia"** —
-> una de las tres agencias del fundador, no "todas". Peor: más abajo le salía
-> **"Vendes como agente libre · Solicitar entrar"**, ofreciéndole *pedir permiso*
-> para entrar a sus propias agencias. No era un bug de copy: `list_agencies_to_join`
-> decide por `supplier_id`, y el del superadmin es `null`, así que el RPC no
-> distingue "sin agencia" de "dueño de todo". Verificado impersonando su uid: el
-> RPC devuelve las dos agencias.
+> Al revisar con el fundador los cuatro valores de `profiles.type` salió que el
+> enum hacía **dos trabajos a la vez**: decidir *dónde entras* (el OS, o el
+> portal `/embajador`) y decidir *si cobras por referir*. Como es un solo valor,
+> las dos cosas estaban amarradas, y de ahí dos agujeros: un agente de mostrador
+> que comparte el link del marketplace **no cobraba nada** —su código caía en
+> `referral_misses` como `codigo_inexistente` y nadie se enteraba— y **nadie
+> podía ser las dos cosas** (quien opera el mostrador y además promueve en su
+> Instagram tenía que elegir).
 >
-> En su lugar el panel responde la pregunta que sí es suya —**quién se está
-> sumando a Ketzal**—: tres cifras (agencias · embajadores · viajeros, cada una
-> enlazando a su sección) y tres carruseles de logos y caras. Scroll horizontal
-> con `snap-x` y CSS puro: sin librería, sin JS, sin estado. Con dos logos se ve
-> como una fila normal; con veinte, el gesto ya está (probado inyectando 12
-> elementos: `scrollWidth` 960 sobre `clientWidth`, la sección no crece ni
-> desborda).
+> Ahora el acceso lo sigue decidiendo `type`; el cobro lo decide tener
+> `referral_code` + tarifa. La línea emitida **sigue siendo
+> `payee_type='embajador'`** aunque quien refirió sea un agente: referir es una
+> actividad, no un oficio, así que la tarifa por agencia de m008, el espejo en el
+> ledger y el portal siguen funcionando sin tocarse. → [ADR-0022](adr/0022-referir-lo-decide-el-codigo-no-el-tipo.md)
 >
-> **La trampa que casi se cuela.** La primera versión leía los viajeros con
-> `from('profiles').eq('type','viajero')`. Compila, no lanza error y devuelve
-> `[]` — porque la RLS de `profiles` es **solo-propio incluso para el superadmin**.
-> Medido: `select count(*) from ketzal.profiles` como él devuelve **1**, la suya.
-> El panel habría dicho "0 viajeros" con dos viajeros en la tabla, y nada en el
-> build, el typecheck ni la pantalla lo habría delatado. Es la misma familia de
-> falso verde que `m006`: *el vacío no es evidencia de que el gate funcione*.
-> La versión buena reusa los RPCs DEFINER que ya usan `/viajeros` y `/comisiones`
-> (`list_travelers`, `list_ambassadors`).
+> **El abuso que abría esto se cerró en el mismo diff.** El agente podía pasarse
+> su propio link, cerrar él la venta y cobrar **dos veces**: su línea de `agente`
+> por `sold_by` más la de `embajador` por `ambassador_id`. Si `sold_by =
+> ambassador_id` no se paga la de referido y se escribe un miss `auto_referido`,
+> marcado **no accionable** — el motor hizo lo que debía y no hay nada que
+> arreglar. Segunda razón nueva: `perfil_inactivo`, para que el código de alguien
+> dado de baja deje de pagar **con su propio motivo** en vez de disfrazarse de
+> código mal escrito.
 >
-> **m009** es el único cambio de BD: una llave `image` más en el jsonb de
-> `list_travelers`, para que el carrusel muestre la foto del viajero y no solo su
-> inicial. Aditivo (los consumidores leen por llave, `/viajeros` ni se entera) y
-> re-aplicado desde el DDL vivo, no desde una copia. El gate `is_superadmin()`
-> no se tocó, y se verificó en las tres posiciones: superadmin **2**, viajero
-> **0**, admin de agencia **0** (y ese admin sigue viendo **1** agencia, la suya).
+> Probado contra la BD real. `set_referral_code` 9/9: el admin de Wanderlust le
+> pone código a su agente pero **no** al admin de Border ni a un viajero; un
+> agente sin rol admin no puede ponerse el suyo; duplicado, formato corto y
+> formato inválido rebotan con mensaje legible; el superadmin puede con
+> cualquiera; y `null` lo quita. End-to-end 5/5 (en transacción con rollback,
+> verificado en 0 después): agente refiere venta ajena ⇒ **$800** (7000 × 10% +
+> $50 × 2 pax) atribuidos, con 2 asientos de ledger que suman 0; auto-referido ⇒
+> 0 líneas; perfil inactivo, código inexistente y sin tarifa ⇒ cada uno con su
+> razón. Y en el navegador con la sesión de Border: el código se guarda en
+> mayúsculas, aparece el link `/explora?ref=…` con copiar y WhatsApp, y el
+> duplicado sale como *"Ese código ya está en uso por otra persona"* sin fugar el
+> `23505`.
 >
-> Medidas: la sección mide **198px** en escritorio (tres columnas — el carrusel
-> dejaba media pantalla vacía a la derecha) y **451px** en móvil, contra 503px de
-> la primera versión apilada. Sin regresión para el admin de agencia: sigue
-> viendo su cabecera con logo y cifras, y no ve nada de esto (verificado en el
-> navegador con la sesión de Border Travels).
+> De paso, dos cosas que salieron de la misma conversación:
+>
+> - **`profiles.type='proveedor'` no es lo que hace falta para Creel.** Registrar
+>   prestadores locales (tirolesa, motos, caballos) es una fila en `suppliers` —
+>   el `type` es solo el login para que ese prestador vea su manifiesto. El hueco
+>   real es que `services.add_ons` es `{key,label,price}`: **sin dueño y sin
+>   costo**, así que se le cobra la tirolesa al viajero pero el sistema no sabe a
+>   quién se le debe ni cuánto. Anotado en el ROADMAP; no se construyó.
+> - **El snapshot del schema lleva 15+ migraciones de retraso.** Está congelado en
+>   b071 (`f111ce0`, "previo a migrar de proyecto"): `grep referral_misses` y
+>   `grep onboarded_at` dan **0** en el archivo y existen en vivo. Un
+>   rebuild-from-zero con él produce un sistema sin el motor de referidos actual.
+>   Se le puso una advertencia en la primera línea; regenerarlo necesita la
+>   contraseña de la BD (`supabase db dump --schema ketzal`), que es del fundador.
 
 > **Panel del admin rediseñado + cierre de carriles zombis (2026-08-30).**
 >

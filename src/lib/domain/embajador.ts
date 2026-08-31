@@ -42,6 +42,26 @@ export function explicarTarifa(t: TarifaEmbajador | null): string | null {
   }
 }
 
+/**
+ * Normaliza un código de referido: mayúsculas, sin espacios, vacío ⇒ null
+ * (quitar el código). Formato 3–32 de letras, números, guion o guion bajo —
+ * el mismo que valida `ketzal.set_referral_code` en la BD, porque el código va
+ * en una URL y a la voz por teléfono.
+ */
+export function normalizarCodigoReferido(
+  raw: string | null | undefined
+): { code: string | null } | { error: string } {
+  const code = (raw ?? '').trim().toUpperCase().replace(/\s+/g, '')
+  if (!code) return { code: null }
+  if (!/^[A-Z0-9_-]{3,32}$/.test(code)) {
+    return {
+      error:
+        'El código de referido debe tener 3–32 caracteres: letras, números, guion o guion bajo.',
+    }
+  }
+  return { code }
+}
+
 /** Link de referido del embajador. Es la vitrina, no una ficha suelta: así puede
  *  compartir "los viajes" y cualquiera que compre le cuenta. */
 export function linkReferido(origin: string, code: string): string {
@@ -105,6 +125,18 @@ const MOTIVOS: Record<string, MotivoMiss> = {
     queHacer:
       'La tarifa está en 0, o la venta no tiene pasajeros y la tarifa es por persona. Revisa la tarifa y la venta.',
     accionable: true,
+  },
+  perfil_inactivo: {
+    titulo: 'Quien refirió está dado de baja',
+    queHacer:
+      'El código sigue circulando pero su dueño ya no está activo. Reactívalo en /equipo si volvió, o pídele que deje de compartir ese link.',
+    accionable: true,
+  },
+  auto_referido: {
+    titulo: 'Se refirió a sí mismo',
+    queHacer:
+      'Quien cerró la venta usó su propio link. Por cerrarla ya cobra su comisión de agente, así que no se le paga otra vez por referirla. No hay nada que arreglar.',
+    accionable: false,
   },
   comisiones_exceden_la_venta: {
     titulo: 'Las comisiones se pasaban del total de la venta',
