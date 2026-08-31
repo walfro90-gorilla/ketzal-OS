@@ -18,6 +18,25 @@
 > Bitácora corta de coordinación. Al abrir sesión, **lee esto primero** y aplica
 > lo pendiente. Entrada nueva arriba.
 
+- **2026-08-30 · Carriles zombis cerrados: `worktree-mcp-server` y
+  `worktree-comisiones-motor`.** Los dos llevaban semanas parados con TODO su
+  trabajo ya en `main`, y confundían: aparecían en `git worktree list` como si
+  hubiera trabajo en vuelo. Antes de borrar se verificó cada uno (ver
+  *Cómo cerrar un carril viejo* abajo) — ninguno tenía commits fuera de `main`
+  ni cambios sin commitear.
+
+  · `comisiones-motor` (último commit 2026-08-04, `fd9617e`): el nombre engaña.
+    Arrancó con el motor de comisiones (b019) y **terminó siendo el carril de
+    cancelaciones y crédito** — sus últimos commits son la serie C0→C5
+    (b046–b051), documentada en `docs/BITACORA.md`. No lo reemplazó nada: se
+    terminó y quedó sin cerrar.
+  · `mcp-server` (último commit 2026-08-19, `e13957b`): el servidor MCP, que
+    entró a `main` por squash. Estaba 1509 líneas POR DETRÁS de `main`.
+
+  **Lección:** un carril terminado se cierra al integrar. Si no, el siguiente
+  agente no puede distinguir "trabajo en curso de otro" de "basura", y en el
+  peor caso lo respeta durante semanas sin razón.
+
 - **2026-08-27 · RESUELTOS los 2 avisos de abajo** — `wa_autosend` entró al
   ledger de `apply_migration` ese mismo 2026-07-23 (migración
   `ketzal_wa_autosend`), y la convención de numeración `bNNN_`/`mNNN_` quedó
@@ -161,11 +180,45 @@ promueves mergeando.
 
 ## Limpieza
 
+Al integrar, el carril se cierra en la misma pasada:
+
 ```bash
-git worktree remove ../ketzal-fable
+git worktree remove .claude/worktrees/<nombre>
 git worktree prune
-git branch -d agent/fable
+git branch -d worktree-<nombre>
 ```
+
+La rama remota la borra GitHub sola al mergear (`delete_branch_on_merge`).
+
+### Cómo cerrar un carril viejo (sin perder trabajo)
+
+Un carril parado hace semanas **no se borra a ciegas**: puede tener commits que
+nunca se mergearon. Estos cuatro comandos lo resuelven en un minuto.
+
+```bash
+# 1. ¿Tiene commits que NO estén en main?  (vacío = todo integrado)
+git log --oneline origin/main..worktree-<nombre>
+
+# 2. ¿El commit está contenido en main?  (debe listar `main`)
+git branch --contains <sha> -a
+
+# 3. ¿Qué archivos existen SOLO en la rama?  (revisar uno por uno)
+git diff --diff-filter=A --name-only origin/main worktree-<nombre>
+
+# 4. ¿Hay cambios sin commitear en su worktree?
+git -C .claude/worktrees/<nombre> status --short
+```
+
+**El paso 3 es el que salva.** Cuando el trabajo entró por *squash*, los SHA no
+coinciden y el paso 1 puede mentir: la rama parece tener commits propios cuando
+en realidad ya está todo dentro. Comparar ARCHIVOS y no commits es lo que
+distingue "trabajo perdido" de "historia divergente".
+
+Y si aparece un archivo que solo existe en la rama, hay que averiguar **por qué
+no está en main** antes de asumir que se perdió: al cerrar `mcp-server` los dos
+candidatos resultaron ser eliminaciones deliberadas —un workflow retirado en
+ADR-0020 y un `actions.ts` que b071 borró para cerrar un camino de venta con
+$0—, no descuidos.
 
 ## ¿Equipo de agentes o un orquestador?
 
