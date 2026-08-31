@@ -99,11 +99,6 @@ export function campoCsv(v: string | number | null | undefined): string {
   return `"${(peligroso ? `'${s}` : s).replace(/"/g, '""')}"`
 }
 
-/** Link de WhatsApp para un lead, o null si dejó correo (o basura). */
-export function linkWhatsapp(contacto: string | null): string | null {
-  if (!contacto || contacto.includes('@')) return null
-  const digitos = contacto.replace(/\D/g, '')
-  if (digitos.length < 10) return null
-  // 10 dígitos = número mexicano sin lada país.
-  return `https://wa.me/${digitos.length === 10 ? `52${digitos}` : digitos}`
-}
+// El link de WhatsApp de un lead se arma con el mismo normalizador que el resto
+// de la app: vive en `domain/phone.ts`. Se re-exporta para no romper los imports.
+export { linkWhatsapp } from './phone'

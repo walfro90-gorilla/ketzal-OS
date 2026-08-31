@@ -76,7 +76,9 @@ async function barrerRestos() {
 /**
  * Crea una cuenta de Auth + su `profiles` por cada posición y devuelve sus JWT.
  * `posiciones`: [{ llave, role, type, supplier_id, name }]
- * Devuelve `{ [llave]: { token, id, email }, destruir() }`.
+ * Devuelve `{ [llave]: { token, id, email, sesion }, destruir() }`.
+ * `sesion` es la respuesta completa del password grant: la necesita quien arma
+ * la cookie de @supabase/ssr para pedirle rutas al servidor de Next.
  */
 export async function crearPosiciones(posiciones) {
   exigirEnv()
@@ -139,10 +141,10 @@ export async function crearPosiciones(posiciones) {
         method: 'POST', headers: { apikey: ANON, 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password: pass }),
       })
-      const { access_token } = await rl.json()
-      if (!access_token) throw new Error(`login ${email}: ${rl.status}`)
+      const sesion = await rl.json()
+      if (!sesion.access_token) throw new Error(`login ${email}: ${rl.status}`)
 
-      salida[p.llave] = { token: access_token, id, email }
+      salida[p.llave] = { token: sesion.access_token, id, email, sesion }
     }
     console.log(`   ✔ ${posiciones.length} posiciones efímeras creadas`)
     return salida

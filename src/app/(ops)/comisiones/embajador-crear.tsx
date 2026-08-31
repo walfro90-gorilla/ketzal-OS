@@ -6,11 +6,15 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { NativeSelect } from '@/components/ui/native-select'
+import { PhoneInput } from '@/components/ui/phone-input'
+import { CredencialesProvisionales } from '@/components/data/credenciales-provisionales'
 import { crearEmbajador } from './embajador-actions'
 
-/** Alta rápida de embajador. El correo es OBLIGATORIO (m005): por ahí recibe su
- *  magic-link de acceso, y antes un correo inventado dejaba la cuenta muerta sin
- *  aviso. El superadmin además elige de qué agencia es — él no tiene una propia. */
+/** Alta rápida de embajador. El correo es OBLIGATORIO (m005): ES el usuario con
+ *  el que entra, y antes un correo inventado dejaba la cuenta muerta sin aviso.
+ *  Al crearlo salen sus credenciales para mandárselas; el teléfono es opcional y
+ *  solo sirve para que el botón de WhatsApp abra su chat directo. El superadmin
+ *  además elige de qué agencia es — él no tiene una propia. */
 export function CrearEmbajador({
   agencias,
 }: {
@@ -24,20 +28,24 @@ export function CrearEmbajador({
   const [supplierId, setSupplierId] = useState('')
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
-  const [ok, setOk] = useState(false)
   const [nombre, setNombre] = useState('')
   const [codigo, setCodigo] = useState('')
   const [email, setEmail] = useState('')
+  const [telefono, setTelefono] = useState('')
+  // Credenciales del recién creado: se ven una vez, para mandarlas.
+  const [creds, setCreds] = useState<{ email: string; password: string } | null>(null)
+  const [telCreds, setTelCreds] = useState<string | null>(null)
 
   function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError(null)
-    setOk(false)
+    setCreds(null)
     startTransition(async () => {
       const res = await crearEmbajador({
         nombre,
         codigo,
         email: email.trim() || undefined,
+        telefono: telefono.trim() || undefined,
         ...(eligeAgencia ? { supplierId } : {}),
       })
       if ('error' in res) {
@@ -47,7 +55,9 @@ export function CrearEmbajador({
       setNombre('')
       setCodigo('')
       setEmail('')
-      setOk(true)
+      setTelefono('')
+      setCreds(res.credentials)
+      setTelCreds(res.telefono)
       router.refresh()
     })
   }
@@ -105,8 +115,12 @@ export function CrearEmbajador({
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="por aquí recibe su acceso"
+            placeholder="con este correo entra"
           />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="emb-tel">WhatsApp (opcional)</Label>
+          <PhoneInput id="emb-tel" value={telefono} onChange={setTelefono} />
         </div>
       </div>
       {error && (
@@ -114,10 +128,16 @@ export function CrearEmbajador({
           {error}
         </p>
       )}
-      {ok && <p className="text-sm text-emerald-600">Embajador creado.</p>}
       <Button type="submit" size="sm" disabled={isPending}>
         {isPending ? 'Creando…' : 'Crear embajador'}
       </Button>
+      {creds && (
+        <CredencialesProvisionales
+          credenciales={creds}
+          telefono={telCreds}
+          titulo="Embajador creado. Mándale estos datos:"
+        />
+      )}
     </form>
   )
 }

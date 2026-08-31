@@ -1,16 +1,16 @@
 'use server'
 
-import { headers } from 'next/headers'
+import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
-import { safeError } from '@/lib/errors'
+import { emitirCredencialProvisional } from '@/lib/auth/credenciales'
 
-// Genera un magic-link de acceso para un embajador. El superadmin lo COPIA y lo
-// manda por WhatsApp (no depende de que el correo sea real/entregable: el link se
-// comparte a mano). Al abrirlo, /auth/callback rutea por type='embajador' → /embajador.
+// Reemite el acceso de un embajador: contraseña provisional nueva que el
+// reclutador le pasa por WhatsApp o correo. Sustituye al magic-link, que nunca
+// funcionó (el porqué, medido, en `lib/auth/credenciales.ts`).
 
 /**
- * Puede generar el acceso el superadmin, o el admin de la agencia dueña del
+ * Puede entregar el acceso el superadmin, o el admin de la agencia dueña del
  * embajador (m005: quien recluta también entrega el acceso, si no cada alta
  * vuelve a pasar por el fundador).
  */
@@ -42,38 +42,33 @@ async function requirePuedeDarAcceso(
       .maybeSingle()
     if (emb) return { ok: true }
   }
-  return { error: 'Solo el administrador de su agencia puede generar el acceso.' }
+  return { error: 'Solo el administrador de su agencia puede entregar el acceso.' }
 }
 
-export async function generarAccesoEmbajador(
-  embajadorId: string
-): Promise<{ error: string } | { link: string }> {
+export async function regenerarAccesoEmbajador(embajadorId: string): Promise<
+  | { error: string }
+  | { ok: true; credentials: { email: string; password: string }; telefono: string | null }
+> {
   if (!embajadorId) return { error: 'Falta el embajador.' }
   const gate = await requirePuedeDarAcceso(embajadorId)
   if ('error' in gate) return gate
 
+  // Que sea embajador se confirma con service role: la RLS de profiles no
+  // expone la fila al superadmin por el mismo camino que al admin de agencia, y
+  // sin esta comprobación el gate del superadmin dejaría reemitir la contraseña
+  // de CUALQUIER cuenta desde una pantalla de embajadores.
   const svc = createServiceClient()
-  // Service role: leer el correo del embajador (RLS de profiles no lo expone).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: prof } = await (svc as any)
     .from('profiles')
-    .select('email, type')
+    .select('type, phone')
     .eq('id', embajadorId)
     .maybeSingle()
-  if (!prof || prof.type !== 'embajador' || !prof.email) {
-    return { error: 'Embajador no válido.' }
-  }
+  if (prof?.type !== 'embajador') return { error: 'Esa cuenta no es de un embajador.' }
 
-  const h = await headers()
-  const origin = process.env.NEXT_PUBLIC_APP_URL ?? `https://${h.get('host')}`
-  const { data, error } = await svc.auth.admin.generateLink({
-    type: 'magiclink',
-    email: prof.email,
-    options: { redirectTo: `${origin}/auth/callback` },
-  })
-  const link = data?.properties?.action_link
-  if (error || !link) {
-    return { error: safeError(error, 'No se pudo generar el link de acceso.') }
-  }
-  return { link }
+  const res = await emitirCredencialProvisional(embajadorId)
+  if ('error' in res) return res
+
+  revalidatePath('/comisiones')
+  return { ok: true, credentials: res.credentials, telefono: prof.phone ?? null }
 }

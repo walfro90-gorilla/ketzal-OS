@@ -82,3 +82,17 @@ export function ladaDe(iso: string): string {
 export function componerTelefono(iso: string, local: string): string {
   return local.trim() ? `${ladaDe(iso)} ${local}` : ''
 }
+
+/**
+ * Link de WhatsApp a un número, o null si no hay número usable (vacío, un
+ * correo, o menos de 10 dígitos). Vivía en `domain/encuesta.ts` porque ahí
+ * nació —los leads de la encuesta—, pero lo usan también los accesos y el
+ * portal de proveedores: su casa es el módulo del teléfono.
+ */
+export function linkWhatsapp(contacto: string | null): string | null {
+  if (!contacto || contacto.includes('@')) return null
+  const digitos = contacto.replace(/\D/g, '')
+  if (digitos.length < 10) return null
+  // 10 dígitos = número mexicano sin lada país.
+  return `https://wa.me/${digitos.length === 10 ? `52${digitos}` : digitos}`
+}

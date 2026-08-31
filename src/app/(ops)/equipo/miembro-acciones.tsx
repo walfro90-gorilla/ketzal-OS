@@ -4,9 +4,9 @@ import Link from 'next/link'
 
 import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
-import { CopyIcon, CheckIcon } from 'lucide-react'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { NativeSelect } from '@/components/ui/native-select'
+import { CredencialesProvisionales } from '@/components/data/credenciales-provisionales'
 import type { Database } from '@/lib/db/database.types'
 import { aprobarUsuario, asignarAgencia, cambiarRol } from './actions'
 import { cambiarRolAgencia, regenerarAcceso } from './invitaciones-actions'
@@ -58,9 +58,8 @@ export function MiembroAcciones({
   // si la acción falla se revierte al valor del servidor.
   const [agencia, setAgencia] = useState(miembro.supplier_id ?? '')
   const [rol, setRol] = useState<UserRole>(miembro.role)
-  // Credenciales provisionales tras regenerar acceso (para copiar por WhatsApp).
+  // Credenciales provisionales tras regenerar acceso (para mandar por WhatsApp).
   const [creds, setCreds] = useState<{ email: string; password: string } | null>(null)
-  const [copiado, setCopiado] = useState(false)
 
   function run(
     action: () => Promise<{ error: string } | { ok: true }>,
@@ -116,20 +115,8 @@ export function MiembroAcciones({
         return
       }
       setCreds(res.credentials)
-      toast.success('Acceso regenerado. Copia el mensaje y mándalo por WhatsApp.')
+      toast.success('Acceso regenerado. Mándale las credenciales.')
     })
-  }
-
-  async function copiarCreds() {
-    if (!creds) return
-    const texto = `Ketzal OS — entra en https://ketzal-os.vercel.app/login\nCorreo: ${creds.email}\nContraseña provisional: ${creds.password}\n(Al entrar te pedirá crear tu propia contraseña.)`
-    try {
-      await navigator.clipboard.writeText(texto)
-      setCopiado(true)
-      setTimeout(() => setCopiado(false), 2000)
-    } catch {
-      // clipboard bloqueado: seleccionar a mano.
-    }
   }
 
   return (
@@ -236,37 +223,10 @@ export function MiembroAcciones({
     </div>
 
     {creds && (
-      <div className="space-y-2 rounded-lg border border-emerald-500/40 bg-emerald-500/5 p-3">
-        <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
-          Acceso regenerado. Manda estas credenciales (WhatsApp):
-        </p>
-        <div className="space-y-1 rounded-md border bg-background px-3 py-2 text-sm">
-          <p>
-            <span className="text-muted-foreground">Correo:</span>{' '}
-            <span className="font-medium">{creds.email}</span>
-          </p>
-          <p>
-            <span className="text-muted-foreground">Contraseña provisional:</span>{' '}
-            <span className="font-mono font-medium">{creds.password}</span>
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button type="button" size="sm" variant="outline" onClick={copiarCreds}>
-            {copiado ? (
-              <>
-                <CheckIcon className="size-4" /> Copiado
-              </>
-            ) : (
-              <>
-                <CopyIcon className="size-4" /> Copiar mensaje
-              </>
-            )}
-          </Button>
-          <span className="text-xs text-muted-foreground">
-            Al entrar se le pedirá crear su propia contraseña.
-          </span>
-        </div>
-      </div>
+      <CredencialesProvisionales
+        credenciales={creds}
+        titulo="Acceso regenerado. Mándale estos datos:"
+      />
     )}
     </div>
   )

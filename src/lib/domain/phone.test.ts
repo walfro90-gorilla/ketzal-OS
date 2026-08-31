@@ -3,6 +3,7 @@ import {
   banderaEmoji,
   componerTelefono,
   ladaDe,
+  linkWhatsapp,
   PAISES,
   partirTelefono,
 } from './phone'
@@ -66,5 +67,19 @@ describe('catálogo de países', () => {
 
   it('México va primero: es el default del negocio', () => {
     expect(PAISES[0]!.iso).toBe('MX')
+  })
+})
+
+describe('linkWhatsapp', () => {
+  it('agrega lada 52 a los 10 dígitos', () => {
+    expect(linkWhatsapp('656 111 2233')).toBe('https://wa.me/526561112233')
+  })
+  it('respeta el número que ya trae lada', () => {
+    expect(linkWhatsapp('+52 656 111 2233')).toBe('https://wa.me/526561112233')
+  })
+  it('null para correo o número incompleto', () => {
+    expect(linkWhatsapp('alguien@correo.com')).toBeNull()
+    expect(linkWhatsapp('12345')).toBeNull()
+    expect(linkWhatsapp(null)).toBeNull()
   })
 })
