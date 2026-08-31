@@ -33,3 +33,4 @@ este índice se actualiza en el mismo diff.**
 | [0024](0024-rotacion-de-credenciales-de-terceros.md) | Rotar credenciales de terceros se hace desde la app (Reconectar); revocar en MP es el paso que sí mata las viejas | aceptada |
 | [0025](0025-medicion-server-first.md) | Medición server-first: Purchase desde donde se confirma el dinero; pixel solo PageView; funnel propio | aceptada |
 | [0026](0026-seo-aeo-tecnico.md) | SEO/AEO técnico: crawlers de IA permitidos, JSON-LD TouristTrip, code-first sin Cloudflare/GTM | aceptada |
+| [0027](0027-acceso-por-contrasena-provisional.md) | El acceso de quien no se registra solo se entrega con contraseña provisional; el magic-link nunca funcionó (fragmento + un solo uso) | aceptada |

@@ -4,7 +4,7 @@ import { LogOutIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { getBrandLogo } from '@/lib/brand'
 import { ThemeToggle } from '@/components/shell/theme-toggle'
-import { getPersona, homeForPersona } from '@/lib/persona'
+import { debeCambiarPassword, getPersona, homeForPersona } from '@/lib/persona'
 
 // Portal del PROVEEDOR. Chrome mínimo (logo + salir), read-only. Gate de persona:
 // solo type='proveedor'; al resto lo manda a su propia superficie.
@@ -21,6 +21,9 @@ export default async function ProveedorLayout({
 
   const persona = await getPersona(supabase)
   if (persona !== 'provider') redirect(homeForPersona(persona))
+
+  // Contraseña provisional sin cambiar: fijar la propia antes de entrar.
+  if (await debeCambiarPassword(supabase, user.id)) redirect('/nueva-password')
 
   const logoUrl = await getBrandLogo()
 

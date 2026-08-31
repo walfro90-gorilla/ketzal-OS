@@ -1,11 +1,11 @@
 'use server'
 
-import { randomInt } from 'node:crypto'
 import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { safeError } from '@/lib/errors'
+import { emitirCredencialProvisional, nuevaProvisional } from '@/lib/auth/credenciales'
 import type { Database } from '@/lib/db/database.types'
 
 type UserRole = Database['ketzal']['Enums']['user_role']
@@ -89,6 +89,26 @@ export async function generarLinkInvitacion(
   if (!inv.error) emailed = true
 
   // 2) Link copiable (WhatsApp): recovery = "pon tu contraseña". No depende del correo.
+  //
+  // OJO — ESTE LINK ESTÁ ROTO, por la misma causa que mató al de embajadores y
+  // proveedores (ADR-0027): un link hecho por la Admin API no trae
+  // `code_verifier`, así que Auth cae a flujo implícito y `/auth/callback`
+  // recibe la sesión en el FRAGMENTO (`#access_token=…`), que nunca llega al
+  // servidor. Medido el 2026-08-31 con `type:'recovery'`: 303 a
+  // `/auth/callback?next=…` con `fragment=[access_token,refresh_token,…]` y cero
+  // `?code=`. El correo de `inviteUserByEmail` tiene el mismo problema.
+  //
+  // NO se arregló aquí con contraseña provisional, como sí se hizo en las otras
+  // tres altas, porque este camino invita a una cuenta que TODAVÍA NO TIENE
+  // `profiles`: el profile y el auto-join a la agencia los crea
+  // `accept_pending_invitation` desde `/auth/callback`, y un login por
+  // contraseña no pasa por ahí. Cambiarlo obliga a crear el profile por
+  // adelantado con su rol y agencia —como ya hace `crearAgenciaEInvitarAdmin`—
+  // y eso toca la máquina de estados de invitaciones. Carril aparte.
+  //
+  // Mientras tanto lo que SÍ funciona para dar de alta a un agente es crear la
+  // agencia con su admin (`crearAgenciaEInvitarAdmin`) o, si ya existe la
+  // cuenta, "Regenerar acceso" desde la fila del miembro.
   const { data, error } = await svc.auth.admin.generateLink({
     type: 'recovery',
     email: correo,
@@ -211,7 +231,7 @@ export async function crearAgenciaEInvitarAdmin(input: {
   //    (must_change_password). Caso reutilización: si el correo YA tiene cuenta,
   //    se ENGANCHA esa cuenta como admin (entra con su contraseña actual). Cero
   //    dependencia de correo: el superadmin pasa las credenciales por WhatsApp.
-  const provisional = `Ketzal-${randomInt(100000, 999999)}`
+  const provisional = nuevaProvisional()
   const svc = createServiceClient()
   let adminId: string
   let credentials: { email: string; password: string } | undefined
@@ -324,28 +344,8 @@ export async function regenerarAcceso(
     return { error: 'Solo el superadmin puede regenerar accesos.' }
   }
 
-  const svc = createServiceClient()
-  // Correo del login (auth.users es la fuente de verdad; el profile puede diferir).
-  const { data: authUser, error: eGet } = await svc.auth.admin.getUserById(userId)
-  const email = authUser?.user?.email
-  if (eGet || !email) {
-    return { error: safeError(eGet, 'No se encontró la cuenta del miembro.') }
-  }
-
-  const provisional = `Ketzal-${randomInt(100000, 999999)}`
-  const { error: ePwd } = await svc.auth.admin.updateUserById(userId, {
-    password: provisional,
-  })
-  if (ePwd) return { error: safeError(ePwd, 'No se pudo regenerar la contraseña.') }
-
-  // Forzar cambio al primer login (authenticated no puede escribir profiles, b017).
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (svc as any)
-    .from('profiles')
-    .update({ must_change_password: true })
-    .eq('id', userId)
-
-  return { ok: true, credentials: { email, password: provisional } }
+  const res = await emitirCredencialProvisional(userId)
+  return 'error' in res ? res : { ok: true, credentials: res.credentials }
 }
 
 /**

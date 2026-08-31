@@ -9,6 +9,68 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **El acceso de los embajadores: se acabó el link que nunca funcionó (ADR-0027,
+> 2026-08-31).** Reporte del fundador: "se crea un link y se envía, pero el link
+> no funciona". Era literal, y llevaba así desde que existe. Medido en vivo con
+> una cuenta efímera: `admin.generateLink` devuelve un `/auth/v1/verify` que
+> aterriza en `/auth/callback` con la sesión en el **fragmento**
+> (`#access_token=…`) porque un link de la Admin API no trae `code_verifier` y
+> Auth cae a flujo implícito; `app/auth/callback/route.ts` es un Route Handler de
+> servidor, el fragmento no le llega nunca, leía `?code=`, no lo encontraba y
+> mandaba a `/login?error=auth`. **Siempre.** Y encima el token es de un solo uso:
+> el segundo GET responde `#error=…`, o sea que el crawler de vista previa de
+> WhatsApp lo quema antes de que la persona lo toque. Dos fallas independientes,
+> cada una suficiente. Nadie lo notó porque el síntoma ("me manda al login") es
+> indistinguible de haberse equivocado de correo, y quien lo sufre no es quien
+> puede diagnosticarlo.
+>
+> **El arreglo ya estaba medio construido en el repo**: los admins de agencia y
+> los miembros del equipo entran con contraseña provisional `Ketzal-NNNNNN` +
+> `must_change_password` desde b029, y funciona. Embajador y proveedor eran los
+> dos que se habían quedado con el magic-link. Se unificó: `lib/auth/credenciales.ts`
+> emite (`nuevaProvisional`, `emitirCredencialProvisional`), cada llamador pone su
+> propia puerta antes, y `regenerarAcceso` de equipo pasó a delegar ahí también —
+> de tres implementaciones a una.
+>
+> **Segundo hueco, el que sí era grave:** el gate `must_change_password` vivía
+> SOLO en `(ops)/layout.tsx`. Los portales `/embajador` y `/proveedor` no lo
+> tenían, así que sus cuentas se habrían quedado con la contraseña que alguien les
+> dictó por WhatsApp, para siempre. Ahora es `debeCambiarPassword` en
+> `lib/persona.ts`, la misma línea en las tres superficies, y `/nueva-password`
+> aterriza en `/` (que rutea por persona) en vez de `/dashboard` — antes un
+> embajador rebotaba contra el gate de ops.
+>
+> Al crear o reemitir sale una tarjeta única (`CredencialesProvisionales`, que
+> reemplazó dos copias del mismo bloque) con botones de **WhatsApp** (al chat de
+> la persona si se capturó su teléfono) y **correo**. El envío sigue siendo
+> manual: no hay correo transaccional y la caja de WA está pausada (ADR-0017).
+> El correo del proveedor pasó a obligatorio — antes se sintetizaba un
+> `<uuid>@proveedor.ketzal.local` que nadie puede dictar por teléfono.
+>
+> **Probado contra el proyecto real, no compilado.** `acceso_provisional.mjs`
+> (9/9): la provisional entra, el propio usuario LEE su flag por RLS (si no, el
+> gate no dispara nunca), `clear_password_change_flag` corre para un embajador y
+> lo baja, reemitir mata la contraseña anterior, y el magic-link sigue aterrizando
+> en el fragmento y muriendo al segundo GET. `gate_password_provisional.mjs` (4/4)
+> contra el server de Next: `/embajador` y `/proveedor` mandan a `/nueva-password`
+> con el flag puesto, `/nueva-password` abre (si rebotara quedarían encerrados), y
+> sin flag se entra normal. 158 tests de dominio + `next build` en verde.
+> Trampa que costó un rato y casi se reporta como bug de producción: un POST a
+> `/rpc/` de PostgREST resuelve el schema con **`Content-Profile`**, no con
+> `Accept-Profile` — sin él da 404, que se lee igualito a "falta el GRANT".
+>
+> **Queda un hermano roto, a propósito y documentado:** `generarLinkInvitacion`
+> (`/equipo`, "dar acceso" a una invitación pendiente) usa el mismo
+> `generateLink`, ahora con `type:'recovery'`, y se midió que aterriza igual en
+> el fragmento. No se convirtió porque ese camino invita a una cuenta que aún no
+> tiene `profiles` —lo crea `accept_pending_invitation` desde `/auth/callback`, y
+> un login por contraseña nunca pasa por ahí—, así que arreglarlo obliga a crear
+> el profile por adelantado con rol y agencia: es la máquina de estados de
+> invitaciones, carril aparte. Está anotado en el código y en el ADR con lo que
+> sí sirve mientras tanto. Y la línea real quedó clara: lo que se rompe es lo
+> que genera el **admin**; los links que inicia la persona desde el navegador
+> (magic-link de `/login`, `/recuperar`) sí traen `code_verifier` y funcionan.
+
 > **Stack de marketing: medición server-first + SEO/AEO (m011, ADR-0025/0026,
 > 2026-08-31).** Port del stack construido y verificado en vivo en estampida
 > (transferencia completa en `docs/MARKETING_STACK_HUELLA.md`) — todo antes de

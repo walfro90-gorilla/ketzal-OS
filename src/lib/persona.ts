@@ -35,3 +35,22 @@ export async function getPersona(supabase: any): Promise<Persona> {
   if (t === 'proveedor') return 'provider'
   return 'agent'
 }
+
+/**
+ * ¿La cuenta trae contraseña PROVISIONAL sin cambiar? Quien no se registra solo
+ * (embajador reclutado, proveedor, admin invitado) entra con una que le dictaron
+ * por WhatsApp; hasta que fije la suya, esa contraseña la conoce alguien más.
+ *
+ * El back-office ya lo verificaba en `(ops)/layout.tsx`, pero los portales de
+ * embajador y proveedor NO — sus cuentas se quedaban con la provisional para
+ * siempre. Vive aquí para que el gate sea la misma línea en las tres superficies.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function debeCambiarPassword(supabase: any, userId: string): Promise<boolean> {
+  const { data } = await supabase
+    .from('profiles')
+    .select('must_change_password')
+    .eq('id', userId)
+    .maybeSingle()
+  return Boolean(data?.must_change_password)
+}

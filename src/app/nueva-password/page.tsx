@@ -15,8 +15,11 @@ import {
 import { PasswordInput } from '@/components/ui/password-input'
 import { Label } from '@/components/ui/label'
 
-// Ruta PROTEGIDA: se llega con la sesión de recuperación ya establecida por
-// /auth/callback (exchangeCodeForSession). Aquí se fija la nueva contraseña.
+// Ruta PROTEGIDA. Se llega por dos caminos, ambos ya con sesión:
+//   · recuperación de contraseña (/auth/callback la establece), y
+//   · contraseña PROVISIONAL sin cambiar — el gate `must_change_password` de las
+//     tres superficies (ops, /embajador, /proveedor) manda aquí y no deja pasar.
+// Aquí se fija la nueva contraseña.
 export default function NuevaPasswordPage() {
   const router = useRouter()
   const [password, setPassword] = useState('')
@@ -52,8 +55,10 @@ export default function NuevaPasswordPage() {
     // DEFINER (authenticated no escribe profiles, b017). No-op en el flujo normal
     // de recuperación. RPC nuevo ⇒ cast.
     await supabase.rpc('clear_password_change_flag' as never)
-    // Nueva contraseña lista: ya con sesión, al panel.
-    router.push('/dashboard')
+    // Nueva contraseña lista. A '/' y no a '/dashboard': esta pantalla ya no es
+    // solo del agente (embajador y proveedor también llegan con provisional), y
+    // '/' resuelve el aterrizaje por persona en vez de rebotar contra el gate.
+    router.push('/')
     router.refresh()
   }
 

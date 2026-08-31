@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Building2Icon, CopyIcon, CheckIcon } from 'lucide-react'
+import { Building2Icon } from 'lucide-react'
 import {
   Card,
   CardContent,
@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { CredencialesProvisionales } from '@/components/data/credenciales-provisionales'
 import { Input } from '@/components/ui/input'
 import { crearAgenciaEInvitarAdmin } from './invitaciones-actions'
 
@@ -27,19 +28,6 @@ export function CrearAgenciaSection() {
   const [comision, setComision] = useState('')
   // Credenciales provisionales del admin recién creado (para mandar por WhatsApp).
   const [creds, setCreds] = useState<{ email: string; password: string } | null>(null)
-  const [copiado, setCopiado] = useState(false)
-
-  async function copiarCreds() {
-    if (!creds) return
-    const texto = `Ketzal OS — entra en https://ketzal-os.vercel.app/login\nCorreo: ${creds.email}\nContraseña provisional: ${creds.password}\n(Al entrar te pedirá crear tu propia contraseña.)`
-    try {
-      await navigator.clipboard.writeText(texto)
-      setCopiado(true)
-      setTimeout(() => setCopiado(false), 2000)
-    } catch {
-      // clipboard bloqueado: seleccionar a mano.
-    }
-  }
 
   function crear() {
     if (!nombre.trim()) {
@@ -169,40 +157,11 @@ export function CrearAgenciaSection() {
         </div>
 
         {creds && (
-          <div className="mt-4 space-y-2 rounded-lg border border-emerald-500/40 bg-emerald-500/5 p-4">
-            <p className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
-              Cuenta creada. Manda estas credenciales al admin (WhatsApp):
-            </p>
-            <div className="space-y-1 rounded-md border bg-background px-3 py-2 text-sm">
-              <p>
-                <span className="text-muted-foreground">Entra en:</span>{' '}
-                <span className="font-medium">ketzal-os.vercel.app/login</span>
-              </p>
-              <p>
-                <span className="text-muted-foreground">Correo:</span>{' '}
-                <span className="font-medium">{creds.email}</span>
-              </p>
-              <p>
-                <span className="text-muted-foreground">Contraseña provisional:</span>{' '}
-                <span className="font-mono font-medium">{creds.password}</span>
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button type="button" size="sm" variant="outline" onClick={copiarCreds}>
-                {copiado ? (
-                  <>
-                    <CheckIcon className="size-4" /> Copiado
-                  </>
-                ) : (
-                  <>
-                    <CopyIcon className="size-4" /> Copiar mensaje
-                  </>
-                )}
-              </Button>
-              <span className="text-xs text-muted-foreground">
-                Al entrar se le pedirá crear su propia contraseña.
-              </span>
-            </div>
+          <div className="mt-4">
+            <CredencialesProvisionales
+              credenciales={creds}
+              titulo="Cuenta creada. Mándale estos datos al admin:"
+            />
           </div>
         )}
         <p className="mt-2 text-xs text-muted-foreground">

@@ -24,10 +24,20 @@ back-office; un agente nunca ve el portal de embajador. El alta de cada una:
   junto con su agencia desde `/equipo` si es superadmin). Nace **pendiente**
   (`active=false`) hasta que un admin lo aprueba.
 - **Viajero**: se auto-registra en `/entrar` o al comprar en `/comprar/[id]`.
-- **Embajador**: lo da de alta un superadmin desde `/comisiones` (nombre +
-  código de referido, correo opcional). Entra por magic-link.
+- **Embajador**: lo da de alta el superadmin o el admin de su agencia desde
+  `/comisiones` (nombre + código de referido + **correo**, y su WhatsApp si lo
+  tienes). Al crearlo aparecen sus datos de acceso.
 - **Proveedor**: se le da acceso desde la ficha de su proveedor en
-  `/proveedores/[id]` ("Acceso del proveedor"). Entra por magic-link.
+  `/proveedores/[id]` ("Acceso del proveedor"), con nombre y **correo**.
+
+**Cómo se entrega el acceso (embajador, proveedor, admin de agencia y miembro
+del equipo — igual para los cuatro):** al crear la cuenta sale una tarjeta con el
+correo y una **contraseña provisional**. Tócale **Mandar por WhatsApp** (si
+capturaste su teléfono se abre su chat directo) o **Mandar por correo**; el
+mensaje ya viene escrito. La contraseña **se ve una sola vez**: si se pierde,
+genera otra con el botón de su fila — la anterior deja de servir. Cuando la
+persona entra, la app no la deja pasar hasta que crea su propia contraseña, así
+que la que mandaste por WhatsApp deja de valer sola.
 
 ## 2. Roles dentro del back-office (solo aplica a la persona Agente)
 

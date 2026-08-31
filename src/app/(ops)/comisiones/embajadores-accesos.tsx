@@ -1,20 +1,23 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { CheckIcon, CopyIcon, KeyRoundIcon } from 'lucide-react'
+import { KeyRoundIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { generarAccesoEmbajador } from './acceso-embajador-actions'
+import { CredencialesProvisionales } from '@/components/data/credenciales-provisionales'
+import { regenerarAccesoEmbajador } from './acceso-embajador-actions'
 import type { Embajador } from './reglas-servicio'
 
-/** Lista de embajadores con un botón para generar su link de acceso (magic-link).
- *  El superadmin lo copia y lo manda por WhatsApp; el embajador entra a su portal. */
+/** Lista de embajadores con un botón para reemitir su acceso: contraseña
+ *  provisional que se manda por WhatsApp o correo. Antes esto generaba un
+ *  magic-link que nunca funcionó (ver `lib/auth/credenciales.ts`). */
 export function EmbajadoresAccesos({ embajadores }: { embajadores: Embajador[] }) {
   if (embajadores.length === 0) return null
   return (
     <div className="mt-6 space-y-1">
       <p className="text-sm font-medium">Accesos</p>
       <p className="mb-2 text-xs text-muted-foreground">
-        Genera el link de acceso de cada embajador y compártelo por WhatsApp.
+        Genera la contraseña de cada embajador y mándasela por WhatsApp o correo.
+        Al entrar se le pide crear la suya.
       </p>
       <ul className="divide-y">
         {embajadores.map((e) => (
@@ -27,29 +30,31 @@ export function EmbajadoresAccesos({ embajadores }: { embajadores: Embajador[] }
 
 function FilaAcceso({ embajador }: { embajador: Embajador }) {
   const [isPending, startTransition] = useTransition()
-  const [link, setLink] = useState<string | null>(null)
+  const [creds, setCreds] = useState<{ email: string; password: string } | null>(null)
+  const [telefono, setTelefono] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [copied, setCopied] = useState(false)
 
+  // Invalida la contraseña anterior: si la persona ya entró y fijó la suya, esto
+  // se la tumba. Por eso se confirma en vez de dispararse al primer clic.
   function generar() {
+    const quien = embajador.nombre || 'este embajador'
+    if (
+      !window.confirm(
+        `¿Generar una contraseña nueva para ${quien}? La anterior deja de servir.`,
+      )
+    )
+      return
     setError(null)
-    setLink(null)
+    setCreds(null)
     startTransition(async () => {
-      const res = await generarAccesoEmbajador(embajador.id)
-      if ('error' in res) setError(res.error)
-      else setLink(res.link)
+      const res = await regenerarAccesoEmbajador(embajador.id)
+      if ('error' in res) {
+        setError(res.error)
+        return
+      }
+      setCreds(res.credentials)
+      setTelefono(res.telefono)
     })
-  }
-
-  async function copiar() {
-    if (!link) return
-    try {
-      await navigator.clipboard.writeText(link)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1800)
-    } catch {
-      // clipboard bloqueado: seleccionar a mano.
-    }
   }
 
   return (
@@ -71,19 +76,20 @@ function FilaAcceso({ embajador }: { embajador: Embajador }) {
           disabled={isPending}
         >
           <KeyRoundIcon className="size-4" />
-          {isPending ? 'Generando…' : 'Generar acceso'}
+          {isPending ? 'Generando…' : 'Generar contraseña'}
         </Button>
       </div>
-      {error && <p className="text-sm text-destructive">{error}</p>}
-      {link && (
-        <div className="flex items-center gap-2">
-          <code className="min-w-0 flex-1 truncate rounded-lg border bg-muted/40 px-3 py-2 text-xs">
-            {link}
-          </code>
-          <Button type="button" size="sm" variant="outline" onClick={copiar}>
-            {copied ? <CheckIcon className="size-4" /> : <CopyIcon className="size-4" />}
-          </Button>
-        </div>
+      {error && (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      )}
+      {creds && (
+        <CredencialesProvisionales
+          credenciales={creds}
+          telefono={telefono}
+          titulo="Acceso listo. Mándale estos datos:"
+        />
       )}
     </li>
   )

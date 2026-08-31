@@ -1,11 +1,11 @@
 'use server'
 
-import { randomUUID } from 'node:crypto'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { safeError } from '@/lib/errors'
 import { notificar, superadmins } from '@/lib/push/send'
+import { nuevaProvisional } from '@/lib/auth/credenciales'
 
 // Alta de EMBAJADOR = profile(type='embajador') con su cuenta auth (profiles.id
 // → auth.users ON DELETE CASCADE, F2). Va por SERVICE ROLE (crea la cuenta auth y
@@ -13,9 +13,9 @@ import { notificar, superadmins } from '@/lib/push/send'
 // service role no respeta RLS.
 //
 // m005 — dos cambios para poder reclutar de verdad:
-//   · El correo es OBLIGATORIO. Antes se sintetizaba `<uuid>@embajador.ketzal.local`
-//     si venía vacío; ese dominio no existe, así que el magic-link de acceso se
-//     generaba contra un buzón inalcanzable y la cuenta quedaba muerta sin aviso.
+//   · El correo es OBLIGATORIO: es el usuario con el que entra. Antes se
+//     sintetizaba `<uuid>@embajador.ketzal.local` si venía vacío, y esa cuenta
+//     quedaba muerta sin aviso porque nadie podía escribirle ese correo.
 //   · Recluta el admin de agencia, no solo el superadmin — si no, cada embajador
 //     nuevo pasa por el fundador.
 //
@@ -59,13 +59,24 @@ function normalizarReferral(v: string | null | undefined): string | null {
   return s === '' ? null : s
 }
 
+/**
+ * Alta de embajador. Devuelve la contraseña PROVISIONAL para que el reclutador
+ * se la mande por WhatsApp o correo (el envío es manual: no hay emisor de correo
+ * en el repo y la caja de WhatsApp está pausada). Se ve una sola vez; si se
+ * pierde, `regenerarAccesoEmbajador` emite otra.
+ */
 export async function crearEmbajador(input: {
   nombre: string
   codigo: string
   email?: string
+  /** Para mandarle el acceso por WhatsApp sin volver a teclear el número. */
+  telefono?: string
   /** Solo lo usa el superadmin, que no tiene agencia propia. */
   supplierId?: string | null
-}): Promise<{ error: string } | { ok: true }> {
+}): Promise<
+  | { error: string }
+  | { ok: true; credentials: { email: string; password: string }; telefono: string | null }
+> {
   const gate = await requireReclutador(input.supplierId)
   if ('error' in gate) return gate
 
@@ -74,17 +85,19 @@ export async function crearEmbajador(input: {
   if (!nombre) return { error: 'Escribe el nombre del embajador.' }
   if (!codigo) return { error: 'Escribe el código de referido (con él se atribuyen las ventas).' }
 
-  // Correo real obligatorio: es el único camino de acceso del embajador (el
-  // magic-link va ahí). Un correo inventado deja la cuenta muerta en silencio.
+  // Correo real obligatorio: ES el usuario con el que entra. Uno inventado deja
+  // la cuenta muerta en silencio.
   const email = input.email?.trim().toLowerCase()
   if (!email) return { error: 'Escribe el correo del embajador: por ahí recibe su acceso.' }
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     return { error: 'Ese correo no parece válido.' }
   }
+  const telefono = input.telefono?.trim() || null
   const svc = createServiceClient()
+  const provisional = nuevaProvisional()
   const { data: created, error: authErr } = await svc.auth.admin.createUser({
     email,
-    password: randomUUID(),
+    password: provisional,
     email_confirm: true,
     user_metadata: { full_name: nombre },
   })
@@ -103,6 +116,10 @@ export async function crearEmbajador(input: {
     active: true,
     referral_code: codigo,
     supplier_id: gate.supplierId,
+    phone: telefono,
+    // Nace con contraseña provisional: el portal lo manda a fijar la suya antes
+    // de dejarlo pasar. Sin este flag la provisional se vuelve permanente.
+    must_change_password: true,
   })
   if (rowErr) {
     // Deshacer la cuenta auth para no dejar un huérfano sin profile.
@@ -129,5 +146,5 @@ export async function crearEmbajador(input: {
   }
 
   revalidatePath('/comisiones')
-  return { ok: true }
+  return { ok: true, credentials: { email, password: provisional }, telefono }
 }
