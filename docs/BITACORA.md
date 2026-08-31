@@ -9,6 +9,37 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Se van las cuentas QA, y con ellas un superadmin olvidado (2026-08-30).**
+>
+> Barrido de pendientes tras cerrar investigación de mercado. Vivían cuatro
+> cuentas `@ketzal.local` en la BD de producción, y la peor no era ninguna de
+> las tres que se crearon para probar m002: era **`qa.ui@ketzal.local`, con
+> `role='superadmin'`**, creada el 2026-08-24 para un ciclo de UI y nunca
+> retirada. Una contraseña de prueba con acceso a toda la plataforma, seis días
+> viva. La misma cuenta que en su momento tumbó la Admin API entera por haberse
+> creado con INSERT directo a `auth.users`.
+>
+> Borradas por Admin API, nunca por SQL. Antes de tocar nada se verificó a qué
+> apuntaban: solo su propio `profiles` y una notificación —cero datos de
+> negocio— y ambas FK con `on delete cascade`, así que el borrado limpia solo.
+> Después: **0 cuentas QA vivas, 0 profiles huérfanos, y el único superadmin que
+> queda es el del fundador**. Recrearlas cuando toque probar sigue documentado en
+> `supabase/tests/qa_m002_setup.sql`.
+>
+> **Lección operativa:** una cuenta de pruebas con rol alto no es dato de prueba,
+> es una credencial. Borrarla es parte de cerrar el carril, no del "algún día".
+>
+> En el mismo barrido se cerró el carril zombi `god-panel` (su trabajo ya estaba
+> en `main` como el squash de #80; `git branch -d` se niega porque el squash
+> cambia el SHA, se confirma con `git diff origin/main HEAD` vacío antes de
+> forzar) y se cerraron los **tres hallazgos menores** que la revisión de m004
+> había dejado abiertos (#81): un error de lectura que se descartaba y reportaba
+> "no existe" ante cualquier fallo; el rango de meses que se truncaba **en
+> silencio** pasando de 24 —el guard va en `validar()`, que comparten crear y
+> editar, y el cálculo se extrae a `largoDelRango` porque `validar` vive dentro
+> de un `'use server'` y vitest no lo puede importar—; y `mesEnRango`, exportada
+> sin un solo llamador. 145/145 tests, `tsc` limpio, build OK.
+
 > **Un agente también refiere (m010 + ADR-0022, 2026-08-30).**
 >
 > Al revisar con el fundador los cuatro valores de `profiles.type` salió que el
