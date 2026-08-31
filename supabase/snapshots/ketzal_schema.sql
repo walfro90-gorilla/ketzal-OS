@@ -1,3 +1,21 @@
+-- ⚠️ SNAPSHOT DESACTUALIZADO — NO reconstruye el sistema actual.
+--
+-- Este dump se generó en b071, antes de migrar al proyecto dedicado
+-- (commit f111ce0). Desde entonces la BD avanzó y el archivo NO: le faltan
+-- b072–b077 (comisión de portal y su gate de publicación) y m002–m010
+-- (encuestas, embajadores operables, tarifa por agencia, referidos de agente),
+-- incluida la tabla `ketzal.referral_misses` completa. La única migración
+-- reflejada aquí es m009, parchada a mano. Verificado el 2026-08-30:
+-- `grep referral_misses` y `grep onboarded_at` dan 0 aquí y existen en vivo.
+--
+-- Reconstruir con este archivo produce un sistema SIN el motor de referidos
+-- actual. Para ponerlo al día hace falta la contraseña de la BD:
+--
+--     supabase db dump --schema ketzal -f supabase/snapshots/ketzal_schema.sql
+--
+-- Mientras tanto la fuente de verdad es la BD viva (ADR-0014) y los espejos de
+-- `db/proposed/`, que sí están completos.
+
 
 
 
@@ -3694,7 +3712,6 @@ begin
     'full_name',   m.name,
     'email',       m.email,
     'phone',       m.phone,
-    'image',       m.image,
     'created_at',  m.created_at,
     'num_compras', (select count(*) from ketzal.bookings b
                      where b.marketplace_customer_id = m.id)

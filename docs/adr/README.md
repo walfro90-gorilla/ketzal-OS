@@ -28,3 +28,4 @@ este índice se actualiza en el mismo diff.**
 | [0019](0019-comision-plataforma-obligatoria-para-publicar.md) | Comisión de plataforma: default general 20% + gate que prohíbe publicar sin comisión | aceptada |
 | [0020](0020-security-review-diferida.md) | La revisión de seguridad automática se difiere hasta producción; el workflow se elimina, no se deja fallando | aceptada |
 | [0021](0021-embajadores-los-paga-quien-recluta.md) | Embajadores sin límite de catálogo; paga la agencia dueña del viaje con la tarifa que ella fijó | aceptada |
+| [0022](0022-referir-lo-decide-el-codigo-no-el-tipo.md) | Quién cobra por referir lo decide el `referral_code`, no `profiles.type`; auto-referido bloqueado | aceptada |

@@ -4,13 +4,63 @@ import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { guardarReglaAgente } from './reglas-actions'
+import { LinkReferido } from '@/components/data/link-referido'
+import { guardarReglaAgente, guardarCodigoReferido } from './reglas-actions'
 
 export type AgenteComision = {
   id: string
   nombre: string
   pct: number | null
   porPasajero: number | null
+  /** m010: código de referido, o null si no tiene. */
+  codigo: string | null
+}
+
+/**
+ * m010: el código de referido del agente. Un agente que compartía el link del
+ * marketplace no cobraba nada — el motor solo resolvía códigos de embajador —
+ * así que su recomendación se perdía. Con código, su referido paga la tarifa
+ * de embajador de la agencia.
+ *
+ * Va aquí y no en /equipo porque la pregunta que responde es "cuánto le pago a
+ * quién", que es de lo que trata esta pantalla.
+ */
+function CodigoReferido({ agente }: { agente: AgenteComision }) {
+  const [isPending, startTransition] = useTransition()
+  const [codigo, setCodigo] = useState(agente.codigo ?? '')
+
+  function guardar() {
+    startTransition(async () => {
+      const res = await guardarCodigoReferido(agente.id, codigo || null)
+      if ('error' in res) toast.error(res.error)
+      else toast.success(codigo ? 'Código guardado' : 'Código quitado')
+    })
+  }
+
+  return (
+    <div className="space-y-2 rounded-lg bg-muted/40 p-2.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs text-muted-foreground">Código de referido</span>
+        <Input
+          value={codigo}
+          onChange={(e) => setCodigo(e.target.value.toUpperCase())}
+          aria-label={`Código de referido de ${agente.nombre}`}
+          placeholder="Sin código"
+          className="h-8 w-36 font-mono text-sm uppercase"
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={isPending || codigo === (agente.codigo ?? '')}
+          onClick={guardar}
+        >
+          {isPending ? 'Guardando…' : 'Guardar'}
+        </Button>
+      </div>
+      {agente.codigo && <LinkReferido code={agente.codigo} compacto />}
+    </div>
+  )
 }
 
 // b054: tarifa de comisión por agente (una sola, no por servicio como
@@ -46,7 +96,8 @@ function FilaAgente({ agente }: { agente: AgenteComision }) {
   }
 
   return (
-    <li className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
+    <li className="space-y-2 py-3 first:pt-0 last:pb-0">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
         <p className="truncate text-sm font-medium">{agente.nombre}</p>
         <p className="text-xs text-muted-foreground">
@@ -105,6 +156,8 @@ function FilaAgente({ agente }: { agente: AgenteComision }) {
           </span>
         )}
       </div>
+      </div>
+      <CodigoReferido agente={agente} />
     </li>
   )
 }
