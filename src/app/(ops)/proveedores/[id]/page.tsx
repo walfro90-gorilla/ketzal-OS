@@ -75,12 +75,25 @@ const columnasServicios: DataColumn<ServicioVinculado>[] = [
   },
 ]
 
+// El callback del OAuth de MP vuelve con `?mp=<resultado>`. Sin esto la
+// pantalla se ve idéntica haya funcionado o no: el usuario solo percibe un
+// refresh, y un fallo pasa por éxito.
+const MENSAJES_MP: Record<string, { texto: string; ok: boolean }> = {
+  conectado: { texto: 'Autorización actualizada con Mercado Pago.', ok: true },
+  cancelado: { texto: 'Cancelaste la autorización. No cambió nada.', ok: false },
+  error: { texto: 'Mercado Pago rechazó la autorización. No cambió nada; vuelve a intentar.', ok: false },
+}
+
 export default async function ProveedorDetallePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ mp?: string }>
 }) {
   const { id } = await params
+  const { mp } = await searchParams
+  const avisoMp = mp ? MENSAJES_MP[mp] : undefined
   const supabase = await createClient()
 
   // Proveedor + servicios vinculados en paralelo. El OR cubre los 3 roles;
@@ -198,7 +211,18 @@ export default async function ProveedorDetallePage({
               ventas en línea se depositan a la agencia a los 7 días.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-3">
+            {avisoMp && (
+              <p
+                className={`rounded-lg px-3 py-2 text-sm ${
+                  avisoMp.ok
+                    ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                    : 'bg-amber-500/10 text-amber-700 dark:text-amber-400'
+                }`}
+              >
+                {avisoMp.texto}
+              </p>
+            )}
             {mpConectado ? (
               <div className="space-y-2">
                 <p className="text-sm">
