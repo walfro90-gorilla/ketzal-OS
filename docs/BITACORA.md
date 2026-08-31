@@ -9,6 +9,46 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Panel del admin rediseñado + cierre de carriles zombis (2026-08-30).**
+>
+> **Panel (PR #76, solo presentación** — ni un RPC, ni una action, ni una
+> migración; del lado de datos solo tres `count(head:true)` y el `image`/`type`
+> del perfil). Cinco cambios pedidos por el fundador sobre capturas reales:
+> *Primeros pasos* pasa a `<details>` **nativo** (cero JS, cero estado, teclado y
+> lector lo entienden solos) y colapsado dice CUÁL paso falta, no solo cuántos
+> —con 7 de 8 hechos seguía empujando el panel entero hacia abajo—; **cabecera de
+> identidad de la agencia** con logo y tres cifras de inventario (servicios,
+> clientes, equipo: el dinero vive en Resumen y mezclarlos aquí competiría);
+> **Resumen de hoy primero**, con KPIs a dos columnas desde móvil y los filtros
+> en una sola fila con "Aplicar" convertido en lupa; y el **menú de cuenta** con
+> foto, tipo legible ("Administrador de agencia", no `agente` crudo) y agencia.
+>
+> El cambio con más efecto fue *Requiere atención* en móvil: **de ~900px a
+> 279px**, medido en el DOM a 500px de ancho. La idea no fue encoger todo sino
+> **jerarquía por estado** — "todo al día" es una buena noticia y colapsa a una
+> fila de 41px con su enlace; la alerta conserva la tarjeta completa, que es lo
+> único que hay que ver. En las capturas originales, tres de tres tarjetas decían
+> "todo al día" ocupando lo mismo que la que sí requería acción.
+> Verificado en navegador con sesión real de admin, en escritorio y móvil.
+>
+> **Carriles zombis cerrados.** `worktree-mcp-server` (último commit 2026-08-19)
+> y `worktree-comisiones-motor` (2026-08-04) llevaban semanas en
+> `git worktree list` como si tuvieran trabajo en vuelo. Ninguno lo tenía: cero
+> commits fuera de `main`, cero cambios sin commitear. `comisiones-motor` tenía
+> el nombre engañoso —arrancó con el motor de comisiones (b019) pero terminó
+> siendo el carril de **cancelaciones y crédito**, la serie C0→C5 (b046–b051)—;
+> no lo reemplazó nada, simplemente se terminó y quedó sin cerrar.
+>
+> El procedimiento verificado para cerrar un carril viejo quedó en
+> `docs/WORKTREES.md › Cómo cerrar un carril viejo`. Lo que salva ahí es
+> **comparar archivos, no commits**: con trabajo integrado por squash los SHA no
+> coinciden y `git log main..rama` parece mostrar trabajo perdido cuando ya está
+> todo dentro. Y si un archivo existe solo en la rama, hay que averiguar por qué
+> NO está en main antes de asumir un descuido: en `mcp-server` los dos candidatos
+> resultaron ser eliminaciones deliberadas (el workflow retirado en ADR-0020 y un
+> `actions.ts` que b071 borró para cerrar un camino de venta con $0).
+>
+
 > **Embajadores listos para reclutar + tour para las tres personas (m005–m007,
 > 2026-08-30).** Walfre quiso empezar a conseguir embajadores reales, así que
 > primero auditamos si el flujo servía. La BD contestó sola: **0 embajadores, 0
