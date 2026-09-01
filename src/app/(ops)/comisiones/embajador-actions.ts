@@ -73,6 +73,12 @@ export async function crearEmbajador(input: {
   telefono?: string
   /** Solo lo usa el superadmin, que no tiene agencia propia. */
   supplierId?: string | null
+  /**
+   * Quién lo invitó (b085). Hecho relacional, no dinero: de aquí se DERIVA el
+   * bono de $300 que gana el que invita cuando su invitado logra su primera
+   * venta. No es multinivel — no gana nada más de las ventas de su recluta.
+   */
+  recruitedBy?: string | null
 }): Promise<
   | { error: string }
   | { ok: true; credentials: { email: string; password: string }; telefono: string | null }
@@ -116,6 +122,7 @@ export async function crearEmbajador(input: {
     active: true,
     referral_code: codigo,
     supplier_id: gate.supplierId,
+    recruited_by: input.recruitedBy || null,
     phone: telefono,
     // Nace con contraseña provisional: el portal lo manda a fijar la suya antes
     // de dejarlo pasar. Sin este flag la provisional se vuelve permanente.

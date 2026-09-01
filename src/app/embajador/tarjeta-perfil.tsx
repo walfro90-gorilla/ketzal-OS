@@ -19,6 +19,10 @@ import { subirFotoPerfil } from './subir-foto'
 
 export type KpisEmbajador = {
   devengado: number
+  /** Solo comisiones por ventas propias. */
+  comisiones: number
+  /** Ganado por invitar a otros embajadores (b085). */
+  bonos: number
   pagado: number
   saldo: number
   numVentas: number
@@ -128,7 +132,17 @@ export function TarjetaPerfil({
 
       {/* 2×2 en móvil: cuatro columnas dejan los números ilegibles en un teléfono. */}
       <dl className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Kpi etiqueta="Ganado" valor={mxn.format(kpis.devengado)} />
+        <Kpi
+          etiqueta="Ganado"
+          valor={mxn.format(kpis.devengado)}
+          {...(kpis.bonos > 0
+            ? {
+                // Un número que aparece sin explicación se lee como error: si
+                // hay bono, se dice de dónde salió.
+                nota: `${mxn.format(kpis.comisiones)} de ventas + ${mxn.format(kpis.bonos)} de bonos`,
+              }
+            : {})}
+        />
         <Kpi etiqueta="Pagado" valor={mxn.format(kpis.pagado)} />
         <Kpi
           etiqueta="Por cobrar"
@@ -148,10 +162,13 @@ function Kpi({
   etiqueta,
   valor,
   destacado,
+  nota,
 }: {
   etiqueta: string
   valor: string
   destacado?: boolean
+  /** Desglose corto, cuando el número tiene más de una fuente. */
+  nota?: string
 }) {
   return (
     <div
@@ -159,6 +176,7 @@ function Kpi({
     >
       <dt className="text-xs text-muted-foreground">{etiqueta}</dt>
       <dd className="mt-0.5 text-lg font-semibold tabular-nums">{valor}</dd>
+      {nota && <p className="mt-0.5 text-[11px] leading-tight text-muted-foreground">{nota}</p>}
     </div>
   )
 }
