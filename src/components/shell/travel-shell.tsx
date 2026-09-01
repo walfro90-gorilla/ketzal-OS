@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { LogOutIcon } from 'lucide-react'
+import { LogOutIcon, SparklesIcon } from 'lucide-react'
 import { ThemeToggle } from './theme-toggle'
 import { TravelBottomNav } from './travel-bottom-nav'
 import { TRAVEL_NAV } from './travel-nav'
@@ -12,10 +12,17 @@ import { TRAVEL_NAV } from './travel-nav'
 export function TravelShell({
   email,
   logoUrl = null,
+  portal = null,
   children,
 }: {
   email: string | null
   logoUrl?: string | null
+  /**
+   * Portal propio de quien además es embajador o proveedor (b087). Un cliente
+   * convertido conserva estas pantallas, pero el logo de aquí apunta a
+   * /mis-compras: sin esta salida se queda encerrado en su viaje.
+   */
+  portal?: { href: string; label: string } | null
   children: React.ReactNode
 }) {
   return (
@@ -55,6 +62,15 @@ export function TravelShell({
         </nav>
 
         <div className="flex items-center gap-1 sm:gap-2">
+          {portal && (
+            <Link
+              href={portal.href}
+              className="flex items-center gap-1.5 rounded-lg px-2 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:px-3"
+            >
+              <SparklesIcon className="size-4 shrink-0" />
+              <span className="hidden sm:inline">{portal.label}</span>
+            </Link>
+          )}
           <ThemeToggle />
           {email && (
             <form action="/auth/signout" method="post">

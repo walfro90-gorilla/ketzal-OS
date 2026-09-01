@@ -20,14 +20,25 @@ export default async function TravelLayout({
   const { data: perfil } = user
     ? await supabase
         .from('profiles' as never)
-        .select('onboarded_at')
+        .select('onboarded_at, type')
         .eq('id', user.id)
         .maybeSingle()
     : { data: null }
-  const yaVisto = Boolean((perfil as { onboarded_at: string | null } | null)?.onboarded_at)
+  const p = perfil as { onboarded_at: string | null; type: string | null } | null
+  const yaVisto = Boolean(p?.onboarded_at)
+
+  // Un cliente que se volvió embajador (o proveedor) conserva estas pantallas
+  // — nada aquí lo echa — pero '/' lo manda siempre a su portal. Sin esta
+  // salida, quien entra por aquí no tiene cómo volver (b087).
+  const portal =
+    p?.type === 'embajador'
+      ? { href: '/embajador', label: 'Ganancias' }
+      : p?.type === 'proveedor'
+        ? { href: '/proveedor', label: 'Mis servicios' }
+        : null
 
   return (
-    <TravelShell email={user?.email ?? null} logoUrl={logoUrl}>
+    <TravelShell email={user?.email ?? null} logoUrl={logoUrl} portal={portal}>
       {children}
       <ProductTour
         persona="viajero"

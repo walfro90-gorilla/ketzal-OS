@@ -39,11 +39,14 @@ export function CrearEmbajador({
   // Credenciales del recién creado: se ven una vez, para mandarlas.
   const [creds, setCreds] = useState<{ email: string; password: string } | null>(null)
   const [telCreds, setTelCreds] = useState<string | null>(null)
+  // Correo convertido: ya tenía cuenta, así que no hay contraseña que mandar.
+  const [convertido, setConvertido] = useState<string | null>(null)
 
   function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError(null)
     setCreds(null)
+    setConvertido(null)
     startTransition(async () => {
       const res = await crearEmbajador({
         nombre,
@@ -57,12 +60,14 @@ export function CrearEmbajador({
         setError(res.error)
         return
       }
+      const correo = email.trim()
       setNombre('')
       setCodigo('')
       setEmail('')
       setTelefono('')
       setInvitadoPor('')
       setCreds(res.credentials)
+      setConvertido(res.credentials ? null : correo)
       setTelCreds(res.telefono)
       router.refresh()
     })
@@ -164,6 +169,16 @@ export function CrearEmbajador({
           telefono={telCreds}
           titulo="Embajador creado. Mándale estos datos:"
         />
+      )}
+      {convertido && (
+        <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
+          <p className="font-medium">Ya era cliente: su cuenta ahora es de embajador.</p>
+          <p className="mt-1 text-muted-foreground">
+            Entra en <span className="font-medium">{convertido}</span> con la
+            contraseña que ya usaba — no le mandes una nueva. Sigue viendo sus
+            compras y sus créditos.
+          </p>
+        </div>
       )}
     </form>
   )

@@ -39,3 +39,4 @@ este índice se actualiza en el mismo diff.**
 | [0030](0030-un-solo-riel-de-pago-a-personas.md) | A una persona se le paga registrando el gasto y el ledger lo espeja; `settle_ledger` deja de aceptar embajador/agente (b081) | aceptada |
 | [0031](0031-atribucion-del-embajador-last-touch-en-cookie.md) | El `?ref` se captura en cookie desde el proxy en el primer aterrizaje; last-touch, 30 días, se consume al crear el pedido (b082) | aceptada |
 | [0032](0032-corte-quincenal-derivado.md) | El corte de comisiones es derivado (devengado − pagado a una fecha), acumulativo, y solo paga ventas con dinero cobrado (b086) | aceptada |
+| [0033](0033-el-cliente-se-convierte-sin-perder-nada.md) | Un correo que ya tiene cuenta de viajero se CONVIERTE en embajador (sin contraseña nueva) y conserva sus compras; cada portal enseña la salida al otro (b087) | aceptada |

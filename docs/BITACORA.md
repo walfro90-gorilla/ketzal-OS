@@ -9,6 +9,58 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Fase 6: el cliente se vuelve embajador sin perder sus compras (b087,
+> ADR-0033, 2026-09-01).** A quien ya te compró es a quien le pides que te
+> recomiende, y ese camino no existía: `crearEmbajador` llamaba a
+> `admin.createUser` de una y cualquier correo con cuenta moría en *"¿correo ya
+> registrado?"*. Se buscaba una cuenta nueva donde ya había una persona.
+>
+> Ahora la acción busca primero por `profiles.email`: si es viajero, **convierte
+> esa misma cuenta con un `update`** y devuelve `credentials: null` — entra con
+> su contraseña de siempre, no se le emite provisional ni se le marca
+> `must_change_password` (ADR-0028). Al agente y al proveedor los rechaza con su
+> motivo: convertirlos les quitaría el back-office o los desconectaría de sus
+> servicios.
+>
+> **Lo que NO se construyó, porque ya funcionaba y nadie lo había mirado:** el
+> convertido nunca perdió sus compras. Los RPC del viajero
+> (`list_my_marketplace_orders`, `list_my_credits`, `get_my_trip`,
+> `emit_my_voucher`) filtran por `auth.uid()` y **ninguno mira `profiles.type`**;
+> `(travel)/layout.tsx` tampoco tiene gate de persona. El plan decía "hoy los
+> gates de persona lo dejarían fuera" — era falso, y verificarlo antes de
+> escribir borró la mitad de la fase.
+>
+> Lo que sí faltaba era **navegación**: `/` manda a cada quien a su portal, así
+> que el convertido aterriza siempre en `/embajador`, y ni ese portal ni el shell
+> del viajero tenían enlace al otro. Sus compras existían y no había cómo
+> llegar. Se agregó la salida en ambos sentidos; la de "Mis compras" solo se
+> pinta si de verdad compró algo (una pestaña vacía enseña a ignorarla).
+>
+> **Probado contra lo real, no compilado:**
+> - `supabase/tests/conversion_viajero_embajador.sql` — **6/6**, dentro de un
+>   `DO` que termina en `raise exception` para que Postgres revierta todo. Cubre
+>   que el convertido no pierde compras, créditos, viaje ni voucher, y que
+>   comprarse a sí mismo con su propio código sigue rechazándose (ADR-0029).
+> - `supabase/tests/conversion_portales.mjs` — **9/9** contra la app compilada y
+>   servida: `/mis-compras` responde 200 con `type='embajador'`, cada portal
+>   trae el enlace al otro, el embajador sin compras NO lo trae, y un viajero de
+>   verdad sigue rebotando de `/embajador`.
+> - `supabase/tests/conversion_alta.mjs` — **10/10** ejerciendo la server action
+>   real por HTTP (`Next-Action`), no una copia de su lógica. El id de la acción
+>   se **busca** en el manifiesto del build mandando un payload vacío que el
+>   primer guard rechaza, para que el harness no muera cuando cambie el hash.
+> - Fixtures efímeras (ADR-0023) y limpieza **verificada**: 7 perfiles / 7
+>   cuentas antes y después, 0 restos.
+>
+> Dos tropiezos que dejaron lección. El primero: el harness SQL "falló" tres
+> veces seguidas y el bug era **mío** — asertaba sobre `e->>'id'` cuando
+> `list_my_marketplace_orders` devuelve `booking_id`. Una aserción mal escrita se
+> ve idéntica a un bug del producto. El segundo: la prueba por navegador no
+> convirtió nada y no daba error, porque el **tour de onboarding** se auto-abre
+> en una cuenta recién creada y tapaba el formulario; encima `/comisiones` es tan
+> pesada que los screenshots se colgaban a los 30s. Se cambió a llamar la acción
+> por HTTP, que además quedó como harness repetible.
+
 > **Fase 5: el corte quincenal — ya se le puede pagar al embajador (b086,
 > ADR-0032, 2026-09-01).** El motor ya devengaba bien (ADR-0029) y había un solo
 > riel de pago (ADR-0030), pero faltaba el proceso: nadie sabía a quién le debía
