@@ -9,6 +9,44 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **La tarifa de embajador no se podía guardar: m008 cambió el lector y olvidó el
+> escritor (b080, 2026-09-01).** Al ir a capturar la tarifa —el paso que yo había
+> descrito como "captura del fundador, no código"— resultó que no había dónde.
+> `set_commission_rule` tenía
+> `v_scope_sup := case when p_payee_type in ('embajador','agente') then null else p_scope end`,
+> o sea que para embajador SIEMPRE guardaba `scope_profile_id` y jamás
+> `scope_supplier_id`. Pero m008 movió la tarifa a la AGENCIA dueña del viaje y
+> `resolve_commission_rule` la busca ahí (perfil+servicio → perfil+global →
+> agencia+servicio → agencia+global). **m008 actualizó el lector y el CHECK de la
+> tabla, y dejó el escritor en la versión de antes.** La tarifa que de verdad paga
+> no se podía crear desde ninguna parte de la app: ése es el motivo real de que el
+> programa llevara desde su creación con CERO reglas de embajador y de que un
+> embajador pudiera traer la venta y cobrar $0.
+>
+> b080 distingue el scope **por lo que es**: si el uuid es una agencia, la regla es
+> de agencia; si es un profile `type='embajador'`, es el trato especial de esa
+> persona. Un uuid no puede ser las dos cosas, así que no hace falta tocar la
+> firma del RPC ni pasar una bandera. De paso, el **admin de agencia** ya puede
+> fijar la suya (`is_agency_admin` con `coalesce`), que era la dependencia del
+> fundador que m005/m008 querían quitar. UI nueva en `/comisiones`:
+> "Embajadores: cuánto paga tu agencia", reusando `ReglaRow`.
+>
+> Probado con rollback (5/5): la tarifa por agencia se guarda con
+> `scope_supplier_id`, el resolver la encuentra, el override por persona sigue
+> ganando sobre ella, y un uuid que no es ni agencia ni embajador se rechaza.
+> Verificado además en el navegador con sesión de superadmin: se guardó
+> `fijo_pax $250` sobre Wanderlust con `service_id` null y `scope_profile_id` null
+> — la forma exacta que el resolver busca.
+>
+> **Hallazgo de dinero encontrado mirando esa misma pantalla, sin arreglar:** la
+> UI dice que Ketzal cobra **10%** (lee `app_settings.platform_commission_rate`)
+> y el motor cobra **20%**, porque `resolve_commission_rule` encuentra la regla
+> global de `commission_rules` ANTES de caer a `app_settings`. El control
+> "Comisión de plataforma" de `/equipo` escribe un valor que ya no manda: se puede
+> cambiar y no pasa nada. Cuál de los dos números es el correcto es decisión del
+> fundador (ADR-0019 dice 20%); la UI debería mostrar la tarifa EFECTIVA, no
+> `app_settings`.
+
 > **Fase 0 del programa de embajadores: el motor devengaba mal (b079, ADR-0029,
 > 2026-09-01).** Antes de construir las 10 mejoras del portal se auditó el motor
 > contra la BD **viva** (el snapshot del repo está desfasado). El embajador era

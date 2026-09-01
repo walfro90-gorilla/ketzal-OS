@@ -20,7 +20,7 @@ type ReglaResult = { error: string } | { ok: true }
 async function guardarRegla(
   payeeType: 'plataforma' | 'embajador',
   scope: string | null,
-  serviceId: string,
+  serviceId: string | null,
   basis: ReglaBasis,
   value: number | null
 ): Promise<ReglaResult> {
@@ -69,7 +69,26 @@ export async function guardarReglaPlataforma(
   return guardarRegla('plataforma', null, serviceId, basis, value)
 }
 
-/** Cuánto cobra un embajador por vender un servicio. 'global' = sin tarifa (no atribuye). */
+/**
+ * Tarifa GENERAL que una agencia le paga a cualquier embajador que le traiga un
+ * viajero (m008 / ADR-0021: paga la agencia dueña del viaje). Es la que cobra
+ * el embajador salvo que tenga un trato especial propio.
+ *
+ * Va sin servicio (`null`) porque aplica a todo el catálogo de esa agencia.
+ * Hasta b080 esto NO SE PODÍA GUARDAR: `set_commission_rule` forzaba
+ * `scope_profile_id` para todo lo de embajador, así que la tarifa que el
+ * resolver busca por agencia no existía en ninguna parte — de ahí que el
+ * programa llevara con cero reglas y nadie cobrara.
+ */
+export async function guardarTarifaEmbajadorAgencia(
+  supplierId: string,
+  basis: ReglaBasis,
+  value: number | null
+): Promise<ReglaResult> {
+  return guardarRegla('embajador', supplierId, null, basis, value)
+}
+
+/** Trato especial de UN embajador para UN servicio. Gana sobre la de su agencia. */
 export async function guardarReglaEmbajador(
   embajadorId: string,
   serviceId: string,

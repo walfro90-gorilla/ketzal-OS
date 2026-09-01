@@ -9,6 +9,7 @@ import { mxn } from '@/components/data/format'
 import {
   guardarReglaEmbajador,
   guardarReglaPlataforma,
+  guardarTarifaEmbajadorAgencia,
   type ReglaBasis,
 } from './reglas-actions'
 
@@ -207,6 +208,47 @@ function resumenEmbajador(basis: ReglaBasis, value: number | null): string {
   if (basis === 'fijo_venta') return `${mxn.format(Number(value ?? 0))} por venta`
   if (basis === 'fijo_pax') return `${mxn.format(Number(value ?? 0))} por pasajero`
   return 'Sin tarifa (no atribuye)'
+}
+
+export type TarifaAgenciaRow = {
+  supplierId: string
+  nombre: string
+  basis: ReglaBasis
+  value: number | null
+}
+
+/**
+ * La tarifa GENERAL de embajadores de cada agencia — la que de verdad paga
+ * (m008 / ADR-0021: paga la agencia dueña del viaje, con la tarifa que ella
+ * fijó). Sin una fila aquí, un embajador puede traer la venta y cobrar CERO,
+ * que es como estuvo el programa desde que se creó.
+ *
+ * El admin de agencia ve solo la suya; el superadmin ve todas.
+ */
+export function TarifaEmbajadoresAgencia({ agencias }: { agencias: TarifaAgenciaRow[] }) {
+  if (agencias.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Aún no hay agencias a las que fijarles tarifa.
+      </p>
+    )
+  }
+  return (
+    <ul className="divide-y">
+      {agencias.map((a) => (
+        <ReglaRow
+          key={a.supplierId}
+          titulo={a.nombre}
+          prefijo="Tarifa"
+          initialBasis={a.basis}
+          initialValue={a.value}
+          opciones={OPCIONES_EMBAJADOR}
+          resumen={resumenEmbajador}
+          onSave={(basis, value) => guardarTarifaEmbajadorAgencia(a.supplierId, basis, value)}
+        />
+      ))}
+    </ul>
+  )
 }
 
 export function ReglasEmbajador({
