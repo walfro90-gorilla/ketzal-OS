@@ -53,7 +53,7 @@ const HARNESS = [
   { f: 'carreras_dinero.mjs',             necesita: ['supabase'],                 adr: '0006', afirma: 'el ledger aguanta escrituras concurrentes' },
   // ── .sql ────────────────────────────────────────────────────────────────
   { f: 'money_invariants.sql',            necesita: ['db'], adr: '0005', afirma: 'el dinero se deriva; los totales cuadran' },
-  { f: 'hard_testing_dinero.sql',         necesita: ['db'], adr: '0006', afirma: 'append-only: nadie muta un asiento por REST' },
+  { f: 'hard_testing_dinero.sql',         necesita: ['db', 'qa-setup'], adr: '0006', afirma: 'append-only: nadie muta un asiento por REST' },
   { f: 'comisiones_motor.sql',            necesita: ['db'], adr: '0019', afirma: 'la comisión es un asiento, no una columna' },
   { f: 'embajadores_rls.sql',             necesita: ['db'], adr: '0021', afirma: 'un embajador no ve ni cobra lo de otro' },
   { f: 'encuestas_rls.sql',               necesita: ['db'], adr: '0018', afirma: 'las encuestas no filtran al votante' },
@@ -61,7 +61,7 @@ const HARNESS = [
   { f: 'corte_embajadores.sql',           necesita: ['db'], adr: '0032', afirma: 'el corte es derivado y no paga dos veces' },
   { f: 'conversion_viajero_embajador.sql',necesita: ['db'], adr: '0033', afirma: 'convertirse no le quita compras, créditos ni voucher' },
   { f: 'simulacion_1000_ops.sql',         necesita: ['db'], adr: '0006', afirma: 'los invariantes aguantan volumen' },
-  { f: 'volumen_y_clawbot.sql',           necesita: ['db'], adr: '0006', afirma: 'el Clawbot no rompe invariantes a volumen' },
+  { f: 'volumen_y_clawbot.sql',           necesita: ['db', 'qa-setup'], adr: '0006', afirma: 'el Clawbot no rompe invariantes a volumen' },
 ]
 
 // `qa_setup.sql` y `_fixtures.mjs` no son harness (siembra y utilería).
@@ -95,8 +95,17 @@ const PORQUE = {
   build: 'no hay .next/ (corre pnpm build antes)',
   db: 'falta DATABASE_URL en .env.local (cadena de conexión de Postgres)',
   'sin-declarar': 'harness sin declarar en correr.mjs: agrégalo a la tabla HARNESS',
+  'qa-setup':
+    'depende de qa_setup.sql, cuyas fixtures se borraron el 2026-08-23, y NO revierte: ' +
+    'correrlo sembraría datos QA en producción. Portarlo a fixtures efímeras (ADR-0023).',
 }
-const disponible = { supabase: tieneSupabase, app: appViva, build: tieneBuild, db: tieneDb, 'sin-declarar': false }
+// `qa-setup` nunca está disponible a propósito. Sembrar las agencias QA en
+// producción para poder correr un test es peor que no correrlo: es exactamente
+// lo que ADR-0023 vino a terminar.
+const disponible = {
+  supabase: tieneSupabase, app: appViva, build: tieneBuild, db: tieneDb,
+  'sin-declarar': false, 'qa-setup': false,
+}
 
 // ── Ejecutores ─────────────────────────────────────────────────────────────
 function correrMjs(archivo) {
@@ -110,6 +119,29 @@ function correrMjs(archivo) {
     hijo.on('close', (code) => resolve({ ok: code === 0, salida }))
     hijo.on('error', (e) => resolve({ ok: false, salida: e.message }))
   })
+}
+
+// Un harness estilo rollback termina SIEMPRE lanzando, para que Postgres
+// revierta. Así que la excepción no dice si pasó — lo dice el conteo que trae
+// dentro, y cada uno lo redacta a su manera. Estos son los "cero" que existen
+// hoy; uno nuevo que no case sale en rojo, que es el default correcto.
+const EXITO_EN_EXCEPCION = [
+  /\b0 (fallaron|fail)\b/i,      // "6 ok, 0 fail" · "8 pasaron, 0 fallaron"
+  /VIOLACIONES \(0\)/i,          // simulacion_1000_ops: "ROLLBACK-OK … VIOLACIONES (0)"
+]
+
+/** Celdas que declaran una falla, en cualquiera de los result sets. */
+function filasConFalla(res) {
+  const sets = Array.isArray(res) ? res : [res]
+  const malas = []
+  for (const s of sets) {
+    for (const fila of s?.rows ?? []) {
+      for (const v of Object.values(fila)) {
+        if (typeof v === 'string' && /^FALL(A|Ó)\b/i.test(v.trim())) malas.push(v.trim())
+      }
+    }
+  }
+  return malas
 }
 
 let cliente = null
@@ -131,14 +163,32 @@ async function correrSql(archivo) {
     }
   }
   const sql = await readFile(join(AQUI, archivo), 'utf8')
+  // La conexión se reusa entre harness. Un harness que aborta su transacción
+  // (un `raise` dentro de un `begin;` sin `rollback`) deja la sesión envenenada
+  // y TODOS los siguientes fallan con "current transaction is aborted" — seis
+  // falsos rojos por culpa del primero. Se limpia antes de cada uno; si no había
+  // transacción abierta, Postgres solo avisa y sigue.
+  await cliente.query('rollback').catch(() => {})
+  // Y `discard all` porque la sesión también arrastra lo demás: las tablas temp
+  // (dos harness crean `temp table qa` ⇒ el segundo moría con "relation qa
+  // already exists") y, peor, un `set role authenticated` que quedó colgado de
+  // un harness que falló a media — el siguiente correría suplantando a alguien.
+  await cliente.query('discard all').catch(() => {})
   try {
-    await cliente.query(sql)
+    const res = await cliente.query(sql)
+    // Tercer estilo: los que terminan en `commit` y devuelven una tabla de
+    // veredictos ('OK: …' / 'FALLA: …') para que un humano la lea. No lanzan
+    // nada al fallar, así que "sin excepción" los daría en VERDE con casos
+    // rotos adentro. Se leen las filas.
+    const falla = filasConFalla(res)
+    if (falla.length) return { ok: false, salida: falla.join(' · ') }
     return { ok: true, salida: 'sin excepción' }   // estilo notice: callar es pasar
   } catch (e) {
     const msg = String(e.message ?? e)
     // Estilo rollback: termina en `raise exception` a propósito para revertir.
-    const paso = /\b0 (fallaron|fail)\b/.test(msg)
-    return { ok: paso, salida: msg.split('\n')[0] }
+    // La excepción NO es el fallo — el fallo es el conteo que trae dentro.
+    const paso = EXITO_EN_EXCEPCION.some((re) => re.test(msg))
+    return { ok: paso, salida: msg.split('\n').filter(Boolean).slice(0, 2).join(' · ') }
   }
 }
 

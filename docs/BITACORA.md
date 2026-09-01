@@ -9,6 +9,49 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Los 10 harness del dinero por fin corren: 9 → 16 en verde (2026-09-01).** El
+> fundador pegó `DATABASE_URL` (session pooler) en su `.env.local` y el lado SQL
+> del corredor se encendió. La corrida destapó tres cosas que llevaban meses
+> invisibles y dos bugs del corredor recién nacido.
+>
+> **Podredumbre real encontrada** (además de las dos del PR #96):
+> - `comisiones_motor.sql` (ADR-0019) consulta `ketzal.marketplace_customers`,
+>   **tabla eliminada** en el refactor de identidad (b025, F1). Lleva rota desde
+>   entonces sin que nadie lo supiera.
+> - `hard_testing_dinero.sql` y `volumen_y_clawbot.sql` dependen de
+>   `qa_setup.sql` **y no revierten**. Correrlos hoy sembraría agencias QA en
+>   producción — justo lo que ADR-0023 vino a terminar. Se les puso el requisito
+>   `qa-setup`, que **nunca** está disponible a propósito: salen como `NO CORRIÓ`
+>   con ese motivo en vez de ensuciar la BD real. Se detectó **antes** de
+>   correrlos, revisando si escribían y si revertían.
+>
+> **Dos bugs del corredor, ambos por reusar una sola conexión:**
+> 1. Un harness que aborta su transacción (un `raise` dentro de `begin;` sin
+>    `rollback`) **envenena la sesión**: los seis siguientes murieron con
+>    *"current transaction is aborted"*. Seis falsos rojos por culpa del primero.
+> 2. Dos harness crean `temp table qa` ⇒ el segundo moría con *"relation qa
+>    already exists"*. Y peor que las temp: un `set role authenticated` colgado
+>    de un harness que falló a media haría que el siguiente corriera
+>    **suplantando a alguien**. Ahora antes de cada uno van `rollback` y
+>    `discard all`.
+>
+> **Contrato ampliado, porque la realidad tenía tres formas, no dos:** apareció
+> el **estilo veredicto** (`begin; … commit;` devolviendo filas `'OK: …'` /
+> `'FALLA: …'` para que un humano las lea). Esos no lanzan nada al fallar, así
+> que el corredor los daba en **verde con casos rotos adentro**; ahora lee las
+> filas. Y el "cero" del estilo rollback no es uno solo: `simulacion_1000_ops`
+> dice `VIOLACIONES (0)` en vez de `0 fallaron`, y se habría reportado fallado.
+> Los patrones viven juntos en `EXITO_EN_EXCEPCION`; uno nuevo que no case sale
+> en rojo, que es el default correcto.
+>
+> El detector de `FALLA:` se probó contra formas de resultado reales (fila
+> buena, fila mala, multi-statement) antes de confiar en él — un detector que no
+> detecta es un verde falso con más pasos.
+>
+> **Estado: 16 pasaron · 3 fallaron · 2 no corrieron.** Producción verificada sin
+> residuo tras la corrida completa: 7 perfiles, 7 cuentas, 2 suppliers, 14
+> servicios, 7 bookings, 4 asientos, 2 comisiones — idéntico a antes.
+
 > **`pnpm hard-test`: los invariantes dejan de vivir solo en prosa (ADR-0034,
 > 2026-09-01).** Salió de una pregunta del fundador — *"¿cómo arreglamos lo de
 > los ADRs que no concuerdan?"* — después de que construyéramos sobre una
