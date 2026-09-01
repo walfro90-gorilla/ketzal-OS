@@ -9,6 +9,7 @@ import { esBannerValido } from '@/lib/storage/banner-url'
 import { adminsDeAgencia, notificar, superadmins } from '@/lib/push/send'
 import { resolverSplitMp } from '@/lib/mp-split'
 import { sendCheckoutEvents, sendPurchaseEvents } from '@/lib/marketing/conversions'
+import { REF_COOKIE } from '@/lib/domain/embajador'
 
 // Registro / datos del COMPRADOR B2C (terreno del marketplace).
 // El comprador es un profile de tipo 'viajero' (refactor de identidad, F1): un
@@ -142,7 +143,12 @@ export async function crearPedido(input: {
   serviceId: string
   travelDate: string | null
   items: PedidoItem[]
-  /** Código de embajador que refirió la compra (?ref). Best-effort. */
+  /**
+   * Código de embajador que refirió la compra. Normalmente NO se pasa: desde
+   * b082 vive en la cookie `kz_ref` que planta el proxy en el primer aterrizaje.
+   * Se conserva el parámetro por si algún camino lo trae explícito; gana sobre
+   * la cookie.
+   */
   ref?: string | null
   /** C2: el comprador marcó "acepto la política de cancelación". Obligatorio. */
   aceptaPolitica?: boolean
@@ -223,13 +229,25 @@ export async function crearPedido(input: {
   // añadida al comprador. El helper es no-op sin envs y nunca lanza.
   after(() => sendCheckoutEvents(bookingId))
 
-  // Atribución del embajador por ?ref. BEST-EFFORT: si algo falla (código
-  // inválido, sin tarifa, etc.) el RPC devuelve null y la compra NO se rompe.
-  if (input.ref?.trim()) {
+  // Atribución del embajador. El código sale de la COOKIE que el proxy plantó
+  // en el primer aterrizaje con `?ref` (b082) — antes venía del cliente, que lo
+  // perdía en cuanto el visitante navegaba fuera del carril exacto.
+  // BEST-EFFORT: si algo falla (código inválido, sin tarifa, auto-referido) el
+  // RPC devuelve null, lo registra en `referral_misses` y la compra NO se rompe.
+  const jar = await cookies()
+  const refCode = input.ref?.trim() || jar.get(REF_COOKIE)?.value?.trim() || null
+  if (refCode) {
     await supabase.rpc('attribute_booking_by_ref' as never, {
       p_booking: bookingId,
-      p_ref: input.ref.trim(),
+      p_ref: refCode,
     } as never)
+    // Se consume: la atribución ya quedó en `bookings.ambassador_id`. Sin esto,
+    // la compra del año que viene se le seguiría acreditando al mismo embajador.
+    try {
+      jar.delete(REF_COOKIE)
+    } catch {
+      /* fuera de un contexto que pueda escribir cookies: la compra ya se atribuyó */
+    }
   }
 
   // b036: avisar a los admins de la agencia — llegó una cotización (pedido

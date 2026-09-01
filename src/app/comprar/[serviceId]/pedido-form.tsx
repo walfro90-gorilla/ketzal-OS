@@ -36,7 +36,6 @@ function fechaLarga(iso: string) {
   })
 }
 
-const REF_KEY = 'mkt_ref'
 
 export function PedidoForm({
   serviceId,
@@ -45,7 +44,6 @@ export function PedidoForm({
   departures,
   buyerName,
   agencyPhone,
-  refCode,
   initialDepId,
 }: {
   serviceId: string
@@ -56,7 +54,6 @@ export function PedidoForm({
   agencyPhone: string | null
   /** Código de embajador del ?ref (puede perderse entre registro/confirmación;
    *  se respalda en localStorage para sobrevivir recargas del mismo navegador). */
-  refCode?: string | null
   /** Salida preseleccionada (?salida= desde la ficha). */
   initialDepId?: string | null
 }) {
@@ -72,18 +69,6 @@ export function PedidoForm({
   useEffect(() => {
     track('checkout_open', { service_id: serviceId })
   }, [serviceId])
-
-  // El ?ref llega en la URL; puede perderse tras registro/confirmación de correo.
-  // Se respalda en localStorage y se usa el de la URL o el respaldo.
-  useEffect(() => {
-    if (refCode?.trim()) {
-      try {
-        localStorage.setItem(REF_KEY, refCode.trim())
-      } catch {
-        /* localStorage no disponible: seguimos con el ref de la URL */
-      }
-    }
-  }, [refCode])
 
   // b045/b057: % de temporada y precios especiales por pack de la salida elegida.
   const salidaElegida = departures.find((d) => d.id === depId)
@@ -110,20 +95,11 @@ export function PedidoForm({
       .filter((p) => (qty[p.key] ?? 0) > 0)
       .map((p) => ({ pack_key: p.key, label: p.label, qty: qty[p.key] }))
     const dep = departures.find((d) => d.id === depId)
-    let ref = refCode?.trim() || null
-    if (!ref) {
-      try {
-        ref = localStorage.getItem(REF_KEY)
-      } catch {
-        ref = null
-      }
-    }
     start(async () => {
       const res = await crearPedido({
         serviceId,
         travelDate: dep?.departs_on ?? null,
         items,
-        ref,
         aceptaPolitica,
         // ADR-0025: first-touch (utm/fbclid/gclid) persistido en localStorage;
         // el servidor lo filtra por allowlist y le suma ip/ua/fbp/fbc.
@@ -134,12 +110,6 @@ export function PedidoForm({
         return
       }
       track('order_created', { service_id: serviceId, booking_id: res.bookingId })
-      // El ref ya se aplicó a este pedido; se limpia para no atribuir otro futuro.
-      try {
-        localStorage.removeItem(REF_KEY)
-      } catch {
-        /* noop */
-      }
       setOrderId(res.bookingId)
     })
   }

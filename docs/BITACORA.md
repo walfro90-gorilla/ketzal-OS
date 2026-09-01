@@ -9,6 +9,46 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Fase 1: la atribución del embajador se fugaba en el recorrido normal (b082,
+> ADR-0031, 2026-09-01).** El `?ref` viajaba solo en la query string, hop a hop,
+> y se respaldaba en `localStorage` recién al llegar a `/comprar` **con sesión**.
+> Bastaba tocar el logo, el footer, «← Todos los viajes», la ficha de una agencia
+> o «Entrar» —~10 `href` del funnel público no lo propagan— para perder la
+> comisión. También se perdía al registrarse con confirmación de correo (el link
+> del mail vuelve al Site URL sin la query, y en ese momento el respaldo aún no
+> existía) y al volver al día siguiente. Los tres son el comportamiento normal de
+> un comprador; el único carril que sobrevivía era tarjeta → ficha → CTA sin
+> desviarse.
+>
+> Ahora el `?ref` se captura en el **primer aterrizaje**, en cookie, desde
+> `proxy.ts`. Se escribe **solo si el request trae `?ref`**, así que ninguna
+> respuesta cacheada de una URL limpia se lleva un `Set-Cookie` —el riesgo de
+> caché quedó descartado por construcción—, se valida con el **mismo
+> normalizador que usa la BD**, y `crearPedido` la lee y **la consume** al
+> atribuir (sin eso, la compra del año que viene se le seguiría acreditando al
+> mismo embajador). **Borra andamio en vez de agregarlo**: se fueron el respaldo
+> `mkt_ref` en localStorage, el `refCode` que el form pasaba a la acción y la
+> prop que la página pasaba al form.
+>
+> **Política: LAST-touch** (ADR-0031), distinta a propósito del first-touch de
+> ADR-0025. Ese mide gasto en ads; esto decide **a quién le pagas**, y con
+> first-touch el embajador cuyo link cerró la venta no cobraría porque el
+> comprador vio otro hace tres semanas — un caso de soporte que no se le puede
+> explicar a nadie que estés reclutando.
+>
+> **Probado en los dos extremos.** `atribucion_ref.mjs` (7/7) recorre la app como
+> navegador siguiendo `Set-Cookie`, incluido el caso que se fugaba: aterrizar con
+> `?ref` y navegar por tres links que no lo propagan. Y **compra real en el
+> navegador** con un viajero efímero: el pedido quedó con `ambassador_id` = el
+> embajador del link **sin que el `?ref` viajara en ninguna URL intermedia**, con
+> 0 líneas de comisión por seguir en `draft` (ADR-0029) — y el pedido **se pudo
+> borrar**, que era el bug imposible antes de b079. Limpieza verificada: 7
+> usuarios, 0 efímeros, 0 pedidos con embajador.
+>
+> Trampa de operación anotada: `NEXT_PUBLIC_MARKETPLACE` no está en `.env.local`
+> —vive solo en Vercel—, así que en local `/comprar` da 404 hasta que se levanta
+> el dev con `NEXT_PUBLIC_MARKETPLACE=on`.
+
 > **Un solo riel para pagarle a una persona (b081, 2026-09-01).** Había DOS
 > formas de saldarle la comisión a un embajador y no se veían entre sí:
 > registrar el gasto en `/gastos` (baja la CxP y el "pagado" del portal, pero
