@@ -9,6 +9,58 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Fase 4: bono por invitar + PWA instalable (b085, 2026-09-01).**
+>
+> **El bono NO es una fila de dinero.** ADR-0005 dice que el dinero se deriva, y
+> lo que faltaba aquí no era una tabla sino el VÍNCULO: `profiles.recruited_by`.
+> $300 una vez por recluta, cuando ese recluta logra su primera venta con
+> comisión neta > 0 sobre un booking confirmed/paid. **No es multinivel** — quien
+> invita no gana nada de las ventas de su invitado, y eso no es copy: es lo que
+> separa un bono de referido de un esquema piramidal.
+>
+> Las tres alternativas se descartaron con razones verificadas contra la BD viva.
+> La peor era la más tentadora: una fila en `commission_lines` con
+> `payee_type='bono'` habría **reventado `tg_ledger_mirror_commission`** (su CASE
+> tiene 4 ramas y el propio código avisa que un tipo nuevo deja `v_payee` null) y,
+> peor, su contraparte es SIEMPRE `selling_supplier_id` ⇒ **la agencia dueña del
+> viaje acabaría pagando el reclutamiento de Ketzal**, contra la decisión del
+> fundador de que lo paga la plataforma.
+>
+> **Anti-colusión en el WHERE**, ajustable sin migrar datos: el comprador no
+> puede ser el recluta ni el reclutador, y la venta tiene que valer al menos
+> $1,000 para que una compra simbólica no dispare el bono. Y reversibilidad
+> gratis: si la venta gatillo se cancela, b073 mete el reverso, el neto cae a 0 y
+> **el bono desaparece solo**.
+>
+> **Sin tabla de candidatos ni auto-servicio**: el embajador manda un mensaje por
+> WhatsApp y quien administra da de alta al invitado eligiendo "¿quién lo
+> invitó?". Menos piezas, y nadie queda en un limbo de "solicitud pendiente" que
+> nadie revisa. El resumen del admin usa la MISMA función que el portal —si
+> divergen, uno miente y la discusión la pierde quien no tiene el panel— y lista
+> también a quien solo ha ganado bonos, para que ese saldo no sea invisible.
+>
+> **PWA instalable.** Tres cosas que no eran obvias: **iOS no soporta
+> `beforeinstallprompt`** (en iPhone solo se puede instruir "Compartir → Añadir a
+> inicio", y el equipo vende desde iPhone, así que ese camino es la mitad de los
+> casos, no el extra); si ya está instalada no hay nada que ofrecer
+> (`display-mode: standalone` + `navigator.standalone`); y **no se muestra en cada
+> visita** — el "ahora no" se recuerda 14 días, porque un modal que reaparece
+> siempre es la forma más rápida de que lo cierren sin leer.
+>
+> **Probado:** 7/7 con rollback sobre el bono, incluidos los TRES casos de
+> colusión (comprador = recluta, comprador = padrino, venta bajo el umbral) y que
+> una segunda venta del mismo recluta no paga otro bono. En el navegador con
+> padrino + recluta + comprador efímeros: "Ganado $300.00" con el desglose
+> "$0.00 de ventas + $300.00 de bonos", la tarjeta diciendo "Ya invitaste a 1
+> persona y llevas $300.00 en bonos", el prompt de instalar, y el "ahora no"
+> respetado tras recargar.
+>
+> **Error propio anotado:** esta prueba se hizo por HTTP y no dentro de una
+> transacción, así que dejó rastro que las FK volvían imborrable (venta
+> confirmada ⇒ comisiones ⇒ ledger). Se limpió quirúrgicamente por id, bajando
+> los candados append-only dentro de UNA transacción y reponiéndolos ahí mismo.
+> El harness bueno es el de Fase 0: correr dentro de una transacción que revierte.
+
 > **Fase 3: activación — clics, checklist y confeti (b084, 2026-09-01).**
 >
 > **Conteo de clics.** El sustrato ya existía (`funnel_events` + `/api/track`,

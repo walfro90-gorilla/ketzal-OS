@@ -13,6 +13,8 @@ import { LinkReferido } from '@/components/data/link-referido'
 import { pasosActivacion } from '@/lib/domain/embajador'
 import { TarjetaPerfil } from './tarjeta-perfil'
 import { Checklist } from './checklist'
+import { InvitaAmigos } from './invita-amigos'
+import { InstalarApp } from '@/components/shell/instalar-app'
 import { ConfetiPrimeraVenta } from './confeti'
 import { ViajesParaCompartir, type ViajeCompartible } from './viajes-para-compartir'
 
@@ -33,6 +35,11 @@ type Venta = {
 type Earnings = {
   referral_code: string | null
   devengado: number
+  /** Solo comisiones, sin el bono por reclutar (b085). */
+  comisiones: number
+  /** Lo ganado por invitar a otros embajadores. */
+  bonos: number
+  num_reclutas: number
   pagado: number
   saldo: number
   num_ventas: number
@@ -153,6 +160,9 @@ export default async function EmbajadorPage() {
   const e = (data ?? {
     referral_code: null,
     devengado: 0,
+    comisiones: 0,
+    bonos: 0,
+    num_reclutas: 0,
     pagado: 0,
     saldo: 0,
     num_ventas: 0,
@@ -170,6 +180,8 @@ export default async function EmbajadorPage() {
         codigo={e.referral_code}
         kpis={{
           devengado: Number(e.devengado ?? 0),
+          comisiones: Number(e.comisiones ?? 0),
+          bonos: Number(e.bonos ?? 0),
           pagado: Number(e.pagado ?? 0),
           saldo: Number(e.saldo ?? 0),
           numVentas: Number(e.num_ventas ?? 0),
@@ -239,6 +251,22 @@ export default async function EmbajadorPage() {
           />
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Invita a un amigo</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <InvitaAmigos
+            nombre={perfilPropio?.name ?? null}
+            monto={300}
+            reclutas={Number(e.num_reclutas ?? 0)}
+            bonosGanados={Number(e.bonos ?? 0)}
+          />
+        </CardContent>
+      </Card>
+
+      <InstalarApp />
 
       <Card>
         <CardHeader>

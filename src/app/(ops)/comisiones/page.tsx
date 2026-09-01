@@ -375,7 +375,10 @@ export default async function ComisionesPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <CrearEmbajador agencias={isSuperadmin ? agenciasParaAlta : undefined} />
+            <CrearEmbajador
+                agencias={isSuperadmin ? agenciasParaAlta : undefined}
+                embajadores={embajadores.map((e) => ({ id: e.id, nombre: e.nombre }))}
+              />
             {embajadoresRes.error ? (
               <p className="text-sm text-destructive">
                 Error al cargar los embajadores: {embajadoresRes.error.message}

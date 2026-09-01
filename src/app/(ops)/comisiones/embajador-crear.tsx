@@ -17,9 +17,12 @@ import { crearEmbajador } from './embajador-actions'
  *  además elige de qué agencia es — él no tiene una propia. */
 export function CrearEmbajador({
   agencias,
+  embajadores = [],
 }: {
   /** Solo trae contenido para el superadmin; el admin de agencia usa la suya. */
   agencias?: { id: string; name: string }[]
+  /** Para decir quién lo invitó y que ese cobre su bono (b085). */
+  embajadores?: { id: string; nombre: string }[]
 }) {
   const router = useRouter()
   const eligeAgencia = Boolean(agencias?.length)
@@ -32,6 +35,7 @@ export function CrearEmbajador({
   const [codigo, setCodigo] = useState('')
   const [email, setEmail] = useState('')
   const [telefono, setTelefono] = useState('')
+  const [invitadoPor, setInvitadoPor] = useState('')
   // Credenciales del recién creado: se ven una vez, para mandarlas.
   const [creds, setCreds] = useState<{ email: string; password: string } | null>(null)
   const [telCreds, setTelCreds] = useState<string | null>(null)
@@ -46,6 +50,7 @@ export function CrearEmbajador({
         codigo,
         email: email.trim() || undefined,
         telefono: telefono.trim() || undefined,
+        recruitedBy: invitadoPor || undefined,
         ...(eligeAgencia ? { supplierId } : {}),
       })
       if ('error' in res) {
@@ -56,6 +61,7 @@ export function CrearEmbajador({
       setCodigo('')
       setEmail('')
       setTelefono('')
+      setInvitadoPor('')
       setCreds(res.credentials)
       setTelCreds(res.telefono)
       router.refresh()
@@ -122,6 +128,27 @@ export function CrearEmbajador({
           <Label htmlFor="emb-tel">WhatsApp (opcional)</Label>
           <PhoneInput id="emb-tel" value={telefono} onChange={setTelefono} />
         </div>
+        {embajadores.length > 0 && (
+          <div className="space-y-1.5">
+            <Label htmlFor="emb-invito">¿Quién lo invitó? (opcional)</Label>
+            <NativeSelect
+              id="emb-invito"
+              value={invitadoPor}
+              onChange={(e) => setInvitadoPor(e.target.value)}
+            >
+              <option value="">Nadie / llegó solo</option>
+              {embajadores.map((e) => (
+                <option key={e.id} value={e.id}>
+                  {e.nombre}
+                </option>
+              ))}
+            </NativeSelect>
+            <p className="text-xs text-muted-foreground">
+              Quien lo invitó gana $300 una sola vez, cuando este embajador logre
+              su primera venta. No gana nada más de sus ventas.
+            </p>
+          </div>
+        )}
       </div>
       {error && (
         <p role="alert" className="text-sm text-destructive">
