@@ -170,6 +170,22 @@ export function pasosActivacion(datos: {
   ]
 }
 
+/**
+ * Fin del corte QUINCENAL en el que cae una fecha: el 15, o el último día del
+ * mes. Puro y con fechas locales (nada de UTC: el corte lo vive alguien en
+ * Juárez, no el servidor).
+ */
+export function finDelCorte(fecha: Date): string {
+  const a = fecha.getFullYear()
+  const m = fecha.getMonth()
+  const dia = fecha.getDate()
+  // `new Date(a, m + 1, 0)` es el último día del mes m.
+  const fin = dia <= 15 ? new Date(a, m, 15) : new Date(a, m + 1, 0)
+  const mm = String(fin.getMonth() + 1).padStart(2, '0')
+  const dd = String(fin.getDate()).padStart(2, '0')
+  return `${fin.getFullYear()}-${mm}-${dd}`
+}
+
 /** Link de referido del embajador. Es la vitrina, no una ficha suelta: así puede
  *  compartir "los viajes" y cualquiera que compre le cuenta. */
 export function linkReferido(origin: string, code: string): string {
