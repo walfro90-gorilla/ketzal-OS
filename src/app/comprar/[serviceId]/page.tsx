@@ -35,13 +35,15 @@ export default async function ComprarPage({
   searchParams,
 }: {
   params: Promise<{ serviceId: string }>
+  // `ref` se sigue aceptando en la URL para que el link compartido funcione,
+  // pero ya no se pasa al form: desde b082 el proxy lo guarda en cookie en el
+  // primer aterrizaje y `crearPedido` lo lee de ahí.
   searchParams: Promise<{ ref?: string | string[]; salida?: string | string[] }>
 }) {
   if (!marketplaceActivo()) notFound()
 
   const { serviceId } = await params
-  const { ref: refRaw, salida: salidaRaw } = await searchParams
-  const refCode = Array.isArray(refRaw) ? refRaw[0] : (refRaw ?? null)
+  const { salida: salidaRaw } = await searchParams
   // Salida preseleccionada desde la ficha (fila del calendario); si no existe o
   // ya no es vendible, el form cae a la primera disponible.
   const salidaId = Array.isArray(salidaRaw) ? salidaRaw[0] : (salidaRaw ?? null)
@@ -119,7 +121,6 @@ export default async function ComprarPage({
           departures={s.departures ?? []}
           buyerName={mc.name}
           agencyPhone={s.agency.phone}
-          refCode={refCode}
           initialDepId={salidaId}
         />
       )}

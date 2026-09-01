@@ -62,6 +62,18 @@ export function normalizarCodigoReferido(
   return { code }
 }
 
+/**
+ * Cookie donde vive el código de referido desde el PRIMER aterrizaje con `?ref`
+ * (la escribe `src/proxy.ts`). Antes el código solo viajaba en la query string y
+ * se respaldaba en localStorage recién al llegar a `/comprar` CON sesión, así
+ * que se perdía en cuanto el visitante navegaba a otra pantalla, se registraba,
+ * o volvía al día siguiente — y con él, la comisión del embajador.
+ */
+export const REF_COOKIE = 'kz_ref'
+
+/** Cuánto dura la atribución. LAST-touch: el último link gana (ver ADR-0031). */
+export const REF_COOKIE_MAX_AGE = 60 * 60 * 24 * 30 // 30 días
+
 /** Link de referido del embajador. Es la vitrina, no una ficha suelta: así puede
  *  compartir "los viajes" y cualquiera que compre le cuenta. */
 export function linkReferido(origin: string, code: string): string {
