@@ -8,7 +8,7 @@ import { normalizarCodigoReferido } from '@/lib/domain/embajador'
 
 // Modo de comisión por servicio. 'global' = sin regla (para plataforma usa el %
 // global de app_settings; para embajador significa "sin tarifa" ⇒ no atribuye).
-export type ReglaBasis = 'global' | 'percent' | 'fijo_venta' | 'fijo_pax'
+export type ReglaBasis = 'global' | 'percent' | 'fijo_venta' | 'fijo_pax' | 'hibrido'
 
 type ReglaResult = { error: string } | { ok: true }
 
@@ -22,7 +22,9 @@ async function guardarRegla(
   scope: string | null,
   serviceId: string | null,
   basis: ReglaBasis,
-  value: number | null
+  value: number | null,
+  /** Solo para 'hibrido': el monto por pasajero que acompaña al %. */
+  value2?: number | null
 ): Promise<ReglaResult> {
   const supabase = await createClient()
   const {
@@ -44,6 +46,20 @@ async function guardarRegla(
       return { error: 'El monto debe ser mayor que cero.' }
     }
     p_unit = value
+  } else if (basis === 'hibrido') {
+    // % de la venta Y monto por pasajero, los dos a la vez. La BD ya lo soportaba
+    // (lo usan los agentes desde b054); aquí se abre para embajadores.
+    if (value == null || !Number.isFinite(value) || value < 0 || value > 100) {
+      return { error: 'El porcentaje debe estar entre 0 y 100.' }
+    }
+    if (value2 == null || !Number.isFinite(value2) || value2 < 0) {
+      return { error: 'El monto por pasajero debe ser mayor o igual a cero.' }
+    }
+    if (value === 0 && value2 === 0) {
+      return { error: 'Pon al menos uno de los dos: % o monto por pasajero.' }
+    }
+    p_rate = value
+    p_unit = value2
   }
 
   const { error } = await supabase.rpc('set_commission_rule' as never, {
@@ -83,9 +99,10 @@ export async function guardarReglaPlataforma(
 export async function guardarTarifaEmbajadorAgencia(
   supplierId: string,
   basis: ReglaBasis,
-  value: number | null
+  value: number | null,
+  value2?: number | null
 ): Promise<ReglaResult> {
-  return guardarRegla('embajador', supplierId, null, basis, value)
+  return guardarRegla('embajador', supplierId, null, basis, value, value2)
 }
 
 /** Trato especial de UN embajador para UN servicio. Gana sobre la de su agencia. */

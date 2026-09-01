@@ -234,7 +234,7 @@ export default async function ComisionesPage() {
     service_id: string | null
     scope_profile_id: string | null
     scope_supplier_id: string | null
-    basis: 'percent' | 'fijo_venta' | 'fijo_pax'
+    basis: 'percent' | 'fijo_venta' | 'fijo_pax' | 'hibrido'
     rate: number | null
     unit_amount: number | null
   }
@@ -252,11 +252,17 @@ export default async function ComisionesPage() {
     .filter((a) => isSuperadmin || a.id === profile?.supplier_id)
     .map((a) => {
       const r = porAgencia.get(a.id)
+      // 'hibrido' guarda los dos: rate (%) y unit_amount ($/pax).
       return {
         supplierId: a.id,
         nombre: a.name,
         basis: (r?.basis ?? 'global') as ReglaBasis,
-        value: r ? (r.basis === 'percent' ? Number(r.rate) : Number(r.unit_amount)) : null,
+        value: r
+          ? r.basis === 'percent' || r.basis === 'hibrido'
+            ? Number(r.rate)
+            : Number(r.unit_amount)
+          : null,
+        value2: r?.basis === 'hibrido' ? Number(r.unit_amount) : null,
       }
     })
 

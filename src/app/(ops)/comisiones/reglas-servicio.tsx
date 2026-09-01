@@ -15,7 +15,9 @@ import {
 
 type OnSave = (
   basis: ReglaBasis,
-  value: number | null
+  value: number | null,
+  /** Solo para 'hibrido': el monto por pasajero que acompaña al %. */
+  value2?: number | null
 ) => Promise<{ error: string } | { ok: true }>
 
 type Opcion = { value: ReglaBasis; label: string }
@@ -27,6 +29,7 @@ function ReglaRow({
   prefijo,
   initialBasis,
   initialValue,
+  initialValue2 = null,
   opciones,
   resumen,
   onSave,
@@ -37,31 +40,39 @@ function ReglaRow({
   prefijo: string
   initialBasis: ReglaBasis
   initialValue: number | null
+  /** Solo lo usa 'hibrido': el monto por pasajero que acompaña al %. */
+  initialValue2?: number | null
   opciones: Opcion[]
-  resumen: (basis: ReglaBasis, value: number | null) => string
+  resumen: (basis: ReglaBasis, value: number | null, value2?: number | null) => string
   onSave: OnSave
 }) {
   const [isPending, startTransition] = useTransition()
   const [basis, setBasis] = useState<ReglaBasis>(initialBasis)
   const [value, setValue] = useState(initialValue != null ? String(initialValue) : '')
+  const [value2, setValue2] = useState(initialValue2 != null ? String(initialValue2) : '')
   const [error, setError] = useState<string | null>(null)
-  const [saved, setSaved] = useState<{ basis: ReglaBasis; value: number | null }>({
-    basis: initialBasis,
-    value: initialValue,
-  })
+  const [saved, setSaved] = useState<{
+    basis: ReglaBasis
+    value: number | null
+    value2: number | null
+  }>({ basis: initialBasis, value: initialValue, value2: initialValue2 })
 
-  const needsValue = basis === 'percent' || basis === 'fijo_venta' || basis === 'fijo_pax'
-  const isPct = basis === 'percent'
+  // 'hibrido' lleva DOS montos (% y $/pax); el resto, uno; 'global', ninguno.
+  const esHibrido = basis === 'hibrido'
+  const needsValue =
+    esHibrido || basis === 'percent' || basis === 'fijo_venta' || basis === 'fijo_pax'
+  const isPct = basis === 'percent' || esHibrido
 
   function handleSave() {
     setError(null)
     const parsed = needsValue ? Number(value) : null
+    const parsed2 = esHibrido ? Number(value2) : null
     startTransition(async () => {
-      const result = await onSave(basis, needsValue ? parsed : null)
+      const result = await onSave(basis, needsValue ? parsed : null, parsed2)
       if ('error' in result) {
         setError(result.error)
       } else {
-        setSaved({ basis, value: needsValue ? parsed : null })
+        setSaved({ basis, value: needsValue ? parsed : null, value2: parsed2 })
         toast.success('Regla actualizada')
       }
     })
@@ -73,7 +84,7 @@ function ReglaRow({
         <p className="truncate text-sm font-medium">{titulo}</p>
         <p className="text-xs text-muted-foreground">
           {subtitulo ? `${subtitulo} · ` : ''}
-          {prefijo}: {resumen(saved.basis, saved.value)}
+          {prefijo}: {resumen(saved.basis, saved.value, saved.value2)}
         </p>
       </div>
 
@@ -108,6 +119,27 @@ function ReglaRow({
               {isPct ? '%' : '$'}
             </span>
           </div>
+        )}
+
+        {esHibrido && (
+          <>
+            <span className="text-sm text-muted-foreground">+</span>
+            <div className="relative">
+              <Input
+                type="number"
+                inputMode="decimal"
+                min={0}
+                step="1"
+                value={value2}
+                onChange={(e) => setValue2(e.target.value)}
+                aria-label="Monto por pasajero"
+                className="w-28 pr-12 text-right tabular-nums"
+              />
+              <span className="pointer-events-none absolute inset-y-0 right-2.5 flex items-center text-sm text-muted-foreground">
+                $/pax
+              </span>
+            </div>
+          </>
         )}
 
         <Button
@@ -201,12 +233,19 @@ const OPCIONES_EMBAJADOR: Opcion[] = [
   { value: 'fijo_pax', label: 'Fijo por pasajero' },
   { value: 'fijo_venta', label: 'Fijo por venta' },
   { value: 'percent', label: '% de la venta' },
+  { value: 'hibrido', label: '% + fijo por pasajero' },
 ]
 
-function resumenEmbajador(basis: ReglaBasis, value: number | null): string {
+function resumenEmbajador(
+  basis: ReglaBasis,
+  value: number | null,
+  value2?: number | null
+): string {
   if (basis === 'percent') return `${value}% de la venta`
   if (basis === 'fijo_venta') return `${mxn.format(Number(value ?? 0))} por venta`
   if (basis === 'fijo_pax') return `${mxn.format(Number(value ?? 0))} por pasajero`
+  if (basis === 'hibrido')
+    return `${value}% + ${mxn.format(Number(value2 ?? 0))} por pasajero`
   return 'Sin tarifa (no atribuye)'
 }
 
@@ -215,6 +254,8 @@ export type TarifaAgenciaRow = {
   nombre: string
   basis: ReglaBasis
   value: number | null
+  /** Solo con basis 'hibrido': el monto por pasajero que acompaña al %. */
+  value2: number | null
 }
 
 /**
@@ -242,9 +283,12 @@ export function TarifaEmbajadoresAgencia({ agencias }: { agencias: TarifaAgencia
           prefijo="Tarifa"
           initialBasis={a.basis}
           initialValue={a.value}
+          initialValue2={a.value2}
           opciones={OPCIONES_EMBAJADOR}
           resumen={resumenEmbajador}
-          onSave={(basis, value) => guardarTarifaEmbajadorAgencia(a.supplierId, basis, value)}
+          onSave={(basis, value, value2) =>
+            guardarTarifaEmbajadorAgencia(a.supplierId, basis, value, value2)
+          }
         />
       ))}
     </ul>

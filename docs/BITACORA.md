@@ -9,6 +9,40 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Un solo riel para pagarle a una persona (b081, 2026-09-01).** Había DOS
+> formas de saldarle la comisión a un embajador y no se veían entre sí:
+> registrar el gasto en `/gastos` (baja la CxP y el "pagado" del portal, pero
+> deja su saldo VIVO en el ledger) o `settle_ledger` desde `/cuentas` (cierra el
+> ledger, pero la CxP y el portal siguen mostrando saldo). Cualquiera de las dos
+> deja una pantalla mintiendo, y un corte quincenal que lea una fuente mientras
+> alguien liquidó por la otra **paga dos veces**.
+>
+> **No hizo falta decidir nada nuevo: ADR-0011 ya lo decía** — «el ledger ESPEJA,
+> no recrea: triggers sobre los hechos generan los asientos. No se insertan
+> asientos a mano que re-cuenten un hecho ya contado». `settle_ledger` sobre un
+> embajador era exactamente eso, la excepción que rompía su propia regla. Ahora:
+> el hecho es el gasto, `tg_ledger_mirror_expense` postea la liquidación solo
+> (gemelo del espejo de comisiones), y `settle_ledger` rechaza 'embajador' y
+> 'agente' con un mensaje que dice a dónde ir, igual que ya rechazaba 'viajero'.
+> **`agencia` no entra**: su saldo en el ledger es el corte de plataforma
+> (Ketzal↔agencia) y `mayorista` es pagarle a un proveedor — deudas distintas,
+> sin choque.
+>
+> **Y salió un hermano del mismo bug:** `expenses` no tenía categoría para
+> pagarle a un **agente**, pero desde m010 el portal de embajador también lo usan
+> los agentes con código de referido, y su "pagado" salía solo de
+> `category='embajador'`. A un agente pagado por `settle_ledger` su portal le
+> decía **"pagado $0" para siempre**, aunque ya hubiera cobrado. Se abrió la
+> categoría y los dos resúmenes la leen.
+>
+> Probado con rollback (6/6): la venta devenga $300 al embajador en el ledger,
+> registrar el gasto lo deja en **0 solo**, el ledger global sigue en 0,
+> `settle_ledger` rechaza embajador y agente, y la categoría 'agente' se acepta.
+>
+> De paso, la tarifa de embajador gana la cuarta forma que la BD ya soportaba:
+> **híbrido** (% de la venta + fijo por pasajero a la vez), la misma que usan los
+> agentes desde b054.
+
 > **La tarifa de embajador no se podía guardar: m008 cambió el lector y olvidó el
 > escritor (b080, 2026-09-01).** Al ir a capturar la tarifa —el paso que yo había
 > descrito como "captura del fundador, no código"— resultó que no había dónde.
