@@ -50,6 +50,11 @@ sustituye; el viejo no se edita. Formato y numeración:
 construido va a `docs/BITACORA.md` (entrada nueva arriba), **nunca de vuelta
 aquí**.
 
+Si el ADR **afirma un invariante de runtime** ("esto está bloqueado", "siempre
+pasa Z"), su sección *Verificación* nombra el **archivo y la aserción** que lo
+prueban — prosa como "probado contra la BD real" no cuenta
+→ [ADR-0034](docs/adr/0034-la-verificacion-nombra-su-prueba.md).
+
 ## Stack e infra
 
 - **Next.js 16** (App Router) + React 19 + TS + Tailwind 4 + shadcn
@@ -90,8 +95,10 @@ aquí**.
 - **BD limpia para operación real** (reset 2026-08-19; catálogo conservado).
   Migrada a proyecto dedicado 2026-08-26 — pendientes del fundador en la
   bitácora (exposed schemas, Auth dashboard, env vars Vercel, box WA, npm).
-- Tests: 92 dominio (raíz) + 57 MCP + hard-tests SQL adversariales
-  (`supabase/tests/`); CI en GitHub Actions.
+- Tests: 174 de dominio (raíz) + 57 MCP, ambos en CI. Los **hard-tests**
+  (`supabase/tests/`, 21) corren con **`pnpm hard-test`** y **NO están en CI**
+  — necesitan la service key y no hay staging
+  → [ADR-0034](docs/adr/0034-la-verificacion-nombra-su-prueba.md).
 
 ## Convenciones multi-agente (varios agentes editan `main` en paralelo)
 

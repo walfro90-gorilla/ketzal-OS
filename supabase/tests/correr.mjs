@@ -1,0 +1,200 @@
+#!/usr/bin/env node
+// Corredor de hard-tests. `pnpm hard-test`
+//
+// Por qué existe: había 22 harness y CI no corría NI UNO. Se corrían de memoria,
+// uno por uno, cuando alguien se acordaba — y "alguien se acordaba" es
+// exactamente cómo un harness deja de correr sin que nadie se entere. Ya pasó
+// tres veces (ADR-0023) y volvió a pasar: `concurrencia.mjs` trae hardcodeada la
+// contraseña de unas cuentas QA borradas en agosto y nadie lo notó.
+//
+// Regla del corredor: **nunca saltarse algo en silencio**. Un harness que no se
+// puede correr no es un harness verde: sale como `NO CORRIÓ` con su motivo y el
+// proceso termina en rojo igual que si hubiera fallado. Un tablero que miente en
+// verde es peor que no tener tablero.
+//
+//   pnpm hard-test                # todo lo que se pueda
+//   pnpm hard-test embajador      # solo los que casen con el texto
+//   APP=http://localhost:3100 pnpm hard-test
+//
+// Contrato de resultado (lo que el corredor sabe leer):
+//   · .mjs  → código de salida. 0 = pasó.
+//   · .sql  → si NO lanza excepción, pasó. Si lanza, pasa solo cuando el mensaje
+//     dice `0 fallaron` / `0 fail` — el patrón de los harness que corren dentro
+//     de un DO y terminan en `raise exception` para que Postgres revierta todo.
+//   Un .sql que falle de otra forma sale en rojo con su mensaje.
+
+import { readdirSync, existsSync } from 'node:fs'
+import { readFile } from 'node:fs/promises'
+import { spawn } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
+
+const AQUI = dirname(fileURLToPath(import.meta.url))
+const RAIZ = join(AQUI, '..', '..')
+const APP = process.env.APP ?? 'http://localhost:3000'
+
+// Qué necesita cada harness y qué invariante defiende. Se declara a mano y a
+// propósito: adivinarlo desde el código es justo lo que deja pasar un harness
+// roto como si estuviera verde.
+//   supabase → claves de .env.local        app → la app respondiendo en $APP
+//   build    → .next/ (ids de server action)  db → DATABASE_URL
+const HARNESS = [
+  // ── .mjs ────────────────────────────────────────────────────────────────
+  { f: 'superficie_anonima.mjs',          necesita: ['supabase'],                 adr: '0004', afirma: 'el anónimo no lee nada que no sea vitrina pública' },
+  { f: 'policy_services_posiciones.mjs',  necesita: ['supabase'],                 adr: '0004', afirma: 'cada posición ve solo los servicios de su agencia' },
+  { f: 'encuestas_rls.mjs',               necesita: ['supabase'],                 adr: '0018', afirma: 'el voto anónimo no expone al votante' },
+  { f: 'acceso_provisional.mjs',          necesita: ['supabase'],                 adr: '0027', afirma: 'la contraseña provisional entra y obliga a cambiarla' },
+  { f: 'invitacion_acceso.mjs',           necesita: ['supabase', 'app'],          adr: '0028', afirma: 'la invitación materializa el perfil; no deja viajeros muertos' },
+  { f: 'gate_password_provisional.mjs',   necesita: ['supabase', 'app'],          adr: '0027', afirma: 'los portales no dejan pasar con la contraseña dictada' },
+  { f: 'atribucion_ref.mjs',              necesita: ['supabase', 'app'],          adr: '0031', afirma: 'el ?ref sobrevive la navegación y se consume al comprar' },
+  { f: 'conversion_portales.mjs',         necesita: ['supabase', 'app'],          adr: '0033', afirma: 'el convertido conserva /mis-compras y la salida a su portal' },
+  { f: 'conversion_alta.mjs',             necesita: ['supabase', 'app', 'build'], adr: '0033', afirma: 'un correo con cuenta se convierte en vez de reventar' },
+  { f: 'concurrencia.mjs',                necesita: ['supabase'],                 adr: '0008', afirma: 'el cupo no se sobrevende en carrera' },
+  { f: 'carreras_dinero.mjs',             necesita: ['supabase'],                 adr: '0006', afirma: 'el ledger aguanta escrituras concurrentes' },
+  // ── .sql ────────────────────────────────────────────────────────────────
+  { f: 'money_invariants.sql',            necesita: ['db'], adr: '0005', afirma: 'el dinero se deriva; los totales cuadran' },
+  { f: 'hard_testing_dinero.sql',         necesita: ['db'], adr: '0006', afirma: 'append-only: nadie muta un asiento por REST' },
+  { f: 'comisiones_motor.sql',            necesita: ['db'], adr: '0019', afirma: 'la comisión es un asiento, no una columna' },
+  { f: 'embajadores_rls.sql',             necesita: ['db'], adr: '0021', afirma: 'un embajador no ve ni cobra lo de otro' },
+  { f: 'encuestas_rls.sql',               necesita: ['db'], adr: '0018', afirma: 'las encuestas no filtran al votante' },
+  { f: 'embajador_devengo.sql',           necesita: ['db'], adr: '0029', afirma: 'devenga al confirmar, no en draft; auto-referido cerrado' },
+  { f: 'corte_embajadores.sql',           necesita: ['db'], adr: '0032', afirma: 'el corte es derivado y no paga dos veces' },
+  { f: 'conversion_viajero_embajador.sql',necesita: ['db'], adr: '0033', afirma: 'convertirse no le quita compras, créditos ni voucher' },
+  { f: 'simulacion_1000_ops.sql',         necesita: ['db'], adr: '0006', afirma: 'los invariantes aguantan volumen' },
+  { f: 'volumen_y_clawbot.sql',           necesita: ['db'], adr: '0006', afirma: 'el Clawbot no rompe invariantes a volumen' },
+]
+
+// `qa_setup.sql` y `_fixtures.mjs` no son harness (siembra y utilería).
+const NO_SON_HARNESS = new Set(['qa_setup.sql', '_fixtures.mjs', 'correr.mjs'])
+
+// Un archivo nuevo en supabase/tests/ que nadie declaró aquí no puede quedar
+// invisible: sale como NO CORRIÓ y obliga a declararlo.
+const declarados = new Set(HARNESS.map((h) => h.f))
+for (const f of readdirSync(AQUI)) {
+  if (NO_SON_HARNESS.has(f) || declarados.has(f)) continue
+  if (!/\.(mjs|sql)$/.test(f)) continue
+  HARNESS.push({ f, necesita: ['sin-declarar'], adr: '—', afirma: '(sin declarar en correr.mjs)' })
+}
+
+// ── Qué está disponible ────────────────────────────────────────────────────
+const env = process.env
+const tieneSupabase = Boolean(
+  env.NEXT_PUBLIC_SUPABASE_URL && env.NEXT_PUBLIC_SUPABASE_ANON_KEY && env.SUPABASE_SERVICE_ROLE_KEY,
+)
+const tieneDb = Boolean(env.DATABASE_URL)
+const tieneBuild = existsSync(join(RAIZ, '.next', 'server', 'server-reference-manifest.json'))
+let appViva = false
+try {
+  const r = await fetch(`${APP}/login`, { signal: AbortSignal.timeout(4000) })
+  appViva = r.ok || r.status === 307 || r.status === 302
+} catch { appViva = false }
+
+const PORQUE = {
+  supabase: 'faltan claves de Supabase (corre con --env-file=.env.local)',
+  app: `la app no responde en ${APP} (pnpm build && pnpm start -p 3100, y pasa APP=)`,
+  build: 'no hay .next/ (corre pnpm build antes)',
+  db: 'falta DATABASE_URL en .env.local (cadena de conexión de Postgres)',
+  'sin-declarar': 'harness sin declarar en correr.mjs: agrégalo a la tabla HARNESS',
+}
+const disponible = { supabase: tieneSupabase, app: appViva, build: tieneBuild, db: tieneDb, 'sin-declarar': false }
+
+// ── Ejecutores ─────────────────────────────────────────────────────────────
+function correrMjs(archivo) {
+  return new Promise((resolve) => {
+    const hijo = spawn(process.execPath, ['--env-file=.env.local', join('supabase', 'tests', archivo)], {
+      cwd: RAIZ, env: { ...process.env, APP },
+    })
+    let salida = ''
+    hijo.stdout.on('data', (d) => { salida += d })
+    hijo.stderr.on('data', (d) => { salida += d })
+    hijo.on('close', (code) => resolve({ ok: code === 0, salida }))
+    hijo.on('error', (e) => resolve({ ok: false, salida: e.message }))
+  })
+}
+
+let cliente = null
+let sinConexion = null   // motivo, si la conexión no se pudo abrir
+async function correrSql(archivo) {
+  if (sinConexion) return { noCorrio: sinConexion }
+  if (!cliente) {
+    // Que no se pueda conectar NO es un test fallado: es un test que nadie
+    // corrió. Distinguirlo importa — si se reporta como fallo, mañana alguien
+    // "arregla" el harness en vez de arreglar la conexión.
+    try {
+      const pg = (await import('pg')).default
+      cliente = new pg.Client({ connectionString: env.DATABASE_URL })
+      await cliente.connect()
+    } catch (e) {
+      cliente = null
+      sinConexion = `no se pudo conectar con DATABASE_URL: ${String(e.message ?? e).split('\n')[0]}`
+      return { noCorrio: sinConexion }
+    }
+  }
+  const sql = await readFile(join(AQUI, archivo), 'utf8')
+  try {
+    await cliente.query(sql)
+    return { ok: true, salida: 'sin excepción' }   // estilo notice: callar es pasar
+  } catch (e) {
+    const msg = String(e.message ?? e)
+    // Estilo rollback: termina en `raise exception` a propósito para revertir.
+    const paso = /\b0 (fallaron|fail)\b/.test(msg)
+    return { ok: paso, salida: msg.split('\n')[0] }
+  }
+}
+
+// ── Corrida ────────────────────────────────────────────────────────────────
+const filtro = process.argv.slice(2).find((a) => !a.startsWith('-'))
+const aCorrer = HARNESS.filter((h) => !filtro || h.f.includes(filtro))
+
+console.log(`\n▸ Hard-tests de Ketzal — ${aCorrer.length} harness\n`)
+const resultados = []
+
+for (const h of aCorrer) {
+  const falta = h.necesita.filter((n) => !disponible[n])
+  if (falta.length) {
+    resultados.push({ ...h, estado: 'NO CORRIÓ', nota: PORQUE[falta[0]] })
+    console.log(`   … ${h.f} — NO CORRIÓ: ${PORQUE[falta[0]]}`)
+    continue
+  }
+  process.stdout.write(`   · ${h.f} … `)
+  const t = Date.now()
+  const r = h.f.endsWith('.sql') ? await correrSql(h.f) : await correrMjs(h.f)
+  const seg = ((Date.now() - t) / 1000).toFixed(1)
+  if (r.noCorrio) {
+    resultados.push({ ...h, estado: 'NO CORRIÓ', nota: r.noCorrio })
+    console.log(`… NO CORRIÓ: ${r.noCorrio}`)
+    continue
+  }
+  resultados.push({ ...h, estado: r.ok ? 'PASÓ' : 'FALLÓ', nota: r.ok ? '' : ultimaLineaUtil(r.salida) })
+  console.log(r.ok ? `✔ ${seg}s` : `✘ ${seg}s`)
+  if (!r.ok) console.log(`       ${ultimaLineaUtil(r.salida)}`)
+}
+
+if (cliente) await cliente.end()
+
+function ultimaLineaUtil(txt) {
+  const lineas = String(txt).split('\n').map((l) => l.trim()).filter(Boolean)
+  return lineas.reverse().find((l) => /✘|error|Error|fall|exception/i.test(l)) ?? lineas.at(-1) ?? ''
+}
+
+// ── Resumen ────────────────────────────────────────────────────────────────
+const etiqueta = (r) => (r.adr === '—' ? r.afirma : `ADR-${r.adr}: ${r.afirma}`)
+const cuenta = (e) => resultados.filter((r) => r.estado === e).length
+const fallaron = resultados.filter((r) => r.estado === 'FALLÓ')
+const noCorrieron = resultados.filter((r) => r.estado === 'NO CORRIÓ')
+
+console.log(`\n${'─'.repeat(72)}`)
+console.log(`  ${cuenta('PASÓ')} pasaron · ${fallaron.length} fallaron · ${noCorrieron.length} no corrieron`)
+
+if (fallaron.length) {
+  console.log('\n  FALLARON — el invariante que defienden está roto o el harness caducó:')
+  for (const r of fallaron) console.log(`    ✘ ${r.f}  (${etiqueta(r)})\n        ${r.nota}`)
+}
+if (noCorrieron.length) {
+  console.log('\n  NO CORRIERON — nadie está verificando esto ahora mismo:')
+  for (const r of noCorrieron) console.log(`    … ${r.f}  (${etiqueta(r)})\n        ${r.nota}`)
+}
+console.log(`${'─'.repeat(72)}\n`)
+
+// Rojo también si algo no corrió: un invariante sin verificar no es un invariante.
+process.exit(fallaron.length + noCorrieron.length === 0 ? 0 : 1)
