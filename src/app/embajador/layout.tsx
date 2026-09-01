@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { LogOutIcon } from 'lucide-react'
+import { LogOutIcon, TicketIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { getBrandLogo } from '@/lib/brand'
 import { ThemeToggle } from '@/components/shell/theme-toggle'
@@ -37,6 +37,13 @@ export default async function EmbajadorLayout({
     .maybeSingle()
   const yaVisto = Boolean((perfil as { onboarded_at: string | null } | null)?.onboarded_at)
 
+  // b087: al cliente que se volvió embajador no se le quitan sus compras (los
+  // RPC filtran por auth.uid(), no por tipo), pero '/' lo trae aquí y sin este
+  // enlace no vuelve. Solo se pinta si de verdad compró algo: un embajador que
+  // nunca fue cliente no necesita una pestaña vacía.
+  const { data: comprasRaw } = await supabase.rpc('list_my_marketplace_orders' as never)
+  const tieneCompras = ((comprasRaw ?? []) as unknown[]).length > 0
+
   return (
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b bg-background/95 px-4 backdrop-blur supports-backdrop-filter:bg-background/80 md:px-6">
@@ -53,6 +60,15 @@ export default async function EmbajadorLayout({
           )}
         </Link>
         <div className="flex items-center gap-1 sm:gap-2">
+          {tieneCompras && (
+            <Link
+              href="/mis-compras"
+              className="flex items-center gap-1.5 rounded-lg px-2 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:px-3"
+            >
+              <TicketIcon className="size-4 shrink-0" />
+              <span className="hidden sm:inline">Mis compras</span>
+            </Link>
+          )}
           <ThemeToggle />
           <form action="/auth/signout" method="post">
             <button
