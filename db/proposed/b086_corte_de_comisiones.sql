@@ -1,0 +1,50 @@
+-- b086 — El corte: a quién hay que pagarle y cuánto, a una fecha.
+-- Espejo de `b086_corte_de_comisiones`, `b086b_pagar_corte_embajador` y
+-- `b086c_el_embajador_ve_sus_pagos`.
+--
+-- ── El corte NO es una tabla ───────────────────────────────────────────────
+--
+-- Un corte es "lo devengado hasta el día X menos lo ya pagado hasta el día X".
+-- Las dos mitades ya existen (`commission_lines` y `expenses`), así que se
+-- DERIVA (ADR-0005). Y por eso es AUTO-CORREGIBLE: si se salta una quincena, la
+-- siguiente incluye lo pendiente sin que nadie tenga que acordarse ni exista un
+-- "periodo" que pueda quedar mal cerrado.
+--
+-- ── El filtro que faltaba ─────────────────────────────────────────────────
+--
+-- `refund_payment` y `refund_payment_partial` NO reversan la comisión: una venta
+-- 100% devuelta que nadie canceló sigue devengando (ADR-0029 lo dejó abierto a
+-- propósito). El corte lo cierra donde importa: solo se paga comisión de ventas
+-- con DINERO COBRADO (`bookings_with_balance.paid > 0`, que ya descuenta los
+-- refunds). Si la agencia no tiene el dinero, no hay de dónde pagar.
+--
+-- ── Por agencia, no solo por persona ──────────────────────────────────────
+--
+-- ADR-0021: paga la agencia dueña del viaje. Un embajador con ventas en dos
+-- agencias tiene DOS deudas y cada una la salda su agencia con su propio gasto.
+-- El BONO por reclutar (b085) va aparte, sin agencia: lo paga Ketzal.
+--
+-- OJO — el bono queda FUERA del ledger a propósito. El ledger espeja hechos
+-- (ADR-0011) y el bono no es una fila sino una derivación: no hay devengo que
+-- espejar, así que tampoco se espeja su pago (`tg_ledger_mirror_expense` ignora
+-- los gastos sin agencia). El ledger cubre comisiones; el bono vive en el portal
+-- y en CxP. Es un límite documentado, no un descuido.
+--
+-- ── El guard del monto (b086b) ────────────────────────────────────────────
+--
+-- `create_expense` solo sabe pagarle a un PROVEEDOR; no tiene `provider_profile_id`,
+-- que es el riel de b081/ADR-0030 para pagarle a una persona. De ahí
+-- `pagar_corte_embajador`, cuyo guard importante es el del MONTO: pagar de más
+-- deja el saldo del embajador en negativo sin que nadie se entere hasta que él
+-- reclame. Se valida contra el MISMO corte que se pinta en pantalla, así que la
+-- UI y la base no pueden discrepar.
+--
+-- ── b086c ─────────────────────────────────────────────────────────────────
+--
+-- El portal mostraba "pagado: $X" y nada más. Ese número solo, sin fechas, el
+-- embajador no lo puede conciliar con su banco: la primera duda ("¿me pagaste la
+-- quincena pasada?") acaba en un WhatsApp al fundador. `my_ambassador_payments`
+-- devuelve la lista, ya acotada a lo suyo (no puede leer `expenses` por RLS).
+--
+-- Cuerpo completo: ver la migración aplicada. Se prueba con
+-- `supabase/tests/corte_embajadores.sql` (8/8, transacción que revierte).

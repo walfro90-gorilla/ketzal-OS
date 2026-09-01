@@ -9,6 +9,59 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Fase 5: el corte quincenal — ya se le puede pagar al embajador (b086,
+> ADR-0032, 2026-09-01).** El motor ya devengaba bien (ADR-0029) y había un solo
+> riel de pago (ADR-0030), pero faltaba el proceso: nadie sabía a quién le debía
+> cuánto, ni había forma de registrar el pago de una persona desde la app
+> (`create_expense` solo sabe pagarle a un PROVEEDOR).
+>
+> **El corte no es una tabla, es una resta a una fecha**: devengado hasta el día
+> X menos pagado hasta el día X. Y por eso es **acumulativo y auto-corregible**:
+> si te saltas una quincena, la siguiente trae lo pendiente sin que nadie tenga
+> que acordarse, y no hay un "periodo" que pueda quedar mal cerrado o cerrado dos
+> veces. La fecha es solo un corte de lectura.
+>
+> **Solo se paga lo cobrado**, y ahí se cierra el hueco que ADR-0029 dejó
+> abierto: `refund_payment` no reversa la comisión, así que una venta devuelta
+> completa que nadie canceló sigue devengada. El corte filtra por
+> `bookings_with_balance.paid > 0` —que ya descuenta reembolsos—: si la agencia
+> no tiene el dinero, no hay de dónde pagar. En el harness: tres ventas devengan
+> $900, una sin cobrar y otra reembolsada completa, y el corte paga **$300**.
+>
+> Agrupa por **(embajador, agencia)** porque paga la agencia dueña del viaje
+> (ADR-0021); el bono por reclutar va en su fila aparte, sin agencia, porque lo
+> paga Ketzal. El **guard del monto vive en la BD**, contra el mismo corte que se
+> pinta en pantalla: pagar de más dejaría el saldo en negativo sin que nadie se
+> entere hasta que el embajador reclame.
+>
+> **El embajador ya ve sus pagos con fecha** (`my_ambassador_payments`). Un
+> "pagado: $X" agregado no se puede conciliar con el banco, y la primera duda
+> —"¿me pagaste la quincena pasada?"— acababa en un WhatsApp al fundador.
+>
+> **Límite documentado**: el bono queda FUERA del ledger. El ledger espeja hechos
+> (ADR-0011) y el bono es una derivación, no una fila: no hay devengo que
+> espejar, así que tampoco su pago. Es el precio de haberlo derivado, que se
+> eligió por razones más fuertes; queda escrito para que nadie lo lea como un
+> faltante en `/cuentas`.
+>
+> **Probado:** `supabase/tests/corte_embajadores.sql` 8/8 dentro de una
+> transacción que revierte — filtro de dinero cobrado, corte a fecha anterior,
+> pagar de más rechazado, pagar dos veces rechazado, el ledger global en 0 tras
+> el pago, un viajero no ve el corte y un admin ajeno no registra el pago.
+> 174 tests de dominio (5 nuevos: `finDelCorte`, incluidos bisiesto y diciembre).
+>
+> **Lo que NO se pudo probar en el navegador y por qué**: el botón "Pagar" usa
+> `window.confirm`, y un diálogo nativo **congela la automatización del
+> navegador** (bloquea todos los eventos de la extensión). Neutralizarlo desde la
+> consola lo bloqueó el clasificador de permisos y no se buscó rodeo. El camino
+> completo sí quedó probado por SQL con impersonación real; lo único sin ejercitar
+> es el `onClick` en sí.
+>
+> **Dos limpiezas quirúrgicas más**, por la misma causa de la fase anterior:
+> escenarios creados por HTTP en vez de dentro de una transacción. Se borraron
+> por id bajando los candados append-only dentro de UNA transacción. Verificado
+> después: 7 bookings, 2 líneas, ledger en 0, 0 cuentas efímeras.
+
 > **Fase 4: bono por invitar + PWA instalable (b085, 2026-09-01).**
 >
 > **El bono NO es una fila de dinero.** ADR-0005 dice que el dinero se deriva, y

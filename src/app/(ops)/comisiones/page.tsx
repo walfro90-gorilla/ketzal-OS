@@ -26,6 +26,8 @@ import {
   type TarifaAgenciaRow,
 } from './reglas-servicio'
 import { ReglasAgente, type AgenteComision } from './reglas-agente'
+import { CorteEmbajadores, type FilaCorte } from './corte'
+import { finDelCorte } from '@/lib/domain/embajador'
 import type { ReglaBasis } from './reglas-actions'
 
 type CommissionsSummary = {
@@ -40,7 +42,19 @@ const EMPTY_SUMMARY: CommissionsSummary = {
   lista: [],
 }
 
-export default async function ComisionesPage() {
+export default async function ComisionesPage({
+  searchParams,
+}: {
+  /** `?corte=YYYY-MM-DD` para mirar un corte distinto al de la quincena actual. */
+  searchParams: Promise<{ corte?: string | string[] }>
+}) {
+  const { corte: corteRaw } = await searchParams
+  const cortePedido = Array.isArray(corteRaw) ? corteRaw[0] : corteRaw
+  // Por default, el fin de la quincena en curso (día 15 o último del mes).
+  const hastaCorte =
+    cortePedido && /^\d{4}-\d{2}-\d{2}$/.test(cortePedido)
+      ? cortePedido
+      : finDelCorte(new Date())
   const supabase = await createClient()
   const {
     data: { user },
@@ -70,6 +84,7 @@ export default async function ComisionesPage() {
     embajadoresRes,
     reglasEmbRes,
     agentesRes,
+    corteRes,
   ] = await Promise.all([
     supabase
       .from('suppliers')
@@ -110,7 +125,17 @@ export default async function ComisionesPage() {
           .eq('active', true)
       : Promise.resolve({ data: [], error: null }),
     isAdmin ? supabase.rpc('list_agents_for_commission' as never) : Promise.resolve({ data: [], error: null }),
+    // Corte de comisiones a la fecha (b086). El RPC ya acota: el superadmin ve
+    // todo, un admin de agencia solo lo que SU agencia debe.
+    isSuperadmin || isAdmin
+      ? supabase.rpc('corte_embajadores' as never, { p_hasta: hastaCorte } as never)
+      : Promise.resolve({ data: null, error: null }),
   ])
+
+  const corte = (corteRes?.data ?? { total_a_pagar: 0, filas: [] }) as unknown as {
+    total_a_pagar: number
+    filas: FilaCorte[]
+  }
 
   const agencias = agenciasRes.data ?? []
   const d = (summaryRes.data ?? EMPTY_SUMMARY) as unknown as CommissionsSummary
@@ -391,6 +416,34 @@ export default async function ComisionesPage() {
               />
             )}
             <EmbajadoresAccesos embajadores={embajadores} />
+          </CardContent>
+        </Card>
+      )}
+
+      {(isSuperadmin || isAdmin) && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Corte de comisiones</CardTitle>
+            <CardDescription>
+              A quién le debes hoy y cuánto. Cierra el <strong>día 15</strong> y el
+              <strong> último del mes</strong>, pero es acumulativo: si te saltas
+              una quincena, la siguiente trae lo pendiente. Solo aparece lo de
+              ventas con dinero ya cobrado — si el cliente no ha pagado o le
+              devolviste, no hay de dónde pagar la comisión.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {corteRes?.error ? (
+              <p className="text-sm text-destructive">
+                Error al cargar el corte: {corteRes.error.message}
+              </p>
+            ) : (
+              <CorteEmbajadores
+                filas={corte.filas ?? []}
+                hasta={hastaCorte}
+                totalAPagar={Number(corte.total_a_pagar ?? 0)}
+              />
+            )}
           </CardContent>
         </Card>
       )}

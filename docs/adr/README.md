@@ -38,3 +38,4 @@ este índice se actualiza en el mismo diff.**
 | [0029](0029-el-embajador-devenga-cuando-la-venta-es-real.md) | El embajador devenga en `tg_commission_snapshot` como los otros tres, no en la atribución; auto-referido cubre al comprador del portal (b079) | aceptada |
 | [0030](0030-un-solo-riel-de-pago-a-personas.md) | A una persona se le paga registrando el gasto y el ledger lo espeja; `settle_ledger` deja de aceptar embajador/agente (b081) | aceptada |
 | [0031](0031-atribucion-del-embajador-last-touch-en-cookie.md) | El `?ref` se captura en cookie desde el proxy en el primer aterrizaje; last-touch, 30 días, se consume al crear el pedido (b082) | aceptada |
+| [0032](0032-corte-quincenal-derivado.md) | El corte de comisiones es derivado (devengado − pagado a una fecha), acumulativo, y solo paga ventas con dinero cobrado (b086) | aceptada |

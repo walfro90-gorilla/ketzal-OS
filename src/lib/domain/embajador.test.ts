@@ -10,6 +10,7 @@ import {
   nivelDe,
   NIVELES,
   pasosActivacion,
+  finDelCorte,
 } from './embajador'
 
 describe('explicarTarifa', () => {
@@ -179,5 +180,29 @@ describe('pasosActivacion', () => {
       'clics',
       'venta',
     ])
+  })
+})
+
+describe('finDelCorte', () => {
+  it('del 1 al 15 el corte cierra el 15', () => {
+    expect(finDelCorte(new Date(2026, 8, 1))).toBe('2026-09-15')
+    expect(finDelCorte(new Date(2026, 8, 15))).toBe('2026-09-15')
+  })
+
+  it('del 16 en adelante cierra el último día del mes', () => {
+    expect(finDelCorte(new Date(2026, 8, 16))).toBe('2026-09-30')
+    expect(finDelCorte(new Date(2026, 8, 30))).toBe('2026-09-30')
+  })
+
+  it('febrero de año bisiesto cierra el 29', () => {
+    expect(finDelCorte(new Date(2028, 1, 20))).toBe('2028-02-29')
+  })
+
+  it('febrero normal cierra el 28', () => {
+    expect(finDelCorte(new Date(2026, 1, 20))).toBe('2026-02-28')
+  })
+
+  it('diciembre no se pasa al año siguiente', () => {
+    expect(finDelCorte(new Date(2026, 11, 20))).toBe('2026-12-31')
   })
 })

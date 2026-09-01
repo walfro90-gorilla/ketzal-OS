@@ -85,7 +85,13 @@ export default async function EmbajadorPage() {
   // pueda compartir un viaje concreto, no solo la vitrina entera.
   // `services_read` deja al embajador ver SOLO lo publicado, así que no hace
   // falta filtrar aquí: la RLS ya lo acota.
-  const [{ data: agenciasRaw }, { data: miPerfil }, { data: catalogo }, { data: clicsRaw }] =
+  const [
+    { data: agenciasRaw },
+    { data: miPerfil },
+    { data: catalogo },
+    { data: clicsRaw },
+    { data: pagosRaw },
+  ] =
     await Promise.all([
       supabase.rpc('list_agency_names' as never),
       supabase
@@ -101,6 +107,9 @@ export default async function EmbajadorPage() {
       // Conteos agregados de sus links (b084). `funnel_events` es deny-all: solo
       // se lee por este RPC, y devuelve CUÁNTOS abrieron, nunca quiénes.
       supabase.rpc('my_link_clicks' as never),
+      // Sus pagos recibidos (b086c): el agregado solo no se puede conciliar
+      // contra el banco, y la primera duda acaba en un WhatsApp al fundador.
+      supabase.rpc('my_ambassador_payments' as never),
     ])
   const nombrePorAgencia = new Map(
     ((agenciasRaw ?? []) as unknown as { id: string; name: string }[]).map((a) => [
@@ -123,6 +132,14 @@ export default async function EmbajadorPage() {
     en_cotizacion: number
     por_servicio: { service_id: string; nombre: string | null; clics: number; cotizando: number }[]
   }
+  const pagos = (pagosRaw ?? []) as unknown as {
+    fecha: string
+    monto: number
+    concepto: string | null
+    metodo: string | null
+    agencia: string | null
+  }[]
+
   const clicsPorServicio = new Map(
     (clics.por_servicio ?? []).map((c) => [c.service_id, c]),
   )
@@ -251,6 +268,37 @@ export default async function EmbajadorPage() {
           />
         </CardContent>
       </Card>
+
+      {pagos.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Lo que te han pagado</CardTitle>
+            <CardDescription>
+              Cada depósito con su fecha, para que lo puedas cotejar con tu banco.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="divide-y">
+              {pagos.map((p, i) => (
+                <li
+                  key={i}
+                  className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm">{p.fecha}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {[p.concepto, p.agencia, p.metodo].filter(Boolean).join(' · ')}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-sm font-semibold tabular-nums">
+                    {mxn.format(Number(p.monto ?? 0))}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
