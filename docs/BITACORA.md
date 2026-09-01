@@ -9,6 +9,52 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Fase 0 del programa de embajadores: el motor devengaba mal (b079, ADR-0029,
+> 2026-09-01).** Antes de construir las 10 mejoras del portal se auditó el motor
+> contra la BD **viva** (el snapshot del repo está desfasado). El embajador era
+> el ÚNICO de los cuatro beneficiarios que devengaba fuera del molde: plataforma,
+> agencia y agente nacen en `tg_commission_snapshot` al dejar el borrador; el
+> embajador nacía dentro de `attribute_booking_by_ref`, que corre justo después de
+> crear el pedido — o sea **en `draft`**. Tres daños, los tres verificados:
+> (1) **deuda fantasma** — el espejo del ledger postea el asiento en cuanto nace
+> la línea, y una cotización que nadie paga dejaba `+embajador / −agencia` vivos
+> para siempre porque los drafts no se cancelan y b073 nunca los reversa;
+> (2) **pedido imborrable** — `commission_lines.booking_id` es FK sin cascade y
+> `no_mutar` prohíbe DELETE, así que `delete_my_draft_order` truena con 23503 para
+> cualquier draft que llegó con `?ref`: el comprador no podía borrar su propio
+> pedido, nunca; (3) **auto-referido abierto** — el guard de m010 mira `sold_by`,
+> que en el portal es siempre null (al comprador lo identifica
+> `marketplace_customer_id`), así que un embajador podía comprarse su viaje con su
+> código y pagarse comisión. ADR-0022 enunciaba el principio; el código
+> implementaba una versión más angosta.
+>
+> **b079** separa atribuir de devengar: las dos funciones validan y escriben
+> `bookings.ambassador_id`, y el cuarto bloque de `tg_commission_snapshot` crea la
+> línea cuando la venta es real. El trigger pasa a `AFTER INSERT OR UPDATE OF
+> status, ambassador_id` — **esa segunda palabra no es opcional**: la venta del
+> back-office nace en `reserved`, corre el trigger con `ambassador_id` null y sin
+> ella nunca volvería a dispararse.
+>
+> **Cómo se probó sin dejar rastro** (`supabase/tests/embajador_devengo.sql`,
+> 9/9): un `DO` block que termina con `raise exception`, así Postgres revierte
+> cada insert — las `commission_lines` no se pueden BORRAR (`no_mutar`) pero sí
+> REVERTIR. Verificado después: 8 bookings y 2 commission_lines, los mismos de
+> antes. **El precedente del repo no servía**: `carreras_dinero.mjs` limpia con
+> `delete from ketzal.commission_lines` completo — seguro con la BD vacía de
+> agosto, hoy habría borrado ventas reales — y `comisiones_motor.sql`, que sí usa
+> rollback, lleva sin poder correr desde b025 porque siembra
+> `ketzal.marketplace_customers`, tabla eliminada por el refactor de identidad.
+>
+> **Limpieza del catálogo en el mismo carril**: se desactivaron dos reglas de
+> plataforma colgadas de servicios (10% sobre el servicio TEST y **$1,000 por
+> pasajero sobre "Colombia 2026"**, que estaba publicado y vivo) y se despublicó
+> `TEST pago en línea $50`, que llevaba semanas en `/explora`. Queda activa solo
+> la regla global del 20%.
+>
+> Pendiente que nadie puede arreglar con código: **`commission_rules` no tiene ni
+> una fila de `payee_type='embajador'`** ⇒ el motor ya devenga bien, pero devenga
+> cero hasta que el fundador capture la tarifa por agencia en `/comisiones`.
+
 > **El hermano roto que quedó del carril anterior, y lo que había debajo (b078,
 > ADR-0028, 2026-08-31).** ADR-0027 dejó `generarLinkInvitacion` de `/equipo`
 > sin arreglar a propósito. Al abrirlo, el link muerto era lo de menos:
