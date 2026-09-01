@@ -1,3 +1,4 @@
+import { headers } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { ComoGanas } from './como-ganas'
 import type { TarifaEmbajador } from '@/lib/domain/embajador'
@@ -9,6 +10,8 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { LinkReferido } from '@/components/data/link-referido'
+import { TarjetaPerfil } from './tarjeta-perfil'
+import { ViajesParaCompartir, type ViajeCompartible } from './viajes-para-compartir'
 
 const mxn = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' })
 
@@ -68,7 +71,24 @@ export default async function EmbajadorPage() {
   // `suppliers`: esa tabla trae correo, teléfono, comisión pactada y la CLABE
   // de los SPEI en `info`, y su policy solo expone la agencia propia — un
   // embajador no tiene por qué ver nada de eso para saber cuánto gana.
-  const { data: agenciasRaw } = await supabase.rpc('list_agency_names' as never)
+  // Perfil propio (foto y nombre para la tarjeta) y catálogo publicado para que
+  // pueda compartir un viaje concreto, no solo la vitrina entera.
+  // `services_read` deja al embajador ver SOLO lo publicado, así que no hace
+  // falta filtrar aquí: la RLS ya lo acota.
+  const [{ data: agenciasRaw }, { data: miPerfil }, { data: catalogo }] =
+    await Promise.all([
+      supabase.rpc('list_agency_names' as never),
+      supabase
+        .from('profiles' as never)
+        .select('name, image')
+        .eq('id', user?.id ?? '')
+        .maybeSingle(),
+      supabase
+        .from('services' as never)
+        .select('id, name, city_to, state_to, price, supplier_id')
+        .eq('published', true)
+        .order('name'),
+    ])
   const nombrePorAgencia = new Map(
     ((agenciasRaw ?? []) as unknown as { id: string; name: string }[]).map((a) => [
       a.id,
@@ -79,6 +99,36 @@ export default async function EmbajadorPage() {
     agencia: nombrePorAgencia.get(r.scope_supplier_id) ?? 'Otra agencia',
     tarifa: r as TarifaEmbajador,
   }))
+  const perfilPropio = miPerfil as { name: string | null; image: string | null } | null
+
+  // Origen absoluto para los links que el embajador va a copiar y mandar. Se
+  // resuelve AQUÍ (servidor) y no con `window.location` en el cliente: si no,
+  // el HTML del servidor y el del cliente traen `href` distintos y React marca
+  // hydration mismatch. Sirve igual en local (:3115) que en producción.
+  const h = await headers()
+  const host = h.get('host') ?? ''
+  const proto = h.get('x-forwarded-proto') ?? (host.startsWith('localhost') ? 'http' : 'https')
+  const origin = host ? `${proto}://${host}` : ''
+
+  // Viajes publicados, ya con el nombre de su agencia resuelto (mismo mapa que
+  // usa la sección de tarifas: no se toca `suppliers`, que trae CLABE y correo).
+  const viajes: ViajeCompartible[] = (
+    (catalogo ?? []) as unknown as {
+      id: string
+      name: string
+      city_to: string | null
+      state_to: string | null
+      price: number | null
+      supplier_id: string
+    }[]
+  ).map((s) => ({
+    id: s.id,
+    nombre: s.name,
+    destino: [s.city_to, s.state_to].filter(Boolean).join(', ') || null,
+    desde: s.price != null ? Number(s.price) : null,
+    agencia: nombrePorAgencia.get(s.supplier_id) ?? null,
+  }))
+
   const e = (data ?? {
     referral_code: null,
     devengado: 0,
@@ -90,14 +140,18 @@ export default async function EmbajadorPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Tu panel de embajador</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Comparte tu link, trae viajeros y gana por cada venta.
-        </p>
-      </div>
-
-      <ComoGanas override={override} porAgencia={tarifasAgencia} />
+      <TarjetaPerfil
+        profileId={user?.id ?? ''}
+        nombre={perfilPropio?.name ?? null}
+        imagen={perfilPropio?.image ?? null}
+        codigo={e.referral_code}
+        kpis={{
+          devengado: Number(e.devengado ?? 0),
+          pagado: Number(e.pagado ?? 0),
+          saldo: Number(e.saldo ?? 0),
+          numVentas: Number(e.num_ventas ?? 0),
+        }}
+      />
 
       {error && (
         <p className="text-sm text-destructive">
@@ -123,37 +177,23 @@ export default async function EmbajadorPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardDescription>Ganado</CardDescription>
-            <CardTitle className="text-2xl tabular-nums">
-              {mxn.format(Number(e.devengado ?? 0))}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">
-              {e.num_ventas === 1 ? '1 venta' : `${e.num_ventas ?? 0} ventas`}
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardDescription>Pagado</CardDescription>
-            <CardTitle className="text-2xl tabular-nums">
-              {mxn.format(Number(e.pagado ?? 0))}
-            </CardTitle>
-          </CardHeader>
-        </Card>
-        <Card className={Number(e.saldo ?? 0) > 0 ? 'border-emerald-500/40' : undefined}>
-          <CardHeader>
-            <CardDescription>Por cobrar</CardDescription>
-            <CardTitle className="text-2xl tabular-nums">
-              {mxn.format(Number(e.saldo ?? 0))}
-            </CardTitle>
-          </CardHeader>
-        </Card>
-      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Comparte un viaje</CardTitle>
+          <CardDescription>
+            Cada link ya lleva tu código: quien compre entrando por ahí te cuenta
+            como venta. Al compartirlo salen la foto y el precio del viaje.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ViajesParaCompartir
+            viajes={viajes}
+            codigo={e.referral_code}
+            origin={origin}
+          />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
@@ -190,6 +230,14 @@ export default async function EmbajadorPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Al final y colapsable: se lee una vez. Abierta solo para quien aún no
+          vende — a ese sí le sirve tenerla enfrente. */}
+      <ComoGanas
+        override={override}
+        porAgencia={tarifasAgencia}
+        abiertoPorDefecto={Number(e.num_ventas ?? 0) === 0}
+      />
     </div>
   )
 }
