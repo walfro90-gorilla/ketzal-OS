@@ -6,7 +6,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { guardarTarifaPlataforma } from './actions'
 
-/** % de comisión de plataforma para agentes libres (guarda vía server action). */
+/** % general que Ketzal cobra por venta del MARKETPLACE (channel='portal').
+ *  Las ventas del back-office no pagan corte — lo gatea `tg_commission_snapshot`.
+ *  Este valor vive en `app_settings` y es el que usa el motor cuando el viaje no
+ *  tiene un % propio; hasta b080 había además una regla global en
+ *  `commission_rules` que lo pisaba en silencio y dejaba este control sin efecto. */
 export function TasaPlataformaForm({ initialRate }: { initialRate: number }) {
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)

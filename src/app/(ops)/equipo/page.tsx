@@ -111,7 +111,9 @@ export default async function EquipoPage() {
           <CardHeader>
             <CardTitle>Comisión de plataforma</CardTitle>
             <CardDescription>
-              El % que Ketzal gana en las ventas de los agentes libres.
+              El % que Ketzal gana en cada venta del marketplace. Lo que vendes
+              desde el back-office no paga corte. Aquí se fija el % general;
+              puedes darle uno propio a un viaje en Comisiones.
             </CardDescription>
           </CardHeader>
           <CardContent>

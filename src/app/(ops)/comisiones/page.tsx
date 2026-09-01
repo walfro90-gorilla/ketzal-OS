@@ -273,9 +273,9 @@ export default async function ComisionesPage() {
   // ve sus comisiones de REVENTA. Los textos se adaptan al rol.
   const L = isSuperadmin
     ? {
-        pageDesc: 'El corte de Ketzal por ventas de agentes libres y del marketplace.',
+        pageDesc: 'El corte de Ketzal por las ventas del marketplace.',
         cardTitle: 'Corte de plataforma',
-        cardDesc: 'Ventas de agentes libres y del marketplace donde Ketzal cobra su corte.',
+        cardDesc: 'Ventas del portal público donde Ketzal cobra su corte. Lo que vendes desde el back-office no paga corte.',
         emptyTitle: 'Aún no hay ventas con corte de plataforma',
         emptyDesc: 'Cuando un agente libre o el marketplace concreten una venta, el corte de Ketzal aparece aquí.',
         count: (n: number) => (n === 1 ? '1 venta' : `${n} ventas`),

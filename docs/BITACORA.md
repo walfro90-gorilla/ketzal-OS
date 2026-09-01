@@ -38,14 +38,32 @@
 > `fijo_pax $250` sobre Wanderlust con `service_id` null y `scope_profile_id` null
 > — la forma exacta que el resolver busca.
 >
-> **Hallazgo de dinero encontrado mirando esa misma pantalla, sin arreglar:** la
-> UI dice que Ketzal cobra **10%** (lee `app_settings.platform_commission_rate`)
-> y el motor cobra **20%**, porque `resolve_commission_rule` encuentra la regla
+> **Hallazgo de dinero encontrado mirando esa misma pantalla, y RESUELTO:** la UI
+> decía que Ketzal cobra **10%** (lee `app_settings.platform_commission_rate`) y
+> el motor cobraba **20%**, porque `resolve_commission_rule` encuentra la regla
 > global de `commission_rules` ANTES de caer a `app_settings`. El control
-> "Comisión de plataforma" de `/equipo` escribe un valor que ya no manda: se puede
-> cambiar y no pasa nada. Cuál de los dos números es el correcto es decisión del
-> fundador (ADR-0019 dice 20%); la UI debería mostrar la tarifa EFECTIVA, no
-> `app_settings`.
+> "Comisión de plataforma" de `/equipo` escribía un valor que ya no mandaba: se
+> podía cambiar y no pasaba nada.
+>
+> Se le presentó al fundador con la aritmética de un tour real —20% **sobre la
+> venta completa**, más ~3.5% de MP, más la tarifa del embajador, contra un margen
+> bruto de 15–25% en un tour de camión— y decidió **8–12%, ajustando después**. Se
+> fijó en **10%** desactivando la regla global de `commission_rules`, para que el
+> % general vuelva a salir de `app_settings`: **una sola fuente de verdad**, que es
+> la que el control de `/equipo` escribe y la que `/comisiones` muestra. Los
+> overrides POR SERVICIO siguen resolviéndose antes que el global, así que no se
+> pierde nada.
+>
+> **Y el copy describía algo que no pasa**: `/comisiones` y `/equipo` decían
+> "ventas de agentes libres y del marketplace", pero el corte está detrás de
+> `if NEW.channel = 'portal'` y `bookings.channel` nace `'manual'` por default —
+> un agente libre vendiendo desde el back-office genera **cero** corte. Copy
+> corregido en las tres pantallas.
+>
+> Verificado en vivo con rollback (3/3): venta del portal de $10,000 ⇒ plataforma
+> $1,000 (10%) + embajador $300; la misma venta con `channel='manual'` ⇒ cero
+> líneas de plataforma. Tarifa de embajador sembrada en las dos agencias
+> (`fijo_pax $250`, valor de arranque que el fundador ajusta desde la UI).
 
 > **Fase 0 del programa de embajadores: el motor devengaba mal (b079, ADR-0029,
 > 2026-09-01).** Antes de construir las 10 mejoras del portal se auditó el motor
