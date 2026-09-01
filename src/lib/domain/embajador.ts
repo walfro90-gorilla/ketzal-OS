@@ -122,6 +122,54 @@ export function nivelDe(devengado: number): Nivel {
   }
 }
 
+/**
+ * CHECKLIST DE ACTIVACIÓN. Cada paso se DERIVA de un dato real: nada de
+ * palomitas que el embajador marca solo. Un checklist que se puede completar
+ * sin hacer nada no mide activación, mide obediencia — y miente al primer
+ * corte, cuando el que "completó todo" no ha traído una sola venta.
+ */
+export type PasoActivacion = {
+  clave: 'codigo' | 'foto' | 'clics' | 'venta'
+  titulo: string
+  /** Qué hacer, en una línea, cuando todavía no está hecho. */
+  pista: string
+  hecho: boolean
+}
+
+export function pasosActivacion(datos: {
+  tieneCodigo: boolean
+  tieneFoto: boolean
+  clics: number
+  ventas: number
+}): PasoActivacion[] {
+  return [
+    {
+      clave: 'codigo',
+      titulo: 'Tienes tu código de referido',
+      pista: 'Sin código tus links no pueden pagarte. Pídeselo a quien te dio de alta.',
+      hecho: datos.tieneCodigo,
+    },
+    {
+      clave: 'foto',
+      titulo: 'Pusiste tu foto',
+      pista: 'Toca tu foto arriba para subirla. La gente le compra a una cara, no a un código.',
+      hecho: datos.tieneFoto,
+    },
+    {
+      clave: 'clics',
+      titulo: 'Alguien abrió tu link',
+      pista: 'Comparte un viaje por WhatsApp. Aquí se prende en cuanto alguien lo abra.',
+      hecho: datos.clics > 0,
+    },
+    {
+      clave: 'venta',
+      titulo: 'Tu primera venta',
+      pista: 'Cuando alguien compre entrando por tu link, aparece aquí y empiezas a ganar.',
+      hecho: datos.ventas > 0,
+    },
+  ]
+}
+
 /** Link de referido del embajador. Es la vitrina, no una ficha suelta: así puede
  *  compartir "los viajes" y cualquiera que compre le cuenta. */
 export function linkReferido(origin: string, code: string): string {

@@ -3,7 +3,7 @@
 import Script from 'next/script'
 import { usePathname } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
-import { captureFirstTouch } from '@/lib/marketing/attribution'
+import { captureFirstTouch, track } from '@/lib/marketing/attribution'
 import { esRutaMedible } from '@/lib/marketing/rutas-medibles'
 
 declare global {
@@ -35,6 +35,26 @@ export function Trackers() {
   useEffect(() => {
     captureFirstTouch()
   }, [])
+
+  // Clic en el link de un embajador. Se emite AQUÍ, en el cliente, y no en el
+  // proxy: medido del lado del servidor contaría el prefetch de los <Link> de
+  // Next y el crawler que arma la vista previa de WhatsApp, y el embajador vería
+  // clics que nadie dio. Ninguno de los dos ejecuta JS.
+  //
+  // No hace falta de-duplicar aquí: el RPC que lo lee cuenta sesiones
+  // DISTINTAS, así que recargar la página no infla el número.
+  //
+  // El `?ref` se lee de `window.location` DENTRO del efecto, no con
+  // `useSearchParams()`: ese hook en un componente del layout raíz obliga a toda
+  // la app a render dinámico y truena el build de las páginas estáticas
+  // ("useSearchParams() should be wrapped in a suspense boundary"). Aquí solo se
+  // necesita en el cliente, así que no hace falta el hook.
+  useEffect(() => {
+    const ref = new URLSearchParams(window.location.search).get('ref')
+    if (!ref) return
+    const servicio = pathname.startsWith('/servicio/') ? pathname.split('/')[2] : undefined
+    track('link_click', { ref, service_id: servicio })
+  }, [pathname])
 
   // El snippet ya manda el PageView de la carga inicial; esto cubre las
   // navegaciones de cliente del App Router (GA4 las cubre solo con

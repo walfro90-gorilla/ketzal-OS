@@ -19,6 +19,10 @@ export type ViajeCompartible = {
   destino: string | null
   desde: number | null
   agencia: string | null
+  /** Personas distintas que abrieron ESTE link suyo (b084). */
+  clics: number
+  /** Pedidos suyos en borrador sobre este viaje: alguien a medio comprar. */
+  cotizando: number
 }
 
 export function ViajesParaCompartir({
@@ -99,6 +103,21 @@ function Fila({
           {[viaje.destino, viaje.agencia].filter(Boolean).join(' · ')}
           {viaje.desde ? ` · desde ${mxn.format(viaje.desde)}` : ''}
         </p>
+        {/* Solo se pinta cuando hay algo que contar: un "0 clics" en cada fila
+            es ruido que desanima justo a quien apenas empieza. */}
+        {viaje.clics > 0 && (
+          <p className="mt-0.5 text-xs">
+            <span className="text-primary">
+              {viaje.clics === 1 ? '1 persona lo abrió' : `${viaje.clics} personas lo abrieron`}
+            </span>
+            {viaje.cotizando > 0 && (
+              <span className="text-muted-foreground">
+                {' · '}
+                {viaje.cotizando === 1 ? '1 a medio comprar' : `${viaje.cotizando} a medio comprar`}
+              </span>
+            )}
+          </p>
+        )}
       </div>
       <div className="flex shrink-0 items-center gap-2">
         {/* Enlace con pinta de botón: `Button` de base-nova exige <button> nativo. */}

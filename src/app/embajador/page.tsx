@@ -10,7 +10,10 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { LinkReferido } from '@/components/data/link-referido'
+import { pasosActivacion } from '@/lib/domain/embajador'
 import { TarjetaPerfil } from './tarjeta-perfil'
+import { Checklist } from './checklist'
+import { ConfetiPrimeraVenta } from './confeti'
 import { ViajesParaCompartir, type ViajeCompartible } from './viajes-para-compartir'
 
 const mxn = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' })
@@ -75,7 +78,7 @@ export default async function EmbajadorPage() {
   // pueda compartir un viaje concreto, no solo la vitrina entera.
   // `services_read` deja al embajador ver SOLO lo publicado, así que no hace
   // falta filtrar aquí: la RLS ya lo acota.
-  const [{ data: agenciasRaw }, { data: miPerfil }, { data: catalogo }] =
+  const [{ data: agenciasRaw }, { data: miPerfil }, { data: catalogo }, { data: clicsRaw }] =
     await Promise.all([
       supabase.rpc('list_agency_names' as never),
       supabase
@@ -88,6 +91,9 @@ export default async function EmbajadorPage() {
         .select('id, name, city_to, state_to, price, supplier_id')
         .eq('published', true)
         .order('name'),
+      // Conteos agregados de sus links (b084). `funnel_events` es deny-all: solo
+      // se lee por este RPC, y devuelve CUÁNTOS abrieron, nunca quiénes.
+      supabase.rpc('my_link_clicks' as never),
     ])
   const nombrePorAgencia = new Map(
     ((agenciasRaw ?? []) as unknown as { id: string; name: string }[]).map((a) => [
@@ -100,6 +106,19 @@ export default async function EmbajadorPage() {
     tarifa: r as TarifaEmbajador,
   }))
   const perfilPropio = miPerfil as { name: string | null; image: string | null } | null
+
+  const clics = (clicsRaw ?? {
+    total_clics: 0,
+    en_cotizacion: 0,
+    por_servicio: [],
+  }) as unknown as {
+    total_clics: number
+    en_cotizacion: number
+    por_servicio: { service_id: string; nombre: string | null; clics: number; cotizando: number }[]
+  }
+  const clicsPorServicio = new Map(
+    (clics.por_servicio ?? []).map((c) => [c.service_id, c]),
+  )
 
   // Origen absoluto para los links que el embajador va a copiar y mandar. Se
   // resuelve AQUÍ (servidor) y no con `window.location` en el cliente: si no,
@@ -127,6 +146,8 @@ export default async function EmbajadorPage() {
     destino: [s.city_to, s.state_to].filter(Boolean).join(', ') || null,
     desde: s.price != null ? Number(s.price) : null,
     agencia: nombrePorAgencia.get(s.supplier_id) ?? null,
+    clics: clicsPorServicio.get(s.id)?.clics ?? 0,
+    cotizando: clicsPorServicio.get(s.id)?.cotizando ?? 0,
   }))
 
   const e = (data ?? {
@@ -140,6 +161,8 @@ export default async function EmbajadorPage() {
 
   return (
     <div className="space-y-6">
+      <ConfetiPrimeraVenta activo={Number(e.num_ventas ?? 0) > 0} />
+
       <TarjetaPerfil
         profileId={user?.id ?? ''}
         nombre={perfilPropio?.name ?? null}
@@ -151,6 +174,15 @@ export default async function EmbajadorPage() {
           saldo: Number(e.saldo ?? 0),
           numVentas: Number(e.num_ventas ?? 0),
         }}
+      />
+
+      <Checklist
+        pasos={pasosActivacion({
+          tieneCodigo: Boolean(e.referral_code),
+          tieneFoto: Boolean(perfilPropio?.image),
+          clics: Number(clics.total_clics ?? 0),
+          ventas: Number(e.num_ventas ?? 0),
+        })}
       />
 
       {error && (
@@ -184,6 +216,19 @@ export default async function EmbajadorPage() {
           <CardDescription>
             Cada link ya lleva tu código: quien compre entrando por ahí te cuenta
             como venta. Al compartirlo salen la foto y el precio del viaje.
+            {clics.total_clics > 0 ? (
+              <>
+                {' '}
+                <strong>
+                  {clics.total_clics === 1
+                    ? '1 persona ya abrió tus links'
+                    : `${clics.total_clics} personas ya abrieron tus links`}
+                </strong>
+                {clics.en_cotizacion > 0
+                  ? ` y ${clics.en_cotizacion === 1 ? '1 va' : `${clics.en_cotizacion} van`} a medio comprar.`
+                  : '.'}
+              </>
+            ) : null}
           </CardDescription>
         </CardHeader>
         <CardContent>
