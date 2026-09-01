@@ -168,4 +168,4 @@ select caso, veredicto from qa;
 select count(*) as filas_basura from ketzal.poll_votes
  where voter_hash like 'hash_qa_rls_m002%';
 
-commit;
+rollback;  -- un hard-test NUNCA commitea (2026-09-01)

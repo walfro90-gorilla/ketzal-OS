@@ -10,8 +10,19 @@
 -- de ventas a un tercero. Y si la resolución fallara, el mismo embajador
 -- cobraría lo mismo en todas partes — que es justo lo que m008 vino a corregir.
 --
--- Cómo correrlo: pegar en el SQL editor de Supabase. Siembra lo suyo y borra al
--- final verificando 0.
+-- Cómo correrlo: `pnpm hard-test embajadores_rls`.
+--
+-- ⚠ Este harness YA CAUSÓ PÉRDIDA DE DATOS EN PRODUCCIÓN (2026-09-01). Tenía
+-- hardcodeados los ids REALES de Wanderlust y Border, les insertaba tarifas de
+-- embajador, y limpiaba con `delete … where payee_type='embajador' and
+-- scope_supplier_id in (v_wl,v_bo)` — que también borraba las tarifas reales del
+-- fundador — y remataba con `commit`. Se llevó las dos de $250/pax.
+-- Dos cambios para que no pueda repetirse:
+--   · **Termina en `rollback`**, no en `commit`. Nada de lo que hace persiste,
+--     así que no necesita limpieza y no puede borrar nada de nadie. El corredor
+--     ahora se NIEGA a correr un .sql que traiga `commit`.
+--   · **Crea sus propias agencias**, no toca las reales. De paso desaparece la
+--     colisión de `unique_violation` contra una tarifa real ya existente.
 --
 -- Trampas que este harness evita a propósito:
 --   · Desde el SQL editor eres superusuario y la RLS NI SE EVALÚA ⇒ cada caso
@@ -28,27 +39,39 @@ grant all on qa to authenticated;
 
 do $$
 declare
-  v_wl uuid := 'e9289a23-c174-45f7-8601-3c86be99fc40';  -- Wanderlust
-  v_bo uuid := 'dd46052b-4278-4661-968e-a7cec7b70f25';  -- Border
+  -- Agencias PROPIAS del harness. Antes eran las reales (Wanderlust y Border) y
+  -- por eso pudo borrarles sus tarifas. Nada aquí toca datos del fundador.
+  v_wl uuid := '0000a6c1-0000-4000-8000-0000000000a1';  -- "agencia 1" (hacía de Wanderlust)
+  v_bo uuid := '0000a6c1-0000-4000-8000-0000000000a2';  -- "agencia 2" (hacía de Border)
+  v_admin_wl uuid := '0000a6c1-0000-4000-8000-0000000000b1';
+  v_admin_bo uuid := '0000a6c1-0000-4000-8000-0000000000b2';
+  v_sin_tarifa uuid := '0000a6c1-0000-4000-8000-0000000000a3';  -- agencia 3: vacía a propósito
   v_emb_ketzal uuid := '0000e11a-0000-4000-8000-0000000000c1';  -- sin agencia
-  v_emb_wl     uuid := '0000e11a-0000-4000-8000-0000000000c2';  -- de Wanderlust
-  v_admin_wl uuid; v_admin_bo uuid; r record; n int;
+  v_emb_wl     uuid := '0000e11a-0000-4000-8000-0000000000c2';  -- de la agencia 1
+  r record; n int;
 begin
-  select id into v_admin_wl from ketzal.profiles where supplier_id=v_wl and role='admin' limit 1;
-  select id into v_admin_bo from ketzal.profiles where supplier_id=v_bo and role='admin' limit 1;
-  if v_admin_wl is null or v_admin_bo is null then
-    insert into qa values ('setup','SALTADO: faltan admins de dos agencias'); return;
-  end if;
+  insert into ketzal.suppliers (id,name,contact_email,supplier_type,commission_rate) values
+    (v_wl,'QA m008 Agencia 1','qa.m008.ag1@ketzal.local','agency',0),
+    (v_bo,'QA m008 Agencia 2','qa.m008.ag2@ketzal.local','agency',0),
+    (v_sin_tarifa,'QA m008 Agencia 3 (sin tarifa)','qa.m008.ag3@ketzal.local','agency',0);
 
   insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
     email_confirmed_at, created_at, updated_at, confirmation_token, recovery_token,
     email_change_token_new, email_change, email_change_token_current, phone_change,
     phone_change_token, reauthentication_token)
   values
+    (v_admin_wl,'00000000-0000-0000-0000-000000000000','authenticated','authenticated',
+     'qa.m008.admin1@ketzal.local', crypt('x',gen_salt('bf')),now(),now(),now(),'','','','','','','',''),
+    (v_admin_bo,'00000000-0000-0000-0000-000000000000','authenticated','authenticated',
+     'qa.m008.admin2@ketzal.local', crypt('x',gen_salt('bf')),now(),now(),now(),'','','','','','','',''),
     (v_emb_ketzal,'00000000-0000-0000-0000-000000000000','authenticated','authenticated',
      'qa.m008.ketzal@ketzal.local', crypt('x',gen_salt('bf')),now(),now(),now(),'','','','','','','',''),
     (v_emb_wl,'00000000-0000-0000-0000-000000000000','authenticated','authenticated',
      'qa.m008.wl@ketzal.local', crypt('x',gen_salt('bf')),now(),now(),now(),'','','','','','','','');
+
+  insert into ketzal.profiles (id,email,name,role,supplier_id,type,active) values
+    (v_admin_wl,'qa.m008.admin1@ketzal.local','QA Admin 1','admin',v_wl,'agente',true),
+    (v_admin_bo,'qa.m008.admin2@ketzal.local','QA Admin 2','admin',v_bo,'agente',true);
   -- El embajador de Ketzal va SIN agencia: el caso que m005 no permitía.
   insert into ketzal.profiles (id,email,name,role,supplier_id,type,active,referral_code) values
     (v_emb_ketzal,'qa.m008.ketzal@ketzal.local','QA Emb Ketzal','user',null,'embajador',true,'QAM008K'),
@@ -104,8 +127,11 @@ begin
          else 'ROTO: '||coalesce(r.basis,'sin regla') end);
 
   -- Agencia sin tarifa ⇒ no devenga (y quedará rastro en referral_misses).
-  select count(*) into n from ketzal.resolve_commission_rule(null,'embajador',v_emb_wl,
-    (select id from ketzal.suppliers where id not in (v_wl,v_bo) limit 1));
+  -- La agencia 3 se crea aquí, vacía a propósito. Antes el caso tomaba
+  -- «cualquier otra agencia» del catálogo: eso depende de qué haya en la BD, y
+  -- el día que esa otra agencia SÍ tenga tarifa el caso reporta un hueco falso.
+  -- Mismo mal que clavar cifras del catálogo (ADR-0023).
+  select count(*) into n from ketzal.resolve_commission_rule(null,'embajador',v_emb_wl, v_sin_tarifa);
   insert into qa values ('9 agencia sin tarifa no devenga',
     case when n=0 then 'OK: sin regla' else 'HUECO: '||n end);
 
@@ -140,16 +166,10 @@ begin
          else 'ROTO: '||ketzal.commission_amount('hibrido',4,150,3,10000) end);
 
   perform set_config('request.jwt.claims', null, true);
-  delete from ketzal.commission_rules
-   where scope_profile_id in (v_emb_ketzal,v_emb_wl)
-      or (payee_type='embajador' and scope_supplier_id in (v_wl,v_bo));
-  delete from ketzal.profiles where id in (v_emb_ketzal,v_emb_wl);
-  delete from auth.users where id in (v_emb_ketzal,v_emb_wl);
-  insert into qa values ('15 limpieza',
-    (select case when count(*)=0 then 'OK: 0' else 'SUCIO: '||count(*) end
-       from ketzal.profiles where email like 'qa.m008%'));
+  -- Sin limpieza a mano: el `rollback` del final revierte TODO. El borrado por
+  -- predicado que vivía aquí es lo que se llevó las tarifas reales del fundador.
 end $$;
 
 select caso, veredicto from qa order by caso;
 
-commit;
+rollback;  -- un hard-test NUNCA commitea (2026-09-01)
