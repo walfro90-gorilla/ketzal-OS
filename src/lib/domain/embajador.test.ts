@@ -9,6 +9,7 @@ import {
   normalizarCodigoReferido,
   nivelDe,
   NIVELES,
+  pasosActivacion,
 } from './embajador'
 
 describe('explicarTarifa', () => {
@@ -150,5 +151,33 @@ describe('nivelDe', () => {
 
   it('NaN se trata como cero', () => {
     expect(nivelDe(Number.NaN).numero).toBe(1)
+  })
+})
+
+describe('pasosActivacion', () => {
+  const nada = { tieneCodigo: false, tieneFoto: false, clics: 0, ventas: 0 }
+
+  it('sin nada hecho, ningún paso está palomeado', () => {
+    expect(pasosActivacion(nada).every((p) => !p.hecho)).toBe(true)
+  })
+
+  it('cada paso se deriva de su dato, no de una palomita', () => {
+    const p = pasosActivacion({ tieneCodigo: true, tieneFoto: true, clics: 5, ventas: 1 })
+    expect(p.every((x) => x.hecho)).toBe(true)
+  })
+
+  it('un solo clic prende el paso de clics', () => {
+    const p = pasosActivacion({ ...nada, clics: 1 })
+    expect(p.find((x) => x.clave === 'clics')?.hecho).toBe(true)
+    expect(p.find((x) => x.clave === 'venta')?.hecho).toBe(false)
+  })
+
+  it('siempre devuelve los cuatro pasos, en orden', () => {
+    expect(pasosActivacion(nada).map((p) => p.clave)).toEqual([
+      'codigo',
+      'foto',
+      'clics',
+      'venta',
+    ])
   })
 })

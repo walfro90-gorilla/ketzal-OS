@@ -15,7 +15,15 @@ export interface Attribution {
   first_touch_at: string
 }
 
-export type FunnelEventName = 'checkout_open' | 'order_created' | 'pago_metodo'
+export type FunnelEventName =
+  | 'checkout_open'
+  | 'order_created'
+  | 'pago_metodo'
+  /** Alguien abrió el link de un embajador (`?ref=`). Se emite en el CLIENTE a
+   *  propósito: medido en el servidor contaría el prefetch de Next y el crawler
+   *  que arma la vista previa de WhatsApp, y el embajador vería clics que nadie
+   *  dio. Ni el prefetch ni los crawlers ejecutan JS. */
+  | 'link_click'
 
 const STORAGE_KEY = 'ktz_attribution'
 const SESSION_KEY = 'ktz_session'
@@ -130,7 +138,13 @@ export function getSessionId(): string {
  *  jamás lanza ni bloquea la navegación que sigue. */
 export function track(
   event: FunnelEventName,
-  payload?: { service_id?: string; booking_id?: string; metodo?: 'mp' | 'spei' }
+  payload?: {
+    service_id?: string
+    booking_id?: string
+    metodo?: 'mp' | 'spei'
+    /** Código de embajador del link que se abrió (solo para 'link_click'). */
+    ref?: string
+  }
 ): void {
   try {
     void fetch('/api/track', {

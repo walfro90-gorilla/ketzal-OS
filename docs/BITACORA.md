@@ -9,6 +9,46 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Fase 3: activación — clics, checklist y confeti (b084, 2026-09-01).**
+>
+> **Conteo de clics.** El sustrato ya existía (`funnel_events` + `/api/track`,
+> m011); se agregó el evento `link_click` y el RPC `my_link_clicks`, porque la
+> tabla es deny-all y nadie la lee por REST. Devuelve **solo conteos**: cuántas
+> personas, nunca quiénes — un embajador viendo "Juan abrió tu link 3 veces" es
+> vigilancia y no le sirve para vender. Y se emite **en el cliente** a propósito:
+> medido en el servidor contaría el prefetch de los `<Link>` de Next y el crawler
+> que arma la vista previa de WhatsApp, y el embajador vería clics que nadie dio.
+>
+> **Checklist derivado.** Cuatro pasos (código, foto, primer clic, primera
+> venta), cada uno calculado de un dato real. Nada de palomitas que el embajador
+> marque solo: un checklist que se completa sin hacer nada mide obediencia, no
+> activación, y miente en el primer corte cuando el que "completó todo" no ha
+> traído una venta. Se esconde solo al terminarse.
+>
+> **Confeti en la PRIMERA COMISIÓN**, no al abrir el tour: celebrar que alguien
+> instaló algo no premia nada. Sin dependencia nueva — divs con dos animaciones
+> CSS; una librería de confeti son ~15 KB para doce segundos de alegría al año.
+>
+> **Tres cosas que cazaron las pruebas, no el compilador.**
+> 1. El allowlist de `/api/track` y el CHECK de `funnel_events` son **dos
+>    candados**: agregué el evento al handler y la BD lo rechazaba con 23514.
+> 2. `useSearchParams()` en `Trackers` —que vive en el layout raíz— **rompió el
+>    build**: obliga a toda la app a render dinámico y truena las páginas
+>    estáticas ("should be wrapped in a suspense boundary"). Habría llegado a
+>    producción. Se lee el `?ref` de `window.location` dentro del efecto, que es
+>    donde de verdad se necesita.
+> 3. **Un número deshonesto**: el total sumaba los conteos por servicio, así que
+>    una sola persona mirando la vitrina y dos tours salía como "3 personas". Lo
+>    vi en pantalla diciendo "2 personas" cuando el único visitante era yo.
+>    Corregido a sesiones distintas (b084c) — un panel que infla números pierde
+>    la confianza del embajador la primera vez que él sabe cuánta gente le
+>    compartió.
+>
+> Verificado en el navegador de punta a punta: aterrizar con `?ref` registra el
+> clic, navegar a un tour registra el suyo, el checklist pasa a "2 de 4" con
+> "Alguien abrió tu link" palomeado, y la fila del tour dice "1 persona lo
+> abrió". 169 tests de dominio (11 nuevos) · build · limpieza verificada.
+
 > **Fase 2: el portal del embajador deja de ser una lista de números
 > (b083, 2026-09-01).** Reorden completo de `/embajador` con lo que el fundador
 > pidió, sobre los cimientos de las fases 0 y 1.
