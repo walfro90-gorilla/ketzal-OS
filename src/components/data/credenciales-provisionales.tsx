@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { CheckIcon, CopyIcon, MailIcon, MessageCircleIcon } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { linkWhatsapp } from '@/lib/domain/phone'
 
 // Entrega de credenciales provisionales, una sola pantalla para las cuatro
@@ -84,27 +84,23 @@ export function CredencialesProvisionales({
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <Button
-          type="button"
-          size="sm"
-          render={
-            <a href={hrefWa} target="_blank" rel="noopener noreferrer">
-              <MessageCircleIcon className="size-4" />
-              {wa ? 'Mandar por WhatsApp' : 'WhatsApp'}
-            </a>
-          }
-        />
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          render={
-            <a href={hrefMail}>
-              <MailIcon className="size-4" />
-              Mandar por correo
-            </a>
-          }
-        />
+        {/* Enlaces, no botones: `Button` de base-nova exige un <button> nativo
+            (`nativeButton`), y meterle un <a> por `render` le quita la semántica
+            —lo grita en consola—. El patrón del repo para un enlace con pinta de
+            botón es `buttonVariants` sobre el <a>. */}
+        <a
+          href={hrefWa}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={buttonVariants({ size: 'sm' })}
+        >
+          <MessageCircleIcon className="size-4" />
+          {wa ? 'Mandar por WhatsApp' : 'WhatsApp'}
+        </a>
+        <a href={hrefMail} className={buttonVariants({ size: 'sm', variant: 'outline' })}>
+          <MailIcon className="size-4" />
+          Mandar por correo
+        </a>
         <Button type="button" size="sm" variant="outline" onClick={copiar}>
           {copiado ? <CheckIcon className="size-4" /> : <CopyIcon className="size-4" />}
           {copiado ? 'Copiado' : 'Copiar'}

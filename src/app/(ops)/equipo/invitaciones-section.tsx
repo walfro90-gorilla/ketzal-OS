@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { MailPlusIcon, KeyRoundIcon, CopyIcon, CheckIcon } from 'lucide-react'
+import { MailPlusIcon, KeyRoundIcon } from 'lucide-react'
 import {
   Card,
   CardContent,
@@ -15,12 +15,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { NativeSelect } from '@/components/ui/native-select'
 import { Badge } from '@/components/ui/badge'
+import { CredencialesProvisionales } from '@/components/data/credenciales-provisionales'
 import type { Database } from '@/lib/db/database.types'
 import type { AgenciaOption } from './miembro-acciones'
 import {
   invitarAgente,
   revocarInvitacion,
-  generarLinkInvitacion,
+  generarAccesoInvitado,
 } from './invitaciones-actions'
 
 type UserRole = Database['ketzal']['Enums']['user_role']
@@ -52,36 +53,29 @@ export function InvitacionesSection({
   const [rol, setRol] = useState<UserRole>('user')
   // El superadmin debe elegir agencia destino; el admin invita a la suya.
   const [agencia, setAgencia] = useState('')
-  // Link de acceso generado por invitación (id → link + si se mandó correo).
-  const [accesos, setAccesos] = useState<
-    Record<string, { link: string; emailed: boolean }>
-  >({})
-  const [copiado, setCopiado] = useState<string | null>(null)
+  // Credenciales de la última entrega. VIVE FUERA DE LA LISTA a propósito: al
+  // generar el acceso la invitación deja de estar pendiente y su fila
+  // desaparece con el `revalidatePath`. Cuando la tarjeta colgaba del <li>, se
+  // iba con la fila y la contraseña NO se llegaba a ver nunca — quedaba una
+  // cuenta creada que nadie podía usar.
+  const [entrega, setEntrega] = useState<
+    { email: string; password: string } | null
+  >(null)
 
   function enviarAcceso(inv: Invitacion) {
     startTransition(async () => {
-      const res = await generarLinkInvitacion(inv.email)
+      const res = await generarAccesoInvitado(inv.email)
       if ('error' in res) {
         toast.error(res.error)
         return
       }
-      setAccesos((prev) => ({ ...prev, [inv.id]: res }))
+      setEntrega(res.credentials)
       toast.success(
-        res.emailed
-          ? 'Correo de acceso enviado. También puedes copiar el link.'
-          : 'Link de acceso listo. Cópialo y mándalo por WhatsApp.'
+        res.cuentaExistente
+          ? 'Ese correo ya tenía cuenta: se le generó una contraseña nueva.'
+          : 'Acceso listo. Mándale las credenciales.'
       )
     })
-  }
-
-  async function copiar(id: string, link: string) {
-    try {
-      await navigator.clipboard.writeText(link)
-      setCopiado(id)
-      setTimeout(() => setCopiado((c) => (c === id ? null : c)), 1800)
-    } catch {
-      // clipboard bloqueado: seleccionar a mano.
-    }
   }
 
   function invitar() {
@@ -127,9 +121,9 @@ export function InvitacionesSection({
       <CardHeader>
         <CardTitle>Invitar agentes</CardTitle>
         <CardDescription>
-          Invita por correo y luego usa «Enviar acceso»: le manda un correo para
-          crear su contraseña (si tienes SMTP en Supabase) y te da un link copiable
-          para WhatsApp. Al abrirlo se une a la agencia con el rol que le des.
+          Invita por correo y luego usa «Enviar acceso»: crea su cuenta con el rol
+          y la agencia que le diste, y te entrega su contraseña provisional para
+          mandársela por WhatsApp o correo. Al entrar se le pide crear la suya.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -237,35 +231,18 @@ export function InvitacionesSection({
                       Revocar
                     </Button>
                   </div>
-                  {accesos[inv.id]?.link && (
-                    <div className="flex items-center gap-2">
-                      <code className="min-w-0 flex-1 truncate rounded-lg border bg-muted/40 px-3 py-2 text-xs">
-                        {accesos[inv.id].link}
-                      </code>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => copiar(inv.id, accesos[inv.id].link)}
-                      >
-                        {copiado === inv.id ? (
-                          <CheckIcon className="size-4" />
-                        ) : (
-                          <CopyIcon className="size-4" />
-                        )}
-                      </Button>
-                    </div>
-                  )}
-                  {accesos[inv.id]?.emailed && (
-                    <p className="text-xs text-emerald-600">
-                      Correo de acceso enviado a {inv.email}.
-                    </p>
-                  )}
                 </li>
               ))}
             </ul>
           )}
         </div>
+
+        {entrega && (
+          <CredencialesProvisionales
+            credenciales={entrega}
+            titulo={`Acceso listo para ${entrega.email}. Mándale estos datos:`}
+          />
+        )}
       </CardContent>
     </Card>
   )

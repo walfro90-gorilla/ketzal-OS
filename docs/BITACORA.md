@@ -9,6 +9,54 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **El hermano roto que quedó del carril anterior, y lo que había debajo (b078,
+> ADR-0028, 2026-08-31).** ADR-0027 dejó `generarLinkInvitacion` de `/equipo`
+> sin arreglar a propósito. Al abrirlo, el link muerto era lo de menos:
+> `accept_pending_invitation` hacía `update ketzal.profiles … where id =
+> auth.uid()` sobre una fila **que no existía** —0 filas, ningún error— y
+> enseguida marcaba la invitación `accepted`. Medido en vivo:
+> `accept_pending_invitation -> 200 "dd46052b-…"` mientras `profile -> NO EXISTE`,
+> y el segundo intento (ya con `ensure_profile`) devolvía null porque la
+> invitación estaba quemada. **El agente invitado que entrara por contraseña
+> quedaba `type='viajero'` para siempre**, aterrizando en `/mis-compras`, y su
+> invitación desaparecía de `/equipo` como si todo hubiera salido bien. Sin un
+> error para nadie: ni para él, ni para quien lo invitó.
+>
+> La causa: la función asumía que alguien más (`ensure_profile()`, que solo llama
+> `/auth/callback`) ya había creado la fila. `/login` la invoca tras
+> `signInWithPassword` sin ese paso, y ese orden no lo garantizaba nadie. **b078**
+> la vuelve autosuficiente con un `insert … on conflict do update` —estructural,
+> no un `if FOUND`— conservando los tres guards del DDL vivo. `generarAccesoInvitado`
+> sustituye al link: crea la cuenta con provisional, materializa el profile con el
+> rol y la agencia de la invitación, la marca cumplida y devuelve las credenciales.
+> El profile se escribe ahí y no en el login porque `must_change_password` solo
+> pega sobre una fila que ya exista.
+>
+> **Dos bugs más los cazó mirar la pantalla, no el tipado.** (1) La tarjeta de
+> credenciales colgaba del `<li>` de la invitación pendiente; al cumplirse la
+> invitación la fila se va con el `revalidatePath` y **la contraseña no se veía
+> nunca** — quedaba una cuenta creada que nadie podía usar. Ahora vive al nivel de
+> la sección. (2) El `<Button render={<a>}>` de `CredencialesProvisionales`
+> (enviado en el PR anterior) gritaba en consola: base-nova exige `<button>`
+> nativo y meterle un `<a>` le quita la semántica. Cambiado al patrón del repo,
+> `buttonVariants` sobre el `<a>`.
+>
+> **Probado:** `invitacion_acceso.mjs` 19/19 —crea el profile, nace agente y no
+> viajero, respeta el rol invitado, NO arrebata a quien ya es de otra agencia y en
+> ese caso NO quema la invitación, idempotente, sin invitación no fabrica nada, y
+> con la app arriba el invitado aterriza en el back-office y no pasa sin fijar su
+> contraseña—; `gate_password_provisional` 4/4; `acceso_provisional` 9/9; 158
+> tests de dominio; `superficie_anonima` 30/0; `next build` verde. Además el botón
+> se ejercitó **en el navegador** como superadmin, que es lo que destapó los dos
+> bugs de UI. Limpieza verificada: 0 cuentas efímeras, 0 profiles huérfanos, la
+> invitación real del fundador intacta.
+>
+> Queda anotado, no hecho: "Enviar acceso" sigue siendo solo del superadmin
+> aunque un admin de agencia sí pueda invitar (misma asimetría que m005 arregló
+> para embajadores), y un `viajero` invitado se convierte en agente mientras
+> `crearAgenciaEInvitarAdmin` lo bloquea — incoherencia real, decisión de
+> producto.
+
 > **El acceso de los embajadores: se acabó el link que nunca funcionó (ADR-0027,
 > 2026-08-31).** Reporte del fundador: "se crea un link y se envía, pero el link
 > no funciona". Era literal, y llevaba así desde que existe. Medido en vivo con

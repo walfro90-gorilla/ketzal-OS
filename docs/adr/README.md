@@ -34,3 +34,4 @@ este índice se actualiza en el mismo diff.**
 | [0025](0025-medicion-server-first.md) | Medición server-first: Purchase desde donde se confirma el dinero; pixel solo PageView; funnel propio | aceptada |
 | [0026](0026-seo-aeo-tecnico.md) | SEO/AEO técnico: crawlers de IA permitidos, JSON-LD TouristTrip, code-first sin Cloudflare/GTM | aceptada |
 | [0027](0027-acceso-por-contrasena-provisional.md) | El acceso de quien no se registra solo se entrega con contraseña provisional; el magic-link nunca funcionó (fragmento + un solo uso) | aceptada |
+| [0028](0028-la-invitacion-materializa-la-cuenta.md) | La invitación de agente crea el perfil (b078) y «Enviar acceso» la cumple; el RPC deja de depender del camino de login | aceptada |

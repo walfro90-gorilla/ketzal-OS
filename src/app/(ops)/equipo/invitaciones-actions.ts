@@ -1,6 +1,5 @@
 'use server'
 
-import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
@@ -51,14 +50,28 @@ export async function invitarAgente(
 }
 
 /**
- * Genera el acceso de un invitado: (1) manda un correo para que cree su contraseña
- * —solo llega de verdad si hay SMTP propio en Supabase Auth— y (2) devuelve un link
- * copiable para mandar por WhatsApp. Ambos llevan a /nueva-password; al abrirlo se
- * crea el profile y se auto-une a su agencia. Solo superadmin (MVP).
+ * Entrega el acceso de un invitado pendiente: crea su cuenta con una contraseña
+ * PROVISIONAL, materializa su profile con el rol y la agencia de la invitación,
+ * y la marca aceptada. Devuelve las credenciales para mandárselas por WhatsApp
+ * o correo. Solo superadmin (igual que antes).
+ *
+ * Antes esto mandaba un correo de invitación y devolvía un link copiable. Los
+ * dos estaban rotos por la misma causa que el de embajadores y proveedores
+ * (ADR-0027): un link hecho por la Admin API no trae `code_verifier`, Auth cae
+ * a flujo implícito y `/auth/callback` recibe la sesión en el FRAGMENTO, que
+ * nunca llega al servidor. Medido con `type:'recovery'`: 303 con
+ * `fragment=[access_token,…]` y cero `?code=`.
+ *
+ * El profile se crea AQUÍ, por adelantado, y no se deja para
+ * `accept_pending_invitation` en el login: esa función solo puede poner el flag
+ * `must_change_password` sobre una fila que ya exista, y para una cuenta recién
+ * creada todavía no existe. Creándolo aquí el flag sí pega y el gate de
+ * contraseña provisional funciona desde el primer login.
  */
-export async function generarLinkInvitacion(
-  email: string
-): Promise<{ error: string } | { link: string; emailed: boolean }> {
+export async function generarAccesoInvitado(email: string): Promise<
+  | { error: string }
+  | { ok: true; credentials: { email: string; password: string }; cuentaExistente: boolean }
+> {
   const supabase = await createClient()
   const {
     data: { user },
@@ -76,51 +89,90 @@ export async function generarLinkInvitacion(
   const correo = (email ?? '').trim().toLowerCase()
   if (!correo) return { error: 'Falta el correo.' }
 
-  const h = await headers()
-  const origin = process.env.NEXT_PUBLIC_APP_URL ?? `https://${h.get('host')}`
-  const redirectTo = `${origin}/auth/callback?next=/nueva-password`
   const svc = createServiceClient()
 
-  // 1) Invitar por correo: crea la cuenta y manda el email "crea tu contraseña".
-  //    Sin SMTP propio en Supabase el correo casi no llega (por eso el link de abajo).
-  //    Si la cuenta ya existe, inviteUserByEmail falla ⇒ lo ignoramos (usamos el link).
-  let emailed = false
-  const inv = await svc.auth.admin.inviteUserByEmail(correo, { redirectTo })
-  if (!inv.error) emailed = true
+  // Exigir la invitación pendiente: de ahí salen el rol y la agencia, y evita
+  // que este botón sirva para fabricar una cuenta con cualquier correo.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: invitacion } = await (svc as any)
+    .from('agency_invitations')
+    .select('id, supplier_id, role')
+    .eq('email', correo)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (!invitacion) return { error: 'Ya no hay una invitación pendiente para ese correo.' }
 
-  // 2) Link copiable (WhatsApp): recovery = "pon tu contraseña". No depende del correo.
-  //
-  // OJO — ESTE LINK ESTÁ ROTO, por la misma causa que mató al de embajadores y
-  // proveedores (ADR-0027): un link hecho por la Admin API no trae
-  // `code_verifier`, así que Auth cae a flujo implícito y `/auth/callback`
-  // recibe la sesión en el FRAGMENTO (`#access_token=…`), que nunca llega al
-  // servidor. Medido el 2026-08-31 con `type:'recovery'`: 303 a
-  // `/auth/callback?next=…` con `fragment=[access_token,refresh_token,…]` y cero
-  // `?code=`. El correo de `inviteUserByEmail` tiene el mismo problema.
-  //
-  // NO se arregló aquí con contraseña provisional, como sí se hizo en las otras
-  // tres altas, porque este camino invita a una cuenta que TODAVÍA NO TIENE
-  // `profiles`: el profile y el auto-join a la agencia los crea
-  // `accept_pending_invitation` desde `/auth/callback`, y un login por
-  // contraseña no pasa por ahí. Cambiarlo obliga a crear el profile por
-  // adelantado con su rol y agencia —como ya hace `crearAgenciaEInvitarAdmin`—
-  // y eso toca la máquina de estados de invitaciones. Carril aparte.
-  //
-  // Mientras tanto lo que SÍ funciona para dar de alta a un agente es crear la
-  // agencia con su admin (`crearAgenciaEInvitarAdmin`) o, si ya existe la
-  // cuenta, "Regenerar acceso" desde la fila del miembro.
-  const { data, error } = await svc.auth.admin.generateLink({
-    type: 'recovery',
+  // Crear la cuenta; si el correo ya existe, reutilizarla.
+  let userId: string
+  let cuentaExistente = false
+  let credentials: { email: string; password: string }
+  const provisional = nuevaProvisional()
+  const { data: created } = await svc.auth.admin.createUser({
     email: correo,
-    options: { redirectTo },
+    password: provisional,
+    email_confirm: true,
   })
-  const link = data?.properties?.action_link
-  if (!link) {
-    return emailed
-      ? { link: '', emailed }
-      : { error: safeError(error, 'No se pudo generar el link de acceso.') }
+  if (created?.user) {
+    userId = created.user.id
+    credentials = { email: correo, password: provisional }
+  } else {
+    const { data: foundId } = await svc.rpc('find_auth_user_id' as never, {
+      p_email: correo,
+    } as never)
+    if (!foundId) return { error: 'No se pudo preparar la cuenta de ese correo.' }
+    userId = foundId as unknown as string
+    cuentaExistente = true
+    const res = await emitirCredencialProvisional(userId)
+    if ('error' in res) return res
+    credentials = res.credentials
   }
-  return { link, emailed }
+
+  // Mismas reglas que `accept_pending_invitation`, para que el resultado no
+  // dependa de por dónde entró la persona: no se toca al superadmin y no se
+  // arrebata a quien ya pertenece a OTRA agencia.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: prev } = await (svc as any)
+    .from('profiles')
+    .select('role, supplier_id, name')
+    .eq('id', userId)
+    .maybeSingle()
+  if (prev?.role === 'superadmin') {
+    return { error: 'Ese correo es del superadmin; no se le puede asignar una agencia.' }
+  }
+  if (prev?.supplier_id && prev.supplier_id !== invitacion.supplier_id) {
+    return { error: 'Ese correo ya pertenece a otra agencia.' }
+  }
+
+  // Profile con el rol y la agencia de la invitación + el flag de contraseña
+  // provisional, que es lo que fuerza el cambio al primer login.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error: eProf } = await (svc as any).from('profiles').upsert({
+    id: userId,
+    email: correo,
+    name: prev?.name ?? correo.split('@')[0],
+    type: 'agente',
+    role: invitacion.role,
+    supplier_id: invitacion.supplier_id,
+    active: true,
+    must_change_password: true,
+  })
+  if (eProf) {
+    // Si la cuenta se acaba de crear y el profile falló, no dejarla huérfana.
+    if (!cuentaExistente) await svc.auth.admin.deleteUser(userId)
+    return { error: safeError(eProf, 'No se pudo preparar el acceso.') }
+  }
+
+  // La invitación queda cumplida: la cuenta ya existe con su rol y su agencia.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (svc as any)
+    .from('agency_invitations')
+    .update({ status: 'accepted', accepted_at: new Date().toISOString() })
+    .eq('id', invitacion.id)
+
+  revalidatePath('/equipo')
+  return { ok: true, credentials, cuentaExistente }
 }
 
 /** Revoca una invitación pendiente (superadmin cualquiera; admin la de su agencia). */
