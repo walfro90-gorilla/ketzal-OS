@@ -41,3 +41,4 @@ este índice se actualiza en el mismo diff.**
 | [0032](0032-corte-quincenal-derivado.md) | El corte de comisiones es derivado (devengado − pagado a una fecha), acumulativo, y solo paga ventas con dinero cobrado (b086) | aceptada |
 | [0033](0033-el-cliente-se-convierte-sin-perder-nada.md) | Un correo que ya tiene cuenta de viajero se CONVIERTE en embajador (sin contraseña nueva) y conserva sus compras; cada portal enseña la salida al otro (b087) | aceptada |
 | [0034](0034-la-verificacion-nombra-su-prueba.md) | Un ADR que afirma un invariante nombra el archivo y la aserción que lo prueban; `pnpm hard-test` corre los 21 harness y `NO CORRIÓ` es rojo | aceptada |
+| [0035](0035-un-hard-test-nunca-commitea.md) | Un hard-test `.sql` termina en `rollback`; el corredor se niega a correr uno con `commit`. Nunca borra por predicado ni toca filas reales (incidente de pérdida de datos 2026-09-01) | aceptada |

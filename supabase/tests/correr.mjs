@@ -130,6 +130,13 @@ const EXITO_EN_EXCEPCION = [
   /VIOLACIONES \(0\)/i,          // simulacion_1000_ops: "ROLLBACK-OK … VIOLACIONES (0)"
 ]
 
+// Vocabulario de FRACASO en los harness estilo veredicto. Cada uno inventó el
+// suyo y el corredor solo miraba `FALLA:` — así que `embajadores_rls` (ROTO,
+// SUCIO, INVALIDO) y `encuestas_rls` (HUECO) salían VERDES con casos rotos
+// adentro. `INVALIDO` cuenta como fracaso a propósito: significa que el caso no
+// llegó a probar el guard, y un guard sin probar no es un guard verificado.
+const VEREDICTO_MALO = /^(FALL(A|Ó)|ROTO|HUECO|SUCIO|INVALIDO|INVÁLIDO)\b/i
+
 /** Celdas que declaran una falla, en cualquiera de los result sets. */
 function filasConFalla(res) {
   const sets = Array.isArray(res) ? res : [res]
@@ -137,7 +144,7 @@ function filasConFalla(res) {
   for (const s of sets) {
     for (const fila of s?.rows ?? []) {
       for (const v of Object.values(fila)) {
-        if (typeof v === 'string' && /^FALL(A|Ó)\b/i.test(v.trim())) malas.push(v.trim())
+        if (typeof v === 'string' && VEREDICTO_MALO.test(v.trim())) malas.push(v.trim())
       }
     }
   }
@@ -163,6 +170,14 @@ async function correrSql(archivo) {
     }
   }
   const sql = await readFile(join(AQUI, archivo), 'utf8')
+
+  // GUARD DURO. Un hard-test corre contra PRODUCCIÓN: si commitea, lo que haga
+  // se queda. `embajadores_rls.sql` commiteaba y su limpieza borraba por
+  // predicado — el 2026-09-01 se llevó las dos tarifas reales de embajador del
+  // fundador. El corredor prefiere no correr un harness a dejarlo escribir.
+  if (/^\s*commit\s*;/mi.test(sql)) {
+    return { noCorrio: 'trae `commit`: un hard-test tiene que revertir (cámbialo por `rollback`)' }
+  }
   // La conexión se reusa entre harness. Un harness que aborta su transacción
   // (un `raise` dentro de un `begin;` sin `rollback`) deja la sesión envenenada
   // y TODOS los siguientes fallan con "current transaction is aborted" — seis

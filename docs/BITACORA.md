@@ -9,6 +9,47 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **INCIDENTE: la suite de hard-tests borró datos de producción (ADR-0035,
+> 2026-09-01).** Al encender el lado SQL de `pnpm hard-test`,
+> `embajadores_rls.sql` se llevó las **dos tarifas reales de embajador** del
+> fundador — $250/pax de Wanderlust y de Border. Se restauraron al detectarlo;
+> nada más se perdió (encuestas, votos, ventas, asientos y pagos intactos,
+> verificado fila por fila).
+>
+> **Cómo lo logró**, tres decisiones que solas son recuperables y juntas no:
+> 1. Hardcodeaba los ids **reales** de Wanderlust y Border y les insertaba
+>    tarifas de prueba.
+> 2. Limpiaba **por predicado** (`delete … where payee_type='embajador' and
+>    scope_supplier_id in (v_wl,v_bo)`), que no distingue lo que el harness creó
+>    de lo que ya estaba.
+> 3. Terminaba en **`commit`**.
+>
+> Y la corrida se reportó **verde**, por un cuarto motivo que era del corredor:
+> ese harness declara sus fallas como `'ROTO: …'`, `'HUECO: …'`, `'SUCIO: …'`,
+> `'INVALIDO: …'` y el detector solo miraba `'FALLA:'`.
+>
+> **La lección incómoda**: después de la corrida verifiqué "sin residuo" y todo
+> cuadró — 7 perfiles, 7 cuentas, 14 servicios. Conté lo que había **de más** y
+> nunca lo que **faltaba**. Una comprobación de limpieza detecta lo que un test
+> agregó, jamás lo que borró. El daño salió a la luz de casualidad, tres pasos
+> después, al notar que `commission_rules` no tenía ni una fila de embajador
+> cuando la UI había mostrado $250/pax esa misma tarde.
+>
+> **Arreglo (ADR-0035): un hard-test `.sql` termina en `rollback`, nunca en
+> `commit`,** y lo hace cumplir el corredor — se **niega a ejecutar** cualquier
+> `.sql` con una sentencia `commit` y lo reporta como `NO CORRIÓ`. Con rollback
+> la limpieza deja de existir como problema: no hay nada que borrar, así que no
+> hay predicado que pueda equivocarse de fila. `embajadores_rls` además levanta
+> ahora **sus propias tres agencias** QA, una de ellas **sin tarifa a propósito**
+> — su caso 9 tomaba "cualquier otra agencia del catálogo" y daba un hueco falso
+> en cuanto esa otra sí tenía tarifa, la misma enfermedad que clavar cifras del
+> catálogo. Queda en 14/14 y sin tocar un solo dato real.
+>
+> El vocabulario de fracaso pasó a ser una lista (`VEREDICTO_MALO`): `FALLA`,
+> `ROTO`, `HUECO`, `SUCIO`, `INVALIDO`. Este último cuenta como fracaso a
+> propósito — significa que el caso no llegó a probar el guard, y un guard sin
+> probar no es un guard verificado.
+
 > **Los 10 harness del dinero por fin corren: 9 → 16 en verde (2026-09-01).** El
 > fundador pegó `DATABASE_URL` (session pooler) en su `.env.local` y el lado SQL
 > del corredor se encendió. La corrida destapó tres cosas que llevaban meses

@@ -48,10 +48,23 @@ arreglar la conexión.
     Un redactado nuevo que no case sale **en rojo**: es el default correcto.
   - **estilo notice**: no lanza nada si todo va bien, `raise exception` si algo
     falla. Sirve para pruebas read-only.
-  - **estilo veredicto**: `begin; … commit;` y devuelve una tabla con
+  - **estilo veredicto**: `begin; … rollback;` y devuelve una tabla con
     `'OK: …'` / `'FALLA: …'` por caso. No lanza nada al fallar, así que el
-    corredor **lee las filas** y falla si alguna empieza con `FALLA`. Sin eso
-    daban verde con casos rotos adentro.
+    corredor **lee las filas**. El vocabulario de fracaso es una lista, no una
+    palabra (`VEREDICTO_MALO`): `FALLA`, `ROTO`, `HUECO`, `SUCIO`, `INVALIDO`.
+    El último cuenta como fracaso a propósito — significa que el caso no llegó a
+    probar el guard, y un guard sin probar no es un guard verificado.
+
+**Un `.sql` NUNCA commitea (ADR-0035).** El corredor **se niega a ejecutar** uno
+que traiga una sentencia `commit` y lo reporta como `NO CORRIÓ`. Corren contra
+producción: si commitean, lo que hagan se queda. `embajadores_rls.sql` commiteaba
+y limpiaba por predicado — el 2026-09-01 se llevó las dos tarifas reales de
+embajador del fundador, y la corrida salió **verde**. Con `rollback` no hay nada
+que limpiar, así que no hay predicado que pueda equivocarse de fila.
+
+Corolario: **un harness crea sus propias agencias, servicios y personas.** Nunca
+opera sobre filas reales, ni de escenario. Y verificar "sin residuo" no basta:
+detecta lo que el test **agregó**, nunca lo que **borró**.
 
 **Higiene de sesión**: la conexión se reusa entre harness, así que antes de cada
 uno el corredor manda `rollback` y `discard all`. Sin lo primero, un harness que
