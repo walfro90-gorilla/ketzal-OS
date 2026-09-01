@@ -9,6 +9,57 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Fase 2: el portal del embajador deja de ser una lista de números
+> (b083, 2026-09-01).** Reorden completo de `/embajador` con lo que el fundador
+> pidió, sobre los cimientos de las fases 0 y 1.
+>
+> **Tarjeta arriba de todo**: foto, nombre, nivel con barra de avance y los KPIs
+> en **cuadrícula 2×2** (no 1×4: cuatro columnas dejan los números ilegibles en
+> un teléfono). El embajador entra a ver cuánto lleva ganado, no a leer
+> instrucciones — así que las instrucciones se fueron al final y son
+> **colapsables** (`<details>` nativo, cero JS), abiertas por defecto solo para
+> quien todavía no vende.
+>
+> **NIVELES DERIVADOS, no XP.** `nivelDe()` se calcula de lo devengado; no hay
+> contador que subir. Un XP mutable premia actividad que no produce ingreso: el
+> embajador sube de nivel sin haber traído un peso, y el día que lo nota deja de
+> creer también en el número de sus comisiones. Derivado significa además que si
+> una venta se cancela y se reversa, **el nivel baja solo**.
+> `profiles.axo_coins_earned` sigue muerta y NO se reusó: es exactamente la
+> columna mutable que la regla de oro #2 prohíbe. 7 pruebas de dominio.
+>
+> **Subir foto: no existía ningún camino.** `register_traveler` trae
+> `where profiles.type = 'viajero'` ⇒ para un embajador es un no-op silencioso, y
+> encima nunca tocó `image`. **b083** agrega `update_my_profile` (nombre,
+> teléfono, foto; solo la fila propia; nunca rol, tipo, agencia ni código), con
+> el candado de que **la foto tiene que vivir en `ketzal-assets`** — si no,
+> `image` es un campo libre apuntando a donde el usuario quiera y la app lo
+> pinta. La subida va directo al bucket desde el navegador, como las imágenes de
+> proveedores y servicios (el body de una función en Vercel tope en 4.5 MB).
+> 5 aserciones con rollback, incluida que una foto externa se rechaza.
+>
+> **Marketplace interno**: cada viaje publicado con su botón de compartir y de
+> copiar, y **el código del embajador ya puesto en el link**. El 80% ya existía
+> —`?ref` se propaga por /explora → ficha → checkout, y cada servicio tiene su OG
+> con foto real—; lo que faltaba era el botón. Antes solo tenía UN link a la
+> vitrina entera: para compartir un viaje concreto había que navegar hasta él y
+> editar la URL a mano.
+>
+> **Dos errores propios que vale anotar.** (1) Pisé `embajador.test.ts` con `cat >`
+> y borré 98 líneas de pruebas de m010; lo cazó el contador bajando de 158 a 148
+> cuando yo había AGREGADO 7. Restauradas: 165. (2) Cambié un `useEffect` por un
+> `useState` perezoso para callar un lint, y con eso introduje un **hydration
+> mismatch real** — el `href` del servidor (`origin` vacío) no coincidía con el
+> del cliente. El lint era de rendimiento; el bug, de corrección. Se arregló
+> resolviendo el origen **en el servidor** con los headers del request y pasándolo
+> como prop: determinista en ambos lados y sin efecto.
+>
+> Verificado en el navegador con un embajador efímero: tarjeta, nivel, barra,
+> 2×2, los 5 viajes publicados con sus links, instrucciones colapsables mostrando
+> las tarifas de $250 que se sembraron en Fase 0 —la cadena completa llegando al
+> embajador—, y la foto subida y guardada en el bucket. 165 tests · build ·
+> limpieza verificada (7 usuarios, 0 efímeros).
+
 > **Fase 1: la atribución del embajador se fugaba en el recorrido normal (b082,
 > ADR-0031, 2026-09-01).** El `?ref` viajaba solo en la query string, hop a hop,
 > y se respaldaba en `localStorage` recién al llegar a `/comprar` **con sesión**.

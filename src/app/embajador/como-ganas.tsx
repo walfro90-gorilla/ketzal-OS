@@ -1,5 +1,6 @@
 import { CoinsIcon, ShareIcon, WalletIcon } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { ChevronDownIcon } from 'lucide-react'
+import { Card, CardContent } from '@/components/ui/card'
 import { explicarTarifa, type TarifaEmbajador } from '@/lib/domain/embajador'
 
 // Lo primero que ve el embajador. Antes el portal abría con su link y tres
@@ -9,15 +10,23 @@ import { explicarTarifa, type TarifaEmbajador } from '@/lib/domain/embajador'
 // m008: no hay UNA tarifa. Cada agencia fija la suya y él cobra la de la
 // agencia dueña del viaje que traiga — así que se listan todas. Si tiene trato
 // especial (override por persona), ese gana en todas y se muestra solo.
+//
+// COLAPSABLE (`<details>` nativo, cero JS): son 80 líneas de instrucciones en el
+// mejor espacio de la pantalla. Se leen una vez; después estorban a lo que el
+// embajador viene a ver, que es cuánto lleva ganado. Abierto por defecto solo si
+// todavía no tiene ventas.
 
 export function ComoGanas({
   override,
   porAgencia,
+  abiertoPorDefecto = true,
 }: {
   /** Trato especial para este embajador; gana sobre las tarifas de agencia. */
   override: TarifaEmbajador | null
   /** Lo que paga cada agencia a cualquier embajador. */
   porAgencia: { agencia: string; tarifa: TarifaEmbajador }[]
+  /** Se abre solo para quien todavía no vende; al que ya vendió le estorba. */
+  abiertoPorDefecto?: boolean
 }) {
   const frasePropia = explicarTarifa(override)
   const listadas = porAgencia
@@ -26,10 +35,12 @@ export function ComoGanas({
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Cómo ganas</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+      <details open={abiertoPorDefecto} className="group">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-2 p-6 text-base font-semibold [&::-webkit-details-marker]:hidden">
+          Cómo ganas
+          <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+        </summary>
+      <CardContent className="space-y-4 pt-0">
         <ol className="space-y-3 text-sm">
           <li className="flex gap-3">
             <ShareIcon className="mt-0.5 size-4 shrink-0 text-primary" />
@@ -79,6 +90,7 @@ export function ComoGanas({
           </li>
         </ol>
       </CardContent>
+      </details>
     </Card>
   )
 }

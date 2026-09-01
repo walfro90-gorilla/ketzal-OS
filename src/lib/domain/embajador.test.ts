@@ -7,6 +7,8 @@ import {
   waCompartir,
   explicarMiss,
   normalizarCodigoReferido,
+  nivelDe,
+  NIVELES,
 } from './embajador'
 
 describe('explicarTarifa', () => {
@@ -108,5 +110,45 @@ describe('explicarMiss', () => {
     const m = explicarMiss('motivo_del_futuro')
     expect(m.titulo).toBe('motivo_del_futuro')
     expect(m.accionable).toBe(false)
+  })
+})
+
+describe('nivelDe', () => {
+  it('empieza en el primer nivel sin haber ganado nada', () => {
+    const n = nivelDe(0)
+    expect(n.nombre).toBe('Explorador')
+    expect(n.numero).toBe(1)
+    expect(n.progreso).toBe(0)
+  })
+
+  it('sube justo al alcanzar el umbral', () => {
+    expect(nivelDe(1_999).nombre).toBe('Explorador')
+    expect(nivelDe(2_000).nombre).toBe('Guía')
+  })
+
+  it('dice cuánto falta para el siguiente', () => {
+    expect(nivelDe(1_500).siguienteEn).toBe(500)
+  })
+
+  it('el último nivel no tiene siguiente y va al 100%', () => {
+    const n = nivelDe(999_999)
+    expect(n.nombre).toBe(NIVELES[NIVELES.length - 1].nombre)
+    expect(n.siguienteEn).toBeNull()
+    expect(n.progreso).toBe(1)
+  })
+
+  it('el progreso avanza dentro del tramo, no del total', () => {
+    // Guía va de 2,000 a 10,000: 6,000 es justo la mitad del tramo.
+    expect(nivelDe(6_000).progreso).toBeCloseTo(0.5)
+  })
+
+  it('un devengado negativo (todo reversado) no rompe ni sube de nivel', () => {
+    const n = nivelDe(-500)
+    expect(n.numero).toBe(1)
+    expect(n.progreso).toBe(0)
+  })
+
+  it('NaN se trata como cero', () => {
+    expect(nivelDe(Number.NaN).numero).toBe(1)
   })
 })

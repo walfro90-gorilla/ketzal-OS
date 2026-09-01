@@ -74,6 +74,54 @@ export const REF_COOKIE = 'kz_ref'
 /** Cuánto dura la atribución. LAST-touch: el último link gana (ver ADR-0031). */
 export const REF_COOKIE_MAX_AGE = 60 * 60 * 24 * 30 // 30 días
 
+/**
+ * NIVELES. Se derivan de lo GANADO, nunca de un contador de experiencia.
+ *
+ * Un XP mutable premia actividad que no produce ingreso: el embajador sube de
+ * nivel sin haber traído un peso, y el día que lo nota deja de creer también en
+ * el número de sus comisiones. Además `profiles.axo_coins_earned` existe, está
+ * muerta, y es exactamente la columna mutable que la regla de oro #2 prohíbe
+ * para cualquier cosa que huela a dinero: NO se reusa.
+ *
+ * Derivado de `commission_lines` significa que el nivel no puede mentir — si la
+ * venta se cancela y se reversa, el nivel baja solo.
+ */
+export const NIVELES = [
+  { nombre: 'Explorador', desde: 0 },
+  { nombre: 'Guía', desde: 2_000 },
+  { nombre: 'Aventurero', desde: 10_000 },
+  { nombre: 'Leyenda', desde: 30_000 },
+] as const
+
+export type Nivel = {
+  nombre: string
+  /** 1-based, para pintar "Nivel 2". */
+  numero: number
+  /** Lo que hay que ganar para el siguiente, o null si ya es el último. */
+  siguienteEn: number | null
+  /** 0..1 — avance hacia el siguiente nivel. 1 si ya es el último. */
+  progreso: number
+}
+
+/** Nivel a partir de lo devengado (neto de reversos). Puro: se testea en node. */
+export function nivelDe(devengado: number): Nivel {
+  const ganado = Number.isFinite(devengado) && devengado > 0 ? devengado : 0
+  let i = 0
+  for (let k = NIVELES.length - 1; k >= 0; k--) {
+    if (ganado >= NIVELES[k].desde) { i = k; break }
+  }
+  const actual = NIVELES[i]
+  const siguiente = NIVELES[i + 1] ?? null
+  return {
+    nombre: actual.nombre,
+    numero: i + 1,
+    siguienteEn: siguiente ? siguiente.desde - ganado : null,
+    progreso: siguiente
+      ? Math.min(1, (ganado - actual.desde) / (siguiente.desde - actual.desde))
+      : 1,
+  }
+}
+
 /** Link de referido del embajador. Es la vitrina, no una ficha suelta: así puede
  *  compartir "los viajes" y cualquiera que compre le cuenta. */
 export function linkReferido(origin: string, code: string): string {
