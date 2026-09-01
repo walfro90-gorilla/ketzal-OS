@@ -21,8 +21,11 @@ Cada persona vive en su propio "shell" (menú/cabecera). Un viajero nunca ve el
 back-office; un agente nunca ve el portal de embajador. El alta de cada una:
 
 - **Agente**: lo invita un admin o el superadmin desde `/equipo` (o se crea
-  junto con su agencia desde `/equipo` si es superadmin). Nace **pendiente**
-  (`active=false`) hasta que un admin lo aprueba.
+  junto con su agencia desde `/equipo` si es superadmin). Tras invitarlo, el
+  superadmin usa **«Enviar acceso»** en su fila: eso crea su cuenta con el rol y
+  la agencia que le diste y te entrega su contraseña provisional. La invitación
+  desaparece de la lista de pendientes —ya está cumplida— y la tarjeta con los
+  datos se queda abajo para que la mandes.
 - **Viajero**: se auto-registra en `/entrar` o al comprar en `/comprar/[id]`.
 - **Embajador**: lo da de alta el superadmin o el admin de su agencia desde
   `/comisiones` (nombre + código de referido + **correo**, y su WhatsApp si lo
