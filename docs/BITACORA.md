@@ -9,6 +9,57 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **`pnpm hard-test`: los invariantes dejan de vivir solo en prosa (ADR-0034,
+> 2026-09-01).** Salió de una pregunta del fundador — *"¿cómo arreglamos lo de
+> los ADRs que no concuerdan?"* — después de que construyéramos sobre una
+> garantía falsa: ADR-0022 afirma que el auto-referido está bloqueado, y el guard
+> vivo solo miraba `sold_by`, que en el portal **siempre es null**.
+>
+> **Lo medido antes de tocar nada:** CI corría `tsc` + `pnpm test` (vitest sobre
+> funciones puras) + `build`, y **cero** de los 22 hard-tests. Todo
+> `supabase/tests/` se corría de memoria. **9 de 33 ADRs** nombraban un harness;
+> la sección "Verificación" de la plantilla acepta prosa, así que *"probado
+> contra la BD real"* contaba como verificación y no ejecutaba nada.
+>
+> El diagnóstico que importa: **el problema no es que los ADRs se desfasen** —
+> siempre van a poder, son registro de decisión, no especificación. Auditarlos
+> arregla hoy y en tres meses estamos igual. Lo que se arregla es volver
+> **ejecutables** los invariantes, para que el desfase truene solo.
+>
+> `supabase/tests/correr.mjs` corre los 21 harness con un comando y declara, por
+> harness, qué necesita (`supabase` / `app` / `build` / `db`), qué ADR defiende y
+> qué afirma. **Su regla dura: `NO CORRIÓ` es rojo**, y es un estado distinto de
+> `FALLÓ` — si un problema de conexión se reporta como fallo, mañana alguien
+> "arregla" el harness en vez de arreglar la conexión. Un archivo suelto en la
+> carpeta que nadie declaró sale como `NO CORRIÓ — sin declarar`, para que no se
+> vuelva invisible.
+>
+> **La primera corrida es el hallazgo: 9 pasaron · 2 fallaron · 10 no corrieron.**
+> - `concurrencia.mjs` (ADR-0008, cupos) trae **hardcodeada** la contraseña
+>   `'QA-hard-testing-2026'` de unas cuentas borradas en agosto. Muerto desde
+>   entonces, en silencio — la cuarta vez que pasa exactamente esto (ADR-0023).
+> - `carreras_dinero.mjs` (ADR-0006, ledger) depende de una sesión de
+>   `ketzal-mcp` y de fixtures sembradas a mano.
+> - Los 10 `.sql` no pueden correr: **no hay `DATABASE_URL`** y `psql` no está
+>   instalado. Son justo los que verifican el dinero (ADR-0005 dinero derivado,
+>   ADR-0006 append-only, ADR-0019 motor de comisiones). Se agregó `pg` como
+>   devDependency; falta que el fundador pegue la cadena de conexión en
+>   `.env.local` — es una credencial, no la mete un agente por shell.
+>
+> Antes de esto, ese mismo estado se veía como "no hay nada que reportar".
+>
+> **Lo que NO se hizo, a propósito:** meter los hard-tests en CI. Necesita
+> `SUPABASE_SERVICE_ROLE_KEY` —la llave que salta toda la RLS— como secreto de
+> Actions, donde cualquiera con permiso de escritura la exfiltra desde un
+> workflow en un PR; y sin staging correrían contra producción. Queda para
+> cuando haya proyecto de pruebas, o como `workflow_dispatch`. Tampoco se
+> rescataron los 2 harness podridos: valen y hay que portarlos a fixtures
+> efímeras, pero es trabajo aparte. Lo que este carril garantiza es que **ya se
+> ven**.
+>
+> De paso se corrigió el `CLAUDE.md`, que decía "92 tests de dominio" (son 174) y
+> daba a entender que los hard-tests estaban en CI.
+
 > **Fase 6: el cliente se vuelve embajador sin perder sus compras (b087,
 > ADR-0033, 2026-09-01).** A quien ya te compró es a quien le pides que te
 > recomiende, y ese camino no existía: `crearEmbajador` llamaba a

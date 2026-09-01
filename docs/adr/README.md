@@ -40,3 +40,4 @@ este índice se actualiza en el mismo diff.**
 | [0031](0031-atribucion-del-embajador-last-touch-en-cookie.md) | El `?ref` se captura en cookie desde el proxy en el primer aterrizaje; last-touch, 30 días, se consume al crear el pedido (b082) | aceptada |
 | [0032](0032-corte-quincenal-derivado.md) | El corte de comisiones es derivado (devengado − pagado a una fecha), acumulativo, y solo paga ventas con dinero cobrado (b086) | aceptada |
 | [0033](0033-el-cliente-se-convierte-sin-perder-nada.md) | Un correo que ya tiene cuenta de viajero se CONVIERTE en embajador (sin contraseña nueva) y conserva sus compras; cada portal enseña la salida al otro (b087) | aceptada |
+| [0034](0034-la-verificacion-nombra-su-prueba.md) | Un ADR que afirma un invariante nombra el archivo y la aserción que lo prueban; `pnpm hard-test` corre los 21 harness y `NO CORRIÓ` es rojo | aceptada |
