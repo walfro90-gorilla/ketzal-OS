@@ -8,7 +8,7 @@ import { normalizarCodigoReferido } from '@/lib/domain/embajador'
 
 // Modo de comisión por servicio. 'global' = sin regla (para plataforma usa el %
 // global de app_settings; para embajador significa "sin tarifa" ⇒ no atribuye).
-export type ReglaBasis = 'global' | 'percent' | 'fijo_venta' | 'fijo_pax'
+export type ReglaBasis = 'global' | 'percent' | 'fijo_venta' | 'fijo_pax' | 'hibrido'
 
 type ReglaResult = { error: string } | { ok: true }
 
@@ -20,9 +20,11 @@ type ReglaResult = { error: string } | { ok: true }
 async function guardarRegla(
   payeeType: 'plataforma' | 'embajador',
   scope: string | null,
-  serviceId: string,
+  serviceId: string | null,
   basis: ReglaBasis,
-  value: number | null
+  value: number | null,
+  /** Solo para 'hibrido': el monto por pasajero que acompaña al %. */
+  value2?: number | null
 ): Promise<ReglaResult> {
   const supabase = await createClient()
   const {
@@ -44,6 +46,20 @@ async function guardarRegla(
       return { error: 'El monto debe ser mayor que cero.' }
     }
     p_unit = value
+  } else if (basis === 'hibrido') {
+    // % de la venta Y monto por pasajero, los dos a la vez. La BD ya lo soportaba
+    // (lo usan los agentes desde b054); aquí se abre para embajadores.
+    if (value == null || !Number.isFinite(value) || value < 0 || value > 100) {
+      return { error: 'El porcentaje debe estar entre 0 y 100.' }
+    }
+    if (value2 == null || !Number.isFinite(value2) || value2 < 0) {
+      return { error: 'El monto por pasajero debe ser mayor o igual a cero.' }
+    }
+    if (value === 0 && value2 === 0) {
+      return { error: 'Pon al menos uno de los dos: % o monto por pasajero.' }
+    }
+    p_rate = value
+    p_unit = value2
   }
 
   const { error } = await supabase.rpc('set_commission_rule' as never, {
@@ -69,7 +85,27 @@ export async function guardarReglaPlataforma(
   return guardarRegla('plataforma', null, serviceId, basis, value)
 }
 
-/** Cuánto cobra un embajador por vender un servicio. 'global' = sin tarifa (no atribuye). */
+/**
+ * Tarifa GENERAL que una agencia le paga a cualquier embajador que le traiga un
+ * viajero (m008 / ADR-0021: paga la agencia dueña del viaje). Es la que cobra
+ * el embajador salvo que tenga un trato especial propio.
+ *
+ * Va sin servicio (`null`) porque aplica a todo el catálogo de esa agencia.
+ * Hasta b080 esto NO SE PODÍA GUARDAR: `set_commission_rule` forzaba
+ * `scope_profile_id` para todo lo de embajador, así que la tarifa que el
+ * resolver busca por agencia no existía en ninguna parte — de ahí que el
+ * programa llevara con cero reglas y nadie cobrara.
+ */
+export async function guardarTarifaEmbajadorAgencia(
+  supplierId: string,
+  basis: ReglaBasis,
+  value: number | null,
+  value2?: number | null
+): Promise<ReglaResult> {
+  return guardarRegla('embajador', supplierId, null, basis, value, value2)
+}
+
+/** Trato especial de UN embajador para UN servicio. Gana sobre la de su agencia. */
 export async function guardarReglaEmbajador(
   embajadorId: string,
   serviceId: string,

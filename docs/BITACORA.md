@@ -9,6 +9,142 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Un solo riel para pagarle a una persona (b081, 2026-09-01).** Había DOS
+> formas de saldarle la comisión a un embajador y no se veían entre sí:
+> registrar el gasto en `/gastos` (baja la CxP y el "pagado" del portal, pero
+> deja su saldo VIVO en el ledger) o `settle_ledger` desde `/cuentas` (cierra el
+> ledger, pero la CxP y el portal siguen mostrando saldo). Cualquiera de las dos
+> deja una pantalla mintiendo, y un corte quincenal que lea una fuente mientras
+> alguien liquidó por la otra **paga dos veces**.
+>
+> **No hizo falta decidir nada nuevo: ADR-0011 ya lo decía** — «el ledger ESPEJA,
+> no recrea: triggers sobre los hechos generan los asientos. No se insertan
+> asientos a mano que re-cuenten un hecho ya contado». `settle_ledger` sobre un
+> embajador era exactamente eso, la excepción que rompía su propia regla. Ahora:
+> el hecho es el gasto, `tg_ledger_mirror_expense` postea la liquidación solo
+> (gemelo del espejo de comisiones), y `settle_ledger` rechaza 'embajador' y
+> 'agente' con un mensaje que dice a dónde ir, igual que ya rechazaba 'viajero'.
+> **`agencia` no entra**: su saldo en el ledger es el corte de plataforma
+> (Ketzal↔agencia) y `mayorista` es pagarle a un proveedor — deudas distintas,
+> sin choque.
+>
+> **Y salió un hermano del mismo bug:** `expenses` no tenía categoría para
+> pagarle a un **agente**, pero desde m010 el portal de embajador también lo usan
+> los agentes con código de referido, y su "pagado" salía solo de
+> `category='embajador'`. A un agente pagado por `settle_ledger` su portal le
+> decía **"pagado $0" para siempre**, aunque ya hubiera cobrado. Se abrió la
+> categoría y los dos resúmenes la leen.
+>
+> Probado con rollback (6/6): la venta devenga $300 al embajador en el ledger,
+> registrar el gasto lo deja en **0 solo**, el ledger global sigue en 0,
+> `settle_ledger` rechaza embajador y agente, y la categoría 'agente' se acepta.
+>
+> De paso, la tarifa de embajador gana la cuarta forma que la BD ya soportaba:
+> **híbrido** (% de la venta + fijo por pasajero a la vez), la misma que usan los
+> agentes desde b054.
+
+> **La tarifa de embajador no se podía guardar: m008 cambió el lector y olvidó el
+> escritor (b080, 2026-09-01).** Al ir a capturar la tarifa —el paso que yo había
+> descrito como "captura del fundador, no código"— resultó que no había dónde.
+> `set_commission_rule` tenía
+> `v_scope_sup := case when p_payee_type in ('embajador','agente') then null else p_scope end`,
+> o sea que para embajador SIEMPRE guardaba `scope_profile_id` y jamás
+> `scope_supplier_id`. Pero m008 movió la tarifa a la AGENCIA dueña del viaje y
+> `resolve_commission_rule` la busca ahí (perfil+servicio → perfil+global →
+> agencia+servicio → agencia+global). **m008 actualizó el lector y el CHECK de la
+> tabla, y dejó el escritor en la versión de antes.** La tarifa que de verdad paga
+> no se podía crear desde ninguna parte de la app: ése es el motivo real de que el
+> programa llevara desde su creación con CERO reglas de embajador y de que un
+> embajador pudiera traer la venta y cobrar $0.
+>
+> b080 distingue el scope **por lo que es**: si el uuid es una agencia, la regla es
+> de agencia; si es un profile `type='embajador'`, es el trato especial de esa
+> persona. Un uuid no puede ser las dos cosas, así que no hace falta tocar la
+> firma del RPC ni pasar una bandera. De paso, el **admin de agencia** ya puede
+> fijar la suya (`is_agency_admin` con `coalesce`), que era la dependencia del
+> fundador que m005/m008 querían quitar. UI nueva en `/comisiones`:
+> "Embajadores: cuánto paga tu agencia", reusando `ReglaRow`.
+>
+> Probado con rollback (5/5): la tarifa por agencia se guarda con
+> `scope_supplier_id`, el resolver la encuentra, el override por persona sigue
+> ganando sobre ella, y un uuid que no es ni agencia ni embajador se rechaza.
+> Verificado además en el navegador con sesión de superadmin: se guardó
+> `fijo_pax $250` sobre Wanderlust con `service_id` null y `scope_profile_id` null
+> — la forma exacta que el resolver busca.
+>
+> **Hallazgo de dinero encontrado mirando esa misma pantalla, y RESUELTO:** la UI
+> decía que Ketzal cobra **10%** (lee `app_settings.platform_commission_rate`) y
+> el motor cobraba **20%**, porque `resolve_commission_rule` encuentra la regla
+> global de `commission_rules` ANTES de caer a `app_settings`. El control
+> "Comisión de plataforma" de `/equipo` escribía un valor que ya no mandaba: se
+> podía cambiar y no pasaba nada.
+>
+> Se le presentó al fundador con la aritmética de un tour real —20% **sobre la
+> venta completa**, más ~3.5% de MP, más la tarifa del embajador, contra un margen
+> bruto de 15–25% en un tour de camión— y decidió **8–12%, ajustando después**. Se
+> fijó en **10%** desactivando la regla global de `commission_rules`, para que el
+> % general vuelva a salir de `app_settings`: **una sola fuente de verdad**, que es
+> la que el control de `/equipo` escribe y la que `/comisiones` muestra. Los
+> overrides POR SERVICIO siguen resolviéndose antes que el global, así que no se
+> pierde nada.
+>
+> **Y el copy describía algo que no pasa**: `/comisiones` y `/equipo` decían
+> "ventas de agentes libres y del marketplace", pero el corte está detrás de
+> `if NEW.channel = 'portal'` y `bookings.channel` nace `'manual'` por default —
+> un agente libre vendiendo desde el back-office genera **cero** corte. Copy
+> corregido en las tres pantallas.
+>
+> Verificado en vivo con rollback (3/3): venta del portal de $10,000 ⇒ plataforma
+> $1,000 (10%) + embajador $300; la misma venta con `channel='manual'` ⇒ cero
+> líneas de plataforma. Tarifa de embajador sembrada en las dos agencias
+> (`fijo_pax $250`, valor de arranque que el fundador ajusta desde la UI).
+
+> **Fase 0 del programa de embajadores: el motor devengaba mal (b079, ADR-0029,
+> 2026-09-01).** Antes de construir las 10 mejoras del portal se auditó el motor
+> contra la BD **viva** (el snapshot del repo está desfasado). El embajador era
+> el ÚNICO de los cuatro beneficiarios que devengaba fuera del molde: plataforma,
+> agencia y agente nacen en `tg_commission_snapshot` al dejar el borrador; el
+> embajador nacía dentro de `attribute_booking_by_ref`, que corre justo después de
+> crear el pedido — o sea **en `draft`**. Tres daños, los tres verificados:
+> (1) **deuda fantasma** — el espejo del ledger postea el asiento en cuanto nace
+> la línea, y una cotización que nadie paga dejaba `+embajador / −agencia` vivos
+> para siempre porque los drafts no se cancelan y b073 nunca los reversa;
+> (2) **pedido imborrable** — `commission_lines.booking_id` es FK sin cascade y
+> `no_mutar` prohíbe DELETE, así que `delete_my_draft_order` truena con 23503 para
+> cualquier draft que llegó con `?ref`: el comprador no podía borrar su propio
+> pedido, nunca; (3) **auto-referido abierto** — el guard de m010 mira `sold_by`,
+> que en el portal es siempre null (al comprador lo identifica
+> `marketplace_customer_id`), así que un embajador podía comprarse su viaje con su
+> código y pagarse comisión. ADR-0022 enunciaba el principio; el código
+> implementaba una versión más angosta.
+>
+> **b079** separa atribuir de devengar: las dos funciones validan y escriben
+> `bookings.ambassador_id`, y el cuarto bloque de `tg_commission_snapshot` crea la
+> línea cuando la venta es real. El trigger pasa a `AFTER INSERT OR UPDATE OF
+> status, ambassador_id` — **esa segunda palabra no es opcional**: la venta del
+> back-office nace en `reserved`, corre el trigger con `ambassador_id` null y sin
+> ella nunca volvería a dispararse.
+>
+> **Cómo se probó sin dejar rastro** (`supabase/tests/embajador_devengo.sql`,
+> 9/9): un `DO` block que termina con `raise exception`, así Postgres revierte
+> cada insert — las `commission_lines` no se pueden BORRAR (`no_mutar`) pero sí
+> REVERTIR. Verificado después: 8 bookings y 2 commission_lines, los mismos de
+> antes. **El precedente del repo no servía**: `carreras_dinero.mjs` limpia con
+> `delete from ketzal.commission_lines` completo — seguro con la BD vacía de
+> agosto, hoy habría borrado ventas reales — y `comisiones_motor.sql`, que sí usa
+> rollback, lleva sin poder correr desde b025 porque siembra
+> `ketzal.marketplace_customers`, tabla eliminada por el refactor de identidad.
+>
+> **Limpieza del catálogo en el mismo carril**: se desactivaron dos reglas de
+> plataforma colgadas de servicios (10% sobre el servicio TEST y **$1,000 por
+> pasajero sobre "Colombia 2026"**, que estaba publicado y vivo) y se despublicó
+> `TEST pago en línea $50`, que llevaba semanas en `/explora`. Queda activa solo
+> la regla global del 20%.
+>
+> Pendiente que nadie puede arreglar con código: **`commission_rules` no tiene ni
+> una fila de `payee_type='embajador'`** ⇒ el motor ya devenga bien, pero devenga
+> cero hasta que el fundador capture la tarifa por agencia en `/comisiones`.
+
 > **El hermano roto que quedó del carril anterior, y lo que había debajo (b078,
 > ADR-0028, 2026-08-31).** ADR-0027 dejó `generarLinkInvitacion` de `/equipo`
 > sin arreglar a propósito. Al abrirlo, el link muerto era lo de menos:

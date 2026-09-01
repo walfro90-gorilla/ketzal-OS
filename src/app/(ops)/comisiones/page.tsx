@@ -18,10 +18,12 @@ import { ComisionesList, type ComisionVenta } from './comisiones-list'
 import {
   ReglasServicio,
   ReglasEmbajador,
+  TarifaEmbajadoresAgencia,
   type ReglaServicio,
   type Embajador,
   type ServicioBasico,
   type ReglaEmbajadorRow,
+  type TarifaAgenciaRow,
 } from './reglas-servicio'
 import { ReglasAgente, type AgenteComision } from './reglas-agente'
 import type { ReglaBasis } from './reglas-actions'
@@ -53,7 +55,7 @@ export default async function ComisionesPage() {
   // plataforma). Un admin de agencia no ve ni edita el corte de la plataforma.
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, supplier_id')
     .eq('id', user.id)
     .single()
   const isSuperadmin = profile?.role === 'superadmin'
@@ -97,10 +99,13 @@ export default async function ComisionesPage() {
         // se leen vía RPC DEFINER. Devuelve [{id,name,referral_code}].
         supabase.rpc('list_ambassadors' as never)
       : Promise.resolve({ data: [], error: null }),
-    isSuperadmin
+    // b080: se trae también `scope_supplier_id` — la tarifa GENERAL de la agencia,
+    // que es la que de verdad paga (m008). El admin de agencia también la lee:
+    // la RLS de commission_rules ya lo acota a lo suyo.
+    isSuperadmin || isAdmin
       ? supabase
           .from('commission_rules' as never)
-          .select('service_id, scope_profile_id, basis, rate, unit_amount')
+          .select('service_id, scope_profile_id, scope_supplier_id, basis, rate, unit_amount')
           .eq('payee_type', 'embajador')
           .eq('active', true)
       : Promise.resolve({ data: [], error: null }),
@@ -225,17 +230,47 @@ export default async function ComisionesPage() {
     codigo: a.referral_code, // m010
   }))
 
-  const reglasEmbajador: ReglaEmbajadorRow[] = (
-    (reglasEmbRes.data ?? []) as unknown as {
-      service_id: string
-      scope_profile_id: string
-      basis: 'percent' | 'fijo_venta' | 'fijo_pax'
-      rate: number | null
-      unit_amount: number | null
-    }[]
-  ).map((r) => ({
-    embajadorId: r.scope_profile_id,
-    serviceId: r.service_id,
+  type ReglaEmbRaw = {
+    service_id: string | null
+    scope_profile_id: string | null
+    scope_supplier_id: string | null
+    basis: 'percent' | 'fijo_venta' | 'fijo_pax' | 'hibrido'
+    rate: number | null
+    unit_amount: number | null
+  }
+  const reglasEmbRaw = (reglasEmbRes.data ?? []) as unknown as ReglaEmbRaw[]
+
+  // Tarifa general por agencia (m008): sin servicio y con scope de agencia.
+  const porAgencia = new Map(
+    reglasEmbRaw
+      .filter((r) => r.scope_supplier_id && !r.service_id)
+      .map((r) => [r.scope_supplier_id as string, r]),
+  )
+  const tarifasAgencia: TarifaAgenciaRow[] = (
+    agencias as { id: string; name: string }[]
+  )
+    .filter((a) => isSuperadmin || a.id === profile?.supplier_id)
+    .map((a) => {
+      const r = porAgencia.get(a.id)
+      // 'hibrido' guarda los dos: rate (%) y unit_amount ($/pax).
+      return {
+        supplierId: a.id,
+        nombre: a.name,
+        basis: (r?.basis ?? 'global') as ReglaBasis,
+        value: r
+          ? r.basis === 'percent' || r.basis === 'hibrido'
+            ? Number(r.rate)
+            : Number(r.unit_amount)
+          : null,
+        value2: r?.basis === 'hibrido' ? Number(r.unit_amount) : null,
+      }
+    })
+
+  const reglasEmbajador: ReglaEmbajadorRow[] = reglasEmbRaw
+    .filter((r) => r.scope_profile_id && r.service_id)
+    .map((r) => ({
+    embajadorId: r.scope_profile_id as string,
+    serviceId: r.service_id as string,
     basis: r.basis,
     value: r.basis === 'percent' ? Number(r.rate) : Number(r.unit_amount),
   }))
@@ -244,9 +279,9 @@ export default async function ComisionesPage() {
   // ve sus comisiones de REVENTA. Los textos se adaptan al rol.
   const L = isSuperadmin
     ? {
-        pageDesc: 'El corte de Ketzal por ventas de agentes libres y del marketplace.',
+        pageDesc: 'El corte de Ketzal por las ventas del marketplace.',
         cardTitle: 'Corte de plataforma',
-        cardDesc: 'Ventas de agentes libres y del marketplace donde Ketzal cobra su corte.',
+        cardDesc: 'Ventas del portal público donde Ketzal cobra su corte. Lo que vendes desde el back-office no paga corte.',
         emptyTitle: 'Aún no hay ventas con corte de plataforma',
         emptyDesc: 'Cuando un agente libre o el marketplace concreten una venta, el corte de Ketzal aparece aquí.',
         count: (n: number) => (n === 1 ? '1 venta' : `${n} ventas`),
@@ -353,6 +388,29 @@ export default async function ComisionesPage() {
               />
             )}
             <EmbajadoresAccesos embajadores={embajadores} />
+          </CardContent>
+        </Card>
+      )}
+
+      {(isSuperadmin || isAdmin) && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Embajadores: cuánto paga tu agencia</CardTitle>
+            <CardDescription>
+              Lo que ganas cuando alguien te trae un viajero con su link. Paga la
+              agencia dueña del viaje, con la tarifa que ella fije aquí (no la de
+              quien lo reclutó). <strong>Sin tarifa el embajador no cobra nada</strong>,
+              aunque traiga la venta.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {reglasEmbRes.error ? (
+              <p className="text-sm text-destructive">
+                Error al cargar las tarifas: {reglasEmbRes.error.message}
+              </p>
+            ) : (
+              <TarifaEmbajadoresAgencia agencias={tarifasAgencia} />
+            )}
           </CardContent>
         </Card>
       )}
