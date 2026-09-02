@@ -9,6 +9,44 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **La MATRIZ del motor de comisiones: 14 casos que cruzan los 4 payee_type
+> (2026-09-01).** Pregunta del fundador: *"¿tenemos todos los perfiles para
+> probar abonos y comisiones, todos los ángulos?"*. Al medirlo, la respuesta era
+> incómoda: **la simulación de 1000 operaciones solo genera comisión de
+> `agencia`** — cero menciones de embajador o agente en sus 243 líneas. Y la
+> comisión por **`agente`** ($300/pax híbrido, con dos reglas activas en
+> producción) **no la verificaba nadie**: aparecía en harness de RLS y de altas,
+> pero ninguno comprobaba que devengara ni que se pagara bien.
+>
+> El único que cruzaba varios payee_type era `comisiones_motor.sql` — y estaba
+> podrido. Se reescribió entero, porque estaba escrito contra un modelo que ya
+> no existe: insertaba en `marketplace_customers` (tabla eliminada en b025),
+> trataba al embajador como fila de `suppliers`, tomaba al comprador con
+> `select id from auth.users limit 1` (¡una cuenta REAL al azar!), y esperaba que
+> `set_booking_ambassador` lanzara excepción por tarifa inválida — **cosa que
+> b079 dejó de hacer** cuando movió esa lógica al trigger, que ahora registra el
+> motivo en `referral_misses` en vez de abortar. Probaba un contrato muerto.
+> También creía que la comisión de plataforma la dispara la venta "libre"
+> (`selling_supplier_id is null`); hoy la dispara `channel='portal'`.
+>
+> **La matriz nueva (14/14)** cruza canal × quién trae la venta × cómo paga ×
+> cómo termina, verificando contra el contrato leído del trigger vivo:
+> venta directa (no devenga nada) · reventa (cobra el revendedor con la tarifa
+> de la dueña) · portal (corte de Ketzal por el global de `app_settings`) ·
+> venta manual (no paga corte) · agente · embajador · **los tres juntos en una
+> venta del portal, que es el caso que ningún harness veía** · las tres razones
+> por las que el embajador NO cobra (sin tarifa, no cabe en la venta,
+> auto-referido) · abono parcial que no mueve el devengo · el corte incluyéndola ·
+> cancelación que la reversa a neto 0 · e inmutabilidad del asiento.
+>
+> Detalles que solo salen corriéndolo: `payment_type` es `payment|refund`, no
+> `abono`; `corte_embajadores` exige claims de admin y devuelve un **objeto** con
+> llave `filas`, no un arreglo.
+>
+> Estado de la suite: **17 pasan · 2 fallan · 2 no corren**. Producción
+> verificada intacta tras la corrida: 2 suppliers, 0 fixtures QA, las 2 tarifas
+> de embajador en pie, 7 ventas, 4 asientos, 0 `referral_misses`.
+
 > **INCIDENTE: la suite de hard-tests borró datos de producción (ADR-0035,
 > 2026-09-01).** Al encender el lado SQL de `pnpm hard-test`,
 > `embajadores_rls.sql` se llevó las **dos tarifas reales de embajador** del

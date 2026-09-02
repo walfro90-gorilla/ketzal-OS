@@ -80,7 +80,6 @@ siguiente correría suplantando a alguien.
 |---|---|
 | `concurrencia.mjs` | Contraseña QA borrada, hardcodeada. Portar a `_fixtures.mjs` |
 | `carreras_dinero.mjs` | Depende de una sesión de `ketzal-mcp` y de fixtures a mano |
-| `comisiones_motor.sql` | Usa `marketplace_customers`, tabla **eliminada** en el refactor de identidad (b025) |
 | `hard_testing_dinero.sql` · `volumen_y_clawbot.sql` | Dependen de `qa_setup.sql` **y no revierten**. Correrlos sembraría agencias QA en producción, que es justo lo que ADR-0023 vino a terminar ⇒ el requisito `qa-setup` **nunca** está disponible, a propósito |
 
 Los datos de prueba se crean y se borran **verificando** que quedaron limpios
