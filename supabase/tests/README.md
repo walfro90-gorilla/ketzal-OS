@@ -74,16 +74,16 @@ Sin lo segundo se arrastran las tablas temp — dos harness crean `temp table qa
 y, peor, un `set role authenticated` colgado de un harness que murió a media: el
 siguiente correría suplantando a alguien.
 
-## Harness que hoy NO corren, y por qué
+## Todo corre (2026-09-01)
 
-| Harness | Estado |
-|---|---|
-| `concurrencia.mjs` | Contraseña QA borrada, hardcodeada. Portar a `_fixtures.mjs` |
-| `carreras_dinero.mjs` | Depende de una sesión de `ketzal-mcp` y de fixtures a mano |
-| `hard_testing_dinero.sql` · `volumen_y_clawbot.sql` | Dependen de `qa_setup.sql` **y no revierten**. Correrlos sembraría agencias QA en producción, que es justo lo que ADR-0023 vino a terminar ⇒ el requisito `qa-setup` **nunca** está disponible, a propósito |
+**21 de 21 en verde.** Los cinco que estaban podridos se repararon el mismo día
+que existió el corredor que los destapó: `concurrencia.mjs` y
+`carreras_dinero.mjs` (contraseña QA borrada y sesión de `ketzal-mcp`),
+`comisiones_motor.sql` (escrito contra el modelo pre-refactor), y
+`hard_testing_dinero.sql` + `volumen_y_clawbot.sql` (dependían de `qa_setup.sql`
+y no revertían).
 
-Los datos de prueba se crean y se borran **verificando** que quedaron limpios
-(fixtures efímeras, `_fixtures.mjs`, ADR-0023). Ninguna contraseña se imprime.
+`qa_setup.sql` ya no lo usa nadie: cada harness siembra lo suyo.
 
 ## Alta de un harness nuevo
 

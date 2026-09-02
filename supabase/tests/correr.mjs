@@ -53,7 +53,7 @@ const HARNESS = [
   { f: 'carreras_dinero.mjs',             necesita: ['supabase'],                 adr: '0006', afirma: 'el ledger aguanta escrituras concurrentes' },
   // ── .sql ────────────────────────────────────────────────────────────────
   { f: 'money_invariants.sql',            necesita: ['db'], adr: '0005', afirma: 'el dinero se deriva; los totales cuadran' },
-  { f: 'hard_testing_dinero.sql',         necesita: ['db', 'qa-setup'], adr: '0006', afirma: 'append-only: nadie muta un asiento por REST' },
+  { f: 'hard_testing_dinero.sql',         necesita: ['db'], adr: '0006', afirma: 'append-only: nadie muta un asiento por REST' },
   { f: 'comisiones_motor.sql',            necesita: ['db'], adr: '0019', afirma: 'la comisión es un asiento, no una columna' },
   { f: 'embajadores_rls.sql',             necesita: ['db'], adr: '0021', afirma: 'un embajador no ve ni cobra lo de otro' },
   { f: 'encuestas_rls.sql',               necesita: ['db'], adr: '0018', afirma: 'las encuestas no filtran al votante' },
@@ -61,7 +61,7 @@ const HARNESS = [
   { f: 'corte_embajadores.sql',           necesita: ['db'], adr: '0032', afirma: 'el corte es derivado y no paga dos veces' },
   { f: 'conversion_viajero_embajador.sql',necesita: ['db'], adr: '0033', afirma: 'convertirse no le quita compras, créditos ni voucher' },
   { f: 'simulacion_1000_ops.sql',         necesita: ['db'], adr: '0006', afirma: 'los invariantes aguantan volumen' },
-  { f: 'volumen_y_clawbot.sql',           necesita: ['db', 'qa-setup'], adr: '0006', afirma: 'el Clawbot no rompe invariantes a volumen' },
+  { f: 'volumen_y_clawbot.sql',           necesita: ['db'], adr: '0006', afirma: 'el Clawbot no rompe invariantes a volumen' },
 ]
 
 // `qa_setup.sql` y `_fixtures.mjs` no son harness (siembra y utilería).
@@ -189,6 +189,17 @@ async function correrSql(archivo) {
   // already exists") y, peor, un `set role authenticated` que quedó colgado de
   // un harness que falló a media — el siguiente correría suplantando a alguien.
   await cliente.query('discard all').catch(() => {})
+
+  // ── El rollback lo pone el CORREDOR, no la buena fe del harness ───────────
+  // El guard de `commit` no bastaba. `hard_testing_dinero.sql` traía un
+  // `exception when others` que se TRAGABA el error: el bloque `do $$` terminaba
+  // normalmente y Postgres commiteó — dejando 2 agencias, 2 cuentas, 6 ventas,
+  // 6 clientes y 5 pagos en producción (2026-09-01, segundo escape del día).
+  // Un harness "que revierte" solo revierte si de verdad lanza; con esto la
+  // transacción la abre y la cierra el corredor, y pase lo que pase adentro, al
+  // salir se revierte. Probado con un harness hostil a propósito (escribe y se
+  // traga el error): 0 filas escaparon.
+  await cliente.query('begin').catch(() => {})
   try {
     const res = await cliente.query(sql)
     // Tercer estilo: los que terminan en `commit` y devuelven una tabla de
@@ -204,6 +215,10 @@ async function correrSql(archivo) {
     // La excepción NO es el fallo — el fallo es el conteo que trae dentro.
     const paso = EXITO_EN_EXCEPCION.some((re) => re.test(msg))
     return { ok: paso, salida: msg.split('\n').filter(Boolean).slice(0, 2).join(' · ') }
+  } finally {
+    // Siempre, en los dos caminos: nada de lo que el harness escriba sale de
+    // aquí. Si ya no hay transacción abierta, Postgres solo avisa.
+    await cliente.query('rollback').catch(() => {})
   }
 }
 
