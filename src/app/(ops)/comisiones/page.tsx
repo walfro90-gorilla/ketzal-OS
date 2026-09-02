@@ -1,5 +1,6 @@
 import { PercentIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import { cn } from '@/lib/utils'
 import {
   Card,
   CardContent,
@@ -7,6 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import { EmptyState } from '@/components/data/empty-state'
 import { PageHeader } from '@/components/data/page-header'
 import { mxn } from '@/components/data/format'
@@ -26,6 +28,7 @@ import {
   type TarifaAgenciaRow,
 } from './reglas-servicio'
 import { ReglasAgente, type AgenteComision } from './reglas-agente'
+import { Tabs, Avanzado, type Tab } from './tabs'
 import { CorteEmbajadores, type FilaCorte } from './corte'
 import { finDelCorte } from '@/lib/domain/embajador'
 import type { ReglaBasis } from './reglas-actions'
@@ -45,11 +48,15 @@ const EMPTY_SUMMARY: CommissionsSummary = {
 export default async function ComisionesPage({
   searchParams,
 }: {
-  /** `?corte=YYYY-MM-DD` para mirar un corte distinto al de la quincena actual. */
-  searchParams: Promise<{ corte?: string | string[] }>
+  /**
+   * `?corte=YYYY-MM-DD` para mirar un corte distinto al de la quincena actual.
+   * `?tab=` elige la sección (ver `./tabs.tsx`); sin él, la primera del rol.
+   */
+  searchParams: Promise<{ corte?: string | string[]; tab?: string | string[] }>
 }) {
-  const { corte: corteRaw } = await searchParams
+  const { corte: corteRaw, tab: tabRaw } = await searchParams
   const cortePedido = Array.isArray(corteRaw) ? corteRaw[0] : corteRaw
+  const tabPedido = Array.isArray(tabRaw) ? tabRaw[0] : tabRaw
   // Por default, el fin de la quincena en curso (día 15 o último del mes).
   const hastaCorte =
     cortePedido && /^\d{4}-\d{2}-\d{2}$/.test(cortePedido)
@@ -305,6 +312,8 @@ export default async function ComisionesPage({
   const L = isSuperadmin
     ? {
         pageDesc: 'El corte de Ketzal por las ventas del marketplace.',
+        tabGanadas: 'Plataforma',
+        kpiGanadas: 'Corte de plataforma acumulado',
         cardTitle: 'Corte de plataforma',
         cardDesc: 'Ventas del portal público donde Ketzal cobra su corte. Lo que vendes desde el back-office no paga corte.',
         emptyTitle: 'Aún no hay ventas con corte de plataforma',
@@ -313,6 +322,8 @@ export default async function ComisionesPage({
       }
     : {
         pageDesc: 'Lo que ganas por revender viajes de otras agencias.',
+        tabGanadas: 'Ganadas',
+        kpiGanadas: 'Comisiones ganadas',
         cardTitle: 'Comisiones ganadas',
         cardDesc: 'Ventas donde el servicio pertenece a otra agencia.',
         emptyTitle: 'Aún no has revendido viajes de otra agencia',
@@ -320,116 +331,116 @@ export default async function ComisionesPage({
         count: (n: number) => (n === 1 ? '1 venta revendida' : `${n} ventas revendidas`),
       }
 
+  const puedeAdmin = isSuperadmin || isAdmin
+  const totalAPagar = Number(corte.total_a_pagar ?? 0)
+  // Lo único de esta página que se arregla con una acción concreta: falta la
+  // tarifa. Sube al KPI y al badge de la pestaña para que no haya que cazarlo.
+  const sinTarifa = referidosFallidos.filter(
+    (f) => f.reason === 'sin_tarifa_de_la_agencia'
+  ).length
+
+  // Una pestaña por TRABAJO, no por tabla: pagar el corte / ver lo ganado /
+  // administrar embajadores / configurar tarifas. La primera es la default.
+  const tabs: Tab[] = [
+    ...(puedeAdmin
+      ? [
+          {
+            id: 'corte',
+            label: 'Corte',
+            badge:
+              totalAPagar > 0 ? (
+                <Badge variant="warning">{mxn.format(totalAPagar)}</Badge>
+              ) : undefined,
+          },
+        ]
+      : []),
+    { id: 'ganadas', label: L.tabGanadas },
+    ...(puedeAdmin
+      ? [
+          {
+            id: 'embajadores',
+            label: 'Embajadores',
+            badge:
+              sinTarifa > 0 ? (
+                <Badge variant="warning">Sin tarifa</Badge>
+              ) : embajadores.length > 0 ? (
+                <Badge variant="secondary">{embajadores.length}</Badge>
+              ) : undefined,
+          },
+        ]
+      : []),
+    { id: 'tarifas', label: 'Tarifas' },
+  ]
+  const tab = tabs.some((t) => t.id === tabPedido) ? (tabPedido as string) : tabs[0].id
+
   return (
     <div className="space-y-6">
       <PageHeader title="Comisiones" description={L.pageDesc} />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Configuración de porcentajes</CardTitle>
-          <CardDescription>
-            El % que cada agencia te paga cuando revendes sus viajes.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {agenciasRes.error ? (
-            <p className="text-sm text-destructive">
-              Error al cargar las agencias: {agenciasRes.error.message}
-            </p>
-          ) : agencias.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No hay agencias registradas.
-            </p>
-          ) : (
-            <ul className="divide-y">
-              {agencias.map((agencia) => (
-                <li
-                  key={agencia.id}
-                  className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
-                >
-                  <span className="text-sm font-medium">{agencia.name}</span>
-                  <TasaForm
-                    supplierId={agencia.id}
-                    initialRate={Number(agencia.commission_rate ?? 0)}
-                  />
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+      {/* Los tres números que contestan "¿cómo voy?" sin abrir nada. En móvil van
+          a 2 columnas: apilados a 1 empujaban las pestañas fuera de la pantalla. */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
+        {puedeAdmin && (
+          <Card className={totalAPagar > 0 ? 'ring-warning/40' : undefined}>
+            <CardHeader>
+              <CardDescription>Por pagar en este corte</CardDescription>
+              <CardTitle className="text-xl tabular-nums sm:text-2xl">
+                {mxn.format(totalAPagar)}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground">Al {hastaCorte}</p>
+            </CardContent>
+          </Card>
+        )}
 
-      {isSuperadmin && (
         <Card>
           <CardHeader>
-            <CardTitle>Ganancia de Ketzal por servicio</CardTitle>
-            <CardDescription>
-              Cuánto gana Ketzal al vender cada servicio. Por defecto usa el %
-              global ({globalRate}%); aquí puedes ponerle un % propio o un monto
-              fijo (por venta o por pasajero) cuando el trato sea distinto.
-            </CardDescription>
+            <CardDescription>{L.kpiGanadas}</CardDescription>
+            <CardTitle className="text-xl tabular-nums sm:text-2xl">
+              {mxn.format(Number(d.total_comision ?? 0))}
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            {reglasRes.error ? (
-              <p className="text-sm text-destructive">
-                Error al cargar las reglas: {reglasRes.error.message}
-              </p>
-            ) : (
-              <ReglasServicio
-                reglas={reglasServicio}
-                globalRate={globalRate}
-                showAgencia
-              />
-            )}
+            <p className="text-xs text-muted-foreground">{L.count(d.num ?? 0)}</p>
           </CardContent>
         </Card>
-      )}
 
-      {(isSuperadmin || isAdmin) && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Embajadores</CardTitle>
-            <CardDescription>
-              Da de alta a quien va a compartir tus viajes y fija cuánto gana: fijo
-              por pasajero, fijo por venta, % de la venta, o una mezcla. Cualquier
-              embajador puede traer ventas de cualquier agencia, y{' '}
-              <strong>paga la agencia dueña del viaje con la tarifa que ella fijó</strong>
-              {isSuperadmin ? ' (la tuya cubre los viajes de plataforma).' : '.'}{' '}
-              Sin tarifa configurada el embajador no cobra nada, aunque traiga
-              ventas — y esas ventas aparecen abajo.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <CrearEmbajador
-                agencias={isSuperadmin ? agenciasParaAlta : undefined}
-                embajadores={embajadores.map((e) => ({ id: e.id, nombre: e.nombre }))}
-              />
-            {embajadoresRes.error ? (
-              <p className="text-sm text-destructive">
-                Error al cargar los embajadores: {embajadoresRes.error.message}
-              </p>
-            ) : (
-              <ReglasEmbajador
-                embajadores={embajadores}
-                servicios={serviciosBasicos}
-                reglas={reglasEmbajador}
-              />
+        {puedeAdmin && (
+          <Card
+            className={cn(
+              'col-span-2 lg:col-span-1',
+              sinTarifa > 0 && 'ring-warning/40'
             )}
-            <EmbajadoresAccesos embajadores={embajadores} />
-          </CardContent>
-        </Card>
-      )}
+          >
+            <CardHeader>
+              <CardDescription>Referidos sin comisión</CardDescription>
+              <CardTitle className="text-xl tabular-nums sm:text-2xl">
+                {referidosFallidos.length}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground">
+                {sinTarifa > 0
+                  ? `${sinTarifa} por falta de tarifa`
+                  : 'Ninguno por falta de tarifa'}
+              </p>
+            </CardContent>
+          </Card>
+        )}
+      </div>
 
-      {(isSuperadmin || isAdmin) && (
+      <Tabs tabs={tabs} actual={tab} />
+
+      {/* ---------------- Corte: a quién le debes hoy ---------------- */}
+      {tab === 'corte' && puedeAdmin && (
         <Card>
           <CardHeader>
             <CardTitle>Corte de comisiones</CardTitle>
             <CardDescription>
-              A quién le debes hoy y cuánto. Cierra el <strong>día 15</strong> y el
-              <strong> último del mes</strong>, pero es acumulativo: si te saltas
-              una quincena, la siguiente trae lo pendiente. Solo aparece lo de
-              ventas con dinero ya cobrado — si el cliente no ha pagado o le
-              devolviste, no hay de dónde pagar la comisión.
+              Cierra el <strong>día 15</strong> y el <strong>último del mes</strong>,
+              y es acumulativo: lo que no pagues se arrastra al siguiente. Solo
+              aparece lo de ventas con dinero ya cobrado.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -441,100 +452,191 @@ export default async function ComisionesPage({
               <CorteEmbajadores
                 filas={corte.filas ?? []}
                 hasta={hastaCorte}
-                totalAPagar={Number(corte.total_a_pagar ?? 0)}
+                totalAPagar={totalAPagar}
               />
             )}
           </CardContent>
         </Card>
       )}
 
-      {(isSuperadmin || isAdmin) && (
+      {/* ---------------- Ganadas: el histórico ---------------- */}
+      {tab === 'ganadas' && (
         <Card>
           <CardHeader>
-            <CardTitle>Embajadores: cuánto paga tu agencia</CardTitle>
-            <CardDescription>
-              Lo que ganas cuando alguien te trae un viajero con su link. Paga la
-              agencia dueña del viaje, con la tarifa que ella fije aquí (no la de
-              quien lo reclutó). <strong>Sin tarifa el embajador no cobra nada</strong>,
-              aunque traiga la venta.
-            </CardDescription>
+            <CardTitle>{L.cardTitle}</CardTitle>
+            <CardDescription>{L.cardDesc}</CardDescription>
           </CardHeader>
           <CardContent>
-            {reglasEmbRes.error ? (
+            {summaryRes.error ? (
               <p className="text-sm text-destructive">
-                Error al cargar las tarifas: {reglasEmbRes.error.message}
+                Error al cargar las comisiones: {summaryRes.error.message}
               </p>
             ) : (
-              <TarifaEmbajadoresAgencia agencias={tarifasAgencia} />
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {(isSuperadmin || isAdmin) && <ReferidosFallidos filas={referidosFallidos} />}
-
-      {isAdmin && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Agentes: tarifa y código de referido</CardTitle>
-            <CardDescription>
-              Cuánto le pagas a cada agente de tu equipo por cerrar una venta
-              (de tu margen, no del corte de Ketzal): % de la venta + monto fijo
-              por pasajero, los dos a la vez. Y dale su código de referido si
-              además comparte viajes — esas ventas le pagan con la tarifa de
-              embajadores, no con esta.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {agentesRes.error ? (
-              <p className="text-sm text-destructive">
-                Error al cargar los agentes: {agentesRes.error.message}
-              </p>
-            ) : (
-              <ReglasAgente agentes={agentesComision} />
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {summaryRes.error && (
-        <p className="text-sm text-destructive">
-          Error al cargar las comisiones: {summaryRes.error.message}
-        </p>
-      )}
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader>
-            <CardDescription>Total comisiones</CardDescription>
-            <CardTitle className="text-2xl tabular-nums">
-              {mxn.format(Number(d.total_comision ?? 0))}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">{L.count(d.num ?? 0)}</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{L.cardTitle}</CardTitle>
-          <CardDescription>{L.cardDesc}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ComisionesList
-            rows={lista}
-            empty={
-              <EmptyState
-                icon={PercentIcon}
-                title={L.emptyTitle}
-                description={L.emptyDesc}
+              <ComisionesList
+                rows={lista}
+                empty={
+                  <EmptyState
+                    icon={PercentIcon}
+                    title={L.emptyTitle}
+                    description={L.emptyDesc}
+                  />
+                }
               />
-            }
-          />
-        </CardContent>
-      </Card>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ---------------- Embajadores: gente y lo que se les paga ---------------- */}
+      {tab === 'embajadores' && puedeAdmin && (
+        <div className="space-y-6">
+          {/* Primero la tarifa: sin ella nadie cobra, por muchas ventas que traiga. */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Cuánto paga tu agencia</CardTitle>
+              <CardDescription>
+                Paga la agencia dueña del viaje con la tarifa que fije aquí, no la
+                de quien reclutó al embajador.{' '}
+                <strong>Sin tarifa el embajador no cobra nada</strong>, aunque
+                traiga la venta.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {reglasEmbRes.error ? (
+                <p className="text-sm text-destructive">
+                  Error al cargar las tarifas: {reglasEmbRes.error.message}
+                </p>
+              ) : (
+                <TarifaEmbajadoresAgencia agencias={tarifasAgencia} />
+              )}
+
+              <Avanzado
+                titulo="Tarifa especial por servicio"
+                nota="excepciones"
+              >
+                {embajadoresRes.error ? (
+                  <p className="text-sm text-destructive">
+                    Error al cargar los embajadores: {embajadoresRes.error.message}
+                  </p>
+                ) : (
+                  <ReglasEmbajador
+                    embajadores={embajadores}
+                    servicios={serviciosBasicos}
+                    reglas={reglasEmbajador}
+                  />
+                )}
+              </Avanzado>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Dar de alta y accesos</CardTitle>
+              <CardDescription>
+                Quien comparte tus viajes con su link. Cualquier embajador puede
+                traer ventas de cualquier agencia.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <CrearEmbajador
+                agencias={isSuperadmin ? agenciasParaAlta : undefined}
+                embajadores={embajadores.map((e) => ({ id: e.id, nombre: e.nombre }))}
+              />
+              <EmbajadoresAccesos embajadores={embajadores} />
+            </CardContent>
+          </Card>
+
+          <ReferidosFallidos filas={referidosFallidos} />
+        </div>
+      )}
+
+      {/* ---------------- Tarifas: configuración pura ---------------- */}
+      {tab === 'tarifas' && (
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Reventa entre agencias</CardTitle>
+              <CardDescription>
+                El % que cada agencia te paga cuando revendes sus viajes.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {agenciasRes.error ? (
+                <p className="text-sm text-destructive">
+                  Error al cargar las agencias: {agenciasRes.error.message}
+                </p>
+              ) : agencias.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No hay agencias registradas.
+                </p>
+              ) : (
+                <ul className="divide-y">
+                  {agencias.map((agencia) => (
+                    <li
+                      key={agencia.id}
+                      className="flex flex-wrap items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
+                    >
+                      <span className="text-sm font-medium">{agencia.name}</span>
+                      <TasaForm
+                        supplierId={agencia.id}
+                        initialRate={Number(agencia.commission_rate ?? 0)}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+
+          {isSuperadmin && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Ganancia de Ketzal por servicio</CardTitle>
+                <CardDescription>
+                  Por defecto usa el % global ({globalRate}%). Aquí le pones un %
+                  propio o un monto fijo cuando el trato sea distinto.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {reglasRes.error ? (
+                  <p className="text-sm text-destructive">
+                    Error al cargar las reglas: {reglasRes.error.message}
+                  </p>
+                ) : (
+                  <ReglasServicio
+                    reglas={reglasServicio}
+                    globalRate={globalRate}
+                    showAgencia
+                  />
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {isAdmin && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Agentes de tu equipo</CardTitle>
+                <CardDescription>
+                  Lo que le pagas a cada agente por cerrar una venta, de tu margen:
+                  % de la venta + monto fijo por pasajero, los dos a la vez. Su
+                  código de referido cobra con la tarifa de embajadores, no con
+                  esta.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {agentesRes.error ? (
+                  <p className="text-sm text-destructive">
+                    Error al cargar los agentes: {agentesRes.error.message}
+                  </p>
+                ) : (
+                  <ReglasAgente agentes={agentesComision} />
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
     </div>
   )
 }
