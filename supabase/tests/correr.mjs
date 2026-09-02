@@ -61,6 +61,7 @@ const HARNESS = [
   { f: 'corte_embajadores.sql',           necesita: ['db'], adr: '0032', afirma: 'el corte es derivado y no paga dos veces' },
   { f: 'conversion_viajero_embajador.sql',necesita: ['db'], adr: '0033', afirma: 'convertirse no le quita compras, créditos ni voucher' },
   { f: 'superficie_storage.sql',        necesita: ['db'], adr: '0036', afirma: 'el bucket público no guarda comprobantes ni acepta escritura ajena' },
+  { f: 'list_ambassadors_alcance.sql',    necesita: ['db'], adr: '0037', afirma: 'el admin de agencia ve a sus embajadores y solo a los suyos' },
   { f: 'simulacion_1000_ops.sql',         necesita: ['db'], adr: '0006', afirma: 'los invariantes aguantan volumen' },
   { f: 'volumen_y_clawbot.sql',           necesita: ['db'], adr: '0006', afirma: 'el Clawbot no rompe invariantes a volumen' },
 ]
@@ -225,6 +226,7 @@ async function correrSql(archivo) {
 
 // ── Corrida ────────────────────────────────────────────────────────────────
 const filtro = process.argv.slice(2).find((a) => !a.startsWith('-'))
+const verboso = process.argv.slice(2).some((a) => a === '-v' || a === '--detalle')
 const aCorrer = HARNESS.filter((h) => !filtro || h.f.includes(filtro))
 
 console.log(`\n▸ Hard-tests de Ketzal — ${aCorrer.length} harness\n`)
@@ -249,6 +251,9 @@ for (const h of aCorrer) {
   resultados.push({ ...h, estado: r.ok ? 'PASÓ' : 'FALLÓ', nota: r.ok ? '' : ultimaLineaUtil(r.salida) })
   console.log(r.ok ? `✔ ${seg}s` : `✘ ${seg}s`)
   if (!r.ok) console.log(`       ${ultimaLineaUtil(r.salida)}`)
+  // En verde el conteo del harness ("11 pasaron, 0 fallaron") no se veía por
+  // ningún lado: un ✔ no distingue 11 casos de 1. `-v` lo saca.
+  else if (verboso) console.log(`       ${ultimaLineaUtil(r.salida)}`)
 }
 
 if (cliente) await cliente.end()

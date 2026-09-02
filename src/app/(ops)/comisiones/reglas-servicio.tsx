@@ -219,7 +219,14 @@ export function ReglasServicio({
 }
 
 // ----- Editor de TARIFAS DE EMBAJADOR por servicio ---------------------------
-export type Embajador = { id: string; nombre: string; codigo: string | null }
+export type Embajador = {
+  id: string
+  nombre: string
+  codigo: string | null
+  /** Agencia dueña del embajador. `null` = directo de Ketzal. b089: distingue a
+   *  los que el admin administra de los que solo le vendieron. */
+  agenciaId: string | null
+}
 export type ServicioBasico = { id: string; nombre: string; agencia: string | null }
 export type ReglaEmbajadorRow = {
   embajadorId: string
