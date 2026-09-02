@@ -9,6 +9,45 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **`/comisiones` rediseñada, y el hueco que el rediseño destapó (2026-09-02).**
+> La página apilaba **ocho tarjetas del mismo peso** mezclando tres trabajos
+> distintos —pagar el corte, configurar tarifas, dar de alta gente—, con el dato
+> que más importa (a quién le debes hoy) en la posición 4 y el único KPI dentro
+> de un `grid lg:grid-cols-4` con una sola tarjeta adentro, estirada al 25%.
+> Ahora: fila de 3 KPIs (por pagar · ganado · referidos sin comisión, los tres
+> derivados de datos que la página ya traía) y **cuatro pestañas por trabajo**
+> (`Corte · Plataforma/Ganadas · Embajadores · Tarifas`) por `?tab=` con
+> `<Link>` — server components, cero JS de cliente, URL compartible y el back del
+> navegador funcionando. La primera pestaña del rol va sin query, así que
+> `?corte=YYYY-MM-DD` sigue aterrizando en el corte sin tocar `corte.tsx`. Se
+> deshizo una duplicación real: «Embajadores» y «Embajadores: cuánto paga tu
+> agencia» eran dos tarjetas para lo mismo, separadas por otra en medio; ahora
+> los referidos fallidos quedan debajo de la tarifa, donde el «configúrala
+> arriba» de su propio aviso por fin es cierto.
+>
+> **Lo que salió al rediseñar: `list_ambassadors` negaba con `[]`.** La función
+> abría con `if not is_superadmin() then return '[]'`, y los tres llamadores
+> tratan la lista vacía como «no hay embajadores», no como «no tienes permiso».
+> Consecuencia: un admin de agencia **no podía reemitirle la contraseña a sus
+> propios embajadores** (contra m005) ni nombrarlos en `/gastos/nuevo` para
+> registrar el pago de una comisión. Nunca produjo una queja porque los dos
+> embajadores que existen son directos de Ketzal y ninguna agencia había
+> reclutado a nadie. Arreglo **b089 (ADR-0037)**: acota por tenencia como
+> `corte_embajadores` — superadmin ve todo; el admin ve **los suyos** más los
+> que **ya le vendieron** (venta `reserved`/`confirmed`/`paid`; un `draft` con
+> `?ref` no cuenta); el resto sigue recibiendo `[]`. La fila devuelve
+> `supplier_id` para que la UI separe «a quién administro» de «a quién le debo»:
+> el guard de `regenerarAccesoEmbajador` exige agencia propia, así que ofrecer
+> el botón a un ajeno sería ofrecer un error.
+>
+> **Verificado en vivo**, no compilado: harness nuevo
+> `list_ambassadors_alcance.sql` (11/11, con el caso 2 fallando contra la
+> versión vieja) y **suite completa en 23/23**; y en navegador con dos cuentas
+> efímeras (ADR-0023, destruidas y verificadas en 0) un admin de Border ve a su
+> embajador en «Accesos» y lo encuentra en el selector de `/gastos/nuevo`.
+> El corredor gana `-v`: en verde el conteo del harness («11 pasaron, 0
+> fallaron») no se veía por ningún lado y un ✔ no distingue 11 casos de 1.
+
 > **Barrido de seguridad sobre producción y lo que encontró (2026-09-02).**
 > Se auditó `https://ketzal-os.vercel.app` de punta a punta: bundles, consola,
 > superficie anónima de PostgREST, RPCs, endpoints, cabeceras y Storage.

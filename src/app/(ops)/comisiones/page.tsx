@@ -106,7 +106,9 @@ export default async function ComisionesPage({
           .eq('id', 1)
           .single()
       : Promise.resolve({ data: null, error: null }),
-    isSuperadmin
+    // El admin de agencia también lo necesita: la tarifa de embajador POR
+    // SERVICIO vive en su pestaña. La RLS de `services` ya lo acota a lo suyo.
+    isSuperadmin || isAdmin
       ? supabase.from('services').select('id, name, supplier_id').order('name')
       : Promise.resolve({ data: [], error: null }),
     isSuperadmin
@@ -116,10 +118,11 @@ export default async function ComisionesPage({
           .eq('payee_type', 'plataforma')
           .eq('active', true)
       : Promise.resolve({ data: [], error: null }),
-    isSuperadmin
-      ? // Embajadores viven en profiles (type='embajador', F2); RLS solo-propio ⇒
-        // se leen vía RPC DEFINER. Devuelve [{id,name,referral_code}].
-        supabase.rpc('list_ambassadors' as never)
+    // Embajadores viven en profiles (type='embajador', F2); RLS solo-propio ⇒
+    // se leen vía RPC DEFINER. b089: el RPC ya acota por agencia (los del admin
+    // + los que le vendieron), así que aquí basta con dejar pasar al admin.
+    isSuperadmin || isAdmin
+      ? supabase.rpc('list_ambassadors' as never)
       : Promise.resolve({ data: [], error: null }),
     // b080: se trae también `scope_supplier_id` — la tarifa GENERAL de la agencia,
     // que es la que de verdad paga (m008). El admin de agencia también la lee:
@@ -227,8 +230,22 @@ export default async function ComisionesPage({
       id: string
       name: string
       referral_code: string | null
+      supplier_id: string | null
     }[]
-  ).map((e) => ({ id: e.id, nombre: e.name, codigo: e.referral_code }))
+  ).map((e) => ({
+    id: e.id,
+    nombre: e.name,
+    codigo: e.referral_code,
+    agenciaId: e.supplier_id ?? null,
+  }))
+
+  // Los que este usuario ADMINISTRA (puede reemitirles el acceso y ponerles
+  // tarifa por servicio). No es lo mismo que "los que aparecen en mi corte": con
+  // ADR-0021 un embajador ajeno puede venderme, y `regenerarAccesoEmbajador`
+  // rechaza a los de otra agencia — ofrecer el botón sería ofrecer un error.
+  const embajadoresPropios = isSuperadmin
+    ? embajadores
+    : embajadores.filter((e) => e.agenciaId === profile?.supplier_id)
 
   const serviciosBasicos: ServicioBasico[] = (
     (serviciosRes.data ?? []) as unknown as {
@@ -363,8 +380,8 @@ export default async function ComisionesPage({
             badge:
               sinTarifa > 0 ? (
                 <Badge variant="warning">Sin tarifa</Badge>
-              ) : embajadores.length > 0 ? (
-                <Badge variant="secondary">{embajadores.length}</Badge>
+              ) : embajadoresPropios.length > 0 ? (
+                <Badge variant="secondary">{embajadoresPropios.length}</Badge>
               ) : undefined,
           },
         ]
@@ -520,7 +537,7 @@ export default async function ComisionesPage({
                   </p>
                 ) : (
                   <ReglasEmbajador
-                    embajadores={embajadores}
+                    embajadores={embajadoresPropios}
                     servicios={serviciosBasicos}
                     reglas={reglasEmbajador}
                   />
@@ -540,9 +557,9 @@ export default async function ComisionesPage({
             <CardContent>
               <CrearEmbajador
                 agencias={isSuperadmin ? agenciasParaAlta : undefined}
-                embajadores={embajadores.map((e) => ({ id: e.id, nombre: e.nombre }))}
+                embajadores={embajadoresPropios.map((e) => ({ id: e.id, nombre: e.nombre }))}
               />
-              <EmbajadoresAccesos embajadores={embajadores} />
+              <EmbajadoresAccesos embajadores={embajadoresPropios} />
             </CardContent>
           </Card>
 
