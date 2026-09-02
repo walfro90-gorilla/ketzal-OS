@@ -6,8 +6,16 @@
   [ADR-0034](0034-la-verificacion-nombra-su-prueba.md)
 - **Contexto de código:** `supabase/tests/correr.mjs` ·
   `supabase/tests/embajadores_rls.sql`
-- **Verificación:** `pnpm hard-test embajadores_rls` (14/14) y el guard del
-  corredor, que devuelve `NO CORRIÓ` ante cualquier `.sql` con `commit`.
+- **Verificación:** `pnpm hard-test embajadores_rls` (14/14) y **dos** guards en
+  el corredor: rechaza con `NO CORRIÓ` cualquier `.sql` que traiga `commit`, y
+  —el que de verdad protege— **abre y revierte él mismo la transacción** de cada
+  `.sql`, así que no depende de que el harness lance. Probado con un harness
+  hostil a propósito (escribe y se traga su error): 0 filas escaparon.
+  *(Nota de 2026-09-01, mismo día: la decisión no cambió; se le añadió el
+  segundo guard tras el segundo escape, cuando quedó claro que un
+  `exception when others` que se traga el error deja COMMITEAR. Se actualiza el
+  puntero de Verificación, no la decisión — que un ADR nombre una prueba
+  incompleta es justo la deriva que ADR-0034 vino a cerrar.)*
 
 ## Contexto
 
