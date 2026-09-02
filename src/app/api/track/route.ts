@@ -14,11 +14,42 @@ const REF_RE = /^[A-Z0-9_-]{3,32}$/
 const METODOS = new Set(['mp', 'spei'])
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
+// b088 · El barrido encontró este endpoint sin ningún tope: escribe con service
+// role, sin sesión, y cualquiera podía inflar `funnel_events` con service_id y
+// booking_id inventados hasta envenenar la atribución del marketplace.
+// ponytail: contador en memoria del proceso. Con Fluid Compute las instancias
+// se reusan, así que frena el abuso desde una IP sin infra nueva — pero NO es
+// un límite global: varias instancias = varias cuotas. Si algún día importa de
+// verdad, esto se cambia por Vercel BotID/WAF, que sí cuenta en el borde.
+const VENTANA_MS = 60_000
+const TOPE_POR_VENTANA = 60
+const vistos = new Map<string, { n: number; hasta: number }>()
+
+function pasaElTope(ip: string): boolean {
+  const ahora = Date.now()
+  const v = vistos.get(ip)
+  if (!v || ahora > v.hasta) {
+    // Barrer lo vencido aquí evita que el Map crezca sin fin en una instancia
+    // de vida larga (no hay cron ni timer en una función).
+    if (vistos.size > 5_000) {
+      for (const [k, val] of vistos) if (ahora > val.hasta) vistos.delete(k)
+    }
+    vistos.set(ip, { n: 1, hasta: ahora + VENTANA_MS })
+    return true
+  }
+  v.n += 1
+  return v.n <= TOPE_POR_VENTANA
+}
+
 function uuidONull(v: unknown): string | null {
   return typeof v === 'string' && UUID_RE.test(v) ? v : null
 }
 
 export async function POST(req: Request) {
+  const ip =
+    req.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'desconocida'
+  if (!pasaElTope(ip)) return new NextResponse(null, { status: 429 })
+
   const body = (await req.json().catch(() => null)) as {
     session_id?: unknown
     event?: unknown

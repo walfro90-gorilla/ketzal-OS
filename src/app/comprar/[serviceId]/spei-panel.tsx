@@ -61,7 +61,7 @@ export function SpeiPanel({
       bookingId,
       amount,
       reference: ref,
-      receiptUrl: up.url,
+      receiptPath: up.path,
     })
     setBusy(false)
     if ('error' in res) {

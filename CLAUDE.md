@@ -38,6 +38,9 @@ CFDI/SAT, cálculo social/gamificado, cualquier cosa del sueño 🅰️ sin su f
    → [ADR-0003](docs/adr/0003-monolito-sin-sobreingenieria.md)
 7. **MXN autoritativo** (USD solo se anota/deriva).
    → [ADR-0009](docs/adr/0009-mxn-autoritativo.md)
+8. **Un documento con datos de una persona NUNCA vive en bucket público**
+   (bucket privado + URL firmada); ninguna policy de storage scopea solo por
+   `bucket_id`. → [ADR-0036](docs/adr/0036-el-bucket-publico-no-guarda-documentos.md)
 
 ## Proceso ADR (obligatorio)
 
@@ -96,7 +99,7 @@ prueban — prosa como "probado contra la BD real" no cuenta
   Migrada a proyecto dedicado 2026-08-26 — pendientes del fundador en la
   bitácora (exposed schemas, Auth dashboard, env vars Vercel, box WA, npm).
 - Tests: 174 de dominio (raíz) + 57 MCP, ambos en CI. Los **hard-tests**
-  (`supabase/tests/`, 21, hoy **21/21**) corren con **`pnpm hard-test`** y **NO
+  (`supabase/tests/`, 22, hoy **22/22**) corren con **`pnpm hard-test`** y **NO
   están en CI** — necesitan la service key y no hay staging
   → [ADR-0034](docs/adr/0034-la-verificacion-nombra-su-prueba.md). Requieren
   `DATABASE_URL` en `.env.local` (solo local, nunca en Vercel).

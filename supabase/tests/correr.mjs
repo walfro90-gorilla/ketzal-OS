@@ -60,6 +60,7 @@ const HARNESS = [
   { f: 'embajador_devengo.sql',           necesita: ['db'], adr: '0029', afirma: 'devenga al confirmar, no en draft; auto-referido cerrado' },
   { f: 'corte_embajadores.sql',           necesita: ['db'], adr: '0032', afirma: 'el corte es derivado y no paga dos veces' },
   { f: 'conversion_viajero_embajador.sql',necesita: ['db'], adr: '0033', afirma: 'convertirse no le quita compras, créditos ni voucher' },
+  { f: 'superficie_storage.sql',        necesita: ['db'], adr: '0036', afirma: 'el bucket público no guarda comprobantes ni acepta escritura ajena' },
   { f: 'simulacion_1000_ops.sql',         necesita: ['db'], adr: '0006', afirma: 'los invariantes aguantan volumen' },
   { f: 'volumen_y_clawbot.sql',           necesita: ['db'], adr: '0006', afirma: 'el Clawbot no rompe invariantes a volumen' },
 ]

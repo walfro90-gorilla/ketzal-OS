@@ -9,6 +9,59 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Barrido de seguridad sobre producción y lo que encontró (2026-09-02).**
+> Se auditó `https://ketzal-os.vercel.app` de punta a punta: bundles, consola,
+> superficie anónima de PostgREST, RPCs, endpoints, cabeceras y Storage.
+>
+> **El hallazgo caro: los comprobantes de transferencia SPEI estaban públicos.**
+> El bucket `ketzal-assets` es `public = true` y listable, así que con la
+> publishable key (que va en el bundle por diseño) se enumeraba `spei/`, sus 8
+> carpetas de pedido y sus 13 archivos; el GET público devolvía **200, 137237
+> bytes**: la foto de la transferencia de un cliente real, con nombre del
+> titular, banco y monto. El código apostaba a que el path aleatorio no era
+> adivinable — cierto e irrelevante, porque se lista. Segundo hueco del mismo
+> bucket: `ketzal_assets_auth_update` era `USING (bucket_id = 'ketzal-assets')`,
+> así que **cualquier autenticado** (el registro del marketplace es abierto)
+> podía sobreescribir el comprobante de una venta ajena, el logo o el catálogo.
+> Tercero: `next_doc_folio`/`next_receipt_folio` eran DEFINER sin un solo guard
+> y con `p_supplier` libre, y los `supplier_id` son públicos vía `services`.
+>
+> **Arreglo (b088, ADR-0036):** bucket `ketzal-privado` (`public = false`, sin
+> policy de SELECT) para los documentos con datos de una persona; los 13
+> comprobantes y `presentacion-cierre.pdf` movidos ahí; lectura por
+> `/api/comprobante?intent=`, que firma 60s tras revalidar con la RLS de
+> `payment_intents` (404 si no te toca, sin confirmar que exista); policies de
+> storage scopeadas por carpeta y por dueño; guard `puede_folear` **dentro** de
+> los dos RPC de folio (revocar el EXECUTE habría roto `emit_receipt`,
+> `emit_voucher` y `create_booking_with_items`, que son INVOKER). De paso:
+> cabeceras de seguridad + `poweredByHeader: false`, `search_path` fijo en
+> `my_supplier_id()`, `EXECUTE` de `refund_payment`/`ensure_statement_token`
+> revocado a `anon`, y tope por IP en `/api/track` (60/min: medido 60×204 + 5×429).
+>
+> **Dos bugs del propio fix los cazó el harness nuevo antes de mergear**, los dos
+> de familia conocida: dentro del `exists` sobre `ketzal.services`, un `name`
+> pelón resolvía a `services.name` en vez de `objects.name` (el agente dueño no
+> podía subir su foto), y `puede_folear` devolvía **NULL** en vez de false, con
+> lo que `if not NULL then raise` no entra y el folio se consumía igual — el
+> guard sin `coalesce(…, false)` de ADR-0004, por tercera vez.
+>
+> **Trampa nueva del CDN:** tras mover los objetos, el GET público seguía
+> devolviendo 200 durante una hora (`cf-cache-status: HIT`, `max-age=3600`); con
+> cache-buster ya daba 400. Un hard-test de storage sin cache-buster miente en
+> verde.
+>
+> **Suite: 22/22** (`superficie_storage.sql`, 15 casos, entra a la lista del
+> corredor). Y `superficie_anonima.mjs`, que existía desde antes, **no miraba
+> Storage y además salía con código 0 aunque encontrara algo** — por eso este
+> hueco no lo encontró un harness sino una auditoría a mano. Ahora mira el
+> bucket y sale en rojo (33 pruebas, 0 expuestas).
+>
+> **Verificado limpio en el mismo barrido:** cero secretos en los bundles (la
+> única key del cliente es la publishable), sin source maps, consola del
+> navegador vacía, RLS activa en las 47 tablas, anon sin acceso a ninguna tabla
+> de dinero ni PII, cron y webhook de MP exigiendo su secreto (401 en vivo), y
+> todos los RPC DEFINER que mueven dinero con guard.
+
 > **La suite completa en verde: 21/21, y el segundo escape a producción del día
 > (2026-09-01).** Se repararon los cinco harness podridos que el corredor
 > (ADR-0034) había destapado. Empezamos el día en 9 pasan · 2 fallan · 10 no
