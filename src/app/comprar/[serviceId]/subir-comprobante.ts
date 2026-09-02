@@ -1,11 +1,19 @@
 import { createClient } from '@/lib/supabase/client'
 
-// Subida del comprobante de transferencia SPEI (b035) directo al bucket público
-// `ketzal-assets` (carpeta spei/{bookingId}/) desde el navegador — misma infra
-// que las fotos de proveedor (INSERT autenticado + lectura pública; path con
-// aleatorio = no adivinable, mismo modelo que /recibo/[uuid]).
+// Subida del comprobante de transferencia SPEI (b035) desde el navegador.
+//
+// b088: vive en el bucket PRIVADO `ketzal-privado`, no en `ketzal-assets`. El
+// bucket público servía estas fotos —nombre del titular, banco, monto— a
+// cualquiera sin sesión: bastaba listar el bucket. Aquí no hay lectura pública
+// que valga; se ve sólo por URL firmada vía `/api/comprobante`, que revalida
+// con la RLS de `payment_intents`. La policy de INSERT exige ser el dueño del
+// pedido (`ketzal.puedo_subir_comprobante`), así que el path deja de ser el
+// guard: ahora lo es la BD.
+//
+// Sigue siendo subida directa del navegador (no server action) por el tope de
+// body de una función en Vercel.
 
-const BUCKET = 'ketzal-assets'
+const BUCKET = 'ketzal-privado'
 const MAX_BYTES = 8 * 1024 * 1024 // 8 MB
 const TIPOS: Record<string, string> = {
   'image/jpeg': 'jpg',
@@ -16,7 +24,7 @@ const TIPOS: Record<string, string> = {
 export async function subirComprobanteSpei(
   bookingId: string,
   file: File
-): Promise<{ url: string } | { error: string }> {
+): Promise<{ path: string } | { error: string }> {
   const ext = TIPOS[file.type]
   if (!ext) return { error: 'El comprobante debe ser una imagen JPG, PNG o WebP.' }
   if (file.size > MAX_BYTES) {
@@ -29,10 +37,9 @@ export async function subirComprobanteSpei(
   const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
     contentType: file.type,
     cacheControl: '3600',
-    upsert: true,
+    upsert: false, // un comprobante es evidencia: no se pisa
   })
   if (error) return { error: 'No se pudo subir el comprobante. Intenta de nuevo.' }
 
-  const { data } = supabase.storage.from(BUCKET).getPublicUrl(path)
-  return { url: data.publicUrl }
+  return { path }
 }

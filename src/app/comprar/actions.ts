@@ -5,7 +5,6 @@ import { after } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { safeError } from '@/lib/errors'
-import { esBannerValido } from '@/lib/storage/banner-url'
 import { adminsDeAgencia, notificar, superadmins } from '@/lib/push/send'
 import { resolverSplitMp } from '@/lib/mp-split'
 import { sendCheckoutEvents, sendPurchaseEvents } from '@/lib/marketing/conversions'
@@ -609,15 +608,21 @@ export async function obtenerSpeiPedido(
 // b034: el comprador declara que ya hizo la transferencia SPEI. Queda como
 // payment_intent (provider='spei', pending) hasta que el admin la confirme en
 // Cobranza — el guard (dueño del pedido, monto ≤ saldo) vive en el RPC.
-// b035: comprobante (captura del pago) OBLIGATORIO; debe ser URL del propio
-// Storage (esBannerValido — misma defensa anti-URL-arbitraria que los banners).
+// b035: comprobante (captura del pago) OBLIGATORIO.
+// b088: ya no es una URL pública sino el path dentro del bucket privado
+// `ketzal-privado`, y tiene que ser el de ESTE pedido — así lo que se guarda en
+// `payment_intents.receipt_url` no puede apuntar a nada ajeno ni a un pixel de
+// rastreo. La lectura pasa después por `/api/comprobante`, que firma.
 export async function enviarPagoSpei(input: {
   bookingId: string
   amount: number
   reference?: string
-  receiptUrl: string
+  receiptPath: string
 }): Promise<{ error: string } | { ok: true }> {
-  if (!esBannerValido(input.receiptUrl)) {
+  const esperado = new RegExp(
+    `^spei/${input.bookingId.replace(/[^a-fA-F0-9-]/g, '')}/[A-Za-z0-9._-]{1,120}$`
+  )
+  if (!esperado.test(input.receiptPath)) {
     return { error: 'Adjunta el comprobante de tu transferencia.' }
   }
   const supabase = await createClient()
@@ -625,7 +630,7 @@ export async function enviarPagoSpei(input: {
     p_booking_id: input.bookingId,
     p_amount: input.amount,
     p_reference: input.reference?.trim() || null,
-    p_receipt_url: input.receiptUrl,
+    p_receipt_url: input.receiptPath,
   } as never)
   if (error) return { error: safeError(error, 'No se pudo registrar tu transferencia.') }
 

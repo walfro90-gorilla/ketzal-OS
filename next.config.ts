@@ -20,15 +20,35 @@ const nextConfig: NextConfig = {
         hostname: "uznqmmeqwbbjkotbxwsw.supabase.co",
         pathname: "/storage/v1/object/public/**",
       },
-      // Proyecto viejo (Gorilla-Labs): se conserva durante la ventana de corte
-      // para que el deploy no dependa del orden env-vars↔código. Quitar cuando
-      // el proyecto viejo se apague (cutover paso 10).
-      {
-        protocol: "https",
-        hostname: "wnujoyzdpdyxblgdtxjw.supabase.co",
-        pathname: "/storage/v1/object/public/**",
-      },
     ],
+  },
+  // No anunciar el framework: no arregla nada por sí solo, pero le ahorra al
+  // escaneo automático el trabajo de saber qué CVE probar.
+  poweredByHeader: false,
+  // b088 · El barrido del 2026-09-02 encontró la app sirviendo dinero y datos
+  // de cliente con una sola cabecera de seguridad (HSTS, que la pone Vercel).
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          // ponytail: `frame-ancestors` en vez de una CSP entera. Una CSP con
+          // script-src exige nonces en todo el App Router y rompe en silencio
+          // en producción; esto cierra el clickjacking hoy, que es el hueco que
+          // el barrido encontró. La CSP completa, con nonce y en Report-Only
+          // primero, cuando haya con qué medir el ruido.
+          { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          // `camera=(self)`: lo pide el escáner de QR de /abordaje.
+          {
+            key: "Permissions-Policy",
+            value: "camera=(self), microphone=(), geolocation=(), payment=()",
+          },
+        ],
+      },
+    ];
   },
 };
 

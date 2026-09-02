@@ -75,10 +75,12 @@ export function SpeiPendientes({ rows }: { rows: SpeiPendiente[] }) {
             className="flex flex-col gap-2 rounded-lg border bg-background p-3 sm:flex-row sm:items-center sm:justify-between"
           >
             <div className="flex min-w-0 items-start gap-3">
-              {/* Comprobante (b035): thumbnail clicable, abre en pestaña nueva. */}
+              {/* Comprobante (b035): thumbnail clicable, abre en pestaña nueva.
+                  b088: ya no es la URL pública del bucket sino /api/comprobante,
+                  que firma contra el bucket privado tras revalidar la RLS. */}
               {r.receipt_url && (
                 <a
-                  href={r.receipt_url}
+                  href={`/api/comprobante?intent=${r.id}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="shrink-0 overflow-hidden rounded-md border"
@@ -86,7 +88,7 @@ export function SpeiPendientes({ rows }: { rows: SpeiPendiente[] }) {
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={r.receipt_url}
+                    src={`/api/comprobante?intent=${r.id}`}
                     alt="Comprobante"
                     className="size-14 object-cover"
                   />
@@ -109,7 +111,7 @@ export function SpeiPendientes({ rows }: { rows: SpeiPendiente[] }) {
                 <p className="flex gap-3 text-xs">
                   {r.receipt_url && (
                     <a
-                      href={r.receipt_url}
+                      href={`/api/comprobante?intent=${r.id}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-primary underline-offset-2 hover:underline"
@@ -251,7 +253,7 @@ export function SpeiRechazadas({ rows }: { rows: SpeiRechazada[] }) {
               <p className="flex gap-3 text-xs">
                 {r.receipt_url && (
                   <a
-                    href={r.receipt_url}
+                    href={`/api/comprobante?intent=${r.id}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-primary underline-offset-2 hover:underline"

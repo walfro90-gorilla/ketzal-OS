@@ -147,7 +147,47 @@ for (const [fn, arg] of [
     { status: r.status, muestra: JSON.stringify(r.body).slice(0, 160) })
 }
 
+// ── 6. Storage (b088) ───────────────────────────────────────────────────
+// El hueco que este harness NO vio: probaba PostgREST y ni tocaba Storage.
+// El bucket `ketzal-assets` es público y listable, así que con la misma
+// publishable key se enumeraba todo — y ahí vivían los comprobantes de
+// transferencia SPEI de clientes reales. Ahora viven en un bucket privado.
+const anonList = async (bucket, prefix) => {
+  const r = await fetch(`${URL_BASE}/storage/v1/object/list/${bucket}`, {
+    method: 'POST',
+    headers: { apikey: ANON, Authorization: `Bearer ${ANON}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prefix, limit: 100 }),
+  })
+  const b = await r.json().catch(() => null)
+  return { status: r.status, entradas: Array.isArray(b) ? b : [] }
+}
+
+{
+  const r = await anonList('ketzal-assets', 'spei/')
+  chequeo('anon → lista comprobantes en el bucket público', r.entradas.length > 0,
+    { status: r.status, entradas: r.entradas.length })
+}
+{
+  const r = await anonList('ketzal-privado', '')
+  chequeo('anon → lista el bucket privado', r.entradas.length > 0,
+    { status: r.status, entradas: r.entradas.length })
+}
+{
+  // Con cache-buster: el CDN de Storage sirve copias cacheadas hasta una hora,
+  // y sin esto un objeto ya movido sigue devolviendo 200 y el harness miente.
+  const r = await fetch(
+    `${URL_BASE}/storage/v1/object/public/ketzal-assets/spei/${crypto.randomUUID()}/x.jpg?cb=${Date.now()}`
+  )
+  chequeo('anon → GET público a un path de comprobante', r.status === 200,
+    { status: r.status })
+}
+
 console.log('\n─── RESUMEN ───')
 const rojos = hallazgos.filter(h => h.expuesto)
 console.log(`${hallazgos.length} pruebas · ${rojos.length} expuesta(s)`)
 rojos.forEach(h => console.log(`  🔴 ${h.nombre}`))
+
+// El harness no puede salir en 0 si encontró algo: el corredor lee el código de
+// salida de un .mjs, así que sin esto un hallazgo real salía verde (fue justo
+// lo que pasó con el bucket, encontrado a mano el 2026-09-02).
+process.exit(rojos.length ? 1 : 0)
