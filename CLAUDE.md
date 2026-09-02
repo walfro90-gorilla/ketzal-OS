@@ -96,9 +96,14 @@ prueban — prosa como "probado contra la BD real" no cuenta
   Migrada a proyecto dedicado 2026-08-26 — pendientes del fundador en la
   bitácora (exposed schemas, Auth dashboard, env vars Vercel, box WA, npm).
 - Tests: 174 de dominio (raíz) + 57 MCP, ambos en CI. Los **hard-tests**
-  (`supabase/tests/`, 21) corren con **`pnpm hard-test`** y **NO están en CI**
-  — necesitan la service key y no hay staging
-  → [ADR-0034](docs/adr/0034-la-verificacion-nombra-su-prueba.md).
+  (`supabase/tests/`, 21, hoy **21/21**) corren con **`pnpm hard-test`** y **NO
+  están en CI** — necesitan la service key y no hay staging
+  → [ADR-0034](docs/adr/0034-la-verificacion-nombra-su-prueba.md). Requieren
+  `DATABASE_URL` en `.env.local` (solo local, nunca en Vercel).
+  **Un hard-test `.sql` NUNCA commitea**: crea lo suyo y revierte; el corredor
+  lo obliga (abre la transacción y la revierte él). Ya hubo dos escapes a
+  producción por saltarse esto
+  → [ADR-0035](docs/adr/0035-un-hard-test-nunca-commitea.md).
 
 ## Convenciones multi-agente (varios agentes editan `main` en paralelo)
 
