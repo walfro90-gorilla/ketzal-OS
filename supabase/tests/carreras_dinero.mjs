@@ -27,34 +27,46 @@
 //   4.  5 recibos simultáneos              → folios 1..5 únicos      OK
 //   ledger suma 0.00 · 0 grupos desbalanceados · 0 sobrepagos
 
-import { readFileSync } from 'node:fs'
-import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { crearPosiciones, crearEscenario, borrarEscenario, conPg } from './_fixtures.mjs'
 
-const env = Object.fromEntries(
-  readFileSync(new URL('../../.env.local', import.meta.url), 'utf8')
-    .split('\n').filter((l) => l.includes('=') && !l.startsWith('#'))
-    .map((l) => [l.slice(0, l.indexOf('=')).trim(), l.slice(l.indexOf('=') + 1).trim().replace(/^"|"$/g, '')])
-)
-const URL_BASE = env.NEXT_PUBLIC_SUPABASE_URL
-const KEY = env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+// El entorno lo pone `node --env-file=.env.local` (lo hace `pnpm hard-test`).
+const URL_BASE = process.env.NEXT_PUBLIC_SUPABASE_URL
+const KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-// Fixtures con UUID fijos (ver el SQL al final).
-const B1 = '0ace0000-0000-4000-8000-0000000000b1'  // venta $10,000 sin pagos
-const B3 = '0ace0000-0000-4000-8000-0000000000b3'  // venta $20,000 sin pagos
-const PAY = '0ace0000-0000-4000-8000-0000000000fa' // pago de $5,000
-const CRED = '0ace0000-0000-4000-8000-0000000000cd' // crédito de $5,000
+// Escenario efímero. Antes esto eran UUID fijos que había que sembrar A MANO
+// por execute_sql, y la sesión venía del refresh token que dejaba
+// `npx ketzal-mcp login` — o sea, el harness solo corría si un humano se
+// acordaba de dos pasos previos. Llevaba meses sin correr (ADR-0034). Y su
+// bloque de limpieza (en comentario) era un `delete from ketzal.bookings` SIN
+// WHERE: habría vaciado la base entera.
+const escenario = await crearEscenario()
+const qa = await crearPosiciones([
+  { llave: 'admin', role: 'admin', type: 'agente', supplier_id: escenario.supplierId, name: 'QA Carreras Dinero' },
+])
+const token = qa.admin.token
 
-// Access token a partir del refresh token que dejó `ketzal-mcp login`.
-const sessionPath = join(process.env.XDG_CONFIG_HOME || join(homedir(), '.config'), 'ketzal', 'session.json')
-const { refresh_token } = JSON.parse(readFileSync(sessionPath, 'utf8'))
-const grant = await (await fetch(`${URL_BASE}/auth/v1/token?grant_type=refresh_token`, {
-  method: 'POST',
-  headers: { apikey: KEY, 'Content-Type': 'application/json' },
-  body: JSON.stringify({ refresh_token }),
-})).json()
-const token = grant.access_token
-if (!token) throw new Error('Sin sesión. Corre: npx ketzal-mcp login')
+const { B1, B2, B3, PAY, CRED } = await conPg(async (c) => {
+  const ag = escenario.supplierId, u = qa.admin.id
+  const cli = (await c.query(
+    `insert into ketzal.customers(supplier_id, created_by, full_name)
+     values ($1,$2,'RACE cliente') returning id`, [ag, u])).rows[0].id
+  const bk = async (total) => (await c.query(
+    `insert into ketzal.bookings(customer_id, selling_supplier_id, owner_supplier_id, sold_by,
+       total, subtotal, discount, status, num_pax)
+     values ($1,$2,$2,$3,$4,$4,0,'reserved',1) returning id`, [cli, ag, u, total])).rows[0].id
+  const b1 = await bk(10000), b2 = await bk(10000), b3 = await bk(20000)
+  const pay = (await c.query(
+    `insert into ketzal.payments(booking_id, supplier_id, user_id, amount_mxn, status, type,
+       payment_method, paid_at, installments, current_installment)
+     values ($1,$2,$3,5000,'COMPLETED','payment','efectivo',now(),1,1) returning id`,
+    [b2, ag, u])).rows[0].id
+  const cred = (await c.query(
+    `insert into ketzal.credits(supplier_id, customer_id, booking_origen_id, amount_mxn,
+       expires_at, note, created_by)
+     values ($1,$2,$3,5000,(current_date+365)::date,'RACE',$4) returning id`,
+    [ag, cli, b1, u])).rows[0].id
+  return { B1: b1, B2: b2, B3: b3, PAY: pay, CRED: cred }
+})
 
 async function rpc(fn, args) {
   const r = await fetch(`${URL_BASE}/rest/v1/rpc/${fn}`, {
@@ -119,72 +131,23 @@ console.log('\n4. Folio de recibo concurrente')
   console.log(`   folios=${JSON.stringify(folios)} → ${new Set(folios).size === folios.length ? 'OK' : '*** DUPLICADO ***'}`)
 }
 
-console.log('\n5. Invariantes')
-console.log('   `ledger_entries` es deny-all: el balance-0 se verifica por SQL')
-console.log('   (ver el bloque de verificación al final de este archivo).')
+// ── Verificación de invariantes globales y limpieza ──────────────────────────
+const inv = await conPg(async (c) => (await c.query(`
+  select
+    (select count(*) from (select group_id from ketzal.ledger_entries
+       group by group_id having round(sum(amount_mxn),2) <> 0) g) grupos_desbalanceados,
+    (select count(*) from ketzal.bookings b join ketzal.bookings_with_balance bb on bb.id=b.id
+      where b.status<>'cancelled' and bb.balance < -0.005) sobrepagos,
+    (select count(*) from (select folio, supplier_id from ketzal.receipts
+       group by folio, supplier_id having count(*) > 1) f) folios_duplicados`)).rows[0])
 
-/* ══════════════════ FIXTURES (correr antes, por execute_sql) ══════════════════
-do $$
-declare
-  v_ag uuid := '<AGENCIA>'; v_u uuid := '<SUPERADMIN>'; v_persona uuid := '<PERFIL VIAJERO>';
-begin
-  perform set_config('request.jwt.claim.sub', v_u::text, true);
-  insert into ketzal.customers(id, supplier_id, created_by, full_name, marketplace_customer_id)
-  values ('0ace0000-0000-4000-8000-000000000001', v_ag, v_u, 'RACE cliente', v_persona);
-  insert into ketzal.bookings(id, customer_id, selling_supplier_id, owner_supplier_id, sold_by,
-    total, subtotal, discount, status, num_pax) values
-  ('0ace0000-0000-4000-8000-0000000000b1','0ace0000-0000-4000-8000-000000000001',v_ag,v_ag,v_u,10000,10000,0,'reserved',1),
-  ('0ace0000-0000-4000-8000-0000000000b2','0ace0000-0000-4000-8000-000000000001',v_ag,v_ag,v_u,10000,10000,0,'reserved',1),
-  ('0ace0000-0000-4000-8000-0000000000b3','0ace0000-0000-4000-8000-000000000001',v_ag,v_ag,v_u,20000,20000,0,'reserved',1);
-  insert into ketzal.payments(id, booking_id, supplier_id, user_id, amount_mxn, status, type,
-    payment_method, paid_at, installments, current_installment)
-  values ('0ace0000-0000-4000-8000-0000000000fa','0ace0000-0000-4000-8000-0000000000b2',
-          v_ag, v_u, 5000, 'COMPLETED', 'payment', 'efectivo', now(), 1, 1);
-  insert into ketzal.credits(id, supplier_id, customer_id, booking_origen_id, amount_mxn,
-    expires_at, note, created_by)
-  values ('0ace0000-0000-4000-8000-0000000000cd', v_ag, '0ace0000-0000-4000-8000-000000000001',
-          '0ace0000-0000-4000-8000-0000000000b1', 5000, (current_date+365)::date, 'RACE', v_u);
-end $$;
+console.log('\n5. Invariantes globales')
+console.log('  ', JSON.stringify(inv))
+const invOk = Number(inv.grupos_desbalanceados) === 0 && Number(inv.sobrepagos) === 0
+  && Number(inv.folios_duplicados) === 0
 
--- OJO: estas ventas se insertan a mano SIN líneas, así que `verificar_invariantes`
--- va a reportar `subtotal_vs_lineas` por cada una. Es correcto: el chequeador
--- caza filas hechas a mano. No confundirlo con un bug del sistema.
+const limpio = await borrarEscenario(escenario.supplierId)
+const limpioCuentas = await qa.destruir()
 
-   ══════════════════ VERIFICACIÓN ══════════════════
-select
-  (select coalesce(sum(amount_mxn),0) from ketzal.ledger_entries) suma_global,
-  (select count(*) from (select group_id from ketzal.ledger_entries
-     group by group_id having round(sum(amount_mxn),2) <> 0) g) grupos_desbalanceados,
-  (select count(*) from ketzal.bookings b join ketzal.bookings_with_balance bb on bb.id=b.id
-    where b.status<>'cancelled' and bb.balance < -0.005) sobrepagos,
-  (select count(*) from (select folio, supplier_id from ketzal.receipts
-     group by folio, supplier_id having count(*) > 1) f) folios_duplicados;
-
-   ══════════════════ LIMPIEZA ══════════════════
--- OJO con el ORDEN: payments.credit_id referencia credits ⇒ payments ANTES.
--- Y `system_log` tiene su propio no_mutar: no lo toques o hay que bajarlo también.
-do $$
-begin
-  alter table ketzal.payments disable trigger no_mutar;
-  alter table ketzal.receipts disable trigger no_mutar;
-  alter table ketzal.receipt_counters disable trigger no_mutar;
-  alter table ketzal.commission_lines disable trigger no_mutar;
-  alter table ketzal.expenses disable trigger no_mutar;
-  alter table ketzal.doc_counters disable trigger no_mutar;
-  alter table ketzal.ledger_entries disable trigger ledger_no_mutar;
-  delete from ketzal.ledger_entries; delete from ketzal.commission_lines;
-  delete from ketzal.ratings; delete from ketzal.receipts;
-  delete from ketzal.payment_intents; delete from ketzal.expenses;
-  delete from ketzal.payments; delete from ketzal.credits;
-  delete from ketzal.bookings; delete from ketzal.customers;
-  delete from ketzal.notifications; delete from ketzal.clawbot_reminders;
-  delete from ketzal.receipt_counters; delete from ketzal.doc_counters;
-  alter table ketzal.payments enable trigger no_mutar;
-  alter table ketzal.receipts enable trigger no_mutar;
-  alter table ketzal.receipt_counters enable trigger no_mutar;
-  alter table ketzal.commission_lines enable trigger no_mutar;
-  alter table ketzal.expenses enable trigger no_mutar;
-  alter table ketzal.doc_counters enable trigger no_mutar;
-  alter table ketzal.ledger_entries enable trigger ledger_no_mutar;
-end $$;
-════════════════════════════════════════════════════════════════════════════ */
+console.log(`\n${invOk ? '✔' : '✘'} invariantes ${invOk ? 'en verde' : 'ROTOS'}`)
+process.exit(invOk && limpio && limpioCuentas ? 0 : 1)

@@ -6,34 +6,19 @@
 // construcción. Aquí se dispara por HTTP contra PostgREST con un JWT real: el
 // mismo camino que usa la app en producción, RLS incluida.
 //
-// Requisitos: `qa_setup.sql` corrido y los usuarios QA con contraseña.
-// Uso: node supabase/tests/concurrencia.mjs
+// Uso: `pnpm hard-test concurrencia`
 //
-// Los datos que genera se quedan (regla del fundador: huella inborrable) y
-// viven bajo las agencias QA, así que no tocan los números reales.
+// Antes traía HARDCODEADA la contraseña de unas cuentas QA permanentes que se
+// borraron el 2026-08-23: llevaba desde entonces muriendo en el login, en
+// silencio, y nadie lo supo hasta que existió `pnpm hard-test` (ADR-0034). Y no
+// limpiaba nada ("los datos QA se quedan", regla del 2026-07-19, sustituida por
+// ADR-0023). Ahora crea su agencia, su servicio con cupo y su admin efímeros,
+// y los borra verificando.
 
-import { readFileSync } from 'node:fs'
+import { crearPosiciones, crearEscenario, borrarEscenario } from './_fixtures.mjs'
 
-const env = Object.fromEntries(
-  readFileSync(new URL('../../.env.local', import.meta.url), 'utf8')
-    .split('\n').filter(l => l.includes('=') && !l.startsWith('#'))
-    .map(l => [l.slice(0, l.indexOf('=')).trim(), l.slice(l.indexOf('=') + 1).trim().replace(/^"|"$/g, '')])
-)
-const URL_BASE = env.NEXT_PUBLIC_SUPABASE_URL
-const ANON = env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-const PASS = 'QA-hard-testing-2026'
-const SERVICIO_CON_CUPO = '00000000-0000-4000-8000-00000000a003'
-
-async function login(email) {
-  const r = await fetch(`${URL_BASE}/auth/v1/token?grant_type=password`, {
-    method: 'POST',
-    headers: { apikey: ANON, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password: PASS }),
-  })
-  const j = await r.json()
-  if (!j.access_token) throw new Error(`login falló: ${JSON.stringify(j)}`)
-  return j.access_token
-}
+const URL_BASE = process.env.NEXT_PUBLIC_SUPABASE_URL
+const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
 // El header Content-Profile es lo que apunta a `ketzal`; sin él PostgREST busca
 // en public y todo devuelve 404. La app lo pone vía db:{schema:'ketzal'}.
@@ -77,7 +62,14 @@ const reportar = (caso, ok, detalle) => {
   console.log(`        ${JSON.stringify(detalle)}`)
 }
 
-const alfa = await login('qa-alfa@ketzal.test')
+const escenario = await crearEscenario({ cupo: 3 })
+const SERVICIO_CON_CUPO = escenario.serviceId
+const qa = await crearPosiciones([
+  { llave: 'alfa', role: 'admin', type: 'agente', supplier_id: escenario.supplierId, name: 'QA Carreras' },
+])
+const alfa = qa.alfa.token
+let limpio = false
+try {
 
 // ───────────────────────────────────────────────────────── CARRERA 1
 // Dos emit_receipt simultáneos sobre el MISMO abono.
@@ -160,7 +152,21 @@ const alfa = await login('qa-alfa@ketzal.test')
     { intentos: N, ventas_aceptadas: aceptadas, ...salida, fecha })
 }
 
+} finally {
+  // Lo que escribe PostgREST queda commiteado: hay que borrarlo a mano.
+  limpio = await borrarEscenario(escenario.supplierId)
+  const limpioCuentas = await qa.destruir()
+  limpio = limpio && limpioCuentas
+}
+
 console.log('\n─── RESUMEN ───')
 const huecos = resultados.filter(r => r.veredicto === 'HUECO')
 console.log(`${resultados.length} carreras · ${huecos.length} hueco(s)`)
 if (huecos.length) console.log(JSON.stringify(huecos, null, 2))
+
+// Guard anti verde-vacío: si no corrió ninguna carrera, no probó nada.
+if (resultados.length === 0) {
+  console.error('✘ no se ejecutó ninguna carrera: el harness no probó nada')
+  process.exit(1)
+}
+process.exit(huecos.length === 0 && limpio ? 0 : 1)

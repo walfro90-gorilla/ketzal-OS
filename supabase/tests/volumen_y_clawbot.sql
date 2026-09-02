@@ -15,13 +15,32 @@
 -- `bookings.created_at` hacia atrás. Es la única forma de tener cartera vencida
 -- el mismo día que se crea; ninguna de las dos está en el conjunto append-only.
 --
--- Requiere: qa_setup.sql. Todo cuelga de la agencia QA Alfa.
+-- Se corre solo: `pnpm hard-test volumen_y_clawbot`.
+--
+-- Antes exigía `qa_setup.sql` sembrado a mano y NO revertía: llevaba desde la
+-- limpieza del 2026-08-23 sin correr, y correrlo habría sembrado agencias QA en
+-- producción. Ahora crea su agencia aquí dentro, verifica que las CUATRO reglas
+-- disparen, y revierte todo (ADR-0035).
 
 do $$
 declare
-  ALFA_U constant text := '00000000-0000-4000-8000-00000000a002';
+  ALFA_A constant uuid := '0000c1a0-0000-4000-8000-00000000a001';
+  ALFA_U constant text := '0000c1a0-0000-4000-8000-00000000a002';
   v_b uuid; i int; v_total numeric; v_gen int;
+  v_falt text; v_n int;
 begin
+  ------------------------------------------------------------------ fixtures --
+  insert into ketzal.suppliers (id, name, supplier_type, contact_email)
+    values (ALFA_A, 'QA Clawbot Alfa', 'agency', 'qa.clawbot.alfa@ketzal.local');
+  insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+    email_confirmed_at, created_at, updated_at, confirmation_token, recovery_token,
+    email_change_token_new, email_change, email_change_token_current, phone_change,
+    phone_change_token, reauthentication_token)
+  values (ALFA_U::uuid,'00000000-0000-0000-0000-000000000000','authenticated','authenticated',
+    'qa.clawbot.admin@ketzal.local', crypt('x',gen_salt('bf')),now(),now(),now(),'','','','','','','','');
+  insert into ketzal.profiles (id, email, name, role, supplier_id, type, active)
+    values (ALFA_U::uuid,'qa.clawbot.admin@ketzal.local','QA Clawbot Admin','admin',ALFA_A,'agente',true);
+
   perform set_config('request.jwt.claims', format('{"sub":"%s","role":"authenticated"}', ALFA_U), true);
   perform set_config('role','authenticated',true);
 
@@ -91,22 +110,34 @@ begin
 
   perform set_config('role','postgres',true);
   select ketzal.clawbot_generar_recordatorios() into v_gen;
-  insert into ketzal.system_log(source, level, event, detail)
-  values ('qa_harness','info','volumen — clawbot generó',
-          jsonb_build_object('pendientes_totales', v_gen));
-exception when others then
-  perform set_config('role','postgres',true);
-  insert into ketzal.system_log(source, level, event, detail)
-  values ('qa_harness','error','volumen abortó', jsonb_build_object('err', sqlerrm, 'code', sqlstate));
+
+  -- ── Veredicto: un total > 0 NO basta ────────────────────────────────────
+  -- Hay que ver que las CUATRO reglas disparen. Una que no dispare es una regla
+  -- muerta que nadie notaría — y así fue como el primer tick de Clawbot devolvió
+  -- {pendientes: 0} y se leyó como "funciona".
+  select string_agg(r.regla, ', ') into v_falt
+  from (values ('abono_vencido'), ('abono_por_vencer'),
+               ('cotizacion_seguimiento'), ('viaje_proximo')) as r(regla)
+  where not exists (
+    select 1 from ketzal.clawbot_reminders c
+    where c.kind = r.regla and c.supplier_id = ALFA_A);
+
+  select count(*) into v_n from ketzal.clawbot_reminders where supplier_id = ALFA_A;
+
+  if v_falt is null and v_n > 0 then
+    raise exception 'CLAWBOT (volumen) -- 4 pasaron, 0 fallaron. % recordatorios de las 4 reglas  (todo revertido)', v_n;
+  else
+    raise exception 'CLAWBOT (volumen) -- % pasaron, % fallaron. [reglas que NO dispararon: %] (% recordatorios en total)',
+      4 - coalesce(array_length(string_to_array(v_falt, ', '),1),0),
+      coalesce(array_length(string_to_array(v_falt, ', '),1),0),
+      coalesce(v_falt,'ninguna'), v_n;
+  end if;
+
+exception
+  when sqlstate 'P0001' then raise;   -- el veredicto sale tal cual
+  when others then
+    -- Antes esto se tragaba la causa y dejaba que la transacción COMMITEARA.
+    raise exception 'CLAWBOT (volumen) -- abortó antes de terminar: % (%)', sqlerrm, sqlstate;
 end $$;
 
--- Desglose por regla: un total > 0 no basta, hay que ver que las CUATRO reglas
--- disparen. Una que no dispare es una regla muerta que nadie notaría.
-select kind, count(*) as recordatorios
-from ketzal.clawbot_reminders group by kind
-union all
-select '— TOTAL pendientes —', count(*) from ketzal.clawbot_reminders where status='pendiente'
-union all
-select '— ventas QA creadas —', count(*) from ketzal.bookings
-  where selling_supplier_id = '00000000-0000-4000-8000-00000000a001'
-order by 1;
+-- Sin `select` final: el veredicto viaja en el mensaje de la excepción.

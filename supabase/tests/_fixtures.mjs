@@ -68,8 +68,16 @@ async function borrarUsuario(id) {
 /** Borra restos de una corrida que murió a medias (kill -9, excepción sin finally). */
 async function barrerRestos() {
   const restos = (await listarUsuarios()).filter((u) => u.email?.startsWith(PREFIJO))
-  for (const u of restos) await borrarUsuario(u.id)
-  if (restos.length) console.log(`   ⚠ barridos ${restos.length} restos de una corrida anterior`)
+  let tercos = 0
+  for (const u of restos) {
+    // No tirar la corrida por un resto que no se deja borrar: si tiene pagos o
+    // recibos colgando (append-only), el DELETE de auth rebota con 23503 — y
+    // antes eso reventaba el harness ENTERO antes de empezar, dejando la suite
+    // muerta hasta que alguien limpiara a mano.
+    try { await borrarUsuario(u.id) } catch { tercos++ }
+  }
+  if (restos.length) console.log(`   ⚠ barridos ${restos.length - tercos} restos de una corrida anterior`)
+  if (tercos) console.error(`   ⚠ ${tercos} resto(s) no se dejaron borrar: tienen dinero colgando. Límpialos a mano.`)
   return restos.length
 }
 
@@ -152,5 +160,124 @@ export async function crearPosiciones(posiciones) {
     // Si la creación falla a medias, no dejar cuentas colgadas en producción.
     await salida.destruir()
     throw e
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Escenario de AGENCIA efímero, para los harness que corren por HTTP.
+//
+// Por qué no basta `crearPosiciones`: una carrera real necesita DOS conexiones
+// pegándole a la misma fila, así que se dispara por PostgREST — y lo que escribe
+// PostgREST queda COMMITEADO. No hay rollback que valga; hay que borrarlo a
+// mano. Estos dos helpers son ese par: crear y borrar, ambos verificando.
+//
+// `concurrencia.mjs` y `carreras_dinero.mjs` dependían de `qa_setup.sql`
+// sembrado a mano y NO limpiaban ("los datos QA se quedan", regla del
+// 2026-07-19). Esa regla murió con ADR-0023.
+
+import pg from 'pg'
+
+// Tablas con guard append-only: el DELETE está prohibido por trigger, así que
+// para limpiar hay que apagarlo DENTRO de la transacción y volver a encenderlo.
+const TABLAS_APPEND_ONLY = ['receipts', 'payments', 'commission_lines', 'system_log']
+
+const conectar = async () => {
+  if (!process.env.DATABASE_URL) {
+    throw new Error('Falta DATABASE_URL en .env.local (necesaria para sembrar y limpiar el escenario)')
+  }
+  const c = new pg.Client({ connectionString: process.env.DATABASE_URL })
+  await c.connect()
+  return c
+}
+
+/** Corre `fn(cliente)` con una conexión de Postgres y la cierra siempre. */
+export async function conPg(fn) {
+  const c = await conectar()
+  try { return await fn(c) } finally { await c.end() }
+}
+
+/**
+ * Crea una agencia QA con (opcionalmente) un servicio y una salida con cupo.
+ * Devuelve `{ supplierId, serviceId, departureId }`. Commitea: lo que sigue
+ * corre por HTTP y tiene que verlo.
+ */
+export async function crearEscenario({ cupo = null } = {}) {
+  const c = await conectar()
+  try {
+    const { rows } = await c.query(
+      `insert into ketzal.suppliers(name, contact_email, supplier_type, commission_rate)
+       values ($1, $2, 'agency', 0) returning id`,
+      [`QA Escenario ${randomUUID().slice(0, 8)}`, `qa.escenario.${randomUUID().slice(0, 8)}@ketzal.local`],
+    )
+    const supplierId = rows[0].id
+    const svc = await c.query(
+      `insert into ketzal.services(supplier_id, name, price, published)
+       values ($1, 'QA Escenario Tour', 1000, false) returning id`, [supplierId])
+    const serviceId = svc.rows[0].id
+    let departureId = null
+    if (cupo != null) {
+      const d = await c.query(
+        `insert into ketzal.service_departures(service_id, departs_on, max_capacity, seats_taken)
+         values ($1, current_date + 60, $2, 0) returning id`, [serviceId, cupo])
+      departureId = d.rows[0].id
+    }
+    return { supplierId, serviceId, departureId }
+  } finally {
+    await c.end()
+  }
+}
+
+/**
+ * Borra TODO lo que cuelga de una agencia QA y **verifica** que quedó en cero.
+ * Las tablas de dinero son append-only: el guard se apaga sólo dentro de esta
+ * transacción y se vuelve a encender antes de salir.
+ */
+export async function borrarEscenario(supplierId) {
+  const c = await conectar()
+  try {
+    await c.query('begin')
+    await c.query(`create temp table _bk on commit drop as
+      select id from ketzal.bookings
+       where selling_supplier_id = $1 or owner_supplier_id = $1`, [supplierId])
+    // `commission_lines` va en la lista: olvidarla hacía fallar TODO el borrado
+    // (tg_ledger_inmutable prohíbe el DELETE) y el escenario quedaba vivo.
+    for (const t of TABLAS_APPEND_ONLY) {
+      await c.query(`alter table ketzal.${t} disable trigger user`)
+    }
+    await c.query(`delete from ketzal.receipts where booking_id in (select id from _bk)
+       or payment_id in (select id from ketzal.payments where booking_id in (select id from _bk))`)
+    await c.query('delete from ketzal.payments where booking_id in (select id from _bk)')
+    await c.query('delete from ketzal.payment_schedule where booking_id in (select id from _bk)')
+    await c.query('delete from ketzal.commission_lines where booking_id in (select id from _bk)')
+    await c.query('delete from ketzal.credits where supplier_id = $1', [supplierId]).catch(() => {})
+    await c.query('delete from ketzal.clawbot_reminders where supplier_id = $1', [supplierId])
+    await c.query('delete from ketzal.bookings where id in (select id from _bk)')
+    await c.query('delete from ketzal.customers where supplier_id = $1', [supplierId])
+    await c.query('delete from ketzal.service_departures where service_id in (select id from ketzal.services where supplier_id = $1)', [supplierId])
+    await c.query('delete from ketzal.services where supplier_id = $1', [supplierId])
+    await c.query('delete from ketzal.suppliers where id = $1', [supplierId])
+    for (const t of TABLAS_APPEND_ONLY) {
+      await c.query(`alter table ketzal.${t} enable trigger user`)
+    }
+    await c.query('commit')
+
+    // Verificar, no suponer.
+    const { rows } = await c.query(
+      `select (select count(*) from ketzal.suppliers where id = $1)
+            + (select count(*) from ketzal.bookings
+                where selling_supplier_id = $1 or owner_supplier_id = $1) as quedan`, [supplierId])
+    const quedan = Number(rows[0].quedan)
+    if (quedan) {
+      console.error(`   ✘ QUEDARON ${quedan} filas del escenario ${supplierId}`)
+      return false
+    }
+    console.log('   ✔ escenario borrado y verificado')
+    return true
+  } catch (e) {
+    await c.query('rollback').catch(() => {})
+    console.error(`   ✘ no se pudo borrar el escenario: ${e.message}`)
+    return false
+  } finally {
+    await c.end()
   }
 }

@@ -9,6 +9,58 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **La suite completa en verde: 21/21, y el segundo escape a producción del día
+> (2026-09-01).** Se repararon los cinco harness podridos que el corredor
+> (ADR-0034) había destapado. Empezamos el día en 9 pasan · 2 fallan · 10 no
+> corren.
+>
+> **Segundo escape, y la lección que faltaba.** Al portar
+> `hard_testing_dinero.sql` se descubrió por qué "termina en `raise` ⇒ revierte"
+> no bastaba: el archivo traía un `exception when others` que **se tragaba el
+> error**. El bloque `do $$` terminaba normalmente, así que Postgres **commiteó**
+> — y dejó 2 agencias, 2 cuentas, 6 ventas, 6 clientes y 5 pagos en producción.
+> Se limpiaron por id con los guards append-only apagados y reencendidos dentro
+> de una transacción, verificando contra la línea base.
+>
+> **Arreglo estructural: el rollback lo pone el corredor, no el harness.** Ahora
+> `correr.mjs` abre `begin` antes de cada `.sql` y hace `rollback` en un
+> `finally`, pase lo que pase adentro. Probado con un harness hostil a propósito
+> (escribe y se traga su error): **0 filas escaparon**. El guard de `commit`
+> (ADR-0035) se queda como declaración de intención; el que de verdad protege es
+> este.
+>
+> **Los cinco reparados:**
+> - `hard_testing_dinero.sql` y `volumen_y_clawbot.sql` — siembran sus propias
+>   agencias e identidades en vez de exigir `qa_setup.sql`, y revierten. El de
+>   Clawbot además pasó de imprimir tablas para que un humano las leyera, a
+>   **exigir que las CUATRO reglas disparen** (28 recordatorios en la corrida):
+>   una regla muerta era justo lo que nadie iba a notar.
+> - `concurrencia.mjs` (ADR-0008, cupos) — traía la contraseña QA borrada
+>   hardcodeada. Ahora levanta agencia, servicio con cupo y admin efímeros. Las 3
+>   carreras vuelven a pasar tras meses sin correr.
+> - `carreras_dinero.mjs` (ADR-0006, ledger) — dependía de una sesión de
+>   `ketzal-mcp` y de fixtures sembradas a mano por `execute_sql`. **Su bloque de
+>   limpieza, afortunadamente en comentario, era un `delete from ketzal.bookings`
+>   SIN WHERE**: habría vaciado la base entera.
+> - `comisiones_motor.sql` — reescrito como matriz (entrada anterior).
+>
+> **Dos guards nuevos contra el verde vacío**, porque los dos casos aparecieron
+> de verdad: el primer cierre de `hard_testing_dinero` reportó *"0 pasaron, 0
+> fallaron"* y el corredor lo dio por **verde** (el filtro usaba
+> `clock_timestamp()`, que cae después del `now()` con que se sellan las filas).
+> Ahora un harness que no registra ni un caso **falla**, y lo mismo en
+> `concurrencia.mjs` si no corre ninguna carrera.
+>
+> Y en `_fixtures.mjs`: `crearEscenario`/`borrarEscenario` para los harness que
+> corren por HTTP —lo que escribe PostgREST queda commiteado y hay que borrarlo a
+> mano, con los guards append-only apagados dentro de la transacción— más un
+> barrido tolerante: un resto que no se deja borrar ya no revienta la corrida
+> entera antes de empezar.
+>
+> Producción verificada tras la corrida completa: 2 suppliers, 7 ventas, 2 pagos,
+> 6 clientes, 7 cuentas, 2 recibos, 4 asientos, las 2 tarifas de embajador en
+> pie, **0 residuo QA y 0 triggers apagados**.
+
 > **La MATRIZ del motor de comisiones: 14 casos que cruzan los 4 payee_type
 > (2026-09-01).** Pregunta del fundador: *"¿tenemos todos los perfiles para
 > probar abonos y comisiones, todos los ángulos?"*. Al medirlo, la respuesta era

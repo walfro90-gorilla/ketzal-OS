@@ -6,7 +6,12 @@
 --    comisiones) requiere un harness transaccional aparte."
 -- Esto es ese harness.
 --
--- REQUISITO: correr antes `qa_setup.sql` (agencias e identidades QA).
+-- Se corre solo: `pnpm hard-test hard_testing_dinero`.
+--
+-- Antes exigía `qa_setup.sql` sembrado a mano, y esas fixtures se borraron en la
+-- limpieza del 2026-08-23 ⇒ llevaba desde entonces sin correr, en silencio.
+-- Ahora siembra sus DOS agencias e identidades aquí dentro y revierte todo al
+-- final (ADR-0035): no depende de nada previo y no deja un byte escrito.
 --
 -- CÓMO PRUEBA, y por qué así:
 --  - Maneja los RPCs REALES, nunca INSERT crudos. Un insert directo se salta
@@ -22,16 +27,45 @@
 --    info      = la guarda existe y funcionó (esperado)
 --    critical  = HUECO: la operación indebida fue aceptada
 --
--- Los datos que genera NO se borran (regla del fundador 2026-07-19). Viven bajo
--- las agencias QA, así que no contaminan los números de las agencias reales.
+-- Los veredictos siguen yendo a `system_log` (source='qa_harness') porque es
+-- donde el harness los sabe escribir — pero ya NO sobreviven a la corrida: la
+-- transacción entera se revierte. La regla vieja de "los datos QA no se borran"
+-- (2026-07-19) quedó sustituida por ADR-0023 y ADR-0035.
 
 do $$
 declare
-  ALFA_U constant text := '00000000-0000-4000-8000-00000000a002';
-  BETA_U constant text := '00000000-0000-4000-8000-00000000b002';
+  ALFA_A constant uuid := '0000d10e-0000-4000-8000-00000000a001';  -- agencia Alfa
+  BETA_A constant uuid := '0000d10e-0000-4000-8000-00000000b001';  -- agencia Beta
+  ALFA_U constant text := '0000d10e-0000-4000-8000-00000000a002';  -- admin de Alfa
+  BETA_U constant text := '0000d10e-0000-4000-8000-00000000b002';  -- admin de Beta
   v_b uuid; v_bal numeric; v_pay uuid; v_err text; v_paso boolean;
   v_folio1 bigint; v_folio2 bigint; v_n int;
+  v_t0 timestamptz; v_huecos int;
 begin
+  -- `now()` y NO `clock_timestamp()`: las filas de system_log se sellan con el
+  -- timestamp de la TRANSACCIÓN. Con clock_timestamp() el corte quedaba después
+  -- de ellas y el conteo daba 0 — un verde vacío perfecto, que es justo el
+  -- fallo que este archivo existe para no tener.
+  v_t0 := now();
+
+  ------------------------------------------------------------------ fixtures --
+  -- Dos agencias para poder probar el cruce de tenants (caso 4). Propias del
+  -- harness: nunca se opera sobre las reales.
+  insert into ketzal.suppliers (id, name, supplier_type, contact_email) values
+    (ALFA_A, 'QA Dinero Alfa', 'agency', 'qa.dinero.alfa@ketzal.local'),
+    (BETA_A, 'QA Dinero Beta', 'agency', 'qa.dinero.beta@ketzal.local');
+  insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+    email_confirmed_at, created_at, updated_at, confirmation_token, recovery_token,
+    email_change_token_new, email_change, email_change_token_current, phone_change,
+    phone_change_token, reauthentication_token)
+  select u.id::uuid,'00000000-0000-0000-0000-000000000000','authenticated','authenticated',
+         u.mail, crypt('x',gen_salt('bf')),now(),now(),now(),'','','','','','','',''
+  from (values (ALFA_U,'qa.dinero.alfa.admin@ketzal.local'),
+               (BETA_U,'qa.dinero.beta.admin@ketzal.local')) as u(id, mail);
+  insert into ketzal.profiles (id, email, name, role, supplier_id, type, active) values
+    (ALFA_U::uuid,'qa.dinero.alfa.admin@ketzal.local','QA Alfa Admin','admin',ALFA_A,'agente',true),
+    (BETA_U::uuid,'qa.dinero.beta.admin@ketzal.local','QA Beta Admin','admin',BETA_A,'agente',true);
+
   perform set_config('request.jwt.claims',
     format('{"sub":"%s","role":"authenticated"}', ALFA_U), true);
   perform set_config('role','authenticated',true);
@@ -188,11 +222,38 @@ begin
   perform set_config('role','authenticated',true);
 
   perform set_config('role','postgres',true);
-exception when others then
-  perform set_config('role','postgres',true);
-  insert into ketzal.system_log(source, level, event, detail) values
-    ('qa_harness','error','harness abortó', jsonb_build_object('err', sqlerrm, 'code', sqlstate));
+
+  -- ── Veredicto máquina ────────────────────────────────────────────────────
+  select count(*) into v_huecos from ketzal.system_log
+   where source='qa_harness' and level='critical' and ts >= v_t0;
+  select count(*) into v_n from ketzal.system_log
+   where source='qa_harness' and ts >= v_t0;
+
+  -- Guard anti verde-vacío: si no se registró NI UN caso, el harness no probó
+  -- nada, y eso es una falla — no un éxito silencioso. Este guard existe porque
+  -- la primera versión de este cierre reportó "0 pasaron, 0 fallaron" y el
+  -- corredor lo dio por VERDE.
+  if v_n = 0 then
+    raise exception 'DINERO (escritura) -- 0 pasaron, 1 fallaron. [no registró ningún caso: no probó nada]';
+  end if;
+
+  raise exception 'DINERO (escritura) -- % pasaron, % fallaron.%  (todo revertido)',
+    v_n - v_huecos, v_huecos,
+    coalesce((select ' HUECOS: '||string_agg(event, ' · ')
+                from ketzal.system_log
+               where source='qa_harness' and level='critical' and ts >= v_t0), ' Sin fallas.');
+
+exception
+  -- El `raise` del veredicto es la salida NORMAL: se deja pasar tal cual para
+  -- que Postgres revierta y el corredor lo lea.
+  when sqlstate 'P0001' then raise;
+  when others then
+    -- Antes esto se tragaba la causa: la anotaba en system_log y seguía como si
+    -- nada, así que un harness que moría en el caso 2 se reportaba igual que uno
+    -- que corrió los 6. Ahora dice qué lo mató.
+    raise exception 'DINERO (escritura) -- abortó antes de terminar: % (%)', sqlerrm, sqlstate;
 end $$;
 
-select level, event, detail from ketzal.system_log
-where source='qa_harness' and event like 'caso %' order by ts;
+-- Sin `select` final: el `raise` de arriba ya abortó la transacción, así que
+-- cualquier sentencia posterior moriría con "current transaction is aborted".
+-- El veredicto de cada caso viaja en el mensaje de la excepción.
