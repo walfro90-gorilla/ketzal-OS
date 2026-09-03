@@ -13,6 +13,7 @@ import { PublicFooter } from '@/components/public/public-footer'
 
 export const metadata: Metadata = {
   title: 'Agencias de viajes — Ketzal',
+  alternates: { canonical: '/agencias' },
   description:
     'Conoce las agencias que operan viajes en Ketzal: ecoturismo, aventura y más en Chihuahua y todo México.',
   openGraph: {

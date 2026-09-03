@@ -1,4 +1,5 @@
 import { headers } from 'next/headers'
+import { origenPublico } from '@/lib/site-url'
 import { createClient } from '@/lib/supabase/server'
 import { ComoGanas } from './como-ganas'
 import type { TarifaEmbajador } from '@/lib/domain/embajador'
@@ -150,7 +151,8 @@ export default async function EmbajadorPage() {
   const h = await headers()
   const host = h.get('host') ?? ''
   const proto = h.get('x-forwarded-proto') ?? (host.startsWith('localhost') ? 'http' : 'https')
-  const origin = host ? `${proto}://${host}` : ''
+  // Siempre el dominio público (ketzal.tours), no el host donde está el embajador.
+  const origin = origenPublico(host ? `${proto}://${host}` : '')
 
   // Viajes publicados, ya con el nombre de su agencia resuelto (mismo mapa que
   // usa la sección de tarifas: no se toca `suppliers`, que trae CLABE y correo).

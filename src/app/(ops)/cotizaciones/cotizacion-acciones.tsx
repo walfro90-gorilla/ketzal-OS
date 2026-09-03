@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { origenPublico } from '@/lib/site-url'
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -24,10 +25,10 @@ export function CotizacionAcciones({
 
   const path = `/cotizacion/${quoteToken}`
 
-  // El link público se arma en el cliente con window.location.origin
-  // (funciona igual en localhost que en producción).
+  // El link público lleva SIEMPRE el dominio público (ketzal.tours), aunque el
+  // agente esté en os.ketzal.tours; en local cae al origen actual.
   function publicUrl() {
-    return `${window.location.origin}${path}`
+    return `${origenPublico(window.location.origin)}${path}`
   }
 
   function handleWhatsAppClick(e: React.MouseEvent<HTMLAnchorElement>) {

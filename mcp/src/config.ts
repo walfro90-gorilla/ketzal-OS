@@ -2,7 +2,7 @@
  * Configuración del servidor.
  *
  * La URL y la llave publishable de Supabase son **públicas por diseño**: ya viajan
- * en el bundle del navegador de https://ketzal-os.vercel.app y cualquiera puede
+ * en el bundle del navegador de https://ketzal.tours y cualquiera puede
  * leerlas desde la página. Vienen horneadas para que `npx -y ketzal-mcp` funcione
  * sin configuración; lo que protege la cuenta es el login del usuario y la RLS,
  * no la oscuridad de estas dos cadenas.
@@ -29,7 +29,7 @@ export const SCHEMA = 'ketzal'
  * documento sin liga no se puede mandar, y un LLM adivinando la URL de un
  * documento de dinero es peor que no tenerla.
  */
-export const APP_URL = (process.env.KETZAL_APP_URL ?? 'https://ketzal-os.vercel.app').replace(
+export const APP_URL = (process.env.KETZAL_APP_URL ?? 'https://ketzal.tours').replace(
   /\/+$/,
   '',
 )

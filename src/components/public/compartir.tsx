@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { origenPublico } from '@/lib/site-url'
 import { toast } from 'sonner'
 import { CheckIcon, LinkIcon, MessageCircleIcon, SendIcon, Share2Icon } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -58,7 +59,9 @@ export function Compartir({
   const [copiado, setCopiado] = useState(false)
 
   useEffect(() => {
-    setUrl(window.location.href)
+    // Dominio público siempre (la ficha se puede estar viendo desde os.).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setUrl(`${origenPublico(window.location.origin)}${window.location.pathname}${window.location.search}`)
     // `navigator.share` sólo existe en algunos navegadores (móvil casi siempre):
     // se detecta tras montar para no romper la hidratación.
     setNativo(typeof navigator !== 'undefined' && typeof navigator.share === 'function')

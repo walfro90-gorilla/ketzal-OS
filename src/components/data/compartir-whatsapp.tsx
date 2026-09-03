@@ -2,6 +2,7 @@
 
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { origenPublico } from '@/lib/site-url'
 
 /**
  * Comparte el link público de la página actual por WhatsApp y lo copia al
@@ -17,8 +18,9 @@ export function CompartirWhatsApp({
   toastOk?: string
 }) {
   async function handleCompartir() {
-    // La URL se lee en el cliente: funciona igual en localhost que en producción.
-    const url = window.location.href
+    // Misma ruta, pero SIEMPRE en el dominio público: el agente puede estar en
+    // os.ketzal.tours y el cliente debe recibir ketzal.tours.
+    const url = `${origenPublico(window.location.origin)}${window.location.pathname}${window.location.search}`
     window.open(
       `https://wa.me/?text=${encodeURIComponent(`${mensaje} ${url}`)}`,
       '_blank',

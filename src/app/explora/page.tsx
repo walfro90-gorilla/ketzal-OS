@@ -13,6 +13,7 @@ import { SITE_URL } from '@/lib/site-url'
 
 export const metadata: Metadata = {
   title: 'Explora viajes · Ketzal',
+  alternates: { canonical: '/explora' },
   description:
     'Tours, paquetes y experiencias de agencias locales. Reserva con confianza.',
   openGraph: {

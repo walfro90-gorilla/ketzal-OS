@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { CheckIcon, CopyIcon, MessageCircleIcon } from 'lucide-react'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { linkReferido, mensajeParaCompartir, waCompartir } from '@/lib/domain/embajador'
+import { origenPublico } from '@/lib/site-url'
 
 /** El link de referido (`/explora?ref=CODE`), para copiar o mandar directo por
  *  WhatsApp — que es donde realmente se comparte. Antes solo se podía copiar, y
@@ -24,7 +25,8 @@ export function LinkReferido({
   const [copiado, setCopiado] = useState(false)
 
   useEffect(() => {
-    setUrl(linkReferido(window.location.origin, code))
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setUrl(linkReferido(origenPublico(window.location.origin), code))
   }, [code])
 
   async function copiar() {

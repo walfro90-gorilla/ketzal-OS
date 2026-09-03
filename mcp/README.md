@@ -164,7 +164,7 @@ repartir este MCP a agentes de agencia, audítalos primero.
 | `KETZAL_MCP_MAX_WRITES` | Tope de escrituras por sesión (default 20) |
 | `KETZAL_EMAIL` / `KETZAL_PASSWORD` | Login sin interacción, para CI. Desaconsejado a diario: deja la contraseña en un archivo de configuración |
 | `KETZAL_SUPABASE_URL` / `KETZAL_SUPABASE_KEY` | Apuntar a otro proyecto de Supabase |
-| `KETZAL_APP_URL` | Dominio para las ligas públicas de recibo/voucher/cotización/estado (default `https://ketzal-os.vercel.app`) |
+| `KETZAL_APP_URL` | Dominio para las ligas públicas de recibo/voucher/cotización/estado (default `https://ketzal.tours`) |
 
 ## Desarrollo
 

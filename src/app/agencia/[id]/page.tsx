@@ -107,6 +107,7 @@ export async function generateMetadata({
   return {
     title,
     description,
+    alternates: { canonical: `/agencia/${id}` },
     openGraph: { title, description, type: 'website' },
     twitter: { card: 'summary_large_image', title, description },
   }
