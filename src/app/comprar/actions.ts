@@ -9,6 +9,7 @@ import { adminsDeAgencia, notificar, superadmins } from '@/lib/push/send'
 import { resolverSplitMp } from '@/lib/mp-split'
 import { sendCheckoutEvents, sendPurchaseEvents } from '@/lib/marketing/conversions'
 import { REF_COOKIE } from '@/lib/domain/embajador'
+import { SITE_URL } from '@/lib/site-url'
 
 // Registro / datos del COMPRADOR B2C (terreno del marketplace).
 // El comprador es un profile de tipo 'viajero' (refactor de identidad, F1): un
@@ -23,6 +24,8 @@ export type RegistroInput = {
   password: string
   /** Token de hCaptcha resuelto en el navegador. Vacío si la protección está apagada. */
   captchaToken?: string
+  /** Ruta interna a la que volver tras confirmar el correo (b091). */
+  next?: string
 }
 
 /** Crea la cuenta de comprador (auth + fila en marketplace_customers). */
@@ -42,6 +45,15 @@ export async function registrarComprador(
     return { error: 'La contraseña debe tener al menos 8 caracteres.' }
   }
 
+  // b091: si el proyecto exige confirmar el correo, el enlace vuelve por
+  // /auth/callback (que sí canjea el código / token_hash) y de ahí a `next`.
+  // Sin esto aterrizaba en `/` con un `?code=` que nadie canjea.
+  const next =
+    input.next && input.next.startsWith('/') && !input.next.startsWith('//')
+      ? input.next
+      : '/mis-compras'
+  const origen = (await headers()).get('origin') ?? SITE_URL
+
   const supabase = await createClient()
   const { data, error } = await supabase.auth.signUp({
     email,
@@ -51,6 +63,7 @@ export async function registrarComprador(
       // Lo resuelve el navegador y viaja hasta aquí: Auth lo verifica contra
       // hCaptcha cuando la protección está prendida. Sin ella, undefined.
       captchaToken: input.captchaToken,
+      emailRedirectTo: `${origen}/auth/callback?next=${encodeURIComponent(next)}`,
     },
   })
   if (error) return { error: safeError(error, 'No se pudo crear la cuenta.') }

@@ -9,6 +9,50 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **La cotización se guarda en la cuenta del viajero; el correo liga solo verificado (b091, ADR-0039, 2026-09-03).**
+> El fundador preguntó cómo hacer que, cuando un agente registra y cotiza a un
+> prospecto, Ketzal le ofrezca crear su cuenta de viajero "para tener ahí la
+> cotización y más opciones de viaje", y pidió ligar cuentas por correo
+> "agregando la confirmación si es necesario". Verificado contra el código y la
+> BD viva: `/cotizacion/[token]` era pública, sin expirar y con un solo CTA
+> (aceptar política); `/mis-compras` filtra SOLO `bookings.marketplace_customer_id
+> = auth.uid()` y la venta del back-office nace con eso en null — ligar
+> `customers.marketplace_customer_id` no bastaba. "Confirm email" está APAGADO
+> en el proyecto (8/8 cuentas con `confirmation_sent_at` null), así que
+> `email_confirmed_at` no prueba nada; y `customers.email` lo teclea el agente
+> (3 de 6 clientes ni lo tienen). De ahí las dos puertas de ADR-0039: el
+> **token** liga esa cotización (`claim_quote`, primer reclamo gana con error
+> explícito para el segundo) y el **correo verificado** liga el expediente
+> (`link_my_customers` desde `/mis-compras`, predicado `email_verificado` que
+> falla cerrado con auto-confirmación y acepta Google `email_verified`).
+> Hallazgo al ligar: `delete_my_draft_order` y los tres RPC de pago dejaban al
+> prospecto borrar/replanear/pagar el draft del agente ⇒ canal `manual` queda de
+> **solo lectura** en el portal (gate en BD en 5 RPC; la UI esconde con
+> `channel`, que ahora viajan `list_my_marketplace_orders` y `get_my_trip`).
+> Cableado para cuando se prenda la confirmación: `registrarComprador` manda
+> `emailRedirectTo=/auth/callback?next=…` (antes aterrizaba en `/` con un
+> `?code=` que nadie canjeaba) y `/auth/callback` acepta `token_hash` (verifica
+> en servidor: registro en el webview de WhatsApp, confirmación desde Gmail).
+> `/entrar` respeta `?next=`; `RegistroComprador` gana `nombreInicial`/`next`/
+> `onCreada` (aditivo). **Evidencia:** harness `cotizacion_reclamada.sql`
+> **24/24** (rollback) y la suite completa **24/24** con `pnpm hard-test`;
+> `tsc`, eslint, 174 unit y `next build` limpios; flujo REAL en navegador
+> contra la BD viva con cliente+cotización efímeros en Wanderlust y cuenta
+> efímera: alta desde la cotización con el nombre prellenado → toast
+> "Cotización guardada en tus viajes" → `bookings`/`customers` ligados al perfil
+> nuevo (`email_verificado=false`, como debe) → con sesión el CTA cambia a
+> "Guardar en Mis viajes" → `/mis-compras` la pinta como "Cotización" con el
+> aviso "lo lleva tu agencia" y SIN botones de pagar/eliminar → el detalle
+> muestra "Los pagos van con tu agencia" y el contacto. Limpieza verificada:
+> 0 bookings, 0 customers, 0 auth.users, 0 profiles, 0 suppliers `QA b091`.
+> **Pendiente del fundador (dashboard de Auth, no código):** prender
+> *Confirm email* y apuntar la plantilla "Confirm signup" a
+> `{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=signup` para que la
+> puerta por correo deje de estar inerte y la confirmación funcione entre
+> navegadores; hasta entonces solo liga el token. Techos anotados en el ADR:
+> barrido perezoso (al abrir `/mis-compras`), fila duplicada por agencia
+> queda sin ligar, cuentas auto-confirmadas nunca ligan por correo.
+
 > **Re-auditoría del fix de seguridad: b088 dejó dos ramas abiertas (2026-09-02).**
 > Con #102 ya en `main` y desplegado, se volvió a barrer producción para
 > confirmar el cierre. Lo confirmado, medido: las cabeceras están vivas

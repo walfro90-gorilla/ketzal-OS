@@ -3,15 +3,26 @@ import { createClient } from '@/lib/supabase/server'
 import { homeForPersona } from '@/lib/persona'
 import { registrarEvento } from '@/lib/tracker'
 
+// b091: tipos de enlace que Supabase Auth firma con `token_hash`.
+const TIPOS_OTP = ['signup', 'email', 'magiclink', 'recovery', 'invite', 'email_change'] as const
+
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
+  // b091: confirmación por `token_hash` (plantilla de correo con {{ .TokenHash }}):
+  // se verifica en el servidor y no depende del navegador donde se pidió el
+  // correo — el prospecto se registra en el webview de WhatsApp y confirma desde
+  // Gmail sin perder la sesión. PKCE (`?code=`) sigue funcionando igual.
+  const tipoOtp = TIPOS_OTP.find((t) => t === searchParams.get('type'))
+  const tokenHash = tipoOtp ? searchParams.get('token_hash') : null
   // Solo rutas internas (evita open-redirect vía ?next=//otro-dominio).
   const raw = searchParams.get('next')
   const explicitNext = raw && raw.startsWith('/') && !raw.startsWith('//') ? raw : null
-  if (code) {
+  if (code || tokenHash) {
     const supabase = await createClient()
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
+    const { error } = code
+      ? await supabase.auth.exchangeCodeForSession(code)
+      : await supabase.auth.verifyOtp({ type: tipoOtp!, token_hash: tokenHash! })
     if (!error) {
       const {
         data: { user },

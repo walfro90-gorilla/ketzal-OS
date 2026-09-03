@@ -10,6 +10,8 @@ import { NotaDivisa } from '@/components/public/nota-divisa'
 import { PoweredByKetzal } from '@/components/data/powered-by-ketzal'
 import { CompartirWhatsApp } from '@/components/data/compartir-whatsapp'
 import { ImprimirBoton } from '@/components/imprimir-boton'
+import { createClient } from '@/lib/supabase/server'
+import { GuardarCotizacion } from './guardar-cotizacion'
 import {
   Card,
   CardContent,
@@ -120,6 +122,11 @@ export default async function CotizacionPublicaPage({
   const divisa = await getDocDivisa('quote', token)
   // C2: política de cancelación (snapshot congelado o la vigente) + aceptación.
   const politica = await getDocPolicy('quote', token)
+  // b091: ¿quién la está viendo? Con sesión, guardar es un botón; sin ella, el
+  // alta de viajero. El token de la URL es la llave (ADR-0039).
+  const {
+    data: { user },
+  } = await (await createClient()).auth.getUser()
 
   // Plan de pagos: filas con saldo restante (suma pura, sin acumulador mutable).
   const total = Number(quote.total)
@@ -186,6 +193,15 @@ export default async function CotizacionPublicaPage({
           </dl>
         </CardContent>
       </Card>
+
+      {quote.status !== 'cancelled' && (
+        <GuardarCotizacion
+          token={token}
+          conSesion={!!user}
+          nombre={quote.customer.full_name}
+          agencia={quote.agency.name}
+        />
+      )}
 
       {quote.service?.itinerary && quote.service.itinerary.length > 0 && (
         <Card>

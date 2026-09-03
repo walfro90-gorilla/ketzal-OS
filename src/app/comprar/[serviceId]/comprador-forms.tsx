@@ -11,8 +11,19 @@ import { registrarComprador, guardarComprador } from '../actions'
 import { Captcha, type CaptchaHandle, faltaCaptcha } from '@/components/auth/captcha'
 
 /** Alta rápida de comprador (visitante sin sesión). */
-export function RegistroComprador() {
-  const [nombre, setNombre] = useState('')
+export function RegistroComprador({
+  nombreInicial = '',
+  next,
+  onCreada,
+}: {
+  /** Prellena el nombre (p. ej. el que capturó el agente en la cotización). */
+  nombreInicial?: string
+  /** Ruta interna a la que volver si el proyecto exige confirmar el correo (b091). */
+  next?: string
+  /** Qué hacer al crear la cuenta con sesión; por default recarga la página. */
+  onCreada?: () => void | Promise<void>
+} = {}) {
+  const [nombre, setNombre] = useState(nombreInicial)
   const [telefono, setTelefono] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -33,6 +44,7 @@ export function RegistroComprador() {
         email,
         password,
         captchaToken: captchaToken ?? undefined,
+        next,
       })
       if ('error' in res) {
         captcha.current?.reset()
@@ -43,7 +55,8 @@ export function RegistroComprador() {
         setEnviado(true)
       } else {
         toast.success('¡Cuenta creada!')
-        router.refresh()
+        if (onCreada) await onCreada()
+        else router.refresh()
       }
     })
   }
@@ -52,7 +65,7 @@ export function RegistroComprador() {
     return (
       <p className="mt-6 rounded-lg border bg-muted/40 p-4 text-sm">
         Te enviamos un correo para confirmar tu cuenta. Ábrelo y vuelve a esta
-        página para continuar tu compra.
+        página para continuar.
       </p>
     )
   }

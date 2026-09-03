@@ -26,6 +26,8 @@ export type Order = {
   booking_id: string
   service_id: string | null
   status: string
+  /** b091: 'manual' = la lleva el agente (aquí se ve, no se paga ni se borra). */
+  channel: 'portal' | 'manual'
   travel_date: string | null
   payment_type: string
   service_name: string
@@ -287,6 +289,7 @@ export function OrderCard({ order }: { order: Order }) {
   }
 
   const conPlan = order.payment_type === 'abonos'
+  const manual = order.channel === 'manual'
 
   return (
     <Card>
@@ -301,14 +304,19 @@ export function OrderCard({ order }: { order: Order }) {
               <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground group-hover:text-primary" />
             </Link>
             <p className="text-xs text-muted-foreground">
-              {[ESTADO[order.status] ?? order.status, fechaCorta(order.travel_date)]
+              {[
+                manual && order.status === 'draft'
+                  ? 'Cotización'
+                  : (ESTADO[order.status] ?? order.status),
+                fechaCorta(order.travel_date),
+              ]
                 .filter(Boolean)
                 .join(' · ')}
             </p>
             {/* b068: solo pedidos sin ningún rastro de dinero (el RPC vuelve a
                 validarlo — este chequeo es solo para no mostrar un botón que
                 siempre fallaría). */}
-            {order.status === 'draft' && order.paid === 0 && (
+            {!manual && order.status === 'draft' && order.paid === 0 && (
               confirmandoEliminar ? (
                 <div className="mt-1 flex items-center gap-2 text-xs">
                   <span className="text-muted-foreground">¿Eliminar pedido?</span>
@@ -355,6 +363,14 @@ export function OrderCard({ order }: { order: Order }) {
           <PlanChecklist plan={order.plan} paid={order.paid} />
         )}
 
+        {/* b091: la cotización/venta del back-office se ve; la cobranza sigue con
+            el agente (el RPC rechaza pagar/borrar/replanear en canal manual). */}
+        {manual && order.balance > 0 && (
+          <p className="rounded-lg bg-muted/50 p-3 text-sm text-muted-foreground">
+            Este viaje lo lleva tu agencia: los pagos y cambios van con tu agente.
+          </p>
+        )}
+
         {/* Transferencia SPEI declarada, en revisión del admin (b034). Se ocultan
             los botones de pago para no duplicar el cobro mientras se confirma. */}
         {order.spei_pending != null && order.spei_pending > 0 ? (
@@ -367,6 +383,7 @@ export function OrderCard({ order }: { order: Order }) {
           </p>
         ) : (
           /* Pago pendiente */
+          !manual &&
           order.balance > 0 &&
           order.service_id && (
             <div className="flex flex-col gap-2">

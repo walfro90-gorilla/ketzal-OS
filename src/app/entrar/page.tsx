@@ -28,6 +28,14 @@ import { Label } from '@/components/ui/label'
 // agente). Al entrar va a '/', que resuelve por persona → /mis-compras.
 type Modo = 'entrar' | 'crear'
 
+// b091: `?next=` interno (p. ej. volver a la cotización que se estaba viendo).
+// Solo rutas internas, igual que /auth/callback.
+function nextInterno(): string | null {
+  if (typeof window === 'undefined') return null
+  const n = new URLSearchParams(window.location.search).get('next')
+  return n && n.startsWith('/') && !n.startsWith('//') ? n : null
+}
+
 function AuthCard() {
   const router = useRouter()
   const [modo, setModo] = useState<Modo>('entrar')
@@ -68,7 +76,7 @@ function AuthCard() {
       }
       // Bitácora (b066): el login por contraseña no toca el servidor.
       await fetch('/api/track/login', { method: 'POST' }).catch(() => {})
-      router.push('/') // resuelve por persona → /mis-compras
+      router.push(nextInterno() ?? '/') // sin next: resuelve por persona → /mis-compras
       router.refresh()
     })
   }
@@ -85,6 +93,7 @@ function AuthCard() {
         email,
         password,
         captchaToken: captchaToken ?? undefined,
+        next: nextInterno() ?? undefined,
       })
       if ('error' in res) {
         captcha.current?.reset()
@@ -96,7 +105,7 @@ function AuthCard() {
         return
       }
       toast.success('¡Cuenta creada!')
-      router.push('/')
+      router.push(nextInterno() ?? '/')
       router.refresh()
     })
   }
@@ -114,7 +123,7 @@ function AuthCard() {
             camino de menor fricción, y sirve igual para entrar que para crear
             cuenta (Google ya verificó el correo). Nace `viajero` como cualquier
             alta — el tipo no depende de esta pantalla (ver GoogleButton). */}
-        <GoogleButton next="/mis-compras" disabled={pending} onError={(m) => setError(m || null)} />
+        <GoogleButton next={nextInterno() ?? '/mis-compras'} disabled={pending} onError={(m) => setError(m || null)} />
 
         <div className="relative">
           <div className="absolute inset-0 flex items-center">

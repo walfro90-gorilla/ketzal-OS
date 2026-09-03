@@ -30,6 +30,8 @@ type Trip = {
     travel_date: string | null
     num_pax: number | null
     payment_type: string
+    /** b091: 'manual' = la lleva el agente. */
+    channel: string
   }
   money: { total: number; paid: number; balance: number }
   service: {
@@ -131,7 +133,9 @@ export default async function TripPage({
       <header className="mt-4">
         <h1 className="text-2xl font-bold tracking-tight">{sv.name}</h1>
         <p className="mt-1 text-xs font-medium uppercase tracking-wide text-primary">
-          {ESTADO[bk.status] ?? bk.status}
+          {bk.channel === 'manual' && bk.status === 'draft'
+            ? 'Cotización'
+            : (ESTADO[bk.status] ?? bk.status)}
         </p>
         <dl className="mt-3 space-y-1.5 text-sm">
           {ruta && (
@@ -169,12 +173,19 @@ export default async function TripPage({
                 {mxn.format(money.balance)}
               </span>
             </div>
-            <Link
-              href="/mis-compras"
-              className={`${buttonVariants({ size: 'touch' })} mt-3 w-full`}
-            >
-              Pagar en Mis viajes
-            </Link>
+            {bk.channel === 'manual' ? (
+              // b091: la cobranza de una venta del back-office la lleva el agente.
+              <p className="mt-3 text-sm text-muted-foreground">
+                Los pagos van con tu agencia — su contacto está abajo.
+              </p>
+            ) : (
+              <Link
+                href="/mis-compras"
+                className={`${buttonVariants({ size: 'touch' })} mt-3 w-full`}
+              >
+                Pagar en Mis viajes
+              </Link>
+            )}
           </>
         ) : (
           <p className="mt-1 text-sm text-primary">Pagado por completo ✓</p>
