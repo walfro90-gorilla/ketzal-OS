@@ -9,6 +9,38 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **El snapshot del schema estaba 20 migraciones atrás, y el bloqueo era falso (2026-09-03).**
+> `supabase/snapshots/ketzal_schema.sql` seguía siendo el dump de **b071** y su
+> propia cabecera lo decía: *"hace falta la contraseña de la BD"*. No hacía
+> falta. El `DATABASE_URL` lleva meses en `.env.local`, y aunque esta máquina no
+> tiene `psql` ni `pg_dump` (`command -v` → nada), **la CLI de Supabase no los
+> necesita**: baja `public.ecr.aws/supabase/postgres` y corre el `pg_dump` de
+> adentro. Dos minutos:
+>
+> ```
+> supabase db dump --db-url "$DATABASE_URL" --schema ketzal \
+>   -f supabase/snapshots/ketzal_schema.sql
+> ```
+>
+> Snapshot al día hasta **b091 / m011**, verificado por identificador y no por
+> fecha: trae `claim_quote` y `email_verificado` (b091), `puede_folear` y
+> `puedo_subir_comprobante` (b088), `puedo_escribir_imagen_supplier` (b090).
+> Schema-only —0 `COPY`/`INSERT`, ninguna fila de negocio— y 0 URLs de conexión
+> embebidas.
+>
+> **Lo que el snapshot NO trae, ahora escrito en su cabecera:** las policies de
+> `storage.objects` viven en el schema `storage`, no en `ketzal`, así que un
+> rebuild desde este archivo deja el Storage **sin policies**. Desde el 2026-09-02
+> eso es seguridad crítica; su fuente son `b088_superficie_publica_storage.sql` y
+> `b090_storage_suppliers_y_brand_scopeados.sql` (ADR-0036, ADR-0038) y hay que
+> re-aplicarlas a mano.
+>
+> Cierre de carriles coordinado con el carril de b091 (ADR-0039): main sin PRs
+> abiertos, árbol limpio, 24 harness en el registro, y 13 ramas locales viejas
+> —todas ya integradas por squash, verificadas archivo por archivo— borradas.
+> Queda colgada la remota `origin/fix/list-ambassadors-admin` (su contenido ya
+> entró por #105): borrar remotas es decisión del fundador.
+
 > **La cotización se guarda en la cuenta del viajero; el correo liga solo verificado (b091, ADR-0039, 2026-09-03).**
 > El fundador preguntó cómo hacer que, cuando un agente registra y cotiza a un
 > prospecto, Ketzal le ofrezca crear su cuenta de viajero "para tener ahí la

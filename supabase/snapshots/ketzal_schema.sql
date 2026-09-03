@@ -1,20 +1,29 @@
--- ⚠️ SNAPSHOT DESACTUALIZADO — NO reconstruye el sistema actual.
+-- SNAPSHOT del schema `ketzal` — regenerado el 2026-09-03 (main 23ca8cf).
 --
--- Este dump se generó en b071, antes de migrar al proyecto dedicado
--- (commit f111ce0). Desde entonces la BD avanzó y el archivo NO: le faltan
--- b072–b077 (comisión de portal y su gate de publicación) y m002–m010
--- (encuestas, embajadores operables, tarifa por agencia, referidos de agente),
--- incluida la tabla `ketzal.referral_misses` completa. La única migración
--- reflejada aquí es m009, parchada a mano. Verificado el 2026-08-30:
--- `grep referral_misses` y `grep onboarded_at` dan 0 aquí y existen en vivo.
+-- Al día hasta b091 / m011 inclusive. Verificado por identificador, no por
+-- fecha: contiene `claim_quote`, `email_verificado` (b091), `puede_folear`,
+-- `puedo_subir_comprobante` (b088) y `puedo_escribir_imagen_supplier` (b090).
+-- Schema-only: 0 sentencias `COPY`/`INSERT`, ninguna fila de negocio.
 --
--- Reconstruir con este archivo produce un sistema SIN el motor de referidos
--- actual. Para ponerlo al día hace falta la contraseña de la BD:
+-- Cómo regenerarlo (2 min, no hace falta instalar nada):
 --
---     supabase db dump --schema ketzal -f supabase/snapshots/ketzal_schema.sql
+--     supabase db dump --db-url "$DATABASE_URL" --schema ketzal \
+--       -f supabase/snapshots/ketzal_schema.sql
 --
--- Mientras tanto la fuente de verdad es la BD viva (ADR-0014) y los espejos de
--- `db/proposed/`, que sí están completos.
+-- El `DATABASE_URL` está en `.env.local` (session pooler). La CLI de Supabase
+-- baja `public.ecr.aws/supabase/postgres` y corre el `pg_dump` de adentro, así
+-- que NO se necesita `postgresql-client` en la máquina — que es lo que trabó
+-- este archivo desde b071. Requiere Docker corriendo.
+--
+-- LO QUE ESTE ARCHIVO NO TRAE: las policies de `storage.objects`, que viven en
+-- el schema `storage` (de Supabase) y no en `ketzal`. Son seguridad crítica
+-- desde el 2026-09-02 y su fuente es
+-- `db/proposed/b088_superficie_publica_storage.sql` (bucket privado, escritura
+-- scopeada) y `b090_storage_suppliers_y_brand_scopeados.sql`
+-- (ADR-0036, ADR-0038). Un rebuild desde este snapshot deja el Storage sin
+-- policies: hay que re-aplicar esas dos.
+--
+-- Fuente de verdad sigue siendo la BD viva (ADR-0014); esto es el espejo.
 
 
 
@@ -246,23 +255,37 @@ CREATE OR REPLACE FUNCTION "ketzal"."accept_pending_invitation"() RETURNS "uuid"
     SET "search_path" TO 'ketzal', 'public'
     AS $$
 declare
-  v_uid uuid := auth.uid();
+  v_uid   uuid := auth.uid();
   v_email text;
-  v_inv record;
+  v_name  text;
+  v_inv   record;
 begin
   if v_uid is null then return null; end if;
-  select lower(u.email) into v_email from auth.users u where u.id = v_uid;
+  select lower(u.email),
+         coalesce(u.raw_user_meta_data->>'full_name',
+                  u.raw_user_meta_data->>'name',
+                  split_part(u.email, '@', 1))
+    into v_email, v_name
+    from auth.users u where u.id = v_uid;
   if v_email is null then return null; end if;
+
   if exists (select 1 from ketzal.profiles p where p.id = v_uid and p.supplier_id is not null) then
     return null;
   end if;
+
   select * into v_inv from ketzal.agency_invitations
    where lower(email) = v_email and status = 'pending'
    order by created_at desc limit 1;
   if v_inv.id is null then return null; end if;
-  update ketzal.profiles
-     set supplier_id = v_inv.supplier_id, role = v_inv.role, type = 'agente', active = true
-   where id = v_uid;
+
+  insert into ketzal.profiles (id, email, name, type, role, supplier_id, active)
+  values (v_uid, v_email, v_name, 'agente', v_inv.role, v_inv.supplier_id, true)
+  on conflict (id) do update
+     set supplier_id = excluded.supplier_id,
+         role        = excluded.role,
+         type        = 'agente',
+         active      = true;
+
   update ketzal.agency_invitations
      set status = 'accepted', accepted_at = now()
    where id = v_inv.id;
@@ -421,27 +444,42 @@ begin
   with dev as (
     select cl.payee_profile_id as emb_id,
            count(*) filter (where cl.kind = 'devengo') as num_ventas,
-           coalesce(sum(case when cl.kind = 'devengo' then cl.amount_mxn else -cl.amount_mxn end), 0) as devengado
+           coalesce(sum(case when cl.kind = 'devengo' then cl.amount_mxn else -cl.amount_mxn end), 0) as comisiones
     from ketzal.commission_lines cl
     join ketzal.bookings b on b.id = cl.booking_id
     where cl.payee_type = 'embajador'
       and b.status in ('reserved', 'confirmed', 'paid')
     group by cl.payee_profile_id
   ),
+  -- Quien solo ha ganado BONOS (reclutó y su recluta vendió, pero él no) también
+  -- debe aparecer: si solo se listara a quien tiene comisiones, ese saldo sería
+  -- invisible hasta que alguien reclamara.
+  con_bono as (
+    select distinct r.recruited_by as emb_id
+    from ketzal.profiles r where r.recruited_by is not null
+  ),
+  todos as (
+    select emb_id from dev union select emb_id from con_bono
+  ),
   pag as (
     select provider_profile_id as emb_id,
            coalesce(sum(case when kind = 'egreso' then amount_mxn else -amount_mxn end), 0) as pagado
     from ketzal.expenses
-    where category = 'embajador' and provider_profile_id is not null
+    where category in ('embajador','agente') and provider_profile_id is not null
     group by provider_profile_id
   ),
   merged as (
-    select d.emb_id,
-           (select name from ketzal.profiles s where s.id = d.emb_id) as embajador,
-           d.num_ventas, d.devengado,
+    select t.emb_id,
+           (select name from ketzal.profiles s where s.id = t.emb_id) as embajador,
+           coalesce(d.num_ventas, 0) as num_ventas,
+           coalesce(d.comisiones, 0) as comisiones,
+           ketzal.bonos_reclutador(t.emb_id) as bonos,
+           coalesce(d.comisiones, 0) + ketzal.bonos_reclutador(t.emb_id) as devengado,
            coalesce(p.pagado, 0) as pagado,
-           d.devengado - coalesce(p.pagado, 0) as saldo
-    from dev d left join pag p on p.emb_id = d.emb_id
+           coalesce(d.comisiones, 0) + ketzal.bonos_reclutador(t.emb_id) - coalesce(p.pagado, 0) as saldo
+    from todos t
+    left join dev d on d.emb_id = t.emb_id
+    left join pag p on p.emb_id = t.emb_id
   )
   select jsonb_build_object(
     'total_debo', coalesce(sum(devengado), 0),
@@ -449,8 +487,12 @@ begin
     'total_saldo', coalesce(sum(saldo), 0),
     'lista', coalesce(jsonb_agg(jsonb_build_object(
       'embajador_id', emb_id, 'embajador', embajador, 'num_ventas', num_ventas,
+      'comisiones', comisiones, 'bonos', bonos,
       'devengado', devengado, 'pagado', pagado, 'saldo', saldo) order by saldo desc), '[]'::jsonb)
-  ) into v from merged;
+  ) into v
+  from merged
+  -- Sin nada devengado ni pagado no hay por qué listarlo.
+  where devengado <> 0 or pagado <> 0;
   return v;
 end $$;
 
@@ -534,16 +576,11 @@ CREATE OR REPLACE FUNCTION "ketzal"."attribute_booking_by_ref"("p_booking" "uuid
     SET "search_path" TO 'ketzal', 'pg_temp'
     AS $$
 declare
-  v_uid uuid := auth.uid(); v_code text; v_amb uuid;
-  b ketzal.bookings; r record; v_amt numeric(12,2); v_sum numeric(12,2); v_id uuid;
+  v_uid uuid := auth.uid(); v_code text; v_amb uuid; b ketzal.bookings;
 begin
   if v_uid is null then return null; end if;
   v_code := upper(regexp_replace(coalesce(p_ref, ''), '\s', '', 'g'));
   if v_code = '' then return null; end if;
-
-  select id into v_amb from ketzal.profiles
-   where referral_code = v_code and type = 'embajador';
-  if v_amb is null then return null; end if;
 
   select * into b from ketzal.bookings where id = p_booking;
   if b.id is null then return null; end if;
@@ -557,27 +594,31 @@ begin
     return null;
   end if;
 
-  select id into v_id from ketzal.commission_lines
-   where booking_id = p_booking and payee_type = 'embajador' and kind = 'devengo' limit 1;
-  if v_id is not null then
-    update ketzal.bookings set ambassador_id = v_amb where id = p_booking and ambassador_id is null;
-    return v_id;
+  select id into v_amb from ketzal.profiles
+   where referral_code = v_code and type in ('embajador', 'agente');
+  if v_amb is null then
+    insert into ketzal.referral_misses (booking_id, ref_code, supplier_id, reason)
+    values (p_booking, v_code, b.selling_supplier_id, 'codigo_inexistente');
+    return null;
   end if;
 
-  select * into r from ketzal.resolve_commission_rule(b.service_id, 'embajador', v_amb);
-  if r.basis is null then return null; end if;
-  v_amt := ketzal.commission_amount(r.basis, r.rate, r.unit_amount, b.num_pax, b.total);
-  if v_amt <= 0 then return null; end if;
+  if not exists (select 1 from ketzal.profiles p where p.id = v_amb and p.active) then
+    insert into ketzal.referral_misses (booking_id, ref_code, ambassador_id, supplier_id, reason)
+    values (p_booking, v_code, v_amb, b.selling_supplier_id, 'perfil_inactivo');
+    return null;
+  end if;
 
-  select coalesce(sum(case when kind = 'devengo' then amount_mxn else -amount_mxn end), 0)
-    into v_sum from ketzal.commission_lines where booking_id = p_booking;
-  if v_sum + v_amt > b.total then return null; end if;
+  if (b.sold_by is not null and b.sold_by = v_amb)
+     or (b.marketplace_customer_id is not null and b.marketplace_customer_id = v_amb) then
+    insert into ketzal.referral_misses (booking_id, ref_code, ambassador_id, supplier_id, reason)
+    values (p_booking, v_code, v_amb, b.selling_supplier_id, 'auto_referido');
+    return null;
+  end if;
 
-  insert into ketzal.commission_lines(booking_id, payee_type, payee_profile_id, basis, rate, unit_amount, num_pax, amount_mxn)
-  values (p_booking, 'embajador', v_amb, r.basis, r.rate, r.unit_amount, b.num_pax, v_amt)
-  returning id into v_id;
-  update ketzal.bookings set ambassador_id = v_amb where id = p_booking;
-  return v_id;
+  update ketzal.bookings set ambassador_id = v_amb
+   where id = p_booking and ambassador_id is null;
+
+  return v_amb;
 end $$;
 
 
@@ -662,6 +703,51 @@ end $$;
 ALTER FUNCTION "ketzal"."boarding_info"("p_voucher_id" "uuid") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "ketzal"."bono_reclutador_monto"() RETURNS numeric
+    LANGUAGE "sql" IMMUTABLE
+    SET "search_path" TO 'ketzal', 'pg_temp'
+    AS $$ select 300::numeric $$;
+
+
+ALTER FUNCTION "ketzal"."bono_reclutador_monto"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "ketzal"."bono_reclutador_venta_minima"() RETURNS numeric
+    LANGUAGE "sql" IMMUTABLE
+    SET "search_path" TO 'ketzal', 'pg_temp'
+    AS $$ select 1000::numeric $$;
+
+
+ALTER FUNCTION "ketzal"."bono_reclutador_venta_minima"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "ketzal"."bonos_reclutador"("p_uid" "uuid", "p_hasta" "date" DEFAULT NULL::"date") RETURNS numeric
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'ketzal', 'pg_temp'
+    AS $$
+  select coalesce(count(*), 0) * ketzal.bono_reclutador_monto()
+  from ketzal.profiles recluta
+  where recluta.recruited_by = p_uid
+    and exists (
+      select 1
+      from ketzal.commission_lines cl
+      join ketzal.bookings b on b.id = cl.booking_id
+      where cl.payee_type = 'embajador'
+        and cl.payee_profile_id = recluta.id
+        and b.status in ('confirmed', 'paid')
+        and b.total >= ketzal.bono_reclutador_venta_minima()
+        and coalesce(b.marketplace_customer_id, '00000000-0000-0000-0000-000000000000')
+            not in (recluta.id, p_uid)
+        and (p_hasta is null or cl.created_at::date <= p_hasta)
+      group by cl.booking_id
+      having sum(case when cl.kind = 'devengo' then cl.amount_mxn else -cl.amount_mxn end) > 0
+    );
+$$;
+
+
+ALTER FUNCTION "ketzal"."bonos_reclutador"("p_uid" "uuid", "p_hasta" "date") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "ketzal"."can_view_user"("p_id" "uuid") RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'ketzal', 'pg_temp'
@@ -720,8 +806,6 @@ begin
 
   select * into v_b from ketzal.bookings where id = p_booking for update;
   if not found then raise exception 'Venta no encontrada o sin acceso'; end if;
-  -- DEFINER ⇒ el guard es la única defensa (calco b047, coalesce obligatorio).
-  -- El comprador B2C NO cancela: cancelar es acto de la agencia vendedora.
   if not (ketzal.is_superadmin()
           or coalesce(v_b.sold_by = v_uid, false)
           or coalesce(v_b.selling_supplier_id = ketzal.my_supplier_id(), false)) then
@@ -747,7 +831,6 @@ begin
     v_pol := coalesce(v_b.cancellation_policy,
                       ketzal.effective_cancellation_policy(v_b.selling_supplier_id));
     v_vig := least(120, greatest(1, coalesce((v_pol->'credito'->>'vigencia_meses')::int, 12)));
-    -- Tope duro: el crédito NUNCA excede el dinero realmente recibido.
     v_monto_credito := least(v_pagado, round(v_pagado * least(100, greatest(0,
                          coalesce((v_pol->'credito'->>'pct')::numeric, 100))) / 100, 2));
 
@@ -770,6 +853,14 @@ begin
          cancelled_at = now(),
          updated_at = now()
    where id = p_booking;
+
+  insert into ketzal.commission_lines(booking_id, payee_type, payee_supplier_id, payee_profile_id,
+                                      basis, rate, unit_amount, num_pax, amount_mxn, kind, reverses_line_id)
+  select cl.booking_id, cl.payee_type, cl.payee_supplier_id, cl.payee_profile_id,
+         cl.basis, cl.rate, cl.unit_amount, cl.num_pax, cl.amount_mxn, 'reverso', cl.id
+  from ketzal.commission_lines cl
+  where cl.booking_id = p_booking and cl.kind = 'devengo'
+    and not exists (select 1 from ketzal.commission_lines r where r.reverses_line_id = cl.id);
 
   return jsonb_build_object(
     'pena_mxn', v_pena,
@@ -798,6 +889,46 @@ end $$;
 
 
 ALTER FUNCTION "ketzal"."cancel_join_request"("p_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "ketzal"."claim_quote"("p_token" "uuid") RETURNS "uuid"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'ketzal', 'pg_temp'
+    AS $$
+declare
+  v_uid uuid := auth.uid();
+  v_b record;
+begin
+  if v_uid is null then raise exception 'No autenticado'; end if;
+  if p_token is null then raise exception 'Cotización no encontrada'; end if;
+  if not exists (select 1 from ketzal.profiles p where p.id = v_uid and p.active) then
+    raise exception 'Completa tu cuenta antes de guardar la cotización.';
+  end if;
+
+  select id, status, customer_id, marketplace_customer_id
+    into v_b from ketzal.bookings where quote_token = p_token for update;
+  if not found then raise exception 'Cotización no encontrada'; end if;
+  if v_b.status = 'cancelled' then
+    raise exception 'Esta cotización ya no está disponible.';
+  end if;
+  if v_b.marketplace_customer_id is not null and v_b.marketplace_customer_id <> v_uid then
+    raise exception 'Esta cotización ya está guardada en otra cuenta. Si es tuya, pide a tu agencia que la revise.';
+  end if;
+
+  if v_b.marketplace_customer_id is null then
+    update ketzal.bookings set marketplace_customer_id = v_uid where id = v_b.id;
+  end if;
+  -- El cliente del agente se liga si está libre y no choca con el índice único.
+  update ketzal.customers c set marketplace_customer_id = v_uid
+   where c.id = v_b.customer_id and c.marketplace_customer_id is null
+     and not exists (select 1 from ketzal.customers c2
+                      where c2.supplier_id is not distinct from c.supplier_id
+                        and c2.marketplace_customer_id = v_uid);
+  return v_b.id;
+end $$;
+
+
+ALTER FUNCTION "ketzal"."claim_quote"("p_token" "uuid") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "ketzal"."clawbot_bandeja"() RETURNS "jsonb"
@@ -1406,6 +1537,103 @@ end $$;
 ALTER FUNCTION "ketzal"."convert_quote_to_sale"("p_booking_id" "uuid") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "ketzal"."corte_embajadores"("p_hasta" "date") RETURNS "jsonb"
+    LANGUAGE "plpgsql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'ketzal', 'pg_temp'
+    AS $$
+declare v jsonb;
+begin
+  if not (ketzal.is_superadmin() or coalesce(ketzal.is_agency_admin(ketzal.my_supplier_id()), false)) then
+    raise exception 'Solo un administrador puede ver el corte.';
+  end if;
+
+  with visible as (
+    select case when ketzal.is_superadmin() then null else ketzal.my_supplier_id() end as sup
+  ),
+  devengos as (
+    select cl.payee_profile_id as emb_id,
+           b.selling_supplier_id as agencia_id,
+           sum(case when cl.kind = 'devengo' then cl.amount_mxn else -cl.amount_mxn end) as devengado,
+           count(*) filter (where cl.kind = 'devengo')::bigint as num_ventas
+    from ketzal.commission_lines cl
+    join ketzal.bookings b on b.id = cl.booking_id
+    join ketzal.bookings_with_balance bb on bb.id = b.id
+    cross join visible
+    where cl.payee_type = 'embajador'
+      and b.status in ('reserved','confirmed','paid')
+      and cl.created_at::date <= p_hasta
+      and bb.paid > 0
+      and (visible.sup is null or b.selling_supplier_id = visible.sup)
+    group by cl.payee_profile_id, b.selling_supplier_id
+  ),
+  pagos as (
+    select e.provider_profile_id as emb_id, e.supplier_id as agencia_id,
+           sum(case when e.kind = 'egreso' then e.amount_mxn else -e.amount_mxn end) as pagado
+    from ketzal.expenses e
+    cross join visible
+    where e.category in ('embajador','agente')
+      and e.provider_profile_id is not null
+      and e.supplier_id is not null
+      and e.spent_at <= p_hasta
+      and (visible.sup is null or e.supplier_id = visible.sup)
+    group by e.provider_profile_id, e.supplier_id
+  ),
+  filas as (
+    select coalesce(d.emb_id, p.emb_id) as emb_id,
+           coalesce(d.agencia_id, p.agencia_id) as agencia_id,
+           'comision'::text as concepto,
+           coalesce(d.devengado, 0)::numeric as devengado,
+           coalesce(d.num_ventas, 0)::bigint as num_ventas,
+           coalesce(p.pagado, 0)::numeric as pagado
+    from devengos d
+    full outer join pagos p
+      on p.emb_id = d.emb_id and p.agencia_id is not distinct from d.agencia_id
+    where coalesce(d.agencia_id, p.agencia_id) is not null
+  ),
+  bonos as (
+    select pr.id as emb_id, null::uuid as agencia_id, 'bono'::text as concepto,
+           ketzal.bonos_reclutador(pr.id, p_hasta)::numeric as devengado,
+           0::bigint as num_ventas,
+           coalesce((
+             select sum(case when e.kind='egreso' then e.amount_mxn else -e.amount_mxn end)
+             from ketzal.expenses e
+             where e.category in ('embajador','agente')
+               and e.provider_profile_id = pr.id
+               and e.supplier_id is null
+               and e.spent_at <= p_hasta), 0)::numeric as pagado
+    from ketzal.profiles pr
+    cross join visible
+    where visible.sup is null
+      and exists (select 1 from ketzal.profiles r where r.recruited_by = pr.id)
+  ),
+  todo as (
+    select * from filas
+    union all
+    select * from bonos where devengado <> 0 or pagado <> 0
+  )
+  select jsonb_build_object(
+    'hasta', p_hasta,
+    'total_a_pagar', coalesce(sum(devengado - pagado) filter (where devengado - pagado <> 0), 0),
+    'filas', coalesce(jsonb_agg(jsonb_build_object(
+      'embajador_id', emb_id,
+      'embajador', (select name from ketzal.profiles s where s.id = emb_id),
+      'agencia_id', agencia_id,
+      'agencia', (select name from ketzal.suppliers s where s.id = agencia_id),
+      'concepto', concepto,
+      'num_ventas', num_ventas,
+      'devengado', devengado,
+      'pagado', pagado,
+      'a_pagar', devengado - pagado)
+      order by (devengado - pagado) desc) filter (where devengado - pagado <> 0), '[]'::jsonb)
+  ) into v
+  from todo;
+  return v;
+end $$;
+
+
+ALTER FUNCTION "ketzal"."corte_embajadores"("p_hasta" "date") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "ketzal"."create_booking_with_items"("p_customer_id" "uuid", "p_new_customer" "jsonb", "p_service_id" "uuid", "p_travel_date" "date", "p_discount" numeric, "p_notes" "text", "p_items" "jsonb", "p_status" "ketzal"."booking_status") RETURNS "uuid"
     LANGUAGE "plpgsql"
     SET "search_path" TO 'ketzal', 'pg_temp'
@@ -1594,11 +1822,11 @@ begin
 
   insert into ketzal.bookings(
     selling_supplier_id, owner_supplier_id, customer_id, marketplace_customer_id,
-    service_id, sold_by, travel_date, num_pax, subtotal, discount, total, currency, status)
+    service_id, sold_by, travel_date, num_pax, subtotal, discount, total, currency, status, channel)
   values (
     v_owner, v_owner, v_customer, v_uid,
     p_service_id, null, case when v_has_dep then p_travel_date else null end,
-    v_num_pax, v_subtotal, 0, v_subtotal, 'MXN', 'draft')
+    v_num_pax, v_subtotal, 0, v_subtotal, 'MXN', 'draft', 'portal')
   returning id into v_booking;
 
   insert into ketzal.booking_items(booking_id, item_type, passenger_type, description, qty, unit_price, line_total)
@@ -1629,14 +1857,19 @@ CREATE OR REPLACE FUNCTION "ketzal"."create_marketplace_payment_intent"("p_booki
 declare
   v_uid uuid := auth.uid();
   v_supplier uuid; v_mc uuid; v_balance numeric; v_amount numeric(12,2); v_id uuid;
+  v_channel text;
 begin
   if v_uid is null then raise exception 'No autenticado'; end if;
 
-  select selling_supplier_id, marketplace_customer_id
-    into v_supplier, v_mc
+  select selling_supplier_id, marketplace_customer_id, channel
+    into v_supplier, v_mc, v_channel
     from ketzal.bookings where id = p_booking_id;
   if not found then raise exception 'Pedido no encontrado'; end if;
   if v_mc is null or v_mc <> v_uid then raise exception 'Pedido no encontrado o sin acceso'; end if;
+  -- b091: la cobranza de una venta del back-office la lleva el agente.
+  if v_channel <> 'portal' then
+    raise exception 'Este viaje lo lleva tu agencia: los pagos van con ella.';
+  end if;
 
   select balance into v_balance from ketzal.bookings_with_balance where id = p_booking_id;
   v_amount := round(coalesce(p_amount, v_balance), 2);
@@ -1741,13 +1974,18 @@ declare
   v_uid uuid := auth.uid();
   v_mc uuid;
   v_status ketzal.booking_status;
+  v_channel text;
 begin
   if v_uid is null then raise exception 'No autenticado'; end if;
 
-  select marketplace_customer_id, status into v_mc, v_status
+  select marketplace_customer_id, status, channel into v_mc, v_status, v_channel
     from ketzal.bookings where id = p_booking_id for update;
   if not found or v_mc is null or v_mc <> v_uid then
     raise exception 'Pedido no encontrado o sin acceso';
+  end if;
+  -- b091: una cotización del back-office la borra su agente, no el viajero.
+  if v_channel <> 'portal' then
+    raise exception 'Esta cotización la lleva tu agencia: cualquier cambio va con ella.';
   end if;
 
   if v_status <> 'draft' then
@@ -1908,6 +2146,24 @@ $$;
 ALTER FUNCTION "ketzal"."effective_cancellation_policy"("p_supplier" "uuid") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "ketzal"."email_verificado"("p_uid" "uuid") RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'ketzal', 'pg_temp'
+    AS $$
+  select coalesce((
+    select u.email_confirmed_at is not null
+       and (u.confirmation_sent_at is not null
+            or exists (select 1 from auth.identities i
+                        where i.user_id = u.id and i.provider = 'google'
+                          and coalesce(i.identity_data->>'email_verified','') = 'true'))
+      from auth.users u where u.id = p_uid
+  ), false);
+$$;
+
+
+ALTER FUNCTION "ketzal"."email_verificado"("p_uid" "uuid") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "ketzal"."emit_my_voucher"("p_booking_id" "uuid") RETURNS "uuid"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'ketzal', 'pg_temp'
@@ -2066,6 +2322,9 @@ CREATE TABLE IF NOT EXISTS "ketzal"."bookings" (
     "policy_accepted_meta" "jsonb",
     "cancel_fee_mxn" numeric(12,2),
     "cancelled_at" timestamp with time zone,
+    "channel" "text" DEFAULT 'manual'::"text" NOT NULL,
+    "attribution" "jsonb",
+    CONSTRAINT "bookings_channel_chk" CHECK (("channel" = ANY (ARRAY['manual'::"text", 'portal'::"text"]))),
     CONSTRAINT "bookings_currency_rate_chk" CHECK (((("currency" = 'MXN'::"text") AND ("exchange_rate" IS NULL)) OR (("currency" = 'USD'::"text") AND ("exchange_rate" IS NOT NULL) AND ("exchange_rate" > (0)::numeric))))
 );
 
@@ -2074,6 +2333,10 @@ ALTER TABLE "ketzal"."bookings" OWNER TO "postgres";
 
 
 COMMENT ON COLUMN "ketzal"."bookings"."marketplace_customer_id" IS 'Comprador B2C que originó el pedido (marketplace). Null = venta de agente. Liga al comprador y marca origen para la bandeja de pedidos (B.3).';
+
+
+
+COMMENT ON COLUMN "ketzal"."bookings"."attribution" IS 'ADR-0025: atribución de marketing (first-touch del cliente + ip/ua/fbp/fbc capturados al crear el pedido). Solo service role escribe. No es dinero.';
 
 
 
@@ -2142,13 +2405,18 @@ declare
   v_uid uuid := auth.uid();
   v_total numeric; v_travel date; v_supplier uuid; v_mc uuid; v_final date;
   v_plan jsonb; v_item jsonb;
+  v_channel text;
 begin
   if v_uid is null then raise exception 'No autenticado'; end if;
-  select total, travel_date, selling_supplier_id, marketplace_customer_id
-    into v_total, v_travel, v_supplier, v_mc
+  select total, travel_date, selling_supplier_id, marketplace_customer_id, channel
+    into v_total, v_travel, v_supplier, v_mc, v_channel
     from ketzal.bookings where id = p_booking_id;
   if not found then raise exception 'Pedido no encontrado'; end if;
   if v_mc is null or v_mc <> v_uid then raise exception 'Pedido no encontrado o sin acceso'; end if;
+  -- b091: el plan de una cotización del back-office lo fija el agente.
+  if v_channel <> 'portal' then
+    raise exception 'Este viaje lo lleva tu agencia: el plan de pagos va con ella.';
+  end if;
 
   -- la salida manda; si no hay, la fecha que eligió el comprador
   v_final := coalesce(v_travel, p_final_date);
@@ -2356,7 +2624,8 @@ begin
   select jsonb_build_object(
     'booking', jsonb_build_object(
       'id', b.id, 'status', b.status::text, 'travel_date', b.travel_date,
-      'num_pax', b.num_pax, 'payment_type', b.payment_type),
+      'num_pax', b.num_pax, 'payment_type', b.payment_type,
+      'channel', b.channel),  -- b091
     'money', jsonb_build_object('total', bwb.total, 'paid', bwb.paid, 'balance', bwb.balance),
     'service', jsonb_build_object(
       'name', coalesce(sv.name, 'Viaje'), 'description', sv.description,
@@ -2427,6 +2696,53 @@ $$;
 
 
 ALTER FUNCTION "ketzal"."get_public_doc_policy"("p_kind" "text", "p_id" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "ketzal"."get_public_poll"("p_id" "uuid") RETURNS "jsonb"
+    LANGUAGE "plpgsql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'ketzal', 'pg_temp'
+    AS $$
+declare
+  v_poll ketzal.polls;
+  v_sup record;
+  v_cerrada boolean;
+begin
+  if p_id is null then return null; end if;
+
+  select * into v_poll from ketzal.polls where id = p_id and status <> 'draft';
+  if not found then return null; end if;
+
+  select name, img_logo into v_sup from ketzal.suppliers where id = v_poll.supplier_id;
+
+  v_cerrada := v_poll.status = 'closed'
+               or (v_poll.closes_at is not null and v_poll.closes_at < current_date);
+
+  return jsonb_build_object(
+    'id', v_poll.id,
+    'question', v_poll.question,
+    'options', v_poll.options,
+    'month_from', v_poll.month_from,
+    'month_to', v_poll.month_to,
+    'closes_at', v_poll.closes_at,
+    'status_efectivo', case when v_cerrada then 'closed' else 'open' end,
+    'agency', jsonb_build_object('name', v_sup.name, 'logo', v_sup.img_logo),
+    'total_votes', (select count(*) from ketzal.poll_votes v where v.poll_id = v_poll.id),
+    'by_option', coalesce((
+      select jsonb_agg(jsonb_build_object('id', t.option_id, 'votes', t.n) order by t.n desc)
+        from (select option_id, count(*) as n from ketzal.poll_votes
+               where poll_id = v_poll.id group by option_id) t
+    ), '[]'::jsonb),
+    'by_month', coalesce((
+      select jsonb_agg(jsonb_build_object('month', t.m, 'votes', t.n) order by t.m)
+        from (select to_char(preferred_month, 'YYYY-MM') as m, count(*) as n
+                from ketzal.poll_votes where poll_id = v_poll.id
+               group by 1) t
+    ), '[]'::jsonb)
+  );
+end $$;
+
+
+ALTER FUNCTION "ketzal"."get_public_poll"("p_id" "uuid") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "ketzal"."get_public_service"("p_id" "uuid") RETURNS "jsonb"
@@ -2946,6 +3262,23 @@ $$;
 ALTER FUNCTION "ketzal"."is_active"() OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "ketzal"."is_admin_de_embajador"("p_profile" "uuid") RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'ketzal', 'pg_temp'
+    AS $$
+  select coalesce(
+    (select ketzal.is_agency_admin(p.supplier_id)
+       from ketzal.profiles p
+      where p.id = p_profile
+        and p.type = 'embajador'
+        and p.supplier_id is not null),
+    false)
+$$;
+
+
+ALTER FUNCTION "ketzal"."is_admin_de_embajador"("p_profile" "uuid") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "ketzal"."is_agency_admin"("p_supplier" "uuid") RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'ketzal', 'public'
@@ -3122,6 +3455,63 @@ end $$;
 ALTER FUNCTION "ketzal"."ledger_summary"() OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "ketzal"."link_my_customers"() RETURNS integer
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'ketzal', 'pg_temp'
+    AS $$
+declare v_uid uuid := auth.uid();
+begin
+  if v_uid is null then raise exception 'No autenticado'; end if;
+  if not exists (select 1 from ketzal.profiles p where p.id = v_uid) then return 0; end if;
+  return ketzal.link_profile_customers(v_uid);
+end $$;
+
+
+ALTER FUNCTION "ketzal"."link_my_customers"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "ketzal"."link_profile_customers"("p_uid" "uuid") RETURNS integer
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'ketzal', 'pg_temp'
+    AS $$
+declare v_email text; v_n int := 0;
+begin
+  if p_uid is null or not ketzal.email_verificado(p_uid) then return 0; end if;
+  select lower(u.email) into v_email from auth.users u where u.id = p_uid;
+  if v_email is null then return 0; end if;
+
+  -- Una fila por agencia (la más antigua): `uq_customers_supplier_marketplace`
+  -- no admite dos filas de la misma agencia apuntando al mismo perfil. Y si esa
+  -- agencia ya tiene una fila ligada a este perfil (compró por el portal), la del
+  -- agente no se toca.
+  -- ponytail: la fila duplicada queda sin ligar; el dedup de clientes es otro carril.
+  with cand as (
+    select distinct on (c.supplier_id) c.id
+      from ketzal.customers c
+     where c.marketplace_customer_id is null
+       and lower(c.email) = v_email
+       and not exists (select 1 from ketzal.customers c2
+                        where c2.supplier_id is not distinct from c.supplier_id
+                          and c2.marketplace_customer_id = p_uid)
+     order by c.supplier_id, c.created_at, c.id
+  ), upd as (
+    update ketzal.customers c set marketplace_customer_id = p_uid
+     where c.id in (select id from cand)
+     returning c.id
+  )
+  select count(*) into v_n from upd;
+
+  update ketzal.bookings b set marketplace_customer_id = p_uid
+   where b.marketplace_customer_id is null
+     and b.customer_id in (select c.id from ketzal.customers c
+                            where c.marketplace_customer_id = p_uid);
+  return v_n;
+end $$;
+
+
+ALTER FUNCTION "ketzal"."link_profile_customers"("p_uid" "uuid") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "ketzal"."list_agencies_to_join"() RETURNS "jsonb"
     LANGUAGE "plpgsql" STABLE SECURITY DEFINER
     SET "search_path" TO 'ketzal', 'public'
@@ -3187,7 +3577,7 @@ $$;
 ALTER FUNCTION "ketzal"."list_agency_names"() OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "ketzal"."list_agents_for_commission"("p_supplier" "uuid" DEFAULT NULL::"uuid") RETURNS TABLE("id" "uuid", "name" "text", "basis" "text", "rate" numeric, "unit_amount" numeric)
+CREATE OR REPLACE FUNCTION "ketzal"."list_agents_for_commission"("p_supplier" "uuid" DEFAULT NULL::"uuid") RETURNS TABLE("id" "uuid", "name" "text", "basis" "text", "rate" numeric, "unit_amount" numeric, "referral_code" "text")
     LANGUAGE "plpgsql" STABLE SECURITY DEFINER
     SET "search_path" TO 'ketzal', 'pg_temp'
     AS $$
@@ -3204,7 +3594,8 @@ begin
   end if;
   if v_supplier is null then return; end if;
   return query
-    select p.id, coalesce(p.name, 'Agente') as name, r.basis, r.rate, r.unit_amount
+    select p.id, coalesce(p.name, 'Agente') as name, r.basis, r.rate, r.unit_amount,
+           p.referral_code
     from ketzal.profiles p
     left join ketzal.commission_rules r
       on r.payee_type = 'agente' and r.scope_profile_id = p.id
@@ -3221,12 +3612,40 @@ CREATE OR REPLACE FUNCTION "ketzal"."list_ambassadors"() RETURNS "jsonb"
     LANGUAGE "plpgsql" STABLE SECURITY DEFINER
     SET "search_path" TO 'ketzal', 'pg_temp'
     AS $$
-declare v jsonb;
+declare v jsonb; v_sup uuid;
 begin
-  if not ketzal.is_superadmin() then return '[]'::jsonb; end if;
+  if not ketzal.is_active() then return '[]'::jsonb; end if;
+
+  if ketzal.is_superadmin() then
+    select coalesce(jsonb_agg(jsonb_build_object(
+      'id', id, 'name', name, 'referral_code', referral_code,
+      'supplier_id', supplier_id) order by name), '[]'::jsonb)
+      into v
+      from ketzal.profiles
+     where type = 'embajador';
+    return v;
+  end if;
+
+  v_sup := ketzal.my_supplier_id();
+  if v_sup is null or not coalesce(ketzal.is_agency_admin(v_sup), false) then
+    return '[]'::jsonb;
+  end if;
+
   select coalesce(jsonb_agg(jsonb_build_object(
-    'id', id, 'name', name, 'referral_code', referral_code) order by name), '[]'::jsonb)
-    into v from ketzal.profiles where type = 'embajador';
+    'id', p.id, 'name', p.name, 'referral_code', p.referral_code,
+    'supplier_id', p.supplier_id) order by p.name), '[]'::jsonb)
+    into v
+    from ketzal.profiles p
+   where p.type = 'embajador'
+     and (
+       p.supplier_id = v_sup
+       or exists (
+         select 1 from ketzal.bookings b
+          where b.ambassador_id = p.id
+            and b.selling_supplier_id = v_sup
+            and b.status in ('reserved','confirmed','paid')
+       )
+     );
   return v;
 end $$;
 
@@ -3405,6 +3824,8 @@ begin
       select
         b.id as booking_id, b.service_id, b.status::text as status, b.travel_date,
         b.payment_type, b.created_at,
+        -- b091: 'portal' | 'manual' — la UI esconde pagar/borrar en las manuales.
+        b.channel,
         coalesce(sv.name, 'Viaje') as service_name,
         bwb.total, bwb.paid, bwb.balance,
         case
@@ -3712,6 +4133,7 @@ begin
     'full_name',   m.name,
     'email',       m.email,
     'phone',       m.phone,
+    'image',       m.image,
     'created_at',  m.created_at,
     'num_compras', (select count(*) from ketzal.bookings b
                      where b.marketplace_customer_id = m.id)
@@ -3812,6 +4234,24 @@ end $$;
 ALTER FUNCTION "ketzal"."log_user_event"("p_user" "uuid", "p_kind" "text", "p_meta" "jsonb", "p_ip" "text", "p_user_agent" "text") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "ketzal"."marcar_onboarding_visto"() RETURNS timestamp with time zone
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'ketzal', 'pg_temp'
+    AS $$
+declare v_at timestamptz;
+begin
+  if auth.uid() is null then return null; end if;
+  update ketzal.profiles
+     set onboarded_at = coalesce(onboarded_at, now())
+   where id = auth.uid()
+  returning onboarded_at into v_at;
+  return v_at;
+end $$;
+
+
+ALTER FUNCTION "ketzal"."marcar_onboarding_visto"() OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "ketzal"."mp_account_status"("p_supplier" "uuid") RETURNS "jsonb"
     LANGUAGE "plpgsql" STABLE SECURITY DEFINER
     SET "search_path" TO 'ketzal', 'pg_temp'
@@ -3838,10 +4278,14 @@ CREATE OR REPLACE FUNCTION "ketzal"."my_ambassador_earnings"() RETURNS "jsonb"
     LANGUAGE "plpgsql" STABLE SECURITY DEFINER
     SET "search_path" TO 'ketzal', 'pg_temp'
     AS $$
-declare v_uid uuid := auth.uid(); v jsonb;
+declare v_uid uuid := auth.uid(); v jsonb; v_bono numeric;
 begin
   if v_uid is null then raise exception 'No autenticado'; end if;
-  if ketzal.my_profile_type() <> 'embajador' then raise exception 'Solo para embajadores'; end if;
+  if ketzal.my_profile_type() not in ('embajador', 'agente') then
+    raise exception 'Solo para quien puede referir';
+  end if;
+
+  v_bono := ketzal.bonos_reclutador(v_uid);
 
   with dev as (
     select cl.amount_mxn, cl.kind, b.status, b.travel_date, b.created_at,
@@ -3854,13 +4298,16 @@ begin
   earn as (select coalesce(sum(case when kind='devengo' then amount_mxn else -amount_mxn end),0) as devengado from dev),
   pag as (
     select coalesce(sum(case when kind='egreso' then amount_mxn else -amount_mxn end),0) as pagado
-    from ketzal.expenses where category='embajador' and provider_profile_id = v_uid
+    from ketzal.expenses where category in ('embajador','agente') and provider_profile_id = v_uid
   )
   select jsonb_build_object(
     'referral_code', (select referral_code from ketzal.profiles where id = v_uid),
-    'devengado', (select devengado from earn),
+    'devengado', (select devengado from earn) + v_bono,
+    'comisiones', (select devengado from earn),
+    'bonos', v_bono,
+    'num_reclutas', (select count(*) from ketzal.profiles r where r.recruited_by = v_uid),
     'pagado',    (select pagado from pag),
-    'saldo',     (select devengado from earn) - (select pagado from pag),
+    'saldo',     (select devengado from earn) + v_bono - (select pagado from pag),
     'num_ventas',(select count(*) filter (where kind='devengo') from dev),
     'ventas', coalesce((
       select jsonb_agg(jsonb_build_object(
@@ -3873,6 +4320,81 @@ end $$;
 
 
 ALTER FUNCTION "ketzal"."my_ambassador_earnings"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "ketzal"."my_ambassador_payments"() RETURNS "jsonb"
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'ketzal', 'pg_temp'
+    AS $$
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'fecha', e.spent_at,
+           'monto', case when e.kind = 'egreso' then e.amount_mxn else -e.amount_mxn end,
+           'concepto', e.concept,
+           'metodo', e.method,
+           'agencia', (select s.name from ketzal.suppliers s where s.id = e.supplier_id)
+         ) order by e.spent_at desc, e.created_at desc), '[]'::jsonb)
+  from ketzal.expenses e
+  where e.category in ('embajador','agente')
+    and e.provider_profile_id = auth.uid();
+$$;
+
+
+ALTER FUNCTION "ketzal"."my_ambassador_payments"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "ketzal"."my_link_clicks"() RETURNS "jsonb"
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'ketzal', 'pg_temp'
+    AS $$
+with yo as (
+  select id, referral_code from ketzal.profiles where id = auth.uid()
+),
+mios as (
+  select fe.session_id, fe.service_id
+  from ketzal.funnel_events fe
+  join yo on yo.referral_code is not null
+         and upper(fe.meta->>'ref') = yo.referral_code
+  where fe.event = 'link_click'
+),
+clics as (
+  select service_id, count(distinct session_id)::int as clics
+  from mios group by service_id
+),
+cotizando as (
+  select b.service_id, count(*)::int as n
+  from ketzal.bookings b
+  join yo on b.ambassador_id = yo.id
+  where b.status = 'draft'
+  group by b.service_id
+),
+juntos as (
+  select coalesce(c.service_id, q.service_id) as service_id,
+         coalesce(c.clics, 0) as clics,
+         coalesce(q.n, 0) as cotizando
+  from clics c
+  full outer join cotizando q on q.service_id = c.service_id
+)
+select jsonb_build_object(
+  -- PERSONAS, no suma de conteos: quien ve la vitrina y dos tours es UNA.
+  'total_clics', (select count(distinct session_id)::int from mios),
+  'en_cotizacion', coalesce((select sum(n) from cotizando), 0),
+  'por_servicio', coalesce((
+    select jsonb_agg(jsonb_build_object(
+             'service_id', j.service_id,
+             'nombre', s.name,
+             'clics', j.clics,
+             'cotizando', j.cotizando)
+           order by j.clics desc, j.cotizando desc)
+    from juntos j
+    left join ketzal.services s on s.id = j.service_id
+    where j.service_id is not null
+  ), '[]'::jsonb)
+)
+from yo;
+$$;
+
+
+ALTER FUNCTION "ketzal"."my_link_clicks"() OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "ketzal"."my_profile_type"() RETURNS "ketzal"."profile_type"
@@ -3934,6 +4456,7 @@ ALTER FUNCTION "ketzal"."my_provider_services"() OWNER TO "postgres";
 
 CREATE OR REPLACE FUNCTION "ketzal"."my_supplier_id"() RETURNS "uuid"
     LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'ketzal', 'pg_temp'
     AS $$
   select supplier_id from ketzal.profiles
    where id = auth.uid()
@@ -3950,15 +4473,14 @@ CREATE OR REPLACE FUNCTION "ketzal"."next_doc_folio"("p_supplier" "uuid", "p_ser
     AS $$
 declare v bigint;
 begin
+  if not ketzal.puede_folear(p_supplier) then
+    raise exception 'Sin acceso a los folios de esa agencia';
+  end if;
   insert into ketzal.doc_counters(supplier_id, series, last_folio)
-  values (p_supplier, p_series, 0)
-  on conflict (supplier_id, series) do nothing;
-
-  update ketzal.doc_counters
-     set last_folio = last_folio + 1
+  values (p_supplier, p_series, 0) on conflict (supplier_id, series) do nothing;
+  update ketzal.doc_counters set last_folio = last_folio + 1
    where supplier_id = p_supplier and series = p_series
   returning last_folio into v;
-
   return v;
 end $$;
 
@@ -3972,15 +4494,14 @@ CREATE OR REPLACE FUNCTION "ketzal"."next_receipt_folio"("p_supplier" "uuid") RE
     AS $$
 declare v bigint;
 begin
+  if not ketzal.puede_folear(p_supplier) then
+    raise exception 'Sin acceso a los folios de esa agencia';
+  end if;
   insert into ketzal.receipt_counters(supplier_id, last_folio)
-  values (p_supplier, 0)
-  on conflict (supplier_id) do nothing;
-
-  update ketzal.receipt_counters
-     set last_folio = last_folio + 1
+  values (p_supplier, 0) on conflict (supplier_id) do nothing;
+  update ketzal.receipt_counters set last_folio = last_folio + 1
    where supplier_id = p_supplier
   returning last_folio into v;
-
   return v;
 end $$;
 
@@ -4118,6 +4639,62 @@ end $$;
 ALTER FUNCTION "ketzal"."onboarding_agencia"() OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "ketzal"."pagar_corte_embajador"("p_embajador" "uuid", "p_agencia" "uuid", "p_monto" numeric, "p_fecha" "date" DEFAULT CURRENT_DATE, "p_metodo" "text" DEFAULT 'transferencia'::"text") RETURNS "uuid"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'ketzal', 'pg_temp'
+    AS $$
+declare v_uid uuid := auth.uid(); v_debido numeric; v_id uuid; v_concepto text;
+begin
+  if v_uid is null then raise exception 'No autenticado'; end if;
+
+  -- Una agencia solo salda LO SUYO; el bono (sin agencia) lo paga Ketzal.
+  if p_agencia is null then
+    if not ketzal.is_superadmin() then
+      raise exception 'El bono por reclutar lo paga Ketzal; una agencia no puede registrarlo.';
+    end if;
+  elsif not (ketzal.is_superadmin() or coalesce(ketzal.is_agency_admin(p_agencia), false)) then
+    raise exception 'Solo el administrador de esa agencia puede registrar su pago.';
+  end if;
+
+  if p_monto is null or p_monto <= 0 then
+    raise exception 'El monto debe ser mayor que cero.';
+  end if;
+
+  if not exists (select 1 from ketzal.profiles p
+                  where p.id = p_embajador and p.type in ('embajador','agente')) then
+    raise exception 'Esa persona no es embajador ni agente.';
+  end if;
+
+  -- Lo que se le debe HOY, del mismo corte que ve la pantalla.
+  select coalesce((
+    select sum((e->>'a_pagar')::numeric)
+    from jsonb_array_elements(ketzal.corte_embajadores(p_fecha)->'filas') e
+    where e->>'embajador_id' = p_embajador::text
+      and (e->>'agencia_id') is not distinct from
+          (case when p_agencia is null then null else p_agencia::text end)
+  ), 0) into v_debido;
+
+  if p_monto > v_debido + 0.005 then
+    raise exception 'Se le deben % y estás registrando %. Revisa el corte.', v_debido, p_monto;
+  end if;
+
+  v_concepto := case when p_agencia is null
+                     then 'Bono por reclutar embajador'
+                     else 'Comisión de embajador' end;
+
+  insert into ketzal.expenses(supplier_id, created_by, category, concept, amount_mxn,
+                              method, spent_at, provider_profile_id)
+  values (p_agencia, v_uid, 'embajador', v_concepto, round(p_monto, 2),
+          coalesce(p_metodo, 'transferencia'), p_fecha, p_embajador)
+  returning id into v_id;
+
+  return v_id;
+end $$;
+
+
+ALTER FUNCTION "ketzal"."pagar_corte_embajador"("p_embajador" "uuid", "p_agencia" "uuid", "p_monto" numeric, "p_fecha" "date", "p_metodo" "text") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "ketzal"."payables_summary"() RETURNS "jsonb"
     LANGUAGE "plpgsql" STABLE SECURITY DEFINER
     SET "search_path" TO 'ketzal', 'pg_temp'
@@ -4158,6 +4735,33 @@ end $$;
 
 
 ALTER FUNCTION "ketzal"."payables_summary"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "ketzal"."platform_fee_for_payment"("p_booking" "uuid", "p_amount" numeric) RETURNS numeric
+    LANGUAGE "plpgsql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'ketzal', 'pg_temp'
+    AS $$
+declare
+  v_service uuid; v_num_pax int; v_total numeric; v_channel text;
+  r record; v_com_total numeric;
+begin
+  select service_id, num_pax, total, channel
+    into v_service, v_num_pax, v_total, v_channel
+    from ketzal.bookings where id = p_booking;
+  if not found then return 0; end if;
+  if v_channel <> 'portal' or coalesce(v_total, 0) <= 0 then return 0; end if;
+
+  select * into r from ketzal.resolve_commission_rule(v_service, 'plataforma', null);
+  if r.basis is null then return 0; end if;
+
+  v_com_total := ketzal.commission_amount(r.basis, r.rate, r.unit_amount, v_num_pax, v_total);
+  if v_com_total <= 0 then return 0; end if;
+
+  return round(v_com_total * least(1, greatest(0, coalesce(p_amount, 0)) / v_total), 2);
+end $$;
+
+
+ALTER FUNCTION "ketzal"."platform_fee_for_payment"("p_booking" "uuid", "p_amount" numeric) OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "ketzal"."preview_cancellation"("p_booking" "uuid") RETURNS "jsonb"
@@ -4241,6 +4845,24 @@ CREATE OR REPLACE FUNCTION "ketzal"."preview_payment_plan"("p_total" numeric, "p
 ALTER FUNCTION "ketzal"."preview_payment_plan"("p_total" numeric, "p_final" "date", "p_frequency" "text", "p_down_pct" numeric) OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "ketzal"."puede_folear"("p_supplier" "uuid") RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'ketzal', 'pg_temp'
+    AS $$
+  select coalesce(p_supplier is not null and (
+       coalesce(auth.role(), '') = 'service_role'
+    or coalesce(ketzal.is_superadmin(), false)
+    or p_supplier = ketzal.my_supplier_id()
+    or exists (select 1 from ketzal.bookings b
+                where b.selling_supplier_id = p_supplier
+                  and b.marketplace_customer_id = auth.uid())
+  ), false);
+$$;
+
+
+ALTER FUNCTION "ketzal"."puede_folear"("p_supplier" "uuid") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "ketzal"."puede_operar_booking"("p_booking" "ketzal"."bookings") RETURNS boolean
     LANGUAGE "sql" STABLE SECURITY DEFINER
     SET "search_path" TO 'ketzal', 'pg_temp'
@@ -4256,6 +4878,38 @@ $$;
 
 
 ALTER FUNCTION "ketzal"."puede_operar_booking"("p_booking" "ketzal"."bookings") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "ketzal"."puedo_escribir_imagen_supplier"("p_supplier" "text") RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'ketzal', 'pg_temp'
+    AS $$
+  select coalesce(ketzal.is_superadmin(), false)
+      or coalesce((
+           select ketzal.is_agency_admin(s.id)
+               or (s.owner_supplier_id is not null and ketzal.is_agency_admin(s.owner_supplier_id))
+             from ketzal.suppliers s
+            where s.id::text = p_supplier
+         ), false);
+$$;
+
+
+ALTER FUNCTION "ketzal"."puedo_escribir_imagen_supplier"("p_supplier" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "ketzal"."puedo_subir_comprobante"("p_booking" "uuid") RETURNS boolean
+    LANGUAGE "sql" STABLE SECURITY DEFINER
+    SET "search_path" TO 'ketzal', 'pg_temp'
+    AS $$
+  select coalesce((
+    select b.marketplace_customer_id = auth.uid() and b.channel = 'portal'
+      from ketzal.bookings b
+     where b.id = p_booking and b.status <> 'cancelled'
+  ), false);
+$$;
+
+
+ALTER FUNCTION "ketzal"."puedo_subir_comprobante"("p_booking" "uuid") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "ketzal"."redeem_credit"("p_credit" "uuid", "p_booking" "uuid", "p_amount" numeric) RETURNS numeric
@@ -4712,23 +5366,56 @@ end $$;
 ALTER FUNCTION "ketzal"."request_join_agency"("p_supplier" "uuid", "p_mensaje" "text") OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "ketzal"."resolve_commission_rule"("p_service" "uuid", "p_payee_type" "text", "p_scope" "uuid") RETURNS TABLE("basis" "text", "rate" numeric, "unit_amount" numeric)
+CREATE OR REPLACE FUNCTION "ketzal"."resolve_commission_rule"("p_service" "uuid", "p_payee_type" "text", "p_scope" "uuid", "p_supplier" "uuid" DEFAULT NULL::"uuid") RETURNS TABLE("basis" "text", "rate" numeric, "unit_amount" numeric)
     LANGUAGE "plpgsql" STABLE SECURITY DEFINER
     SET "search_path" TO 'ketzal', 'pg_temp'
     AS $$
 declare v_platform numeric;
 begin
+  if p_payee_type = 'embajador' then
+    return query
+      select r.basis, r.rate, r.unit_amount from ketzal.commission_rules r
+       where r.active and r.payee_type = 'embajador'
+         and r.scope_profile_id is not null and r.scope_profile_id = p_scope
+         and r.service_id = p_service
+       limit 1;
+    if found then return; end if;
+    return query
+      select r.basis, r.rate, r.unit_amount from ketzal.commission_rules r
+       where r.active and r.payee_type = 'embajador'
+         and r.scope_profile_id is not null and r.scope_profile_id = p_scope
+         and r.service_id is null
+       limit 1;
+    if found then return; end if;
+    if p_supplier is not null then
+      return query
+        select r.basis, r.rate, r.unit_amount from ketzal.commission_rules r
+         where r.active and r.payee_type = 'embajador'
+           and r.scope_supplier_id = p_supplier and r.service_id = p_service
+         limit 1;
+      if found then return; end if;
+      return query
+        select r.basis, r.rate, r.unit_amount from ketzal.commission_rules r
+         where r.active and r.payee_type = 'embajador'
+           and r.scope_supplier_id = p_supplier and r.service_id is null
+         limit 1;
+    end if;
+    return;
+  end if;
+
   return query
     select r.basis, r.rate, r.unit_amount from ketzal.commission_rules r
     where r.active and r.payee_type = p_payee_type
-      and (case when p_payee_type in ('embajador','agente') then r.scope_profile_id else r.scope_supplier_id end) is not distinct from p_scope
+      and (case when p_payee_type = 'agente' then r.scope_profile_id else r.scope_supplier_id end)
+          is not distinct from p_scope
       and r.service_id = p_service
     limit 1;
   if found then return; end if;
   return query
     select r.basis, r.rate, r.unit_amount from ketzal.commission_rules r
     where r.active and r.payee_type = p_payee_type
-      and (case when p_payee_type in ('embajador','agente') then r.scope_profile_id else r.scope_supplier_id end) is not distinct from p_scope
+      and (case when p_payee_type = 'agente' then r.scope_profile_id else r.scope_supplier_id end)
+          is not distinct from p_scope
       and r.service_id is null
     limit 1;
   if found then return; end if;
@@ -4737,12 +5424,13 @@ begin
     return query select 'percent'::text, coalesce(v_platform,0)::numeric, null::numeric;
   elsif p_payee_type = 'agencia' then
     return query select 'percent'::text,
-      coalesce((select commission_rate from ketzal.suppliers s where s.id = p_scope),0)::numeric, null::numeric;
+      coalesce((select commission_rate from ketzal.suppliers s where s.id = p_scope),0)::numeric,
+      null::numeric;
   end if;
 end $$;
 
 
-ALTER FUNCTION "ketzal"."resolve_commission_rule"("p_service" "uuid", "p_payee_type" "text", "p_scope" "uuid") OWNER TO "postgres";
+ALTER FUNCTION "ketzal"."resolve_commission_rule"("p_service" "uuid", "p_payee_type" "text", "p_scope" "uuid", "p_supplier" "uuid") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "ketzal"."resolve_join_request"("p_id" "uuid", "p_approve" boolean) RETURNS "jsonb"
@@ -4961,7 +5649,7 @@ CREATE OR REPLACE FUNCTION "ketzal"."set_booking_ambassador"("p_booking" "uuid",
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'ketzal', 'pg_temp'
     AS $$
-declare v_uid uuid := auth.uid(); b ketzal.bookings; r record; v_amt numeric(12,2); v_sum numeric(12,2); v_id uuid;
+declare v_uid uuid := auth.uid(); b ketzal.bookings;
 begin
   if v_uid is null then raise exception 'No autenticado'; end if;
   select * into b from ketzal.bookings where id = p_booking;
@@ -4975,33 +5663,16 @@ begin
     raise exception 'Sin permiso sobre esta venta';
   end if;
   if not exists (select 1 from ketzal.profiles s where s.id = p_ambassador and s.type = 'embajador') then
-    raise exception 'Embajador no válido';
+    raise exception 'Embajador no valido';
+  end if;
+  if (b.sold_by is not null and b.sold_by = p_ambassador)
+     or (b.marketplace_customer_id is not null and b.marketplace_customer_id = p_ambassador) then
+    raise exception 'Esa persona es quien compra o quien vendio: no puede referirse a si misma';
   end if;
 
-  select id into v_id from ketzal.commission_lines
-    where booking_id = p_booking and payee_type='embajador' and kind='devengo' limit 1;
-  if v_id is not null then
-    update ketzal.bookings set ambassador_id = p_ambassador where id = p_booking and ambassador_id is null;
-    return v_id;
-  end if;
-
-  select * into r from ketzal.resolve_commission_rule(b.service_id, 'embajador', p_ambassador);
-  if r.basis is null then raise exception 'Este embajador no tiene tarifa configurada para este servicio'; end if;
-  v_amt := ketzal.commission_amount(r.basis, r.rate, r.unit_amount, b.num_pax, b.total);
-  if v_amt <= 0 then raise exception 'La tarifa del embajador resultó en 0'; end if;
-
-  select coalesce(sum(case when kind='devengo' then amount_mxn else -amount_mxn end),0)
-    into v_sum from ketzal.commission_lines where booking_id = p_booking;
-  if v_sum + v_amt > b.total then
-    raise exception 'La comisión del embajador (%) excede el saldo disponible de la venta (total % , ya comprometido %)',
-      v_amt, b.total, v_sum;
-  end if;
-
-  insert into ketzal.commission_lines(booking_id, payee_type, payee_profile_id, basis, rate, unit_amount, num_pax, amount_mxn)
-  values (p_booking, 'embajador', p_ambassador, r.basis, r.rate, r.unit_amount, b.num_pax, v_amt)
-  returning id into v_id;
-  update ketzal.bookings set ambassador_id = p_ambassador where id = p_booking;
-  return v_id;
+  update ketzal.bookings set ambassador_id = p_ambassador
+   where id = p_booking and ambassador_id is null;
+  return p_ambassador;
 end $$;
 
 
@@ -5045,13 +5716,36 @@ CREATE OR REPLACE FUNCTION "ketzal"."set_commission_rule"("p_service" "uuid", "p
     SET "search_path" TO 'ketzal', 'pg_temp'
     AS $$
 declare v_uid uuid := auth.uid(); v_id uuid; v_scope_sup uuid; v_scope_prof uuid;
+        v_es_agencia boolean := false;
 begin
   if v_uid is null then raise exception 'No autenticado'; end if;
-  if p_payee_type not in ('plataforma','agencia','embajador','agente') then raise exception 'payee_type inválido'; end if;
+  if p_payee_type not in ('plataforma','agencia','embajador','agente') then raise exception 'payee_type invalido'; end if;
+  if p_payee_type = 'plataforma' and p_scope is not null then raise exception 'plataforma no lleva scope'; end if;
+  if p_payee_type in ('agencia','embajador','agente') and p_scope is null then raise exception 'esta regla requiere scope'; end if;
+
+  -- b080: la tarifa de EMBAJADOR puede ser de una AGENCIA (la general que esa
+  -- agencia paga a quien le traiga viajeros, m008/ADR-0021) o de una PERSONA
+  -- (el trato especial que gana sobre todas). Se distingue por lo que sea el
+  -- scope: un uuid no puede ser agencia y embajador a la vez.
+  if p_payee_type = 'embajador' then
+    if exists (select 1 from ketzal.suppliers s
+                where s.id = p_scope and s.supplier_type = 'agency') then
+      v_es_agencia := true;
+    elsif not exists (select 1 from ketzal.profiles p
+                       where p.id = p_scope and p.type = 'embajador') then
+      raise exception 'El scope de una tarifa de embajador debe ser una agencia o un embajador';
+    end if;
+  end if;
+
   if not (
     ketzal.is_superadmin()
     or (p_payee_type = 'agencia' and ketzal.is_active()
         and p_scope is not null and p_scope = ketzal.my_supplier_id())
+    -- b080: el admin fija la tarifa de embajadores DE SU AGENCIA. Sin esto, cada
+    -- agencia dependia del fundador para poder pagarle a quien le trae ventas,
+    -- que es justo lo que m005/m008 quisieron quitar de en medio.
+    or (p_payee_type = 'embajador' and v_es_agencia and ketzal.is_active()
+        and coalesce(ketzal.is_agency_admin(p_scope), false))
     or (p_payee_type = 'agente' and ketzal.is_active()
         and p_scope is not null
         and exists (
@@ -5063,17 +5757,19 @@ begin
   ) then
     raise exception 'Sin permiso para esta regla';
   end if;
-  if p_payee_type = 'plataforma' and p_scope is not null then raise exception 'plataforma no lleva scope'; end if;
-  if p_payee_type in ('agencia','embajador','agente') and p_scope is null then raise exception 'esta regla requiere scope'; end if;
-  if p_payee_type = 'embajador'
-     and not exists (select 1 from ketzal.profiles p where p.id = p_scope and p.type = 'embajador') then
-    raise exception 'Embajador no válido'; end if;
+
   if p_payee_type = 'agente'
      and not exists (select 1 from ketzal.profiles p where p.id = p_scope and p.type = 'agente') then
-    raise exception 'Agente no válido'; end if;
+    raise exception 'Agente no valido'; end if;
 
-  v_scope_sup  := case when p_payee_type in ('embajador','agente') then null else p_scope end;
-  v_scope_prof := case when p_payee_type in ('embajador','agente') then p_scope else null end;
+  v_scope_sup  := case
+                    when p_payee_type = 'embajador' and v_es_agencia then p_scope
+                    when p_payee_type in ('embajador','agente') then null
+                    else p_scope end;
+  v_scope_prof := case
+                    when p_payee_type = 'embajador' and v_es_agencia then null
+                    when p_payee_type in ('embajador','agente') then p_scope
+                    else null end;
 
   update ketzal.commission_rules set active = false
    where active and payee_type = p_payee_type
@@ -5097,13 +5793,55 @@ begin
     insert into ketzal.commission_rules(service_id, payee_type, scope_supplier_id, scope_profile_id, basis, rate, unit_amount)
       values (p_service, p_payee_type, v_scope_sup, v_scope_prof, 'hibrido', round(p_rate,2), round(p_unit,2)) returning id into v_id;
   else
-    raise exception 'basis inválido';
+    raise exception 'basis invalido';
   end if;
   return v_id;
 end $$;
 
 
 ALTER FUNCTION "ketzal"."set_commission_rule"("p_service" "uuid", "p_payee_type" "text", "p_scope" "uuid", "p_basis" "text", "p_rate" numeric, "p_unit" numeric) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "ketzal"."set_referral_code"("p_profile" "uuid", "p_code" "text") RETURNS "text"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'ketzal', 'pg_temp'
+    AS $_$
+declare v_uid uuid := auth.uid(); v_code text;
+begin
+  if v_uid is null then raise exception 'No autenticado'; end if;
+  if p_profile is null then raise exception 'Falta el perfil'; end if;
+
+  if not (
+    ketzal.is_superadmin()
+    or (ketzal.is_active() and exists (
+          select 1 from ketzal.profiles me
+          join ketzal.profiles target on target.id = p_profile
+          where me.id = v_uid and me.role = 'admin' and me.supplier_id is not null
+            and me.supplier_id = target.supplier_id))
+  ) then
+    raise exception 'Sin permiso para asignar el código de este perfil';
+  end if;
+
+  if not exists (select 1 from ketzal.profiles p
+                  where p.id = p_profile and p.type in ('embajador','agente')) then
+    raise exception 'Solo un agente o un embajador puede tener código de referido';
+  end if;
+
+  v_code := nullif(upper(regexp_replace(coalesce(p_code, ''), '\s', '', 'g')), '');
+  if v_code is not null and v_code !~ '^[A-Z0-9_-]{3,32}$' then
+    raise exception 'El código debe tener 3–32 caracteres: letras, números, guion o guion bajo';
+  end if;
+
+  begin
+    update ketzal.profiles set referral_code = v_code where id = p_profile;
+  exception when unique_violation then
+    raise exception 'Ese código ya está en uso por otra persona';
+  end;
+  return v_code;
+end $_$;
+
+
+ALTER FUNCTION "ketzal"."set_referral_code"("p_profile" "uuid", "p_code" "text") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "ketzal"."set_updated_at"() RETURNS "trigger"
@@ -5161,23 +5899,19 @@ ALTER FUNCTION "ketzal"."set_user_role"("p_user" "uuid", "p_role" "ketzal"."user
 
 CREATE OR REPLACE FUNCTION "ketzal"."settle_ledger"("p_account_type" "text", "p_supplier" "uuid" DEFAULT NULL::"uuid", "p_profile" "uuid" DEFAULT NULL::"uuid", "p_amount" numeric DEFAULT NULL::numeric, "p_note" "text" DEFAULT NULL::"text") RETURNS "jsonb"
     LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO 'ketzal', 'public'
+    SET "search_path" TO 'ketzal', 'pg_temp'
     AS $$
-declare
-  v_uid uuid := auth.uid();
-  v_saldo numeric;
-  v_amount numeric(12,2);
+declare v_uid uuid := auth.uid(); v_saldo numeric; v_amount numeric;
 begin
   if v_uid is null then raise exception 'No autenticado'; end if;
-  if not ketzal.is_superadmin() then
-    raise exception 'Solo el superadmin liquida cuentas.';
-  end if;
+  if not ketzal.is_superadmin() then raise exception 'Solo el superadmin liquida cuentas.'; end if;
   if p_account_type = 'viajero' then
-    raise exception 'El crédito de un viajero es redimible en Ketzal, no retirable: no se liquida en efectivo. Si hay que devolver dinero, va por la devolución del pago original.';
+    raise exception 'El credito de un viajero es redimible en Ketzal, no retirable: no se liquida en efectivo. Si hay que devolver dinero, va por la devolucion del pago original.';
   end if;
-  if p_account_type not in ('agencia','embajador','agente') then
-    raise exception 'Cuenta inválida.';
+  if p_account_type in ('embajador','agente') then
+    raise exception 'A % se le paga registrando el gasto en /gastos (categoria %), no liquidando aqui: el gasto ya espeja su liquidacion al ledger. Liquidar por los dos lados paga dos veces.', p_account_type, p_account_type;
   end if;
+  if p_account_type <> 'agencia' then raise exception 'Cuenta invalida.'; end if;
 
   select coalesce(sum(amount_mxn), 0) into v_saldo
   from ketzal.ledger_entries
@@ -5195,10 +5929,10 @@ begin
     jsonb_build_object('account_type', p_account_type,
       'account_supplier_id', p_supplier, 'account_profile_id', p_profile,
       'kind', 'liquidacion', 'amount_mxn', case when v_saldo > 0 then -v_amount else v_amount end,
-      'note', coalesce(p_note, 'Liquidación')),
+      'note', coalesce(p_note, 'Liquidacion')),
     jsonb_build_object('account_type', 'plataforma',
       'kind', 'liquidacion', 'amount_mxn', case when v_saldo > 0 then v_amount else -v_amount end,
-      'note', coalesce(p_note, 'Liquidación'))
+      'note', coalesce(p_note, 'Liquidacion'))
   ));
   return jsonb_build_object('ok', true, 'liquidado', v_amount, 'saldo_previo', v_saldo);
 end $$;
@@ -5236,6 +5970,64 @@ end $$;
 
 
 ALTER FUNCTION "ketzal"."snapshot_booking_policy"("p_booking" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "ketzal"."submit_poll_vote"("p_poll" "uuid", "p_option" integer, "p_month" "date", "p_voter_hash" "text", "p_suggestion" "text" DEFAULT NULL::"text", "p_contact" "text" DEFAULT NULL::"text", "p_meta" "jsonb" DEFAULT NULL::"jsonb") RETURNS "jsonb"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'ketzal', 'pg_temp'
+    AS $$
+declare
+  v_poll ketzal.polls;
+  v_month date;
+  v_id uuid;
+begin
+  if p_poll is null or p_option is null or p_month is null or p_voter_hash is null then
+    return null;
+  end if;
+  if char_length(p_voter_hash) not between 16 and 128 then return null; end if;
+
+  if p_meta is not null and pg_column_size(p_meta) > 4096 then
+    raise exception 'Meta demasiado grande';
+  end if;
+  if char_length(coalesce(p_suggestion, '')) > 280 then
+    raise exception 'Sugerencia demasiado larga';
+  end if;
+  if char_length(coalesce(p_contact, '')) > 120 then
+    raise exception 'Contacto demasiado largo';
+  end if;
+
+  select * into v_poll from ketzal.polls
+   where id = p_poll
+     and status = 'open'
+     and (closes_at is null or closes_at >= current_date);
+  if not found then return null; end if;
+
+  if not exists (
+    select 1 from jsonb_array_elements(v_poll.options) o
+     where (o->>'id')::int = p_option
+  ) then
+    return null;
+  end if;
+
+  v_month := date_trunc('month', p_month)::date;
+  if v_month < date_trunc('month', v_poll.month_from)::date
+     or v_month > date_trunc('month', v_poll.month_to)::date then
+    return null;
+  end if;
+
+  insert into ketzal.poll_votes
+    (poll_id, option_id, preferred_month, suggestion, contact, voter_hash, meta)
+  values
+    (p_poll, p_option, v_month, nullif(btrim(p_suggestion), ''),
+     nullif(btrim(p_contact), ''), p_voter_hash, p_meta)
+  on conflict (poll_id, voter_hash) do nothing
+  returning id into v_id;
+
+  return jsonb_build_object('ok', true, 'ya_votaste', v_id is null);
+end $$;
+
+
+ALTER FUNCTION "ketzal"."submit_poll_vote"("p_poll" "uuid", "p_option" integer, "p_month" "date", "p_voter_hash" "text", "p_suggestion" "text", "p_contact" "text", "p_meta" "jsonb") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "ketzal"."submit_rating"("p_booking_id" "uuid", "p_kind" "text", "p_rating" integer, "p_comment" "text" DEFAULT NULL::"text") RETURNS "uuid"
@@ -5295,6 +6087,7 @@ declare
   v_supplier uuid; v_mc uuid; v_bstatus ketzal.booking_status;
   v_balance numeric; v_amount numeric(12,2);
   v_ref text; v_receipt text; v_id uuid;
+  v_channel text;
 begin
   if v_uid is null then raise exception 'No autenticado'; end if;
 
@@ -5303,11 +6096,15 @@ begin
     raise exception 'Adjunta el comprobante de tu transferencia.';
   end if;
 
-  select selling_supplier_id, marketplace_customer_id, status
-    into v_supplier, v_mc, v_bstatus
+  select selling_supplier_id, marketplace_customer_id, status, channel
+    into v_supplier, v_mc, v_bstatus, v_channel
     from ketzal.bookings where id = p_booking_id;
   if not found or v_mc is null or v_mc <> v_uid then
     raise exception 'Pedido no encontrado o sin acceso';
+  end if;
+  -- b091: la cobranza de una venta del back-office la lleva el agente.
+  if v_channel <> 'portal' then
+    raise exception 'Este viaje lo lleva tu agencia: los pagos van con ella.';
   end if;
   if v_bstatus = 'cancelled' then raise exception 'Este pedido está cancelado.'; end if;
 
@@ -5421,12 +6218,11 @@ CREATE OR REPLACE FUNCTION "ketzal"."tg_commission_snapshot"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'ketzal', 'pg_temp'
     AS $$
-declare r record; v_amt numeric(12,2); v_is_mkt boolean;
+declare r record; v_amt numeric(12,2); v_sum numeric(12,2); v_code text;
 begin
   if NEW.status not in ('reserved','confirmed','paid') then return NEW; end if;
-  v_is_mkt := NEW.marketplace_customer_id is not null;
 
-  if (NEW.selling_supplier_id is null or v_is_mkt)
+  if NEW.channel = 'portal'
      and not exists (select 1 from ketzal.commission_lines l
                      where l.booking_id = NEW.id and l.payee_type='plataforma' and l.kind='devengo') then
     select * into r from ketzal.resolve_commission_rule(NEW.service_id, 'plataforma', null);
@@ -5454,9 +6250,6 @@ begin
     end if;
   end if;
 
-  -- b054: comisión al agente individual que cerró la venta (bookings.sold_by).
-  -- Opt-in: sin tarifa configurada para ESE agente, resolve_commission_rule
-  -- regresa basis null y no se inserta nada (igual que embajador).
   if NEW.sold_by is not null
      and NEW.selling_supplier_id is not null
      and not exists (select 1 from ketzal.commission_lines l
@@ -5467,6 +6260,44 @@ begin
       if v_amt > 0 then
         insert into ketzal.commission_lines(booking_id, payee_type, payee_profile_id, basis, rate, unit_amount, num_pax, amount_mxn)
         values (NEW.id, 'agente', NEW.sold_by, r.basis, r.rate, r.unit_amount, NEW.num_pax, v_amt);
+      end if;
+    end if;
+  end if;
+
+  if NEW.ambassador_id is not null
+     and not exists (select 1 from ketzal.commission_lines l
+                     where l.booking_id = NEW.id and l.payee_type='embajador' and l.kind='devengo') then
+    select coalesce(referral_code, '(sin codigo)') into v_code
+      from ketzal.profiles where id = NEW.ambassador_id;
+
+    select * into r from ketzal.resolve_commission_rule(
+      NEW.service_id, 'embajador', NEW.ambassador_id, NEW.selling_supplier_id);
+
+    if r.basis is null then
+      insert into ketzal.referral_misses (booking_id, ref_code, ambassador_id, supplier_id, reason)
+      select NEW.id, v_code, NEW.ambassador_id, NEW.selling_supplier_id, 'sin_tarifa_de_la_agencia'
+       where not exists (select 1 from ketzal.referral_misses m
+                          where m.booking_id = NEW.id and m.reason = 'sin_tarifa_de_la_agencia');
+    else
+      v_amt := ketzal.commission_amount(r.basis, r.rate, r.unit_amount, NEW.num_pax, NEW.total);
+      if v_amt <= 0 then
+        insert into ketzal.referral_misses (booking_id, ref_code, ambassador_id, supplier_id, reason)
+        select NEW.id, v_code, NEW.ambassador_id, NEW.selling_supplier_id, 'tarifa_da_cero'
+         where not exists (select 1 from ketzal.referral_misses m
+                            where m.booking_id = NEW.id and m.reason = 'tarifa_da_cero');
+      else
+        select coalesce(sum(case when kind = 'devengo' then amount_mxn else -amount_mxn end), 0)
+          into v_sum from ketzal.commission_lines where booking_id = NEW.id;
+        if v_sum + v_amt > NEW.total then
+          insert into ketzal.referral_misses (booking_id, ref_code, ambassador_id, supplier_id, reason)
+          select NEW.id, v_code, NEW.ambassador_id, NEW.selling_supplier_id, 'comisiones_exceden_la_venta'
+           where not exists (select 1 from ketzal.referral_misses m
+                              where m.booking_id = NEW.id and m.reason = 'comisiones_exceden_la_venta');
+        else
+          insert into ketzal.commission_lines(booking_id, payee_type, payee_profile_id, basis, rate,
+                                              unit_amount, num_pax, amount_mxn)
+          values (NEW.id, 'embajador', NEW.ambassador_id, r.basis, r.rate, r.unit_amount, NEW.num_pax, v_amt);
+        end if;
       end if;
     end if;
   end if;
@@ -5615,6 +6446,88 @@ end $$;
 ALTER FUNCTION "ketzal"."tg_ledger_mirror_credit_redeem"() OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "ketzal"."tg_ledger_mirror_expense"() RETURNS "trigger"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'ketzal', 'pg_temp'
+    AS $$
+declare v_signo numeric;
+begin
+  if new.category not in ('embajador','agente') then return new; end if;
+  if new.provider_profile_id is null or new.supplier_id is null or new.amount_mxn = 0 then
+    return new;
+  end if;
+
+  -- 'egreso' baja lo que se le debe a la persona; 'reverso' lo devuelve.
+  v_signo := case when new.kind = 'reverso' then 1 else -1 end;
+
+  perform ketzal.ledger_post(jsonb_build_array(
+    jsonb_build_object(
+      'account_type', new.category,
+      'account_profile_id', new.provider_profile_id,
+      'kind', 'liquidacion',
+      'amount_mxn', v_signo * new.amount_mxn,
+      'note', 'Pago de comision ' || new.category),
+    jsonb_build_object(
+      'account_type', 'agencia',
+      'account_supplier_id', new.supplier_id,
+      'kind', 'liquidacion',
+      'amount_mxn', -v_signo * new.amount_mxn,
+      'note', 'Pago de comision ' || new.category || ' (a cargo)')
+  ));
+  return new;
+end $$;
+
+
+ALTER FUNCTION "ketzal"."tg_ledger_mirror_expense"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "ketzal"."tg_polls_congelar_opciones"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO 'ketzal', 'pg_temp'
+    AS $$
+begin
+  if old.status <> 'draft' then
+    if new.options is distinct from old.options then
+      raise exception 'No se pueden cambiar los destinos de una encuesta publicada';
+    end if;
+    if new.month_from is distinct from old.month_from
+       or new.month_to is distinct from old.month_to then
+      raise exception 'No se puede cambiar el rango de meses de una encuesta publicada';
+    end if;
+  end if;
+  if new.supplier_id is distinct from old.supplier_id then
+    raise exception 'Una encuesta no cambia de agencia';
+  end if;
+  return new;
+end $$;
+
+
+ALTER FUNCTION "ketzal"."tg_polls_congelar_opciones"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "ketzal"."tg_require_commission_to_publish"() RETURNS "trigger"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'ketzal', 'pg_temp'
+    AS $$
+declare r record;
+begin
+  if coalesce(NEW.published, false) = false then return NEW; end if;
+  if TG_OP = 'UPDATE' and coalesce(OLD.published, false) = true then return NEW; end if;
+
+  select * into r from ketzal.resolve_commission_rule(NEW.id, 'plataforma', null);
+
+  if r.basis is null
+     or coalesce(r.rate, 0) <= 0 and coalesce(r.unit_amount, 0) <= 0 then
+    raise exception 'No se puede publicar "%": la comisión de plataforma resuelve en cero. Define un %% general o una regla por servicio en /comisiones.', NEW.name
+      using errcode = 'check_violation';
+  end if;
+  return NEW;
+end $$;
+
+
+ALTER FUNCTION "ketzal"."tg_require_commission_to_publish"() OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "ketzal"."touch_updated_at"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     SET "search_path" TO 'ketzal', 'pg_temp'
@@ -5623,6 +6536,35 @@ begin new.updated_at = now(); return new; end $$;
 
 
 ALTER FUNCTION "ketzal"."touch_updated_at"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "ketzal"."update_my_profile"("p_name" "text" DEFAULT NULL::"text", "p_phone" "text" DEFAULT NULL::"text", "p_image" "text" DEFAULT NULL::"text") RETURNS "void"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'ketzal', 'pg_temp'
+    AS $$
+declare v_uid uuid := auth.uid(); v_img text;
+begin
+  if v_uid is null then raise exception 'No autenticado'; end if;
+
+  v_img := nullif(btrim(coalesce(p_image, '')), '');
+  -- La foto TIENE que vivir en nuestro bucket. Sin este candado, `image` es un
+  -- campo libre que el propio usuario apunta a donde quiera y la app lo pinta:
+  -- pixel de rastreo, contenido ajeno, o una URL que cambia de contenido
+  -- despues de aprobarse.
+  if v_img is not null and v_img not like '%/storage/v1/object/public/ketzal-assets/%' then
+    raise exception 'La foto debe subirse a Ketzal.';
+  end if;
+
+  update ketzal.profiles set
+    name  = coalesce(nullif(btrim(coalesce(p_name, '')), ''), name),
+    phone = case when p_phone is null then phone
+                 else nullif(btrim(p_phone), '') end,
+    image = case when p_image is null then image else v_img end
+  where id = v_uid;
+end $$;
+
+
+ALTER FUNCTION "ketzal"."update_my_profile"("p_name" "text", "p_phone" "text", "p_image" "text") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "ketzal"."upsert_sales_goal"("p_agent" "uuid", "p_month" "date", "p_amount" numeric) RETURNS "void"
@@ -6271,7 +7213,13 @@ CREATE TABLE IF NOT EXISTS "ketzal"."app_settings" (
     "wa_auto_enabled" boolean DEFAULT false NOT NULL,
     "wa_daily_cap" integer DEFAULT 30 NOT NULL,
     "cancellation_policy" "jsonb",
-    CONSTRAINT "app_settings_single_row" CHECK (("id" = 1))
+    "mp_fee_pct" numeric(6,4) DEFAULT 3.49 NOT NULL,
+    "mp_fee_fijo" numeric(8,2) DEFAULT 4.00 NOT NULL,
+    "mp_fee_iva" numeric(5,2) DEFAULT 16.00 NOT NULL,
+    CONSTRAINT "app_settings_single_row" CHECK (("id" = 1)),
+    CONSTRAINT "mp_fee_fijo_chk" CHECK (("mp_fee_fijo" >= (0)::numeric)),
+    CONSTRAINT "mp_fee_iva_chk" CHECK ((("mp_fee_iva" >= (0)::numeric) AND ("mp_fee_iva" <= (100)::numeric))),
+    CONSTRAINT "mp_fee_pct_chk" CHECK ((("mp_fee_pct" >= (0)::numeric) AND ("mp_fee_pct" < (100)::numeric)))
 );
 
 
@@ -6414,7 +7362,7 @@ CREATE TABLE IF NOT EXISTS "ketzal"."commission_rules" (
     CONSTRAINT "commission_rules_basis_check" CHECK (("basis" = ANY (ARRAY['percent'::"text", 'fijo_venta'::"text", 'fijo_pax'::"text", 'hibrido'::"text"]))),
     CONSTRAINT "commission_rules_payee_type_check" CHECK (("payee_type" = ANY (ARRAY['plataforma'::"text", 'agencia'::"text", 'embajador'::"text", 'agente'::"text"]))),
     CONSTRAINT "commission_rules_rate_check" CHECK ((("rate" IS NULL) OR (("rate" >= (0)::numeric) AND ("rate" <= (100)::numeric)))),
-    CONSTRAINT "commission_rules_scope_chk" CHECK (((("payee_type" = 'plataforma'::"text") AND ("scope_supplier_id" IS NULL) AND ("scope_profile_id" IS NULL)) OR (("payee_type" = 'agencia'::"text") AND ("scope_supplier_id" IS NOT NULL) AND ("scope_profile_id" IS NULL)) OR (("payee_type" = ANY (ARRAY['embajador'::"text", 'agente'::"text"])) AND ("scope_profile_id" IS NOT NULL) AND ("scope_supplier_id" IS NULL)))),
+    CONSTRAINT "commission_rules_scope_chk" CHECK (((("payee_type" = 'plataforma'::"text") AND ("scope_supplier_id" IS NULL) AND ("scope_profile_id" IS NULL)) OR (("payee_type" = 'agencia'::"text") AND ("scope_supplier_id" IS NOT NULL) AND ("scope_profile_id" IS NULL)) OR (("payee_type" = 'agente'::"text") AND ("scope_profile_id" IS NOT NULL) AND ("scope_supplier_id" IS NULL)) OR (("payee_type" = 'embajador'::"text") AND (("scope_supplier_id" IS NOT NULL) <> ("scope_profile_id" IS NOT NULL))))),
     CONSTRAINT "commission_rules_unit_amount_check" CHECK ((("unit_amount" IS NULL) OR ("unit_amount" >= (0)::numeric))),
     CONSTRAINT "commission_rules_value_chk" CHECK (((("basis" = 'percent'::"text") AND ("rate" IS NOT NULL) AND ("unit_amount" IS NULL)) OR (("basis" = ANY (ARRAY['fijo_venta'::"text", 'fijo_pax'::"text"])) AND ("unit_amount" IS NOT NULL) AND ("rate" IS NULL)) OR (("basis" = 'hibrido'::"text") AND ("rate" IS NOT NULL) AND ("unit_amount" IS NOT NULL))))
 );
@@ -6485,13 +7433,34 @@ CREATE TABLE IF NOT EXISTS "ketzal"."expenses" (
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "provider_profile_id" "uuid",
     CONSTRAINT "expenses_amount_mxn_check" CHECK (("amount_mxn" > (0)::numeric)),
-    CONSTRAINT "expenses_category_check" CHECK (("category" = ANY (ARRAY['operacion'::"text", 'transporte'::"text", 'hospedaje'::"text", 'alimentos'::"text", 'mayorista'::"text", 'embajador'::"text", 'marketing'::"text", 'otro'::"text"]))),
+    CONSTRAINT "expenses_category_check" CHECK (("category" = ANY (ARRAY['operacion'::"text", 'transporte'::"text", 'hospedaje'::"text", 'alimentos'::"text", 'mayorista'::"text", 'embajador'::"text", 'agente'::"text", 'marketing'::"text", 'otro'::"text"]))),
     CONSTRAINT "expenses_kind_check" CHECK (("kind" = ANY (ARRAY['egreso'::"text", 'reverso'::"text"]))),
-    CONSTRAINT "expenses_mayorista_provider" CHECK ((("category" <> ALL (ARRAY['mayorista'::"text", 'embajador'::"text"])) OR (("category" = 'mayorista'::"text") AND ("provider_supplier_id" IS NOT NULL)) OR (("category" = 'embajador'::"text") AND ("provider_profile_id" IS NOT NULL))))
+    CONSTRAINT "expenses_mayorista_provider" CHECK ((("category" <> ALL (ARRAY['mayorista'::"text", 'embajador'::"text"])) OR (("category" = 'mayorista'::"text") AND ("provider_supplier_id" IS NOT NULL)) OR (("category" = 'embajador'::"text") AND ("provider_profile_id" IS NOT NULL)))),
+    CONSTRAINT "expenses_provider_chk" CHECK ((("category" <> ALL (ARRAY['mayorista'::"text", 'embajador'::"text", 'agente'::"text"])) OR (("category" = 'mayorista'::"text") AND ("provider_supplier_id" IS NOT NULL)) OR (("category" = ANY (ARRAY['embajador'::"text", 'agente'::"text"])) AND ("provider_profile_id" IS NOT NULL))))
 );
 
 
 ALTER TABLE "ketzal"."expenses" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "ketzal"."funnel_events" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "session_id" "text" NOT NULL,
+    "event" "text" NOT NULL,
+    "service_id" "uuid",
+    "booking_id" "uuid",
+    "meta" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "funnel_events_event_check" CHECK (("event" = ANY (ARRAY['checkout_open'::"text", 'order_created'::"text", 'pago_metodo'::"text", 'link_click'::"text"]))),
+    CONSTRAINT "funnel_events_session_id_check" CHECK ((("char_length"("session_id") >= 8) AND ("char_length"("session_id") <= 64)))
+);
+
+
+ALTER TABLE "ketzal"."funnel_events" OWNER TO "postgres";
+
+
+COMMENT ON TABLE "ketzal"."funnel_events" IS 'ADR-0025: funnel del marketplace (pasos que la BD no ve). Deny-all: solo service role via /api/track.';
+
 
 
 CREATE TABLE IF NOT EXISTS "ketzal"."ledger_entries" (
@@ -6626,6 +7595,47 @@ CREATE TABLE IF NOT EXISTS "ketzal"."planner_items" (
 ALTER TABLE "ketzal"."planner_items" OWNER TO "postgres";
 
 
+CREATE TABLE IF NOT EXISTS "ketzal"."poll_votes" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "poll_id" "uuid" NOT NULL,
+    "option_id" integer NOT NULL,
+    "preferred_month" "date" NOT NULL,
+    "suggestion" "text",
+    "contact" "text",
+    "voter_hash" "text" NOT NULL,
+    "meta" "jsonb",
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "poll_votes_contact_check" CHECK (("char_length"("contact") <= 120)),
+    CONSTRAINT "poll_votes_suggestion_check" CHECK (("char_length"("suggestion") <= 280)),
+    CONSTRAINT "poll_votes_voter_hash_check" CHECK ((("char_length"("voter_hash") >= 16) AND ("char_length"("voter_hash") <= 128)))
+);
+
+
+ALTER TABLE "ketzal"."poll_votes" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "ketzal"."polls" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "supplier_id" "uuid" DEFAULT "ketzal"."my_supplier_id"() NOT NULL,
+    "question" "text" NOT NULL,
+    "options" "jsonb" DEFAULT '[]'::"jsonb" NOT NULL,
+    "month_from" "date" NOT NULL,
+    "month_to" "date" NOT NULL,
+    "status" "text" DEFAULT 'draft'::"text" NOT NULL,
+    "closes_at" "date",
+    "created_by" "uuid" DEFAULT "auth"."uid"() NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "polls_options_check" CHECK ((("jsonb_typeof"("options") = 'array'::"text") AND ("jsonb_array_length"("options") <= 10))),
+    CONSTRAINT "polls_question_check" CHECK ((("char_length"("question") >= 1) AND ("char_length"("question") <= 200))),
+    CONSTRAINT "polls_rango_meses" CHECK (("month_from" <= "month_to")),
+    CONSTRAINT "polls_status_check" CHECK (("status" = ANY (ARRAY['draft'::"text", 'open'::"text", 'closed'::"text"])))
+);
+
+
+ALTER TABLE "ketzal"."polls" OWNER TO "postgres";
+
+
 CREATE TABLE IF NOT EXISTS "ketzal"."products" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "name" "text" NOT NULL,
@@ -6660,7 +7670,9 @@ CREATE TABLE IF NOT EXISTS "ketzal"."profiles" (
     "active" boolean DEFAULT false NOT NULL,
     "type" "ketzal"."profile_type" DEFAULT 'viajero'::"ketzal"."profile_type" NOT NULL,
     "phone" "text",
-    "must_change_password" boolean DEFAULT false NOT NULL
+    "must_change_password" boolean DEFAULT false NOT NULL,
+    "onboarded_at" timestamp with time zone,
+    "recruited_by" "uuid"
 );
 
 
@@ -6668,6 +7680,10 @@ ALTER TABLE "ketzal"."profiles" OWNER TO "postgres";
 
 
 COMMENT ON TABLE "ketzal"."profiles" IS 'Datos de usuario especificos de Ketzal. Identidad/login vive en auth.users.';
+
+
+
+COMMENT ON COLUMN "ketzal"."profiles"."recruited_by" IS 'Quién invitó a esta persona a ser embajador. Hecho relacional, no dinero: el bono de b085 se DERIVA de aquí.';
 
 
 
@@ -6724,6 +7740,20 @@ CREATE TABLE IF NOT EXISTS "ketzal"."receipts" (
 
 
 ALTER TABLE "ketzal"."receipts" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "ketzal"."referral_misses" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "booking_id" "uuid" NOT NULL,
+    "ref_code" "text" NOT NULL,
+    "ambassador_id" "uuid",
+    "supplier_id" "uuid",
+    "reason" "text" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"() NOT NULL
+);
+
+
+ALTER TABLE "ketzal"."referral_misses" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "ketzal"."reviews" (
@@ -7085,6 +8115,11 @@ ALTER TABLE ONLY "ketzal"."expenses"
 
 
 
+ALTER TABLE ONLY "ketzal"."funnel_events"
+    ADD CONSTRAINT "funnel_events_pkey" PRIMARY KEY ("id");
+
+
+
 ALTER TABLE ONLY "ketzal"."ledger_entries"
     ADD CONSTRAINT "ledger_entries_pkey" PRIMARY KEY ("id");
 
@@ -7117,6 +8152,21 @@ ALTER TABLE ONLY "ketzal"."payments"
 
 ALTER TABLE ONLY "ketzal"."planner_items"
     ADD CONSTRAINT "planner_items_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "ketzal"."poll_votes"
+    ADD CONSTRAINT "poll_votes_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "ketzal"."poll_votes"
+    ADD CONSTRAINT "poll_votes_poll_id_voter_hash_key" UNIQUE ("poll_id", "voter_hash");
+
+
+
+ALTER TABLE ONLY "ketzal"."polls"
+    ADD CONSTRAINT "polls_pkey" PRIMARY KEY ("id");
 
 
 
@@ -7172,6 +8222,11 @@ ALTER TABLE ONLY "ketzal"."receipts"
 
 ALTER TABLE ONLY "ketzal"."receipts"
     ADD CONSTRAINT "receipts_supplier_id_folio_key" UNIQUE ("supplier_id", "folio");
+
+
+
+ALTER TABLE ONLY "ketzal"."referral_misses"
+    ADD CONSTRAINT "referral_misses_pkey" PRIMARY KEY ("id");
 
 
 
@@ -7349,6 +8404,10 @@ CREATE INDEX "customers_supplier_idx" ON "ketzal"."customers" USING "btree" ("su
 
 
 
+CREATE INDEX "funnel_events_created_idx" ON "ketzal"."funnel_events" USING "btree" ("created_at");
+
+
+
 CREATE INDEX "idx_bookings_marketplace_customer" ON "ketzal"."bookings" USING "btree" ("marketplace_customer_id") WHERE ("marketplace_customer_id" IS NOT NULL);
 
 
@@ -7461,11 +8520,23 @@ CREATE INDEX "payments_booking_idx" ON "ketzal"."payments" USING "btree" ("booki
 
 
 
+CREATE INDEX "polls_supplier_idx" ON "ketzal"."polls" USING "btree" ("supplier_id");
+
+
+
+CREATE INDEX "profiles_recruited_by_idx" ON "ketzal"."profiles" USING "btree" ("recruited_by");
+
+
+
 CREATE INDEX "push_subscriptions_user_idx" ON "ketzal"."push_subscriptions" USING "btree" ("user_id");
 
 
 
 CREATE UNIQUE INDEX "receipts_payment_id_uidx" ON "ketzal"."receipts" USING "btree" ("payment_id");
+
+
+
+CREATE INDEX "referral_misses_amb_idx" ON "ketzal"."referral_misses" USING "btree" ("ambassador_id");
 
 
 
@@ -7497,7 +8568,7 @@ CREATE UNIQUE INDEX "uq_commission_lines_devengo" ON "ketzal"."commission_lines"
 
 
 
-CREATE UNIQUE INDEX "uq_commission_rules" ON "ketzal"."commission_rules" USING "btree" ("payee_type", COALESCE("scope_supplier_id", '00000000-0000-0000-0000-000000000000'::"uuid"), COALESCE("service_id", '00000000-0000-0000-0000-000000000000'::"uuid")) WHERE "active";
+CREATE UNIQUE INDEX "uq_commission_rules" ON "ketzal"."commission_rules" USING "btree" ("payee_type", COALESCE("scope_supplier_id", '00000000-0000-0000-0000-000000000000'::"uuid"), COALESCE("scope_profile_id", '00000000-0000-0000-0000-000000000000'::"uuid"), COALESCE("service_id", '00000000-0000-0000-0000-000000000000'::"uuid")) WHERE "active";
 
 
 
@@ -7567,6 +8638,10 @@ CREATE OR REPLACE TRIGGER "ledger_mirror_commission" AFTER INSERT ON "ketzal"."c
 
 
 
+CREATE OR REPLACE TRIGGER "ledger_mirror_expense" AFTER INSERT ON "ketzal"."expenses" FOR EACH ROW EXECUTE FUNCTION "ketzal"."tg_ledger_mirror_expense"();
+
+
+
 CREATE OR REPLACE TRIGGER "ledger_no_mutar" BEFORE DELETE OR UPDATE ON "ketzal"."ledger_entries" FOR EACH ROW EXECUTE FUNCTION "ketzal"."tg_ledger_inmutable"();
 
 
@@ -7619,7 +8694,7 @@ CREATE OR REPLACE TRIGGER "trg_categories_updated_at" BEFORE UPDATE ON "ketzal".
 
 
 
-CREATE OR REPLACE TRIGGER "trg_commission_snapshot" AFTER INSERT OR UPDATE OF "status" ON "ketzal"."bookings" FOR EACH ROW EXECUTE FUNCTION "ketzal"."tg_commission_snapshot"();
+CREATE OR REPLACE TRIGGER "trg_commission_snapshot" AFTER INSERT OR UPDATE OF "status", "ambassador_id" ON "ketzal"."bookings" FOR EACH ROW EXECUTE FUNCTION "ketzal"."tg_commission_snapshot"();
 
 
 
@@ -7635,11 +8710,19 @@ CREATE OR REPLACE TRIGGER "trg_planners_updated_at" BEFORE UPDATE ON "ketzal"."t
 
 
 
+CREATE OR REPLACE TRIGGER "trg_polls_congelar_opciones" BEFORE UPDATE ON "ketzal"."polls" FOR EACH ROW EXECUTE FUNCTION "ketzal"."tg_polls_congelar_opciones"();
+
+
+
 CREATE OR REPLACE TRIGGER "trg_products_updated_at" BEFORE UPDATE ON "ketzal"."products" FOR EACH ROW EXECUTE FUNCTION "ketzal"."set_updated_at"();
 
 
 
 CREATE OR REPLACE TRIGGER "trg_profiles_updated_at" BEFORE UPDATE ON "ketzal"."profiles" FOR EACH ROW EXECUTE FUNCTION "ketzal"."set_updated_at"();
+
+
+
+CREATE OR REPLACE TRIGGER "trg_require_commission_to_publish" BEFORE INSERT OR UPDATE OF "published" ON "ketzal"."services" FOR EACH ROW EXECUTE FUNCTION "ketzal"."tg_require_commission_to_publish"();
 
 
 
@@ -7937,8 +9020,23 @@ ALTER TABLE ONLY "ketzal"."planner_items"
 
 
 
+ALTER TABLE ONLY "ketzal"."poll_votes"
+    ADD CONSTRAINT "poll_votes_poll_id_fkey" FOREIGN KEY ("poll_id") REFERENCES "ketzal"."polls"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "ketzal"."polls"
+    ADD CONSTRAINT "polls_supplier_id_fkey" FOREIGN KEY ("supplier_id") REFERENCES "ketzal"."suppliers"("id");
+
+
+
 ALTER TABLE ONLY "ketzal"."profiles"
     ADD CONSTRAINT "profiles_id_fkey" FOREIGN KEY ("id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "ketzal"."profiles"
+    ADD CONSTRAINT "profiles_recruited_by_fkey" FOREIGN KEY ("recruited_by") REFERENCES "ketzal"."profiles"("id");
 
 
 
@@ -7979,6 +9077,21 @@ ALTER TABLE ONLY "ketzal"."receipts"
 
 ALTER TABLE ONLY "ketzal"."receipts"
     ADD CONSTRAINT "receipts_supplier_id_fkey" FOREIGN KEY ("supplier_id") REFERENCES "ketzal"."suppliers"("id");
+
+
+
+ALTER TABLE ONLY "ketzal"."referral_misses"
+    ADD CONSTRAINT "referral_misses_ambassador_id_fkey" FOREIGN KEY ("ambassador_id") REFERENCES "ketzal"."profiles"("id");
+
+
+
+ALTER TABLE ONLY "ketzal"."referral_misses"
+    ADD CONSTRAINT "referral_misses_booking_id_fkey" FOREIGN KEY ("booking_id") REFERENCES "ketzal"."bookings"("id") ON DELETE CASCADE;
+
+
+
+ALTER TABLE ONLY "ketzal"."referral_misses"
+    ADD CONSTRAINT "referral_misses_supplier_id_fkey" FOREIGN KEY ("supplier_id") REFERENCES "ketzal"."suppliers"("id");
 
 
 
@@ -8197,19 +9310,19 @@ CREATE POLICY "commission_lines_sel" ON "ketzal"."commission_lines" FOR SELECT U
 ALTER TABLE "ketzal"."commission_rules" ENABLE ROW LEVEL SECURITY;
 
 
-CREATE POLICY "commission_rules_del" ON "ketzal"."commission_rules" FOR DELETE USING (("ketzal"."is_superadmin"() OR (("payee_type" = 'agencia'::"text") AND ("scope_supplier_id" = "ketzal"."my_supplier_id"()))));
+CREATE POLICY "commission_rules_del" ON "ketzal"."commission_rules" FOR DELETE USING (("ketzal"."is_superadmin"() OR (("payee_type" = ANY (ARRAY['agencia'::"text", 'embajador'::"text"])) AND ("scope_supplier_id" = "ketzal"."my_supplier_id"())) OR (("payee_type" = 'embajador'::"text") AND COALESCE("ketzal"."is_admin_de_embajador"("scope_profile_id"), false))));
 
 
 
-CREATE POLICY "commission_rules_ins" ON "ketzal"."commission_rules" FOR INSERT WITH CHECK (("ketzal"."is_superadmin"() OR (("payee_type" = 'agencia'::"text") AND ("scope_supplier_id" = "ketzal"."my_supplier_id"()) AND "ketzal"."is_active"())));
+CREATE POLICY "commission_rules_ins" ON "ketzal"."commission_rules" FOR INSERT WITH CHECK (("ketzal"."is_superadmin"() OR (("payee_type" = 'agencia'::"text") AND ("scope_supplier_id" = "ketzal"."my_supplier_id"()) AND "ketzal"."is_active"()) OR (("payee_type" = 'embajador'::"text") AND ("scope_supplier_id" = "ketzal"."my_supplier_id"()) AND "ketzal"."is_active"()) OR (("payee_type" = 'embajador'::"text") AND COALESCE("ketzal"."is_admin_de_embajador"("scope_profile_id"), false) AND "ketzal"."is_active"())));
 
 
 
-CREATE POLICY "commission_rules_sel" ON "ketzal"."commission_rules" FOR SELECT USING (("ketzal"."is_superadmin"() OR (("payee_type" = 'agencia'::"text") AND ("scope_supplier_id" = "ketzal"."my_supplier_id"()))));
+CREATE POLICY "commission_rules_sel" ON "ketzal"."commission_rules" FOR SELECT USING (("ketzal"."is_superadmin"() OR (("payee_type" = 'agencia'::"text") AND ("scope_supplier_id" = "ketzal"."my_supplier_id"())) OR (("payee_type" = 'embajador'::"text") AND ("scope_supplier_id" = "ketzal"."my_supplier_id"())) OR (("payee_type" = 'embajador'::"text") AND COALESCE("ketzal"."is_admin_de_embajador"("scope_profile_id"), false)) OR (("scope_profile_id" IS NOT NULL) AND ("scope_profile_id" = "auth"."uid"())) OR (("payee_type" = 'embajador'::"text") AND ("scope_supplier_id" IS NOT NULL) AND COALESCE("ketzal"."is_ambassador"("auth"."uid"()), false))));
 
 
 
-CREATE POLICY "commission_rules_upd" ON "ketzal"."commission_rules" FOR UPDATE USING (("ketzal"."is_superadmin"() OR (("payee_type" = 'agencia'::"text") AND ("scope_supplier_id" = "ketzal"."my_supplier_id"())))) WITH CHECK (("ketzal"."is_superadmin"() OR (("payee_type" = 'agencia'::"text") AND ("scope_supplier_id" = "ketzal"."my_supplier_id"()))));
+CREATE POLICY "commission_rules_upd" ON "ketzal"."commission_rules" FOR UPDATE USING (("ketzal"."is_superadmin"() OR (("payee_type" = ANY (ARRAY['agencia'::"text", 'embajador'::"text"])) AND ("scope_supplier_id" = "ketzal"."my_supplier_id"())) OR (("payee_type" = 'embajador'::"text") AND COALESCE("ketzal"."is_admin_de_embajador"("scope_profile_id"), false)))) WITH CHECK (("ketzal"."is_superadmin"() OR (("payee_type" = ANY (ARRAY['agencia'::"text", 'embajador'::"text"])) AND ("scope_supplier_id" = "ketzal"."my_supplier_id"())) OR (("payee_type" = 'embajador'::"text") AND COALESCE("ketzal"."is_admin_de_embajador"("scope_profile_id"), false))));
 
 
 
@@ -8247,6 +9360,9 @@ CREATE POLICY "expenses_scoped_ins" ON "ketzal"."expenses" FOR INSERT TO "authen
 
 CREATE POLICY "expenses_scoped_sel" ON "ketzal"."expenses" FOR SELECT USING (("ketzal"."is_superadmin"() OR ("created_by" = "auth"."uid"()) OR (("supplier_id" IS NOT NULL) AND ("supplier_id" = "ketzal"."my_supplier_id"()))));
 
+
+
+ALTER TABLE "ketzal"."funnel_events" ENABLE ROW LEVEL SECURITY;
 
 
 CREATE POLICY "join_requests_sel" ON "ketzal"."agency_join_requests" FOR SELECT TO "authenticated" USING ((("profile_id" = "auth"."uid"()) OR "ketzal"."is_superadmin"() OR "ketzal"."is_agency_admin"("supplier_id")));
@@ -8340,6 +9456,30 @@ CREATE POLICY "planners_update" ON "ketzal"."travel_planners" FOR UPDATE USING (
 
 
 
+ALTER TABLE "ketzal"."poll_votes" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "poll_votes_owner_sel" ON "ketzal"."poll_votes" FOR SELECT TO "authenticated" USING (("ketzal"."is_superadmin"() OR (EXISTS ( SELECT 1
+   FROM "ketzal"."polls" "p"
+  WHERE (("p"."id" = "poll_votes"."poll_id") AND ("p"."supplier_id" IS NOT NULL) AND COALESCE("ketzal"."is_agency_admin"("p"."supplier_id"), false))))));
+
+
+
+ALTER TABLE "ketzal"."polls" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "polls_admin_ins" ON "ketzal"."polls" FOR INSERT TO "authenticated" WITH CHECK (("ketzal"."is_superadmin"() OR COALESCE("ketzal"."is_agency_admin"("supplier_id"), false)));
+
+
+
+CREATE POLICY "polls_admin_upd" ON "ketzal"."polls" FOR UPDATE TO "authenticated" USING (("ketzal"."is_superadmin"() OR COALESCE("ketzal"."is_agency_admin"("supplier_id"), false))) WITH CHECK (("ketzal"."is_superadmin"() OR COALESCE("ketzal"."is_agency_admin"("supplier_id"), false)));
+
+
+
+CREATE POLICY "polls_scoped_sel" ON "ketzal"."polls" FOR SELECT TO "authenticated" USING (("ketzal"."is_superadmin"() OR (("supplier_id" IS NOT NULL) AND COALESCE("ketzal"."is_agency_admin"("supplier_id"), false))));
+
+
+
 ALTER TABLE "ketzal"."products" ENABLE ROW LEVEL SECURITY;
 
 
@@ -8352,6 +9492,10 @@ CREATE POLICY "products_write" ON "ketzal"."products" USING ("ketzal"."is_supera
 
 
 ALTER TABLE "ketzal"."profiles" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "profiles_embajadores_de_mi_agencia" ON "ketzal"."profiles" FOR SELECT USING ((("type" = 'embajador'::"ketzal"."profile_type") AND ("supplier_id" IS NOT NULL) AND COALESCE("ketzal"."is_agency_admin"("supplier_id"), false)));
+
 
 
 CREATE POLICY "profiles_select_own" ON "ketzal"."profiles" FOR SELECT USING (("auth"."uid"() = "id"));
@@ -8408,6 +9552,13 @@ CREATE POLICY "receipts_ins" ON "ketzal"."receipts" FOR INSERT TO "authenticated
 
 
 CREATE POLICY "receipts_sel" ON "ketzal"."receipts" FOR SELECT TO "authenticated" USING (("ketzal"."is_superadmin"() OR ("issued_by" = "auth"."uid"()) OR (("supplier_id" IS NOT NULL) AND ("supplier_id" = "ketzal"."my_supplier_id"()))));
+
+
+
+ALTER TABLE "ketzal"."referral_misses" ENABLE ROW LEVEL SECURITY;
+
+
+CREATE POLICY "referral_misses_sel" ON "ketzal"."referral_misses" FOR SELECT TO "authenticated" USING (("ketzal"."is_superadmin"() OR (("supplier_id" IS NOT NULL) AND COALESCE("ketzal"."is_agency_admin"("supplier_id"), false)) OR ("ambassador_id" = "auth"."uid"())));
 
 
 
@@ -8668,6 +9819,12 @@ GRANT ALL ON FUNCTION "ketzal"."boarding_info"("p_voucher_id" "uuid") TO "servic
 
 
 
+REVOKE ALL ON FUNCTION "ketzal"."bonos_reclutador"("p_uid" "uuid", "p_hasta" "date") FROM PUBLIC;
+GRANT ALL ON FUNCTION "ketzal"."bonos_reclutador"("p_uid" "uuid", "p_hasta" "date") TO "authenticated";
+GRANT ALL ON FUNCTION "ketzal"."bonos_reclutador"("p_uid" "uuid", "p_hasta" "date") TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "ketzal"."can_view_user"("p_id" "uuid") FROM PUBLIC;
 GRANT ALL ON FUNCTION "ketzal"."can_view_user"("p_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "ketzal"."can_view_user"("p_id" "uuid") TO "service_role";
@@ -8688,6 +9845,12 @@ GRANT ALL ON FUNCTION "ketzal"."cancel_booking_v2"("p_booking" "uuid", "p_reason
 REVOKE ALL ON FUNCTION "ketzal"."cancel_join_request"("p_id" "uuid") FROM PUBLIC;
 GRANT ALL ON FUNCTION "ketzal"."cancel_join_request"("p_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "ketzal"."cancel_join_request"("p_id" "uuid") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "ketzal"."claim_quote"("p_token" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "ketzal"."claim_quote"("p_token" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "ketzal"."claim_quote"("p_token" "uuid") TO "service_role";
 
 
 
@@ -8767,6 +9930,12 @@ GRANT ALL ON FUNCTION "ketzal"."convert_quote_to_sale"("p_booking_id" "uuid") TO
 
 
 
+REVOKE ALL ON FUNCTION "ketzal"."corte_embajadores"("p_hasta" "date") FROM PUBLIC;
+GRANT ALL ON FUNCTION "ketzal"."corte_embajadores"("p_hasta" "date") TO "authenticated";
+GRANT ALL ON FUNCTION "ketzal"."corte_embajadores"("p_hasta" "date") TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "ketzal"."create_booking_with_items"("p_customer_id" "uuid", "p_new_customer" "jsonb", "p_service_id" "uuid", "p_travel_date" "date", "p_discount" numeric, "p_notes" "text", "p_items" "jsonb", "p_status" "ketzal"."booking_status") FROM PUBLIC;
 GRANT ALL ON FUNCTION "ketzal"."create_booking_with_items"("p_customer_id" "uuid", "p_new_customer" "jsonb", "p_service_id" "uuid", "p_travel_date" "date", "p_discount" numeric, "p_notes" "text", "p_items" "jsonb", "p_status" "ketzal"."booking_status") TO "authenticated";
 
@@ -8819,6 +9988,10 @@ GRANT ALL ON FUNCTION "ketzal"."effective_cancellation_policy"("p_supplier" "uui
 
 
 
+REVOKE ALL ON FUNCTION "ketzal"."email_verificado"("p_uid" "uuid") FROM PUBLIC;
+
+
+
 REVOKE ALL ON FUNCTION "ketzal"."emit_my_voucher"("p_booking_id" "uuid") FROM PUBLIC;
 GRANT ALL ON FUNCTION "ketzal"."emit_my_voucher"("p_booking_id" "uuid") TO "authenticated";
 
@@ -8843,8 +10016,32 @@ GRANT ALL ON FUNCTION "ketzal"."ensure_statement_token"("p_booking_id" "uuid") T
 
 
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "ketzal"."bookings" TO "authenticated";
+GRANT SELECT,INSERT,DELETE ON TABLE "ketzal"."bookings" TO "authenticated";
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "ketzal"."bookings" TO "service_role";
+
+
+
+GRANT UPDATE("currency") ON TABLE "ketzal"."bookings" TO "authenticated";
+
+
+
+GRANT UPDATE("status") ON TABLE "ketzal"."bookings" TO "authenticated";
+
+
+
+GRANT UPDATE("updated_at") ON TABLE "ketzal"."bookings" TO "authenticated";
+
+
+
+GRANT UPDATE("cancel_reason") ON TABLE "ketzal"."bookings" TO "authenticated";
+
+
+
+GRANT UPDATE("statement_token") ON TABLE "ketzal"."bookings" TO "authenticated";
+
+
+
+GRANT UPDATE("exchange_rate") ON TABLE "ketzal"."bookings" TO "authenticated";
 
 
 
@@ -8905,6 +10102,13 @@ REVOKE ALL ON FUNCTION "ketzal"."get_public_doc_policy"("p_kind" "text", "p_id" 
 GRANT ALL ON FUNCTION "ketzal"."get_public_doc_policy"("p_kind" "text", "p_id" "uuid") TO "anon";
 GRANT ALL ON FUNCTION "ketzal"."get_public_doc_policy"("p_kind" "text", "p_id" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "ketzal"."get_public_doc_policy"("p_kind" "text", "p_id" "uuid") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "ketzal"."get_public_poll"("p_id" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "ketzal"."get_public_poll"("p_id" "uuid") TO "anon";
+GRANT ALL ON FUNCTION "ketzal"."get_public_poll"("p_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "ketzal"."get_public_poll"("p_id" "uuid") TO "service_role";
 
 
 
@@ -8969,6 +10173,12 @@ GRANT ALL ON FUNCTION "ketzal"."invite_agent"("p_email" "text", "p_role" "ketzal
 
 
 
+REVOKE ALL ON FUNCTION "ketzal"."is_admin_de_embajador"("p_profile" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "ketzal"."is_admin_de_embajador"("p_profile" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "ketzal"."is_admin_de_embajador"("p_profile" "uuid") TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "ketzal"."is_agency_admin"("p_supplier" "uuid") FROM PUBLIC;
 GRANT ALL ON FUNCTION "ketzal"."is_agency_admin"("p_supplier" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "ketzal"."is_agency_admin"("p_supplier" "uuid") TO "service_role";
@@ -9004,6 +10214,16 @@ GRANT ALL ON FUNCTION "ketzal"."ledger_summary"() TO "service_role";
 
 
 
+REVOKE ALL ON FUNCTION "ketzal"."link_my_customers"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "ketzal"."link_my_customers"() TO "authenticated";
+GRANT ALL ON FUNCTION "ketzal"."link_my_customers"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "ketzal"."link_profile_customers"("p_uid" "uuid") FROM PUBLIC;
+
+
+
 REVOKE ALL ON FUNCTION "ketzal"."list_agencies_to_join"() FROM PUBLIC;
 GRANT ALL ON FUNCTION "ketzal"."list_agencies_to_join"() TO "authenticated";
 GRANT ALL ON FUNCTION "ketzal"."list_agencies_to_join"() TO "service_role";
@@ -9023,7 +10243,6 @@ GRANT ALL ON FUNCTION "ketzal"."list_agency_names"() TO "authenticated";
 
 REVOKE ALL ON FUNCTION "ketzal"."list_agents_for_commission"("p_supplier" "uuid") FROM PUBLIC;
 GRANT ALL ON FUNCTION "ketzal"."list_agents_for_commission"("p_supplier" "uuid") TO "authenticated";
-GRANT ALL ON FUNCTION "ketzal"."list_agents_for_commission"("p_supplier" "uuid") TO "service_role";
 
 
 
@@ -9128,6 +10347,12 @@ GRANT ALL ON FUNCTION "ketzal"."log_user_event"("p_user" "uuid", "p_kind" "text"
 
 
 
+REVOKE ALL ON FUNCTION "ketzal"."marcar_onboarding_visto"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "ketzal"."marcar_onboarding_visto"() TO "authenticated";
+GRANT ALL ON FUNCTION "ketzal"."marcar_onboarding_visto"() TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "ketzal"."mp_account_status"("p_supplier" "uuid") FROM PUBLIC;
 GRANT ALL ON FUNCTION "ketzal"."mp_account_status"("p_supplier" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "ketzal"."mp_account_status"("p_supplier" "uuid") TO "service_role";
@@ -9137,6 +10362,18 @@ GRANT ALL ON FUNCTION "ketzal"."mp_account_status"("p_supplier" "uuid") TO "serv
 REVOKE ALL ON FUNCTION "ketzal"."my_ambassador_earnings"() FROM PUBLIC;
 GRANT ALL ON FUNCTION "ketzal"."my_ambassador_earnings"() TO "authenticated";
 GRANT ALL ON FUNCTION "ketzal"."my_ambassador_earnings"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "ketzal"."my_ambassador_payments"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "ketzal"."my_ambassador_payments"() TO "authenticated";
+GRANT ALL ON FUNCTION "ketzal"."my_ambassador_payments"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "ketzal"."my_link_clicks"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "ketzal"."my_link_clicks"() TO "authenticated";
+GRANT ALL ON FUNCTION "ketzal"."my_link_clicks"() TO "service_role";
 
 
 
@@ -9179,8 +10416,20 @@ GRANT ALL ON FUNCTION "ketzal"."onboarding_agencia"() TO "service_role";
 
 
 
+REVOKE ALL ON FUNCTION "ketzal"."pagar_corte_embajador"("p_embajador" "uuid", "p_agencia" "uuid", "p_monto" numeric, "p_fecha" "date", "p_metodo" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "ketzal"."pagar_corte_embajador"("p_embajador" "uuid", "p_agencia" "uuid", "p_monto" numeric, "p_fecha" "date", "p_metodo" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "ketzal"."pagar_corte_embajador"("p_embajador" "uuid", "p_agencia" "uuid", "p_monto" numeric, "p_fecha" "date", "p_metodo" "text") TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "ketzal"."payables_summary"() FROM PUBLIC;
 GRANT ALL ON FUNCTION "ketzal"."payables_summary"() TO "authenticated";
+
+
+
+REVOKE ALL ON FUNCTION "ketzal"."platform_fee_for_payment"("p_booking" "uuid", "p_amount" numeric) FROM PUBLIC;
+GRANT ALL ON FUNCTION "ketzal"."platform_fee_for_payment"("p_booking" "uuid", "p_amount" numeric) TO "authenticated";
+GRANT ALL ON FUNCTION "ketzal"."platform_fee_for_payment"("p_booking" "uuid", "p_amount" numeric) TO "service_role";
 
 
 
@@ -9195,6 +10444,11 @@ GRANT ALL ON FUNCTION "ketzal"."preview_payment_plan"("p_total" numeric, "p_fina
 
 
 REVOKE ALL ON FUNCTION "ketzal"."puede_operar_booking"("p_booking" "ketzal"."bookings") FROM PUBLIC;
+
+
+
+REVOKE ALL ON FUNCTION "ketzal"."puedo_subir_comprobante"("p_booking" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "ketzal"."puedo_subir_comprobante"("p_booking" "uuid") TO "authenticated";
 
 
 
@@ -9247,12 +10501,6 @@ GRANT ALL ON FUNCTION "ketzal"."reports_summary"("p_from" "date", "p_to" "date")
 REVOKE ALL ON FUNCTION "ketzal"."request_join_agency"("p_supplier" "uuid", "p_mensaje" "text") FROM PUBLIC;
 GRANT ALL ON FUNCTION "ketzal"."request_join_agency"("p_supplier" "uuid", "p_mensaje" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "ketzal"."request_join_agency"("p_supplier" "uuid", "p_mensaje" "text") TO "service_role";
-
-
-
-REVOKE ALL ON FUNCTION "ketzal"."resolve_commission_rule"("p_service" "uuid", "p_payee_type" "text", "p_scope" "uuid") FROM PUBLIC;
-GRANT ALL ON FUNCTION "ketzal"."resolve_commission_rule"("p_service" "uuid", "p_payee_type" "text", "p_scope" "uuid") TO "authenticated";
-GRANT ALL ON FUNCTION "ketzal"."resolve_commission_rule"("p_service" "uuid", "p_payee_type" "text", "p_scope" "uuid") TO "service_role";
 
 
 
@@ -9309,6 +10557,12 @@ GRANT ALL ON FUNCTION "ketzal"."set_booking_currency"("p_booking_id" "uuid", "p_
 
 REVOKE ALL ON FUNCTION "ketzal"."set_commission_rule"("p_service" "uuid", "p_payee_type" "text", "p_scope" "uuid", "p_basis" "text", "p_rate" numeric, "p_unit" numeric) FROM PUBLIC;
 GRANT ALL ON FUNCTION "ketzal"."set_commission_rule"("p_service" "uuid", "p_payee_type" "text", "p_scope" "uuid", "p_basis" "text", "p_rate" numeric, "p_unit" numeric) TO "authenticated";
+GRANT ALL ON FUNCTION "ketzal"."set_commission_rule"("p_service" "uuid", "p_payee_type" "text", "p_scope" "uuid", "p_basis" "text", "p_rate" numeric, "p_unit" numeric) TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "ketzal"."set_referral_code"("p_profile" "uuid", "p_code" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "ketzal"."set_referral_code"("p_profile" "uuid", "p_code" "text") TO "authenticated";
 
 
 
@@ -9331,6 +10585,13 @@ GRANT ALL ON FUNCTION "ketzal"."settle_ledger"("p_account_type" "text", "p_suppl
 REVOKE ALL ON FUNCTION "ketzal"."snapshot_booking_policy"("p_booking" "uuid") FROM PUBLIC;
 GRANT ALL ON FUNCTION "ketzal"."snapshot_booking_policy"("p_booking" "uuid") TO "authenticated";
 GRANT ALL ON FUNCTION "ketzal"."snapshot_booking_policy"("p_booking" "uuid") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "ketzal"."submit_poll_vote"("p_poll" "uuid", "p_option" integer, "p_month" "date", "p_voter_hash" "text", "p_suggestion" "text", "p_contact" "text", "p_meta" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "ketzal"."submit_poll_vote"("p_poll" "uuid", "p_option" integer, "p_month" "date", "p_voter_hash" "text", "p_suggestion" "text", "p_contact" "text", "p_meta" "jsonb") TO "anon";
+GRANT ALL ON FUNCTION "ketzal"."submit_poll_vote"("p_poll" "uuid", "p_option" integer, "p_month" "date", "p_voter_hash" "text", "p_suggestion" "text", "p_contact" "text", "p_meta" "jsonb") TO "authenticated";
+GRANT ALL ON FUNCTION "ketzal"."submit_poll_vote"("p_poll" "uuid", "p_option" integer, "p_month" "date", "p_voter_hash" "text", "p_suggestion" "text", "p_contact" "text", "p_meta" "jsonb") TO "service_role";
 
 
 
@@ -9362,6 +10623,12 @@ REVOKE ALL ON FUNCTION "ketzal"."tg_ledger_mirror_credit_issue"() FROM PUBLIC;
 
 
 REVOKE ALL ON FUNCTION "ketzal"."tg_ledger_mirror_credit_redeem"() FROM PUBLIC;
+
+
+
+REVOKE ALL ON FUNCTION "ketzal"."update_my_profile"("p_name" "text", "p_phone" "text", "p_image" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "ketzal"."update_my_profile"("p_name" "text", "p_phone" "text", "p_image" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "ketzal"."update_my_profile"("p_name" "text", "p_phone" "text", "p_image" "text") TO "service_role";
 
 
 
@@ -9500,6 +10767,10 @@ GRANT SELECT,INSERT ON TABLE "ketzal"."expenses" TO "service_role";
 
 
 
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "ketzal"."funnel_events" TO "service_role";
+
+
+
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "ketzal"."ledger_entries" TO "service_role";
 
 
@@ -9508,7 +10779,7 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "ketzal"."mp_accounts" TO "service_ro
 
 
 
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "ketzal"."payment_intents" TO "authenticated";
+GRANT SELECT,INSERT,DELETE ON TABLE "ketzal"."payment_intents" TO "authenticated";
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "ketzal"."payment_intents" TO "service_role";
 
 
@@ -9525,6 +10796,16 @@ GRANT SELECT,INSERT,UPDATE ON TABLE "ketzal"."payments" TO "service_role";
 
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "ketzal"."planner_items" TO "authenticated";
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "ketzal"."planner_items" TO "service_role";
+
+
+
+GRANT SELECT ON TABLE "ketzal"."poll_votes" TO "authenticated";
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "ketzal"."poll_votes" TO "service_role";
+
+
+
+GRANT SELECT,INSERT,UPDATE ON TABLE "ketzal"."polls" TO "authenticated";
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "ketzal"."polls" TO "service_role";
 
 
 
@@ -9556,6 +10837,11 @@ GRANT SELECT,INSERT,UPDATE ON TABLE "ketzal"."receipt_counters" TO "service_role
 
 GRANT SELECT,INSERT,UPDATE ON TABLE "ketzal"."receipts" TO "authenticated";
 GRANT SELECT,INSERT,UPDATE ON TABLE "ketzal"."receipts" TO "service_role";
+
+
+
+GRANT SELECT ON TABLE "ketzal"."referral_misses" TO "authenticated";
+GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "ketzal"."referral_misses" TO "service_role";
 
 
 
