@@ -9,6 +9,20 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **`ketzal.tours` en vivo; `www` redirige al apex (2026-09-03).**
+> Wal puso los registros en Namecheap (A `@` y `os` → `76.76.21.21`), fijó
+> `NEXT_PUBLIC_SITE_URL=https://ketzal.tours` en Vercel y los hosts en Supabase
+> Auth. Vercel emitió certificados para los tres hosts; `sitemap.xml` y
+> `robots.txt` ya emiten `https://ketzal.tours`. "No alcanza el dominio" era
+> la caché del resolver de su red (seguía en el parking `192.64.119.240`, TTL
+> 30 min) — autoritativo, 1.1.1.1 y 8.8.8.8 ya respondían Vercel. `www`: en vez
+> de borrar el CNAME del parking (que servía anuncios de Namecheap bajo la
+> marca), se apuntó a `cname.vercel-dns.com`, se agregó `www.ketzal.tours` al
+> proyecto y se fijó redirect 308 al apex con `vercel api -X PATCH
+> /v9/projects/{id}/domains/www.ketzal.tours -f redirect=ketzal.tours`.
+> Verificado: `https://www.ketzal.tours/` → `308 https://ketzal.tours/`;
+> apex y `os` → 200 server=Vercel.
+
 > **Dominio propio: `ketzal.tours` + `os.ketzal.tours` conectados al proyecto Vercel (2026-09-03).**
 > El fundador compró `ketzal.tours` en Namecheap (mismo panel que estampida.run)
 > y pidió conectarlo junto con `os.ketzal.tours` al proyecto `ketzal-os`, y
