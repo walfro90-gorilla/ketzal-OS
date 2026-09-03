@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { SITE_URL } from '@/lib/site-url'
+import { origenPublico } from '@/lib/site-url'
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import QRCode from 'qrcode'
@@ -109,7 +109,7 @@ export default async function VoucherPage({
   const cert = firmarVoucher(voucherId)
   const h = await headers()
   const host = h.get('host')
-  const origin = process.env.NEXT_PUBLIC_APP_URL ?? (host ? `https://${host}` : SITE_URL)
+  const origin = process.env.NEXT_PUBLIC_APP_URL ?? origenPublico(host ? `https://${host}` : null)
   const qrUrl = `${origin}/voucher/${voucherId}${cert ? `?c=${cert}` : ''}`
   const qrDataUrl = await QRCode.toDataURL(qrUrl, { margin: 1, width: 320 })
   const verificado = verificarCert(voucherId, c)

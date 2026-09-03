@@ -22,6 +22,22 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // 2026-09-03 · Dominio propio. `ketzal-os.vercel.app` → `ketzal.tours` con
+  // 308 para que los links ya repartidos (cotizaciones, vouchers con QR, `?ref`
+  // de embajadores, recibos) sigan abriendo — en el dominio nuevo y con su
+  // query intacta. `/api` y `/_next` quedan fuera: el webhook y el OAuth de
+  // Mercado Pago se registraron con el host viejo y no siguen redirects.
+  // `os.ketzal.tours` NO se toca: hoy sirve todo (ruteo por host sin decidir).
+  async redirects() {
+    return [
+      {
+        source: "/:path((?!api/|_next/).*)",
+        has: [{ type: "host", value: "ketzal-os.vercel.app" }],
+        destination: "https://ketzal.tours/:path",
+        permanent: true,
+      },
+    ];
+  },
   // No anunciar el framework: no arregla nada por sí solo, pero le ahorra al
   // escaneo automático el trabajo de saber qué CVE probar.
   poweredByHeader: false,

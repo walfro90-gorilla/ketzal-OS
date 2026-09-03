@@ -25,7 +25,7 @@ Contexto de negocio, alcance y reglas de oro (no negociables) en **`CLAUDE.md`**
 - **vitest** para la lógica de dominio pura (`src/lib/domain/`)
 - **pnpm** como package manager
 - Despliegue: **Vercel** (push a `main` auto-despliega a
-  https://ketzal-os.vercel.app)
+  https://ketzal.tours; `ketzal-os.vercel.app` redirige)
 
 ## Arrancar en local
 

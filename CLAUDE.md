@@ -67,7 +67,9 @@ prueban — prosa como "probado contra la BD real" no cuenta
   → [ADR-0015](docs/adr/0015-proyecto-supabase-dedicado.md)), schema
   **`ketzal`**, bucket **`ketzal-assets`**.
 - Repo `walfro90-gorilla/ketzal-OS` → Vercel `ketzal-os` (push a `main`
-  auto-despliega). Prod: **https://ketzal-os.vercel.app**.
+  auto-despliega). Prod: **https://ketzal.tours** (vitrina) y
+  **https://os.ketzal.tours** (back-office; hoy ambos sirven todo);
+  `ketzal-os.vercel.app` redirige 308 al apex, `/api` sigue ahí.
   `middleware.ts`→`proxy.ts` en Next 16; `next build` no falla por lint.
 - Migraciones: BD = fuente de verdad, espejos `db/proposed/`, snapshot
   `supabase/snapshots/ketzal_schema.sql`

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { origenPublico } from '@/lib/site-url'
 import { toast } from 'sonner'
 import { TicketIcon, ExternalLinkIcon, CopyIcon } from 'lucide-react'
 import {
@@ -38,7 +39,7 @@ export function VoucherBoton({
 
   function onCopy() {
     if (!voucherId) return
-    const url = `${window.location.origin}/voucher/${voucherId}`
+    const url = `${origenPublico(window.location.origin)}/voucher/${voucherId}`
     navigator.clipboard.writeText(url).then(
       () => toast.success('Link del voucher copiado'),
       () => toast.error('No se pudo copiar el link')

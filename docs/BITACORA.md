@@ -9,6 +9,42 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **El dominio nuevo en todos los links que van a un cliente; el host viejo redirige (2026-09-03).**
+> Pregunta del fundador: ¿cómo quedan los links de embajadores y de cotizaciones
+> con `ketzal.tours`, hay que cambiar algo para que no falle al compartir?
+> Inventario contra el código: siete sitios armaban el link con el host donde
+> estaba parado quien lo generaba (`window.location.origin` / header `host`):
+> link de referido (`link-referido.tsx`), viajes para compartir del portal del
+> embajador (`embajador/page.tsx`), cotización desde el back-office
+> (`cotizacion-acciones.tsx`), botón "Compartir por WhatsApp" de cotización/
+> estado/recibo (`compartir-whatsapp.tsx`), compartir ficha pública
+> (`compartir.tsx`), link del voucher (`voucher-boton.tsx`), estado de cuenta y
+> Checkout Pro desde la venta (`ventas/[id]/actions.ts`) y el QR del voucher.
+> Con un agente en `os.ketzal.tours` (o en el `vercel.app` viejo, que el PWA
+> instalado sigue abriendo) el cliente recibía ese host. Ahora todo pasa por
+> `origenPublico()` (`src/lib/site-url.ts`): `NEXT_PUBLIC_SITE_URL` si existe,
+> si no el origen actual (local/preview). Además: redirect 308
+> `ketzal-os.vercel.app` → `ketzal.tours` en `next.config.ts` para que los links
+> ya repartidos sigan abriendo con su query (`?ref=`) intacta — `/api` y
+> `/_next` fuera, porque el webhook y el OAuth de Mercado Pago se registraron
+> con el host viejo y no siguen redirects; canonical al apex en `/`, `/explora`,
+> `/agencias`, `/agencia/[id]`, `/politica-cancelacion` (`/servicio` y `/opina`
+> ya lo tenían) para que `os.` no cuente como copia; default del MCP
+> (`KETZAL_APP_URL`) y docs vivos (CLAUDE.md, README, mcp/README) al dominio
+> nuevo. **Evidencia:** build con `NEXT_PUBLIC_SITE_URL=https://ketzal.tours`;
+> `curl -H 'Host: ketzal-os.vercel.app'` → `/explora?ref=X` 308 a
+> `https://ketzal.tours/explora?ref=X`, `/api/track` NO redirige; canonicals
+> presentes; navegador real con embajador efímero en `localhost`: el link de
+> referido y los tres botones de WhatsApp salieron `https://ketzal.tours/…?ref=QADOMINIO`
+> (borrado y verificado: 0 en auth.users/profiles). `tsc`, eslint, 174 unit,
+> 77 MCP y `next build` limpios. **Ojo para Wal:** el PWA instalado desde
+> `ketzal-os.vercel.app` ahora aterriza fuera de su scope (se abre en el
+> navegador): reinstalar desde `ketzal.tours` — el modal de instalar lo ofrece.
+> Y el OAuth de Mercado Pago tiene registrado el redirect del host viejo: para
+> conectar Border desde `ketzal.tours` hay que agregar
+> `https://ketzal.tours/api/mp/oauth/callback` en la app de MP (o seguir
+> conectando desde el `vercel.app`, que para `/api` no redirige).
+
 > **`ketzal.tours` en vivo; `www` redirige al apex (2026-09-03).**
 > Wal puso los registros en Namecheap (A `@` y `os` → `76.76.21.21`), fijó
 > `NEXT_PUBLIC_SITE_URL=https://ketzal.tours` en Vercel y los hosts en Supabase

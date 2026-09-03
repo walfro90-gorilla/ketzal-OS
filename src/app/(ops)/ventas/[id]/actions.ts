@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { origenPublico } from '@/lib/site-url'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
@@ -151,9 +152,9 @@ export async function crearLinkPago(
     return { error: safeError(rpcError, 'No se pudo iniciar el cobro.') }
   }
 
-  // 2. Origen para back_urls y el webhook.
+  // 2. Origen para back_urls y el webhook: el dominio público, no el host del agente.
   const h = await headers()
-  const origin = process.env.NEXT_PUBLIC_APP_URL ?? `https://${h.get('host')}`
+  const origin = process.env.NEXT_PUBLIC_APP_URL ?? origenPublico(`https://${h.get('host')}`)
 
   // 3. Preferencia de Checkout Pro en Mercado Pago.
   const res = await fetch('https://api.mercadopago.com/checkout/preferences', {
@@ -226,7 +227,7 @@ export async function compartirEstadoCuenta(
   if (!token) return { error: 'No se pudo generar el estado de cuenta de esta venta.' }
 
   const h = await headers()
-  const origin = process.env.NEXT_PUBLIC_APP_URL ?? `https://${h.get('host')}`
+  const origin = process.env.NEXT_PUBLIC_APP_URL ?? origenPublico(`https://${h.get('host')}`)
   return { url: `${origin}/estado/${token}` }
 }
 

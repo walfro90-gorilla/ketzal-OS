@@ -10,6 +10,7 @@ import { PublicFooter } from '@/components/public/public-footer'
 
 export const metadata: Metadata = {
   title: 'Política de cancelación — Ketzal',
+  alternates: { canonical: '/politica-cancelacion' },
   description:
     'Cuándo y cuánto se devuelve al cancelar un viaje reservado con las agencias de Ketzal: crédito, plazos, penalizaciones y tus derechos.',
   openGraph: {
