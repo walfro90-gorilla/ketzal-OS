@@ -306,6 +306,9 @@ export function ProveedorForm({
                 id="proveedor-tipo"
                 value={tipo}
                 onChange={(e) => setTipo(e.target.value as ProveedorTipo)}
+                // Una agencia no se convierte en transporte/hotel: bloqueado
+                // sobre todo para el admin que edita SU agencia desde /ajustes.
+                disabled={initial?.supplier_type === 'agency'}
               >
                 {/* "Agencia" solo aparece al EDITAR una agencia existente. Al crear
                     no se ofrece: las agencias se dan de alta en /equipo (negocio +

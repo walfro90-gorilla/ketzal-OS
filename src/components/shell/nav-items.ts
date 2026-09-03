@@ -63,11 +63,13 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Usuarios', href: '/usuarios', icon: UserSearchIcon, primary: false, adminOnly: true },
   { label: 'Servicios', href: '/servicios', icon: MapPinIcon, primary: false, adminOnly: true },
   { label: 'Proveedores', href: '/proveedores', icon: Building2Icon, primary: false, adminOnly: true },
-  // Salud (invariantes globales) y Ajustes (marca Ketzal) son de PLATAFORMA:
-  // solo superadmin. Las páginas ya se auto-protegen; esto las saca del nav del
-  // admin de agencia (relevante en SaaS multi-agencia).
+  // Salud (invariantes globales) es de PLATAFORMA: solo superadmin. La página
+  // ya se auto-protege; esto la saca del nav del admin de agencia.
   { label: 'Salud', href: '/salud', icon: ActivityIcon, primary: false, adminOnly: true, superadminOnly: true },
-  { label: 'Ajustes', href: '/ajustes', icon: SettingsIcon, primary: false, adminOnly: true, superadminOnly: true },
+  // Configuración: el admin de agencia edita SU agencia (nombre, logo, cobros
+  // MP); el superadmin además la plataforma (marca, WhatsApp). Antes la agencia
+  // solo podía configurarse entrando a su propia fila en Proveedores.
+  { label: 'Configuración', href: '/ajustes', icon: SettingsIcon, primary: false, adminOnly: true },
 ]
 
 export const PRIMARY_ITEMS = NAV_ITEMS.filter((i) => i.primary)

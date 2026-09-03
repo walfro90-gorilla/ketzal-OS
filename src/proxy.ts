@@ -99,13 +99,21 @@ export async function proxy(request: NextRequest) {
   if (user && isAdminRoute(path)) {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role')
+      .select('role, supplier_id')
       .eq('id', user.id)
       .single()
     if (!isAdminRole(profile?.role)) {
       // '/' resuelve por persona: el agente no-admin cae en /dashboard, el viajero
       // en /mis-compras (sin el salto extra vía /dashboard).
       const url = request.nextUrl.clone(); url.pathname = '/'; return conRef(NextResponse.redirect(url))
+    }
+    // La PROPIA agencia se configura en /ajustes; /proveedores lista a sus
+    // proveedores. Va aquí y no en la página porque (ops)/loading.tsx streamea
+    // y un redirect() de página se vuelve meta-refresh con 200 (1 s de destello).
+    // Se conserva la query: el callback del OAuth de MP vuelve con `?mp=`.
+    const propia = path.match(/^\/proveedores\/([0-9a-f-]{36})$/)
+    if (propia && profile?.role !== 'superadmin' && profile?.supplier_id === propia[1]) {
+      const url = request.nextUrl.clone(); url.pathname = '/ajustes'; return conRef(NextResponse.redirect(url))
     }
   }
   return conRef(response)

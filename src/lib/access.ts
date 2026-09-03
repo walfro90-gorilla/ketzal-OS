@@ -1,6 +1,6 @@
 // Modelo de acceso por rol. Fuente única para páginas y navegación.
 // - user        → agente de venta (de agencia o libre): Panel, Ventas, Clientes, Cotizaciones.
-// - admin       → admin de agencia / proveedor: + Comisiones, Equipo, Servicios, Proveedores (de su ámbito).
+// - admin       → admin de agencia / proveedor: + Comisiones, Equipo, Servicios, Proveedores (de su ámbito), Configuración (su agencia).
 // - superadmin  → todo.
 
 export type Rol = 'user' | 'admin' | 'superadmin'

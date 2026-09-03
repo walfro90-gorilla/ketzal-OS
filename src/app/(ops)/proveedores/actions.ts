@@ -242,6 +242,7 @@ export async function actualizarProveedor(
 
   revalidatePath('/proveedores')
   revalidatePath(`/proveedores/${id}`)
+  revalidatePath('/ajustes')
   return { ok: true }
 }
 
@@ -276,6 +277,7 @@ export async function setProveedorLogo(
 
   revalidatePath('/proveedores')
   revalidatePath(`/proveedores/${id}`)
+  revalidatePath('/ajustes')
   return { ok: true }
 }
 
@@ -313,6 +315,7 @@ export async function setProveedorFotos(
 
   revalidatePath('/proveedores')
   revalidatePath(`/proveedores/${id}`)
+  revalidatePath('/ajustes')
   return { ok: true }
 }
 
