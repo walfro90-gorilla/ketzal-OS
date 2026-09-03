@@ -34,3 +34,23 @@ export function destino(s: {
   const partes = [s.city_to, s.state_to].filter(Boolean)
   return partes.length ? partes.join(', ') : (s.location ?? null)
 }
+
+const fechaHoraFormatter = new Intl.DateTimeFormat('es-MX', {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+})
+
+/**
+ * Formatea un timestamp ISO (con `conHora`, también la hora). Vivía dentro de
+ * `usuarios-list.tsx`, que es `'use client'`, y el expediente —Server
+ * Component— la importaba y la LLAMABA: al abrirlo por navegación cliente Next
+ * tiraba 500 ("Attempted to call fmtFecha() from the server but fmtFecha is on
+ * the client"). La carga directa sí funcionaba, así que se veía como "la página
+ * no existe". b093.
+ */
+export function fmtFecha(d: string | null | undefined, conHora = false): string {
+  if (!d) return '—'
+  const p = new Date(d)
+  if (Number.isNaN(p.getTime())) return d
+  return (conHora ? fechaHoraFormatter : dateFormatter).format(p)
+}

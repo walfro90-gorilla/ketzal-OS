@@ -9,6 +9,41 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **El expediente de usuario nunca había abierto, y el 200 lo tapaba (2026-09-03).**
+> El fundador reportó que entrar al detallado de un usuario desde `/usuarios`
+> daba "no se encuentra". La primera ronda de medición dijo que no había nada
+> roto: los 9 perfiles de producción respondían **200**, con superadmin y con
+> admin de agencia, en local y en producción; `list_users` y `can_view_user`
+> coincidían fila por fila para los tres admins; los logs de Vercel traían 665
+> respuestas y **cero 4xx**. Todo verde y el bug seguía ahí. Se vio abriéndola en
+> un navegador de verdad: Next servía su pantalla *"This page couldn't load"*
+> **con status 200**, y el log decía `Attempted to call fmtFecha() from the
+> server but fmtFecha is on the client`. `fmtFecha` vivía dentro de
+> `usuarios-list.tsx` (`'use client'`) y el expediente —Server Component— la
+> importaba y la llamaba. Así desde b066 (2026-08-23): la sección nunca funcionó
+> y nadie lo notó porque `/usuarios` sí abría. Se mudó a
+> `src/components/data/format.ts`, que existe justamente para lo que se importa
+> de los dos lados. Segundo camino al mismo síntoma: las cuentas efímeras de los
+> hard-tests (`qa.efimero.…`) salían en `/usuarios` y en `/equipo` como
+> cualquier persona; viven segundos, así que a quien le diera clic a una después
+> de que la fixture la borró le salía un 404 mudo. b093 las esconde con un
+> predicado compartido (`ketzal.es_cuenta_efimera`) en `list_users` y
+> `list_team`, y el expediente dejó de dar 404 mudo: un id que no existe (o que
+> no es de tu alcance — no se distinguen a propósito) pinta una tarjeta que lo
+> explica. De paso el rediseño que pidió el fundador: `/usuarios` estrena una
+> tira de resumen (cuentas por tipo, pendientes de aprobación, sin cuenta de
+> acceso, entraron en 30 días) y el expediente pasó de cinco `dl` apilados a
+> encabezado con iniciales y badges, cuatro señales arriba (último acceso,
+> sesiones abiertas, entra con, cuenta creada), dos columnas de detalle y la
+> actividad en mosaicos — con `StatTile` como pieza nueva. Harness:
+> `supabase/tests/expediente_usuario.mjs` (7 casos) pide **cada** expediente que
+> la lista enlaza, por URL directa y por `RSC: 1` (el clic), y exige el
+> **contenido**, no el status. Probado por mutación: devolver el import viejo
+> pone los dos casos en rojo **con 200 en los 8 ids** — que es exactamente por
+> qué la verificación anterior, que sólo miraba el status, había dado verde con
+> el bug puesto ([ADR-0043](adr/0043-la-frontera-cliente-servidor-no-se-cruza-con-un-helper.md)).
+> Suite: **28/28**.
+
 > **Desconectar la cuenta MP de una agencia (b092, ADR-0042, 2026-09-03).**
 > Al probar el redirect URI nuevo, Border quedó conectada al MP user
 > `479630144` — el mismo de Wanderlust, o sea la cuenta del fundador — y no
