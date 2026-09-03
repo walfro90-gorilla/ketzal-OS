@@ -1,5 +1,16 @@
 # Worker de WhatsApp: corre en la box (PM2), no en Vercel. No lo despliegues.
 wa-sender/
 
-# Servidor MCP: se publica a npm y corre en la máquina del usuario, no en Vercel.
-mcp/
+# Servidor MCP: se publica a npm y corre en la máquina del usuario. Pero su
+# `src/` SÍ viaja desde ADR-0044: el asistente del OS importa esas mismas
+# herramientas en-proceso, así que excluirlo entero rompe el build de Vercel
+# con "Can't resolve '../../../mcp/src/tools/index'". Se excluye todo lo demás:
+# el build a npm, sus tests, y su lockfile/workspace propios (si viajan, Next
+# infiere mal la raíz del workspace).
+mcp/dist/
+mcp/node_modules/
+mcp/pnpm-lock.yaml
+mcp/pnpm-workspace.yaml
+mcp/vitest.config.ts
+mcp/README.md
+mcp/src/**/*.test.ts

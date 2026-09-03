@@ -94,6 +94,18 @@ Hoy es solo para el superadmin; después lo tendrán los admins de agencia.
   trae. Para probar el modelo en local se pega a mano en `.env.local`.
 - Las llaves nuevas (`GEMINI_API_KEY`, `DEEPSEEK_API_KEY`, modelos opcionales)
   las pone el fundador en Vercel; sin ellas el fallback simplemente las salta.
+- **`mcp/src/` ahora viaja a Vercel.** `.vercelignore` excluía `mcp/` entero
+  ("corre en la máquina del usuario"); eso dejó de ser toda la verdad y el
+  build moría con `Can't resolve '../../../mcp/src/tools/index'`. Se excluye
+  todo lo demás del paquete (su `dist/`, sus tests, su lockfile y su
+  `pnpm-workspace.yaml`, que si viajan hacen que Next infiera mal la raíz).
+- **`ToolDef` vive en `mcp/src/tools/tipos.ts`, no en `registry.ts`.** Ahí se
+  importa el tipo `McpServer` del SDK, que es dependencia de `mcp/` y no de la
+  raíz; como `pnpm-workspace.yaml` no declara `packages:`, un install desde la
+  raíz nunca la baja y CI moría con `TS2307`. En un árbol de trabajo pasaba en
+  verde por un `mcp/node_modules` viejo. El `exclude: ["mcp"]` del tsconfig no
+  ayuda: solo acota el conjunto inicial, y lo alcanzado por un import se
+  type-checkea igual.
 - El cambio en `mcp/src/session.ts` es aditivo: sin scope, el MCP de terminal
   se comporta igual (76 tests del paquete en verde). No hace falta publicar.
 
@@ -109,8 +121,13 @@ Hoy es solo para el superadmin; después lo tendrán los admins de agencia.
 - `src/lib/agente/tools.test.ts`: *"todas las del MCP menos subir_fotos, como
   funciones OpenAI válidas"* (las 37 pasan por `z.toJSONSchema`), *"la de
   dinero recibe confirmar:true"*.
-- `supabase/tests/agente_gates.mjs` (hard-test, necesita app): *"sin sesión →
-  401"*, *"admin de agencia (no superadmin) → 403"*, *"resultado ok y es LA
+- `supabase/tests/agente_gates.mjs` (hard-test, necesita app). Cada negación
+  afirma tres cosas —status, el `error` exacto del cuerpo y que **no salió
+  ningún evento de herramienta**— porque un 200 con `{"error":…}` pasa como
+  verde si solo se mira el status (ADR-0043). Las posiciones probadas son
+  *"sin sesión → 401"*, *"admin de agencia (no superadmin) → 403"*,
+  *"agente raso → 403"* y *"agente raso pidiendo un abono YA aprobado → 403"*
+  (el gate corta antes de ejecutar). Además: *"resultado ok y es LA
   cuenta efímera (su JWT, no otro)"*, *"dinero sin aprobar: primer evento es
   confirmar"*, *"… y NO se emitió ningún tool"*, *"dinero aprobado: ahora sí
   emite tool"*. Corrió 13/13 el 2026-09-03 contra la BD real con cuentas
