@@ -1,0 +1,130 @@
+<!--
+  Ketzal · plantilla "Confirm signup" de Supabase Auth (ADR-0039, b091).
+
+  Dónde va: Supabase → Authentication → Email Templates → Confirm signup.
+  Asunto sugerido: Confirma tu correo para guardar tu viaje en Ketzal
+
+  El enlace usa {{ .RedirectTo }} + token_hash: se verifica en el servidor
+  (/auth/callback) y funciona aunque el correo se abra en otro navegador.
+  {{ .RedirectTo }} SIEMPRE trae `?next=` porque `registrarComprador` lo manda
+  (emailRedirectTo=/auth/callback?next=…); por eso se concatena con `&`.
+
+  Colores de docs/BRAND.md: jade hondo #00805F (botón, AA con blanco),
+  teal #009E7E y verde hoja #3DDE1C (estela), tinta selva #1F3A33,
+  papel tibio #F6F5F0. Tablas + estilos inline: Gmail/Outlook no leen <style>.
+-->
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>Confirma tu correo · Ketzal</title>
+  </head>
+  <body style="margin:0;padding:0;background-color:#F6F5F0;">
+    <!-- preheader (oculto) -->
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:#F6F5F0;">
+      Un toque y tu viaje queda guardado en tu cuenta de Ketzal.
+    </div>
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#F6F5F0;">
+      <tr>
+        <td align="center" style="padding:32px 16px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;">
+
+            <!-- logo -->
+            <tr>
+              <td align="center" style="padding:0 0 20px 0;">
+                <img
+                  src="https://uznqmmeqwbbjkotbxwsw.supabase.co/storage/v1/object/public/ketzal-assets/brand/logo-1784587723992.png"
+                  width="120" alt="Ketzal"
+                  style="display:block;width:120px;max-width:120px;height:auto;border:0;" />
+              </td>
+            </tr>
+
+            <!-- tarjeta -->
+            <tr>
+              <td style="background-color:#FFFFFF;border:1px solid #E6E4DC;border-radius:16px;">
+                <!-- estela: franja teal → verde hoja (Outlook cae al teal sólido) -->
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td height="6" bgcolor="#009E7E"
+                        style="height:6px;line-height:6px;font-size:0;border-radius:16px 16px 0 0;background:linear-gradient(90deg,#009E7E 0%,#3DDE1C 100%);">
+                      &nbsp;
+                    </td>
+                  </tr>
+                </table>
+
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td style="padding:32px 32px 8px 32px;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+                      <p style="margin:0 0 6px 0;font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:#009E7E;font-weight:700;">
+                        Tu cuenta de viajero
+                      </p>
+                      <h1 style="margin:0;font-size:26px;line-height:1.25;color:#1F3A33;font-weight:800;">
+                        Confirma tu correo
+                      </h1>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:8px 32px 0 32px;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:16px;line-height:1.6;color:#3B4F4A;">
+                      <p style="margin:0 0 16px 0;">
+                        Un toque y tu viaje queda guardado en tu cuenta: tu cotización,
+                        tu plan de pagos y más viajes de agencias locales.
+                      </p>
+                    </td>
+                  </tr>
+
+                  <!-- botón -->
+                  <tr>
+                    <td align="left" style="padding:8px 32px 24px 32px;">
+                      <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                        <tr>
+                          <td align="center" bgcolor="#00805F" style="border-radius:10px;">
+                            <a href="{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=signup"
+                               style="display:inline-block;padding:14px 28px;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:16px;font-weight:700;color:#FFFFFF;text-decoration:none;border-radius:10px;background-color:#00805F;">
+                              Confirmar mi correo
+                            </a>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+
+                  <!-- enlace de respaldo -->
+                  <tr>
+                    <td style="padding:0 32px 28px 32px;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;line-height:1.6;color:#6B7C77;">
+                      <p style="margin:0 0 6px 0;">Si el botón no abre, copia y pega este enlace en tu navegador:</p>
+                      <p style="margin:0;word-break:break-all;">
+                        <a href="{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=signup" style="color:#00805F;text-decoration:underline;">{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=signup</a>
+                      </p>
+                    </td>
+                  </tr>
+
+                  <!-- nota -->
+                  <tr>
+                    <td style="padding:0 32px 28px 32px;border-top:1px solid #EEEDE6;">
+                      <p style="margin:20px 0 0 0;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;line-height:1.6;color:#6B7C77;">
+                        El enlace es de un solo uso y caduca en 24 horas. Si tú no creaste
+                        una cuenta en Ketzal, ignora este correo: no pasa nada.
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- pie -->
+            <tr>
+              <td align="center" style="padding:24px 16px 0 16px;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:12px;line-height:1.6;color:#8A968F;">
+                <p style="margin:0;">Ketzal · viajes de agencias locales de Juárez y alrededores</p>
+                <p style="margin:4px 0 0 0;">Este correo se envió a {{ .Email }}</p>
+              </td>
+            </tr>
+
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
