@@ -6,35 +6,14 @@
  * Así los dominios se pueden escribir en paralelo sin tocarse entre ellos.
  */
 import type { McpServer } from '@modelcontextprotocol/server'
-import type { z } from 'zod'
 import { READ_ONLY } from '../config.js'
 import { KetzalError } from '../errors.js'
 import { requireConfirm, spendWrite } from '../guard.js'
 import { log } from '../log.js'
+import type { ToolDef } from './tipos.js'
 
-export type ToolDef = {
-  /** Nombre expuesto al agente. Convención: `ketzal_<dominio>`. */
-  name: string
-  title: string
-  /** Qué hace y CUÁNDO usarla. El agente elige por esto: sé concreto. */
-  description: string
-  inputSchema?: z.ZodObject<z.ZodRawShape>
-  /** Escribe en la BD: se oculta con `--read-only` y consume cupo. */
-  write?: boolean
-  /** Mueve dinero: además de `write`, exige `confirmar: true` en los argumentos. */
-  money?: boolean
-  /**
-   * Borra datos o los expone a terceros anónimos, sin mover dinero.
-   * Sólo afecta la anotación `destructiveHint` que ven los clientes MCP para
-   * decidir si auto-aprueban: no es un control de seguridad (la frontera real
-   * son la RLS y los guards en SQL), pero anotar un DELETE como inofensivo sí
-   * es engañar al cliente.
-   */
-  destructive?: boolean
-  /** Repetirla no produce un efecto nuevo (emitir recibo, emitir voucher). */
-  idempotent?: boolean
-  handler: (args: Record<string, unknown>) => Promise<unknown>
-}
+export type { ToolDef } from './tipos.js'
+
 
 /**
  * Tope de tamaño de una respuesta. Una lista larga puede ahogar el contexto del

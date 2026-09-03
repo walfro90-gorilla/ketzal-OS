@@ -8,6 +8,7 @@
  * Del disco solo sale el `refresh_token`, en un archivo 0600. La contraseña no se
  * guarda jamás, y el config del cliente MCP queda sin secretos.
  */
+import { AsyncLocalStorage } from 'node:async_hooks'
 import { chmod, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -156,6 +157,15 @@ export async function getAuthUser(): Promise<{ id: string; email: string }> {
 
 // ── access token ─────────────────────────────────────────────────────────────
 
+/**
+ * Token inyectado por petición. El asistente del OS (`src/app/api/agente`) corre
+ * estas mismas herramientas en-proceso con el JWT de la cookie de quien
+ * pregunta: si hay uno en el scope, manda sobre el disco. Sin esto un servidor
+ * con muchos usuarios compartiría UNA sesión, que es exactamente lo que la RLS
+ * no puede tolerar.
+ */
+export const tokenScope = new AsyncLocalStorage<string>()
+
 let cached: { token: string; expiresAt: number } | null = null
 let refreshing: Promise<string> | null = null
 
@@ -165,6 +175,8 @@ let refreshing: Promise<string> | null = null
  * Se refresca 60s antes de expirar para no perder una carrera con el servidor.
  */
 export async function getAccessToken(force = false): Promise<string> {
+  const inyectado = tokenScope.getStore()
+  if (inyectado) return inyectado
   if (!force && cached && Date.now() < cached.expiresAt - 60_000) return cached.token
   if (refreshing) return refreshing
   refreshing = doRefresh().finally(() => { refreshing = null })

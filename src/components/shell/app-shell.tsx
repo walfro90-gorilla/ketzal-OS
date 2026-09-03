@@ -9,6 +9,7 @@ import { GlobalSearch } from './global-search'
 import { FlashToasts } from './flash-toasts'
 import { ProductTour } from './tour/product-tour'
 import { InstalarApp } from './instalar-app'
+import { Agente } from './agente'
 
 // Shell responsive de Ketzal OS (campo-primero):
 //  - móvil: header compacto + contenido a ancho completo + bottom tab bar
@@ -110,6 +111,8 @@ export function AppShell({
       </div>
 
       <BottomTabs role={role} email={email} />
+      {/* Asistente IA: solo superadmin por ahora (ADR-0044). */}
+      {role === 'superadmin' && <Agente />}
     </div>
   )
 }

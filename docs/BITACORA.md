@@ -9,6 +9,27 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **El OS tiene asistente IA: chat flotante sobre las 37 herramientas del MCP, solo superadmin por ahora (2026-09-03).**
+> Se quería operar el OS en lenguaje natural sin terminal. No se escribió un
+> segundo catálogo: `ToolDef` del MCP ya era agnóstico del transporte, así que
+> `src/lib/agente/tools.ts` importa `ALL_TOOLS`, los traduce con
+> `z.toJSONSchema` y llama `handler` directo; `mcp/src/session.ts` ganó un
+> `tokenScope` (AsyncLocalStorage) para que corran con el JWT de la cookie y no
+> con la sesión del disco. El LLM va por `fetch` (mismo patrón que el lector de
+> volantes), Groq → Gemini → DeepSeek, saltando solo por red/429/5xx. Lo que
+> mueve dinero o borra no corre: el stream emite `confirmar`, la persona da clic
+> y se re-manda con el id aprobado. Dos cosas que solo salieron construyendo:
+> **Turbopack no remapea `./x.js` → `x.ts`** (14 "Module not found" al importar
+> el MCP; se resolvió con un loader de una línea en `next.config.ts`, no con
+> esbuild ni cambiando el MCP), y **`GROQ_API_KEY` está marcada Sensitive en
+> Vercel**, así que `vercel env pull` trae un valor inútil de 11 caracteres:
+> en local se pega a mano. Probado: 22 unit tests nuevos (fallback, loop,
+> confirmación, recorte de historial) y `agente_gates.mjs` 13/13 contra la app
+> y la BD real con un superadmin y un admin efímeros (401/403/400, `whoami`
+> devuelve la cuenta efímera, el abono no corre sin clic y sí con él; limpieza
+> verificada). La prueba con modelo real queda pendiente de la llave en local.
+> Escalar a todos los admins = quitar un `if` en la ruta.
+> → [ADR-0044](adr/0044-el-asistente-del-os-reusa-las-herramientas-del-mcp.md).
 > **La agencia se configura en Configuración, no en Proveedores (2026-09-03).**
 > El fundador, a punto de desconectar la cuenta MP de Border, notó que la
 > única forma de llegar a la ficha de su propia agencia (logo, nombre, cobros

@@ -10,7 +10,7 @@ import { q, rpc, select } from '../rest.js'
 import { getAuthUser } from '../session.js'
 import { writesLeft } from '../guard.js'
 import { READ_ONLY } from '../config.js'
-import type { ToolDef } from './registry.js'
+import type { ToolDef } from './tipos.js'
 import { z } from 'zod'
 
 type Perfil = {

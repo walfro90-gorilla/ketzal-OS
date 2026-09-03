@@ -14,7 +14,7 @@ import { assertMontoEsperado } from '../guard.js'
 import { KetzalError } from '../errors.js'
 import { q, rpc, select } from '../rest.js'
 import { APP_URL } from '../config.js'
-import type { ToolDef } from './registry.js'
+import type { ToolDef } from './tipos.js'
 
 const confirmar = z
   .literal(true)

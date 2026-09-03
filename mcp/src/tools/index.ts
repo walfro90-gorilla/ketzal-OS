@@ -14,7 +14,7 @@ import { tools as fotos } from './fotos.js'
 import { tools as reportes } from './reportes.js'
 import { tools as dinero } from './dinero.js'
 import { tools as gastos } from './gastos.js'
-import type { ToolDef } from './registry.js'
+import type { ToolDef } from './tipos.js'
 
 export const ALL_TOOLS: ToolDef[] = [
   ...identidad,

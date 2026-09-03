@@ -1,7 +1,7 @@
 /** Cobranza: a quién cobrar, quién va atrasado, SPEI por aprobar. */
 import { z } from 'zod'
 import { rpc } from '../rest.js'
-import type { ToolDef } from './registry.js'
+import type { ToolDef } from './tipos.js'
 
 /**
  * Forma del jsonb de `ketzal.cobranza()` (calco de `src/app/(ops)/cobranza/data.ts`).

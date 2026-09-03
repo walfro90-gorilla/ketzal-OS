@@ -2,7 +2,7 @@
 import { z } from 'zod'
 import { KetzalError } from '../errors.js'
 import { insert, q, remove, rpc, select } from '../rest.js'
-import type { ToolDef } from './registry.js'
+import type { ToolDef } from './tipos.js'
 
 // Formas del jsonb de los RPCs de F3/b046 (calco de `src/app/(ops)/salidas/tipos.ts`).
 type SalidaDetalle = {

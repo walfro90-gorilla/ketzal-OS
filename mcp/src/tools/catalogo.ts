@@ -3,7 +3,7 @@ import { KetzalError } from '../errors.js'
 import { insert, q, rpc, select, update } from '../rest.js'
 import { getAuthUser } from '../session.js'
 import { verificarVideo, videoEmbedUrl, type VideoInfo } from '../video.js'
-import type { ToolDef } from './registry.js'
+import type { ToolDef } from './tipos.js'
 import { z } from 'zod'
 
 // ── Búsqueda global ──────────────────────────────────────────────────

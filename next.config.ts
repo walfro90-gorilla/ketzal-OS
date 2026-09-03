@@ -1,6 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  turbopack: {
+    rules: {
+      // Las herramientas del asistente son las del MCP (ADR-0043); ver el loader.
+      "**/mcp/src/**/*.ts": { loaders: ["./scripts/mcp-import-loader.cjs"] },
+    },
+  },
   experimental: {
     // El lector de volantes sube PDF/imágenes por server action; el default
     // de 1 MB no alcanza. 4.5 MB es el techo DURO de Vercel para el body de una

@@ -10,7 +10,7 @@ import { z } from 'zod'
 import { rpc } from '../rest.js'
 import { KetzalError } from '../errors.js'
 import { whoami } from './identidad.js'
-import type { ToolDef } from './registry.js'
+import type { ToolDef } from './tipos.js'
 
 const CATEGORIAS = [
   'operacion',
