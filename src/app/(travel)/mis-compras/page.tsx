@@ -44,6 +44,10 @@ export default async function MisComprasPage({
     )
   }
 
+  // b091: liga por correo VERIFICADO las cotizaciones/ventas que un agente le
+  // capturó a esta persona (idempotente; sin coincidencias no escribe nada).
+  await supabase.rpc('link_my_customers' as never, {} as never)
+
   const { data } = await supabase.rpc('list_my_marketplace_orders' as never, {} as never)
   const orders = (data as unknown as Order[]) ?? []
 

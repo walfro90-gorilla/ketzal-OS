@@ -62,6 +62,7 @@ const HARNESS = [
   { f: 'conversion_viajero_embajador.sql',necesita: ['db'], adr: '0033', afirma: 'convertirse no le quita compras, créditos ni voucher' },
   { f: 'superficie_storage.sql',        necesita: ['db'], adr: '0036', afirma: 'el bucket público no guarda comprobantes ni acepta escritura ajena' },
   { f: 'list_ambassadors_alcance.sql',    necesita: ['db'], adr: '0037', afirma: 'el admin de agencia ve a sus embajadores y solo a los suyos' },
+  { f: 'cotizacion_reclamada.sql',        necesita: ['db'], adr: '0039', afirma: 'la cotización se guarda con su token, el correo liga solo verificado y la venta manual es solo lectura' },
   { f: 'simulacion_1000_ops.sql',         necesita: ['db'], adr: '0006', afirma: 'los invariantes aguantan volumen' },
   { f: 'volumen_y_clawbot.sql',           necesita: ['db'], adr: '0006', afirma: 'el Clawbot no rompe invariantes a volumen' },
 ]
