@@ -59,6 +59,7 @@ const OTRA = otras[0]
 console.log('═══ POSICIONES EFÍMERAS ═══')
 const qa = await crearPosiciones([
   { llave: 'otroadmin', role: 'admin', type: 'agente', supplier_id: OTRA.id, name: 'QA admin otra agencia' },
+  { llave: 'wladmin', role: 'admin', type: 'agente', supplier_id: WANDERLUST, name: 'QA admin Wanderlust' },
   { llave: 'wlagente', role: 'user', type: 'agente', supplier_id: WANDERLUST, name: 'QA agente Wanderlust' },
   { llave: 'viajero', role: 'user', type: 'viajero', supplier_id: null, name: 'QA viajero' },
 ])
@@ -72,12 +73,8 @@ try {
   // ── Siembra ──────────────────────────────────────────────────────────────
   console.log('\n═══ SIEMBRA (service role) ═══')
   {
-    const dueno = await (await fetch(
-      `${U}/rest/v1/profiles?select=id&supplier_id=eq.${WANDERLUST}&role=in.(admin,superadmin)&limit=1`,
-      { headers: svc() },
-    )).json()
-    if (!dueno?.[0]?.id) throw new Error('No hay admin de Wanderlust; abortando.')
-
+    // La encuesta la crea un admin EFÍMERO de Wanderlust: depender de que exista
+    // uno real rompía el harness (hoy el fundador es superadmin sin agencia).
     await fetch(`${U}/rest/v1/polls?id=eq.${POLL}`, { method: 'DELETE', headers: svc() })
     const p = await fetch(`${U}/rest/v1/polls`, {
       method: 'POST',
@@ -86,7 +83,7 @@ try {
         id: POLL, supplier_id: WANDERLUST, question: 'QA m002 HTTP',
         options: [{ id: 1, label: 'A' }, { id: 2, label: 'B' }],
         month_from: '2030-01-01', month_to: '2030-06-01',
-        status: 'open', created_by: dueno[0].id,
+        status: 'open', created_by: qa.wladmin.id,
       }),
     })
     check(p.status === 201, `encuesta de Wanderlust sembrada (status ${p.status})`)

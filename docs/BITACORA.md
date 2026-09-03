@@ -22,6 +22,10 @@
 > aserciones: sin sesión, admin ajeno, agente, deny-all directo, admin propio,
 > idempotencia, superadmin, rastro). Suite 27/27. La UI no se clickeó en
 > navegador en esta sesión: compila; la primera pulsación real es la de Border.
+> De paso: `encuestas_rls.mjs` dependía de que existiera un admin REAL de
+> Wanderlust (hoy no hay; el fundador es superadmin sin agencia) y fallaba;
+> ahora crea el suyo con `crearPosiciones`. Suite completa 27/27 con la app
+> local en 3100.
 
 > **La confirmación de correo se pausa hasta Pro, pero deja de ser un camino sin probar (2026-09-03).**
 > El fundador prendió *Confirm email* en Auth y la suite siguió en verde. Ese
