@@ -9,6 +9,29 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **La agencia se configura en Configuración, no en Proveedores (2026-09-03).**
+> El fundador, a punto de desconectar la cuenta MP de Border, notó que la
+> única forma de llegar a la ficha de su propia agencia (logo, nombre, cobros
+> en línea) era abrir **Proveedores** y entrar a sí mismo — una sección que
+> debe listar a los proveedores *de* la agencia. Arreglo: `/ajustes` pasa de
+> "Ajustes de plataforma (solo superadmin)" a **Configuración** para todo
+> admin, con dos ámbitos: *Mi agencia* (perfil público, cobros MP, formulario
+> de la agencia — las mismas piezas que ya existían en `/proveedores/[id]`,
+> ahora reusadas: la tarjeta de MP se extrajo a `cobros-mp.tsx`) y *Plataforma
+> Ketzal* (marca + WhatsApp, solo superadmin). `/proveedores` deja de listar la
+> propia agencia para el admin (el superadmin sigue viendo agencias, para él
+> son proveedores) y enlaza a Configuración; `/proveedores/<mi agencia>`
+> redirige a `/ajustes` conservando el `?mp=` del callback de MP, así el OAuth
+> no cambia. El redirect vive en `proxy.ts` (donde ya se consulta el perfil), no
+> en la página: `(ops)/loading.tsx` streamea y un `redirect()` de página sale
+> como meta-refresh con **200** y un segundo de destello — lo cazó el harness,
+> que exigía 307. Acotado por Rick midiendo el gate de `must_change_password`
+> en `(ops)/layout.tsx`: el `redirect()` de un **layout** sí da 307 por URL
+> directa (lanza antes de renderizar hijos); la degradación es solo de página. El select "Tipo" se bloquea al editar una agencia (no se degrada a
+> transporte). Nav: "Ajustes" → "Configuración", ya no `superadminOnly`.
+> Hard-test `configuracion_agencia.mjs` (agencia + proveedor + admin +
+> superadmin efímeros; status **y** contenido, URL directa y RSC). Suite 29.
+
 > **El expediente de usuario nunca había abierto, y el 200 lo tapaba (2026-09-03).**
 > El fundador reportó que entrar al detallado de un usuario desde `/usuarios`
 > daba "no se encuentra". La primera ronda de medición dijo que no había nada

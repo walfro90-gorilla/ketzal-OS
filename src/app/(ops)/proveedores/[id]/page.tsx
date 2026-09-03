@@ -15,7 +15,7 @@ import { type ProveedorInfo } from '../actions'
 import { EliminarProveedor } from './eliminar-proveedor'
 import { AccionesProveedor } from './acciones-proveedor'
 import { CrearAcceso } from './crear-acceso'
-import { DesconectarMp } from './desconectar-mp'
+import { CobrosMp, avisoMp } from './cobros-mp'
 
 // Formatter local (mismo criterio que el resto de páginas: autocontenidas).
 const mxn = new Intl.NumberFormat('es-MX', {
@@ -76,15 +76,6 @@ const columnasServicios: DataColumn<ServicioVinculado>[] = [
   },
 ]
 
-// El callback del OAuth de MP vuelve con `?mp=<resultado>`. Sin esto la
-// pantalla se ve idéntica haya funcionado o no: el usuario solo percibe un
-// refresh, y un fallo pasa por éxito.
-const MENSAJES_MP: Record<string, { texto: string; ok: boolean }> = {
-  conectado: { texto: 'Autorización actualizada con Mercado Pago.', ok: true },
-  cancelado: { texto: 'Cancelaste la autorización. No cambió nada.', ok: false },
-  error: { texto: 'Mercado Pago rechazó la autorización. No cambió nada; vuelve a intentar.', ok: false },
-}
-
 export default async function ProveedorDetallePage({
   params,
   searchParams,
@@ -94,7 +85,7 @@ export default async function ProveedorDetallePage({
 }) {
   const { id } = await params
   const { mp } = await searchParams
-  const avisoMp = mp ? MENSAJES_MP[mp] : undefined
+  const aviso = avisoMp(mp)
   const supabase = await createClient()
 
   // Proveedor + servicios vinculados en paralelo. El OR cubre los 3 roles;
@@ -141,6 +132,7 @@ export default async function ProveedorDetallePage({
     ? await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
     : { data: null }
   const isSuperadmin = me?.role === 'superadmin'
+  // La PROPIA agencia no llega aquí: proxy.ts la manda a /ajustes (Configuración).
 
   const servicios: ServicioVinculado[] = (serviciosData ?? []).map((s) => ({
     id: s.id,
@@ -200,69 +192,13 @@ export default async function ProveedorDetallePage({
         </CardContent>
       </Card>
 
-      {/* b053: cuenta de Mercado Pago de la agencia (split al cobrar). */}
       {proveedor.supplier_type === 'agency' && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Cobros en línea (Mercado Pago)</CardTitle>
-            <CardDescription>
-              Con la cuenta MP de la agencia conectada, cada venta en línea se
-              divide al momento del cobro: el dinero cae directo a la agencia y
-              la comisión de Ketzal se separa sola. Sin cuenta conectada, las
-              ventas en línea se depositan a la agencia a los 7 días.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {avisoMp && (
-              <p
-                className={`rounded-lg px-3 py-2 text-sm ${
-                  avisoMp.ok
-                    ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
-                    : 'bg-amber-500/10 text-amber-700 dark:text-amber-400'
-                }`}
-              >
-                {avisoMp.texto}
-              </p>
-            )}
-            {mpConectado ? (
-              <div className="space-y-2">
-                <p className="text-sm">
-                  <span className="font-medium text-emerald-600 dark:text-emerald-500">
-                    ✓ Cuenta conectada
-                  </span>{' '}
-                  <span className="text-muted-foreground">
-                    (MP user {mpUserId ?? '—'})
-                  </span>
-                </p>
-                {/* Reconectar rota los tokens: el callback hace upsert sobre el
-                    mismo supplier_id, así que los viejos dejan de servir. Es la
-                    salida si se filtraron o si MP revocó el permiso. */}
-                <a
-                  href={`/api/mp/oauth/start?supplier=${proveedor.id}`}
-                  className="inline-flex items-center text-sm font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground"
-                >
-                  Reconectar
-                </a>
-                <p className="text-xs text-muted-foreground">
-                  Vuelve a autorizar con Mercado Pago y reemplaza los permisos
-                  actuales. Úsalo si cambiaste de cuenta o si sospechas que el
-                  acceso quedó expuesto.
-                </p>
-                {/* b092: quitar la cuenta sin poner otra (se conectó la equivocada,
-                    la agencia deja de cobrar en línea). Borra la copia de Ketzal;
-                    revocar en MP sigue siendo del vendedor (ADR-0024). */}
-                <DesconectarMp supplierId={proveedor.id} />
-              </div>
-            ) : (
-              <a
-                href={`/api/mp/oauth/start?supplier=${proveedor.id}`}
-                className="inline-flex items-center rounded-lg border border-[#009E7E]/40 bg-[#009E7E]/10 px-3 py-2 text-sm font-semibold text-[#00805F]"
-              >
-                Conectar mi Mercado Pago →
-              </a>
-            )}
-          </CardContent>
-        </Card>
+        <CobrosMp
+          supplierId={proveedor.id}
+          conectado={mpConectado}
+          mpUserId={mpUserId}
+          aviso={aviso}
+        />
       )}
 
       {isSuperadmin && (
