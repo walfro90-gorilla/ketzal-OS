@@ -81,7 +81,8 @@ prueban — prosa como "probado contra la BD real" no cuenta
   → [ADR-0014](docs/adr/0014-migraciones-bd-fuente.md)
 - Env vars clave: `NEXT_PUBLIC_SUPABASE_URL/ANON_KEY`,
   `SUPABASE_SERVICE_ROLE_KEY`, `MP_ACCESS_TOKEN`, `MP_CLIENT_ID/SECRET`,
-  `CRON_SECRET`, `VAPID_*`, `NEXT_PUBLIC_HCAPTCHA_SITE_KEY`, `GROQ_API_KEY`.
+  `CRON_SECRET`, `VAPID_*`, `NEXT_PUBLIC_HCAPTCHA_SITE_KEY`, `GROQ_API_KEY`
+  (+ `GROQ_AGENT_MODEL`, `GEMINI_API_KEY`, `DEEPSEEK_API_KEY` del asistente).
 
 ## Estado actual (corto — historia completa en `docs/BITACORA.md`)
 
@@ -100,6 +101,10 @@ prueban — prosa como "probado contra la BD real" no cuenta
   → [ADR-0012](docs/adr/0012-identidad-unica-profiles-type.md).
 - **MCP** (`mcp/`, npm `ketzal-mcp` v0.4): opera el OS en lenguaje natural
   como usuario real → [ADR-0013](docs/adr/0013-mcp-usuario-real.md).
+- **Asistente IA en el OS** (botón flotante, solo superadmin): las mismas
+  herramientas del MCP en-proceso con el JWT de quien pregunta; dinero solo
+  tras clic; Groq → Gemini → DeepSeek por `fetch`
+  → [ADR-0044](docs/adr/0044-el-asistente-del-os-reusa-las-herramientas-del-mcp.md).
 - **WhatsApp** (Baileys en box, pausado esperando número)
   → [ADR-0017](docs/adr/0017-whatsapp-baileys-box.md).
 - **El prospecto cotizado guarda su cotización en una cuenta de viajero**
@@ -116,8 +121,8 @@ prueban — prosa como "probado contra la BD real" no cuenta
 - **BD limpia para operación real** (reset 2026-08-19; catálogo conservado).
   Migrada a proyecto dedicado 2026-08-26 — pendientes del fundador en la
   bitácora (exposed schemas, Auth dashboard, env vars Vercel, box WA, npm).
-- Tests: 174 de dominio (raíz) + 57 MCP, ambos en CI. Los **hard-tests**
-  (`supabase/tests/`, 29, hoy **29/29**)
+- Tests: 200 de dominio (raíz) + 76 MCP, ambos en CI. Los **hard-tests**
+  (`supabase/tests/`, 30, hoy **30/30**)
   corren con **`pnpm hard-test`** (`-v` para el detalle) y **NO están en CI** —
   necesitan la service key y no hay staging
   → [ADR-0034](docs/adr/0034-la-verificacion-nombra-su-prueba.md). Requieren
