@@ -83,6 +83,13 @@ CUÁNDO se cobra (al instante vs corte).
   no redirige), `https://ketzal.tours/api/mp/oauth/callback` y
   `https://os.ketzal.tours/api/mp/oauth/callback`. Falta uno ⇒ conectar desde
   ese host truena con `invalid redirect_uri`.
+- **Desconectar** (b092, ADR-0042, 2026-09-03): botón en la misma tarjeta;
+  `mp_account_disconnect` borra la fila de `mp_accounts` (tokens incluidos) con
+  el guard de `mp_account_status` y deja `system_log` (`mp_oauth`/`desconectada`
+  con agencia, MP user y quién). La agencia vuelve al depósito a 7 días. NO
+  revoca en MP (ADR-0024). Motivo: Border quedó conectada al MP user de
+  Wanderlust (`479630144`) el 2026-09-03 y no había forma de quitarla sin
+  poner otra.
 
 ### Validado en producción (2026-08-10)
 

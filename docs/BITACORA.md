@@ -9,6 +9,24 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Desconectar la cuenta MP de una agencia (b092, ADR-0042, 2026-09-03).**
+> Al probar el redirect URI nuevo, Border quedó conectada al MP user
+> `479630144` — el mismo de Wanderlust, o sea la cuenta del fundador — y no
+> había forma de quitarla: la única puerta a `mp_accounts` era el OAuth con
+> upsert (Conectar/Reconectar). Se agregó `mp_account_disconnect(p_supplier)`
+> (DEFINER, guard idéntico a `mp_account_status`, `coalesce(...,false)`,
+> devuelve false si no había fila, escribe `system_log`) y el botón
+> "Desconectar" con confirmación de dos pasos en `/proveedores/[id]`. El texto
+> dice lo que ADR-0024 ya decía: Ketzal borra su copia; revocar el permiso es
+> del vendedor en su cuenta de MP. Hard-test `mp_desconectar.sql` (12
+> aserciones: sin sesión, admin ajeno, agente, deny-all directo, admin propio,
+> idempotencia, superadmin, rastro). Suite 27/27. La UI no se clickeó en
+> navegador en esta sesión: compila; la primera pulsación real es la de Border.
+> De paso: `encuestas_rls.mjs` dependía de que existiera un admin REAL de
+> Wanderlust (hoy no hay; el fundador es superadmin sin agencia) y fallaba;
+> ahora crea el suyo con `crearPosiciones`. Suite completa 27/27 con la app
+> local en 3100.
+
 > **La confirmación de correo se pausa hasta Pro, pero deja de ser un camino sin probar (2026-09-03).**
 > El fundador prendió *Confirm email* en Auth y la suite siguió en verde. Ese
 > verde no decía nada: las 25 fixtures crean cuentas con `email_confirm: true`

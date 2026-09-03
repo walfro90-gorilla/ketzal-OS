@@ -67,6 +67,7 @@ const HARNESS = [
   { f: 'cotizacion_reclamada.sql',        necesita: ['db'], adr: '0039', afirma: 'la cotización se guarda con su token, el correo liga solo verificado y la venta manual es solo lectura' },
   { f: 'simulacion_1000_ops.sql',         necesita: ['db'], adr: '0006', afirma: 'los invariantes aguantan volumen' },
   { f: 'volumen_y_clawbot.sql',           necesita: ['db'], adr: '0006', afirma: 'el Clawbot no rompe invariantes a volumen' },
+  { f: 'mp_desconectar.sql',              necesita: ['db'], adr: '0042', afirma: 'solo el admin de la agencia (o superadmin) desconecta su MP; la tabla sigue deny-all y queda rastro' },
 ]
 
 // `qa_setup.sql` y `_fixtures.mjs` no son harness (siembra y utilería).
