@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { Analytics } from "@vercel/analytics/next";
 import { Trackers } from "@/components/marketing/trackers";
 import { SITE_URL } from "@/lib/site-url";
+import Script from "next/script";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -66,6 +67,13 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${bricolage.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        {/* PWA: Chrome dispara `beforeinstallprompt` en cuanto la app es
+            instalable, a veces antes de que React monte <InstalarApp>. Se
+            guarda aquí (sin preventDefault: en las páginas públicas la barra
+            de Chrome sigue siendo el único camino de instalación). */}
+        <Script id="kz-install-prompt" strategy="beforeInteractive">
+          {`window.addEventListener('beforeinstallprompt',function(e){window.__kzInstallPrompt=e})`}
+        </Script>
         <Providers>
           {children}
           <Toaster />

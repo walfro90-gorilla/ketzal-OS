@@ -6,6 +6,7 @@ import { getBrandLogo } from '@/lib/brand'
 import { ThemeToggle } from '@/components/shell/theme-toggle'
 import { debeCambiarPassword, getPersona, homeForPersona } from '@/lib/persona'
 import { ProductTour } from '@/components/shell/tour/product-tour'
+import { InstalarApp } from '@/components/shell/instalar-app'
 
 // Portal del EMBAJADOR. Chrome mínimo (logo + salir), sin back-office ni viaje.
 // Gate de persona: solo type='embajador'; al resto lo manda a su propia superficie.
@@ -89,6 +90,7 @@ export default async function EmbajadorLayout({
           seenKey="ketzal_tour_embajador_v1"
           yaVisto={yaVisto}
         />
+        <InstalarApp esperar={!yaVisto} />
       </main>
     </div>
   )

@@ -9,6 +9,31 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **"Instala la app" pasa de tarjeta a modal, solo celular, en los tres shells (2026-09-03).**
+> El fundador pidió un modal que sugiera instalar la app en el celular cuando
+> detecte que no está instalada. Ya existía `InstalarApp` (embajadores v2) como
+> tarjeta inline solo en `/embajador`. Ahora es una hoja inferior (`Sheet`
+> side="bottom") montada en `AppShell` (ops), `(travel)/layout` y
+> `embajador/layout`, con `esperar={!tourYaVisto}` para no apilarse con el
+> tour de bienvenida. Reglas: solo `max-width: 767px`; si ya corre en
+> `standalone` (o iOS marcó "Ya la tengo") no sale; "Ahora no", la X o el fondo
+> se respetan 14 días; `appinstalled` la marca lista. iOS no tiene
+> `beforeinstallprompt` ⇒ instrucciones Compartir → Añadir a inicio. Hallazgo:
+> Chrome dispara `beforeinstallprompt` antes de que React monte el efecto, así
+> que el root layout lo captura en `window.__kzInstallPrompt` con un `<Script
+> strategy="beforeInteractive">` (sin `preventDefault`: en las páginas públicas
+> la barra de Chrome sigue siendo el único camino). **Evidencia:** navegador
+> real contra la BD viva con viajero efímero: a 500px el modal aparece con el
+> evento REAL de Chrome ya capturado (`promptRealCapturado: true`), "Ahora no"
+> escribe `kz_instalar_pospuesto` y tras recargar no reaparece; a 1200px no sale
+> aunque el evento sí llegó. `tsc`, eslint y `next build` limpios. Limpieza
+> verificada: 0 `qa.b092` en auth.users/profiles/bookings. **De paso:** el alta
+> de prueba devolvió "Te enviamos un correo para confirmar" ⇒ **el fundador ya
+> prendió "Confirm email"** (`confirmation_sent_at` no nulo en la cuenta nueva);
+> la puerta por correo de ADR-0039 queda viva en cuanto pegue la plantilla.
+> Y Supabase Auth rechaza correos `.local` (`email_address_invalid`): las cuentas
+> efímeras de navegador van en `@gorillabs.dev`.
+
 > **El snapshot del schema estaba 20 migraciones atrás, y el bloqueo era falso (2026-09-03).**
 > `supabase/snapshots/ketzal_schema.sql` seguía siendo el dump de **b071** y su
 > propia cabecera lo decía: *"hace falta la contraseña de la BD"*. No hacía

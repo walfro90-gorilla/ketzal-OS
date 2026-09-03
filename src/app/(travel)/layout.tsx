@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getBrandLogo } from '@/lib/brand'
 import { TravelShell } from '@/components/shell/travel-shell'
 import { ProductTour } from '@/components/shell/tour/product-tour'
+import { InstalarApp } from '@/components/shell/instalar-app'
 
 // Layout del VIAJERO. Envuelve /mis-compras y /perfil con el shell del viaje.
 // El gate de sesión lo hace el middleware (estas rutas no son públicas); el gate
@@ -45,6 +46,7 @@ export default async function TravelLayout({
         seenKey="ketzal_tour_viajero_v1"
         yaVisto={yaVisto}
       />
+      <InstalarApp esperar={!yaVisto} />
     </TravelShell>
   )
 }
