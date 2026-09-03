@@ -41,6 +41,11 @@ CFDI/SAT, cálculo social/gamificado, cualquier cosa del sueño 🅰️ sin su f
 8. **Un documento con datos de una persona NUNCA vive en bucket público**
    (bucket privado + URL firmada); ninguna policy de storage scopea solo por
    `bucket_id`. → [ADR-0036](docs/adr/0036-el-bucket-publico-no-guarda-documentos.md)
+9. **Todo link que va a un cliente sale de `origenPublico()`**
+   (`src/lib/site-url.ts`), nunca de `window.location.origin` ni del header
+   `host`: hay un solo dominio público (`ketzal.tours`); `os.` y el
+   `vercel.app` viejo no se le mandan a nadie.
+   → [ADR-0040](docs/adr/0040-un-solo-dominio-publico-para-los-links.md)
 
 ## Proceso ADR (obligatorio)
 
@@ -97,11 +102,19 @@ prueban — prosa como "probado contra la BD real" no cuenta
   como usuario real → [ADR-0013](docs/adr/0013-mcp-usuario-real.md).
 - **WhatsApp** (Baileys en box, pausado esperando número)
   → [ADR-0017](docs/adr/0017-whatsapp-baileys-box.md).
+- **El prospecto cotizado guarda su cotización en una cuenta de viajero**
+  (`claim_quote` por token; el correo liga solo verificado; venta manual =
+  solo lectura en el portal) → [ADR-0039](docs/adr/0039-la-cotizacion-se-guarda-con-su-token.md).
+  **Confirm email está PRENDIDO** en Auth desde 2026-09-03; falta pegar la
+  plantilla `supabase/templates/confirm-signup.html`.
+- **Dominio propio** `ketzal.tours` (+ `os.`, `www.` → apex) desde 2026-09-03
+  → [ADR-0040](docs/adr/0040-un-solo-dominio-publico-para-los-links.md).
+  Modal "instala la app" solo en celular en los tres shells.
 - **BD limpia para operación real** (reset 2026-08-19; catálogo conservado).
   Migrada a proyecto dedicado 2026-08-26 — pendientes del fundador en la
   bitácora (exposed schemas, Auth dashboard, env vars Vercel, box WA, npm).
 - Tests: 174 de dominio (raíz) + 57 MCP, ambos en CI. Los **hard-tests**
-  (`supabase/tests/`, 24, hoy **24/24**)
+  (`supabase/tests/`, 25, hoy **25/25**)
   corren con **`pnpm hard-test`** (`-v` para el detalle) y **NO están en CI** —
   necesitan la service key y no hay staging
   → [ADR-0034](docs/adr/0034-la-verificacion-nombra-su-prueba.md). Requieren

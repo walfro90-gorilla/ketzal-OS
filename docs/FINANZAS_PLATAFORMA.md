@@ -74,6 +74,10 @@ CUÁNDO se cobra (al instante vs corte).
   al menos un flujo OAuth declarado) — **2026-08-10**. Sin este paso el OAuth
   truena con `invalid redirect_uri`; no hay endpoint de la Management API de
   MP para ponerlo por MCP/script, es manual en el panel, una vez por app.
+  **Desde el dominio propio (ADR-0040, 2026-09-03):** `/api` del host viejo
+  NO redirige, así que ese redirect URI sigue sirviendo; para conectar una
+  agencia desde `ketzal.tours` hay que agregar además
+  `https://ketzal.tours/api/mp/oauth/callback` en el mismo panel.
 
 ### Validado en producción (2026-08-10)
 

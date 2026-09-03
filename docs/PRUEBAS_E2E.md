@@ -1,7 +1,7 @@
 # Pruebas end-to-end a mano — Ketzal OS
 
 > Checklist para validar a mano lo que ya está implementado. Marca `[x]` lo que pase.
-> Prod: **https://ketzal-os.vercel.app**. Última actualización: 2026-07-23.
+> Prod: **https://ketzal.tours** (`os.ketzal.tours` para el back-office; `ketzal-os.vercel.app` redirige). Última actualización: 2026-09-03.
 
 ## 0. Preparación e higiene (leer primero)
 
