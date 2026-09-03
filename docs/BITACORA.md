@@ -25,7 +25,9 @@
 > no cambia. El redirect vive en `proxy.ts` (donde ya se consulta el perfil), no
 > en la página: `(ops)/loading.tsx` streamea y un `redirect()` de página sale
 > como meta-refresh con **200** y un segundo de destello — lo cazó el harness,
-> que exigía 307. El select "Tipo" se bloquea al editar una agencia (no se degrada a
+> que exigía 307. Acotado por Rick midiendo el gate de `must_change_password`
+> en `(ops)/layout.tsx`: el `redirect()` de un **layout** sí da 307 por URL
+> directa (lanza antes de renderizar hijos); la degradación es solo de página. El select "Tipo" se bloquea al editar una agencia (no se degrada a
 > transporte). Nav: "Ajustes" → "Configuración", ya no `superadminOnly`.
 > Hard-test `configuracion_agencia.mjs` (agencia + proveedor + admin +
 > superadmin efímeros; status **y** contenido, URL directa y RSC). Suite 29.
