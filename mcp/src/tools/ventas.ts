@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { KetzalError } from '../errors.js'
 import { q, rpc, select } from '../rest.js'
 import { APP_URL } from '../config.js'
-import type { ToolDef } from './registry.js'
+import type { ToolDef } from './tipos.js'
 
 const ESTADOS = ['draft', 'reserved', 'confirmed', 'paid', 'cancelled'] as const
 const FECHA = /^\d{4}-\d{2}-\d{2}$/

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { ToolDef } from '../../../mcp/src/tools/registry'
+import type { ToolDef } from '../../../mcp/src/tools/tipos'
 import { correr, MAX_PASOS, pendientes, recortar, type Deps, type Evento } from './conversacion'
 import type { Mensaje, ToolCall } from './llm'
 

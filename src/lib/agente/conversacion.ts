@@ -7,7 +7,7 @@
  * vuelve a mandar la misma conversación con el id aprobado (o con un mensaje
  * `tool` de cancelación) y el loop la retoma donde iba.
  */
-import type { ToolDef } from '../../../mcp/src/tools/registry'
+import type { ToolDef } from '../../../mcp/src/tools/tipos'
 import { completar as completarReal, type Completar, type Mensaje, type ToolCall, type ToolSpec } from './llm'
 import {
   buscarHerramienta,

@@ -1,7 +1,7 @@
 /** Dirección: panel, reportes por rango, metas, conversión, comisiones y cuentas. */
 import { KetzalError } from '../errors.js'
 import { rpc } from '../rest.js'
-import type { ToolDef } from './registry.js'
+import type { ToolDef } from './tipos.js'
 import { z } from 'zod'
 
 // ── Rango de fechas ──────────────────────────────────────────────────

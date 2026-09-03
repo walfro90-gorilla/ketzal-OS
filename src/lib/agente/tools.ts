@@ -7,7 +7,7 @@
 import { z } from 'zod'
 import { KetzalError } from '../../../mcp/src/errors'
 import { ALL_TOOLS } from '../../../mcp/src/tools/index'
-import type { ToolDef } from '../../../mcp/src/tools/registry'
+import type { ToolDef } from '../../../mcp/src/tools/tipos'
 import type { ToolSpec } from './llm'
 
 /** Lee archivos del disco de quien corre el MCP: en el servidor no hay tal disco. */

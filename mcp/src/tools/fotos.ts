@@ -17,7 +17,7 @@ import { SUPABASE_KEY, SUPABASE_URL } from '../config.js'
 import { KetzalError } from '../errors.js'
 import { q, select, update } from '../rest.js'
 import { getAccessToken } from '../session.js'
-import type { ToolDef } from './registry.js'
+import type { ToolDef } from './tipos.js'
 import { z } from 'zod'
 
 const BUCKET = 'ketzal-assets'

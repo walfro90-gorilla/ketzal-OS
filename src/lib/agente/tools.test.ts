@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 import { KetzalError } from '../../../mcp/src/errors'
 import { ALL_TOOLS } from '../../../mcp/src/tools/index'
-import type { ToolDef } from '../../../mcp/src/tools/registry'
+import type { ToolDef } from '../../../mcp/src/tools/tipos'
 import { ejecutar, especificaciones, HERRAMIENTAS, MAX_CHARS, pideConfirmacion } from './tools'
 
 describe('especificaciones', () => {

@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { KetzalError } from '../errors.js'
 import { insert, q, rpc, select, update } from '../rest.js'
 import { getAuthUser } from '../session.js'
-import type { ToolDef } from './registry.js'
+import type { ToolDef } from './tipos.js'
 
 type Cliente = {
   id: string
