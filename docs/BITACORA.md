@@ -9,6 +9,46 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Re-auditoría del fix de seguridad: b088 dejó dos ramas abiertas (2026-09-02).**
+> Con #102 ya en `main` y desplegado, se volvió a barrer producción para
+> confirmar el cierre. Lo confirmado, medido: las cabeceras están vivas
+> (`content-security-policy: frame-ancestors 'none'`, `x-frame-options`,
+> `nosniff`, `referrer-policy`, `permissions-policy`, sin `x-powered-by`); el
+> comprobante SPEI que antes bajaba sin sesión da **400**; el bucket privado no
+> se lista ni con la publishable key; `/api/track` corta en **60 y responde 429**;
+> las 7 rutas de `/api/` niegan sin credencial (`comprobante` 404, `clawbot/tick`
+> 401, `mp/webhook` **401 — el `MP_WEBHOOK_SECRET` sí está puesto en Vercel**,
+> `track/login` 401); ningún secreto en el bundle (1.03 MB de chunks de 6
+> páginas, solo la `sb_publishable_`); `superficie_anonima.mjs` 33/0; los 23
+> harness en verde.
+>
+> **Lo que salió: el `case` de b088 scopeaba `services/` y `profiles/` pero no
+> `suppliers/` ni `brand/`** — esas dos ramas pedían nada más "tener agencia".
+> Medido en la BD real con un agente de Wanderlust (transacción revertida):
+> sobrescribir `brand/logo-1784587723992.png` → **1 fila**; sobrescribir
+> `suppliers/dd46052b…/foto-…jpg` de Border → **1 fila**. Las URLs no hay que
+> adivinarlas: `get_brand_logo()` y `list_public_suppliers()` se las dan a
+> cualquier anónimo, y las subidas del navegador van con `upsert: true`.
+> Resultado: cualquier miembro de cualquier agencia cambiaba el logo de Ketzal y
+> las fotos de la competencia.
+>
+> **b090** hace que la policy deje de inventar criterio y llame al que ya
+> gobierna la fila (`suppliers_update`): `ketzal.puedo_escribir_imagen_supplier`
+> —superadmin, admin de esa agencia, o admin de la agencia dueña del proveedor—
+> y `brand/` solo superadmin. El guard toma `text` a propósito: una carpeta que
+> no es uuid es entrada del atacante y un cast crudo revienta la policy en vez de
+> negar. INSERT y UPDATE se re-aplican juntos porque `upsert` es UPDATE.
+> → [ADR-0038](adr/0038-la-policy-de-storage-reusa-el-criterio-de-la-fila.md)
+>
+> El harness de storage pasa de 15 a **22 casos**, y esta vez se verificó que
+> sirven: **prueba de mutación** — restaurada la policy de b088 dentro de una
+> transacción revertida, los dos casos nuevos devuelven `HUECO: escribió`. Los
+> casos que no encuentran fixture ahora escriben `ROTO`, no `SALTADO`.
+>
+> Pendientes que no son código: **activar la protección de contraseñas filtradas
+> (HIBP) en el dashboard de Auth** —único WARN del advisor que no es de diseño— y
+> la CSP completa con nonce, en Report-Only primero.
+
 > **`/comisiones` rediseñada, y el hueco que el rediseño destapó (2026-09-02).**
 > La página apilaba **ocho tarjetas del mismo peso** mezclando tres trabajos
 > distintos —pagar el corte, configurar tarifas, dar de alta gente—, con el dato
