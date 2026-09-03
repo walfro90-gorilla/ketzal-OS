@@ -1,7 +1,8 @@
--- SNAPSHOT del schema `ketzal` — regenerado el 2026-09-03 (main 23ca8cf).
+-- SNAPSHOT del schema `ketzal` — regenerado el 2026-09-03 (main bdc3fd1 + b093).
 --
--- Al día hasta b091 / m011 inclusive. Verificado por identificador, no por
--- fecha: contiene `claim_quote`, `email_verificado` (b091), `puede_folear`,
+-- Al día hasta b093 / m011 inclusive. Verificado por identificador, no por
+-- fecha: contiene `mp_account_disconnect` (b092), `es_cuenta_efimera` (b093),
+-- `claim_quote`, `email_verificado` (b091), `puede_folear`,
 -- `puedo_subir_comprobante` (b088) y `puedo_escribir_imagen_supplier` (b090).
 -- Schema-only: 0 sentencias `COPY`/`INSERT`, ninguna fila de negocio.
 --
@@ -24,6 +25,9 @@
 -- policies: hay que re-aplicar esas dos.
 --
 -- Fuente de verdad sigue siendo la BD viva (ADR-0014); esto es el espejo.
+
+
+
 
 
 
@@ -2283,6 +2287,17 @@ $$;
 
 ALTER FUNCTION "ketzal"."ensure_statement_token"("p_booking_id" "uuid") OWNER TO "postgres";
 
+
+CREATE OR REPLACE FUNCTION "ketzal"."es_cuenta_efimera"("p_email" "text") RETURNS boolean
+    LANGUAGE "sql" IMMUTABLE
+    SET "search_path" TO 'ketzal', 'pg_temp'
+    AS $$
+  select coalesce(p_email, '') like 'qa.efimero.%';
+$$;
+
+
+ALTER FUNCTION "ketzal"."es_cuenta_efimera"("p_email" "text") OWNER TO "postgres";
+
 SET default_tablespace = '';
 
 SET default_table_access_method = "heap";
@@ -4070,7 +4085,8 @@ begin
                     where b.sold_by = p.id and b.status in ('reserved','confirmed','paid'))
   ) order by p.active asc, p.email asc), '[]'::jsonb) into v
   from ketzal.profiles p
-  where v_super or (p.supplier_id is not null and p.supplier_id = v_sup);
+  where (v_super or (p.supplier_id is not null and p.supplier_id = v_sup))
+    and not ketzal.es_cuenta_efimera(p.email);
   return v;
 end $$;
 
@@ -4168,6 +4184,7 @@ begin
       from ketzal.profiles p
       left join auth.users u on u.id = p.id
      where ketzal.can_view_user(p.id)
+       and not ketzal.es_cuenta_efimera(coalesce(p.email, u.email))
        and (v_q is null
             or p.name ilike '%' || v_q || '%'
             or coalesce(p.email, u.email) ilike '%' || v_q || '%')
@@ -4250,6 +4267,34 @@ end $$;
 
 
 ALTER FUNCTION "ketzal"."marcar_onboarding_visto"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "ketzal"."mp_account_disconnect"("p_supplier" "uuid") RETURNS boolean
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'ketzal', 'pg_temp'
+    AS $$
+declare
+  v_uid uuid := auth.uid();
+  v_mp  text;
+begin
+  if v_uid is null then raise exception 'No autenticado'; end if;
+  if not coalesce(ketzal.is_superadmin(), false)
+     and not coalesce(ketzal.is_agency_admin(p_supplier), false) then
+    raise exception 'Sin acceso.';
+  end if;
+
+  delete from ketzal.mp_accounts where supplier_id = p_supplier
+    returning mp_user_id into v_mp;
+  if v_mp is null then return false; end if;
+
+  insert into ketzal.system_log(source, level, event, detail)
+    values ('mp_oauth', 'info', 'desconectada',
+            jsonb_build_object('supplier_id', p_supplier, 'mp_user_id', v_mp, 'by', v_uid));
+  return true;
+end $$;
+
+
+ALTER FUNCTION "ketzal"."mp_account_disconnect"("p_supplier" "uuid") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "ketzal"."mp_account_status"("p_supplier" "uuid") RETURNS "jsonb"
@@ -10016,6 +10061,12 @@ GRANT ALL ON FUNCTION "ketzal"."ensure_statement_token"("p_booking_id" "uuid") T
 
 
 
+REVOKE ALL ON FUNCTION "ketzal"."es_cuenta_efimera"("p_email" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "ketzal"."es_cuenta_efimera"("p_email" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "ketzal"."es_cuenta_efimera"("p_email" "text") TO "service_role";
+
+
+
 GRANT SELECT,INSERT,DELETE ON TABLE "ketzal"."bookings" TO "authenticated";
 GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE "ketzal"."bookings" TO "service_role";
 
@@ -10350,6 +10401,12 @@ GRANT ALL ON FUNCTION "ketzal"."log_user_event"("p_user" "uuid", "p_kind" "text"
 REVOKE ALL ON FUNCTION "ketzal"."marcar_onboarding_visto"() FROM PUBLIC;
 GRANT ALL ON FUNCTION "ketzal"."marcar_onboarding_visto"() TO "authenticated";
 GRANT ALL ON FUNCTION "ketzal"."marcar_onboarding_visto"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "ketzal"."mp_account_disconnect"("p_supplier" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "ketzal"."mp_account_disconnect"("p_supplier" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "ketzal"."mp_account_disconnect"("p_supplier" "uuid") TO "service_role";
 
 
 
