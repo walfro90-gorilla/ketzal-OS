@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import type { DataColumn } from '@/components/data/data-list'
 import { FilterableList } from '@/components/data/filterable-list'
 import { Badge } from '@/components/ui/badge'
+import { fmtFecha } from '@/components/data/format'
 
 export type UsuarioRow = {
   id: string
@@ -17,19 +18,6 @@ export type UsuarioRow = {
   ultimo_acceso: string | null
   /** Tiene perfil pero ya no existe en Auth: no puede entrar. */
   sin_cuenta_auth: boolean
-}
-
-const fechaCorta = new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium' })
-const fechaHora = new Intl.DateTimeFormat('es-MX', {
-  dateStyle: 'medium',
-  timeStyle: 'short',
-})
-
-export function fmtFecha(d: string | null | undefined, conHora = false): string {
-  if (!d) return '—'
-  const p = new Date(d)
-  if (Number.isNaN(p.getTime())) return d
-  return (conHora ? fechaHora : fechaCorta).format(p)
 }
 
 const TIPO_LABEL: Record<string, string> = {
