@@ -15,6 +15,7 @@ import { type ProveedorInfo } from '../actions'
 import { EliminarProveedor } from './eliminar-proveedor'
 import { AccionesProveedor } from './acciones-proveedor'
 import { CrearAcceso } from './crear-acceso'
+import { DesconectarMp } from './desconectar-mp'
 
 // Formatter local (mismo criterio que el resto de páginas: autocontenidas).
 const mxn = new Intl.NumberFormat('es-MX', {
@@ -247,6 +248,10 @@ export default async function ProveedorDetallePage({
                   actuales. Úsalo si cambiaste de cuenta o si sospechas que el
                   acceso quedó expuesto.
                 </p>
+                {/* b092: quitar la cuenta sin poner otra (se conectó la equivocada,
+                    la agencia deja de cobrar en línea). Borra la copia de Ketzal;
+                    revocar en MP sigue siendo del vendedor (ADR-0024). */}
+                <DesconectarMp supplierId={proveedor.id} />
               </div>
             ) : (
               <a
