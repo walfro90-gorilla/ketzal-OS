@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { SITE_URL } from '@/lib/site-url'
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import QRCode from 'qrcode'
@@ -107,8 +108,8 @@ export default async function VoucherPage({
   // confirma "verificado" (o "inválido" si el documento fue alterado).
   const cert = firmarVoucher(voucherId)
   const h = await headers()
-  const origin =
-    process.env.NEXT_PUBLIC_APP_URL ?? `https://${h.get('host') ?? 'ketzal-os.vercel.app'}`
+  const host = h.get('host')
+  const origin = process.env.NEXT_PUBLIC_APP_URL ?? (host ? `https://${host}` : SITE_URL)
   const qrUrl = `${origin}/voucher/${voucherId}${cert ? `?c=${cert}` : ''}`
   const qrDataUrl = await QRCode.toDataURL(qrUrl, { margin: 1, width: 320 })
   const verificado = verificarCert(voucherId, c)

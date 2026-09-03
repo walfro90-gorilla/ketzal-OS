@@ -9,6 +9,32 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Dominio propio: `ketzal.tours` + `os.ketzal.tours` conectados al proyecto Vercel (2026-09-03).**
+> El fundador compró `ketzal.tours` en Namecheap (mismo panel que estampida.run)
+> y pidió conectarlo junto con `os.ketzal.tours` al proyecto `ketzal-os`, y
+> ejecutar el `<orden-de-ejecucion>` de `docs/MARKETING_STACK_HUELLA.md`.
+> Estado real contra el código: **los pasos 1–5 ya estaban hechos en PR #86**
+> (contrato `bookings.attribution`, robots/sitemap/llms.txt/JSON-LD
+> `TouristTrip`+`ItemList`, trackers cliente, `conversions.ts` con hooks en
+> webhook MP/Brick/SPEI, tarjeta de atribución en `/cuentas`); el doc mismo ya
+> vivía en `main` desde ese PR. Verificado en prod: `/robots.txt`, `/sitemap.xml`
+> y `/llms.txt` 200, robots permite GPTBot/ClaudeBot, una ficha trae JSON-LD
+> `TouristTrip`/`Offer`/`TravelAgency`/`Place` y `/explora` trae `ItemList`.
+> El paso 6 (test event CAPI, GA4 DebugView, Network tab) sigue bloqueado por
+> los IDs/tokens del fundador — todo nace env-gated, hoy en Vercel solo existe
+> `NEXT_PUBLIC_MARKETPLACE`. Lo nuevo de hoy: `vercel domains add` de los dos
+> hosts al proyecto (`vercel domains inspect` → `A 76.76.21.21` para ambos;
+> nameservers se quedan en Namecheap, como manda el prerequisito 1: solo se
+> agregan registros); y los dos únicos fallbacks con `ketzal-os.vercel.app`
+> hardcodeado (`credenciales-provisionales.tsx`, `voucher/[voucherId]/page.tsx`)
+> pasan a `SITE_URL`. Mercado Pago ya arma `notification_url`/`back_urls` del
+> host de la petición, así que funciona en cualquier dominio. **Pendiente del
+> fundador:** registros DNS en Namecheap; `NEXT_PUBLIC_SITE_URL=https://ketzal.tours`
+> en Vercel (decide sitemap/canonical/OG/`event_source_url` — con dos dominios
+> no conviene dejar que Vercel elija); Site URL + Redirect URLs de Supabase Auth
+> con los dos hosts; después los TXT de Meta y Google. Sin decidir: ruteo por
+> host (apex = vitrina, `os.` = back-office) — hoy los dos sirven todo.
+
 > **"Instala la app" pasa de tarjeta a modal, solo celular, en los tres shells (2026-09-03).**
 > El fundador pidió un modal que sugiera instalar la app en el celular cuando
 > detecte que no está instalada. Ya existía `InstalarApp` (embajadores v2) como

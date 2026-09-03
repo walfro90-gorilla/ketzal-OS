@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { SITE_URL } from '@/lib/site-url'
 import { toast } from 'sonner'
 import { CheckIcon, CopyIcon, MailIcon, MessageCircleIcon } from 'lucide-react'
 import { Button, buttonVariants } from '@/components/ui/button'
@@ -39,8 +40,7 @@ export function CredencialesProvisionales({
   // cliente. Así el mensaje sirve igual en localhost que en producción sin
   // hardcodear el dominio (que ya cambió una vez). El guard de `window` es la red
   // por si algún día lo renderiza el servidor.
-  const origin =
-    typeof window === 'undefined' ? 'https://ketzal-os.vercel.app' : window.location.origin
+  const origin = typeof window === 'undefined' ? SITE_URL : window.location.origin
   const loginUrl = `${origin}/login`
   const mensaje = [
     'Ketzal — tu acceso',
