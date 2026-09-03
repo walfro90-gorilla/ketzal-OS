@@ -37,6 +37,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Sin acceso' }, { status: 403 })
   }
 
+  // El redirect_uri lleva el host donde se pulsó "Conectar": la sesión vive
+  // ahí y el callback regresa a /proveedores. Cada host que sirve la app
+  // (vercel.app, ketzal.tours, os.ketzal.tours) va registrado en la app de MP;
+  // si falta uno, MP contesta `invalid redirect_uri` desde ese host.
   const origin = process.env.NEXT_PUBLIC_APP_URL ?? url.origin
   const redirectUri = `${origin}/api/mp/oauth/callback`
   const auth = new URL('https://auth.mercadopago.com.mx/authorization')

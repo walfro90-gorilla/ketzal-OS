@@ -105,8 +105,11 @@ prueban — prosa como "probado contra la BD real" no cuenta
 - **El prospecto cotizado guarda su cotización en una cuenta de viajero**
   (`claim_quote` por token; el correo liga solo verificado; venta manual =
   solo lectura en el portal) → [ADR-0039](docs/adr/0039-la-cotizacion-se-guarda-con-su-token.md).
-  **Confirm email está PRENDIDO** en Auth desde 2026-09-03; falta pegar la
-  plantilla `supabase/templates/confirm-signup.html`.
+  **Confirm email se PAUSA hasta Pro**: con la plantilla por defecto el enlace
+  es PKCE y no confirma desde otro aparato (el caso de WhatsApp)
+  → [ADR-0041](docs/adr/0041-la-confirmacion-de-correo-se-pausa-hasta-pro.md).
+  El camino está probado y listo (`confirmacion_email.mjs`); para prenderlo:
+  Pro + pegar `supabase/templates/confirm-signup.html`.
 - **Dominio propio** `ketzal.tours` (+ `os.`, `www.` → apex) desde 2026-09-03
   → [ADR-0040](docs/adr/0040-un-solo-dominio-publico-para-los-links.md).
   Modal "instala la app" solo en celular en los tres shells.
@@ -114,7 +117,7 @@ prueban — prosa como "probado contra la BD real" no cuenta
   Migrada a proyecto dedicado 2026-08-26 — pendientes del fundador en la
   bitácora (exposed schemas, Auth dashboard, env vars Vercel, box WA, npm).
 - Tests: 174 de dominio (raíz) + 57 MCP, ambos en CI. Los **hard-tests**
-  (`supabase/tests/`, 25, hoy **25/25**)
+  (`supabase/tests/`, 26, hoy **26/26**)
   corren con **`pnpm hard-test`** (`-v` para el detalle) y **NO están en CI** —
   necesitan la service key y no hay staging
   → [ADR-0034](docs/adr/0034-la-verificacion-nombra-su-prueba.md). Requieren

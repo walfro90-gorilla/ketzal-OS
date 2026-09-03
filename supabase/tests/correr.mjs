@@ -52,6 +52,7 @@ const HARNESS = [
   { f: 'concurrencia.mjs',                necesita: ['supabase'],                 adr: '0008', afirma: 'el cupo no se sobrevende en carrera' },
   { f: 'carreras_dinero.mjs',             necesita: ['supabase'],                 adr: '0006', afirma: 'el ledger aguanta escrituras concurrentes' },
   { f: 'dominio_redirect.mjs',            necesita: ['app'],                      adr: '0040', afirma: 'el host viejo redirige 308 al apex con la query intacta; /api no' },
+  { f: 'confirmacion_email.mjs',          necesita: ['supabase', 'app'],          adr: '0039', afirma: 'el enlace de confirmación entra por token_hash desde otro navegador; el ?next no abre redirect' },
   // ── .sql ────────────────────────────────────────────────────────────────
   { f: 'money_invariants.sql',            necesita: ['db'], adr: '0005', afirma: 'el dinero se deriva; los totales cuadran' },
   { f: 'hard_testing_dinero.sql',         necesita: ['db'], adr: '0006', afirma: 'append-only: nadie muta un asiento por REST' },

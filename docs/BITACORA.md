@@ -9,6 +9,41 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **La confirmación de correo se pausa hasta Pro, pero deja de ser un camino sin probar (2026-09-03).**
+> El fundador prendió *Confirm email* en Auth y la suite siguió en verde. Ese
+> verde no decía nada: las 25 fixtures crean cuentas con `email_confirm: true`
+> por la Admin API, así que **ninguna tocaba el camino que el switch cambió** —
+> `registrarComprador` llama `signUp()`, y de ahí en adelante el usuario solo
+> entra si el enlace del correo funciona. Se midió lo que sí y lo que no
+> aguantaba: las cinco altas administradas (`/proveedores`, `/comisiones`,
+> `/viajeros` y las dos de `/equipo`) pasan `email_confirm: true` y no se
+> tocan; la allowlist de Redirect URLs respeta `/auth/callback` y rechaza un
+> host ajeno (la primera lectura dijo lo contrario y estaba mal: el REST de
+> `admin/generate_link` quiere `redirect_to` PLANO, anidarlo en `options` lo
+> ignora en silencio). Lo que sí duele con la plantilla por defecto: el enlace
+> es PKCE (`?code=`) y se canjea contra la cookie del navegador donde se pidió,
+> así que quien se registra en el webview de WhatsApp y confirma desde Gmail
+> aterriza en `/login?error=auth`. La plantilla con `{{ .TokenHash }}` ya
+> existe y arregla justo eso, pero editarla pide Pro. Decisión del fundador:
+> apagar la confirmación hasta que haya Pro y usuarios pagando
+> ([ADR-0041](adr/0041-la-confirmacion-de-correo-se-pausa-hasta-pro.md)). No
+> abre hueco — `email_verificado` exige `confirmation_sent_at is not null`
+> además de `email_confirmed_at`, y con auto-confirmación GoTrue no manda
+> correo, así que falla cerrado (medido contra los 8 usuarios de producción:
+> los 8 con `confirmation_sent_at` NULL, solo los 3 de Google verificados). Lo
+> que se apaga es el barrido por correo de `link_my_customers`; quedan
+> `claim_quote` por token y Google. Y el camino queda probado para el día que
+> se prenda: `supabase/tests/confirmacion_email.mjs`, 10 casos que fabrican el
+> enlace con `admin/generate_link` (cero correos, cero cuota), lo pegan **sin
+> cookies** —otro navegador— y exigen `307 → /mis-compras`; más un solo uso,
+> PKCE inválido que degrada sin cookie de sesión, `?next` que no saca del
+> sitio, y limpieza verificada. Probado por mutación: matar `token_hash` da 2
+> rojos y quitar la sanitización del `?next` otros 2 (el `https://` ajeno
+> además tira 500). La primera versión del caso del `?next` comparaba solo el
+> host y pasaba con la mutación puesta — la ruta se arma como
+> `${origin}${next}`, así que hasta un `next` sucio conserva el host; ahora
+> compara el `pathname`. Suite: **26/26**.
+
 > **El dominio nuevo en todos los links que van a un cliente; el host viejo redirige (2026-09-03).**
 > Pregunta del fundador: ¿cómo quedan los links de embajadores y de cotizaciones
 > con `ketzal.tours`, hay que cambiar algo para que no falle al compartir?
