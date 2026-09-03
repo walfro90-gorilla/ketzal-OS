@@ -8,6 +8,7 @@ import { ThemeToggle } from './theme-toggle'
 import { GlobalSearch } from './global-search'
 import { FlashToasts } from './flash-toasts'
 import { ProductTour } from './tour/product-tour'
+import { InstalarApp } from './instalar-app'
 
 // Shell responsive de Ketzal OS (campo-primero):
 //  - móvil: header compacto + contenido a ancho completo + bottom tab bar
@@ -79,6 +80,7 @@ export function AppShell({
         <div className="flex items-center gap-1 sm:gap-2">
           <GlobalSearch />
           <ProductTour role={role} yaVisto={tourYaVisto} />
+          <InstalarApp esperar={!tourYaVisto} />
           <ThemeToggle />
           {email && <Notificaciones />}
           {email && (

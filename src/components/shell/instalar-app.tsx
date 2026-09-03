@@ -1,24 +1,36 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { DownloadIcon, ShareIcon, XIcon } from 'lucide-react'
+import { DownloadIcon, ShareIcon, SmartphoneIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet'
 
-// "Instala la app". Tres cosas que no son obvias y por las que esto no es un
-// botón y ya:
+// "Instala la app": modal (hoja inferior) SOLO en celular, montado en los tres
+// shells con sesión (ops, viajero, embajador). Cuatro cosas que no son obvias:
 //
 // 1. iOS NO soporta `beforeinstallprompt`. En iPhone no existe forma de que la
 //    página lance la instalación: solo se puede INSTRUIR (Compartir → Añadir a
 //    inicio). Y el equipo vende desde iPhone, así que ese camino no es el
-//    "extra", es la mitad de los casos.
+//    "extra", es la mitad de los casos. Como Safari tampoco dice si ya está
+//    instalada, "Ya la tengo" se recuerda para siempre.
 // 2. Si ya está instalada, no hay nada que ofrecer. Se detecta con
-//    `display-mode: standalone` (y `navigator.standalone` en iOS, que es previo
-//    al estándar).
-// 3. NO se muestra en cada visita. Un modal que reaparece siempre es la forma
-//    más rápida de que lo cierren sin leer y de que la palabra "instalar" se
-//    vuelva ruido. Se muestra una vez; el "ahora no" se recuerda.
+//    `display-mode: standalone` (y `navigator.standalone` en iOS, previo al
+//    estándar). Chrome además deja de disparar el evento una vez instalada.
+// 3. NO se muestra en cada visita ni encima del tour de bienvenida. Un modal
+//    que reaparece siempre es la forma más rápida de que lo cierren sin leer.
+//    Se muestra una vez; el "ahora no" (o cerrar) se respeta 14 días.
+// 4. `beforeinstallprompt` puede dispararse ANTES de que React monte este
+//    efecto. Por eso el root layout lo captura en `window.__kzInstallPrompt`
+//    (script beforeInteractive) y aquí se lee primero.
 
 const POSPUESTO = 'kz_instalar_pospuesto'
+const YA_LA_TENGO = 'kz_instalar_lista'
 /** Cuánto se respeta un "ahora no" antes de volver a ofrecer. */
 const DIAS_ESPERA = 14
 
@@ -27,18 +39,35 @@ type PromptInstalacion = Event & {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
 }
 
+declare global {
+  interface Window {
+    __kzInstallPrompt?: PromptInstalacion
+  }
+}
+
 function yaInstalada(): boolean {
   if (typeof window === 'undefined') return true
   const standalone =
     window.matchMedia?.('(display-mode: standalone)').matches ||
     // iOS previo al estándar; no está en los tipos de TS.
     (window.navigator as unknown as { standalone?: boolean }).standalone === true
-  return Boolean(standalone)
+  if (standalone) return true
+  try {
+    return localStorage.getItem(YA_LA_TENGO) === '1'
+  } catch {
+    return false
+  }
 }
 
 function esIOS(): boolean {
   if (typeof navigator === 'undefined') return false
   return /iphone|ipad|ipod/i.test(navigator.userAgent)
+}
+
+/** Solo celular: en escritorio Chrome también dispara el evento y no es el caso. */
+function esCelular(): boolean {
+  if (typeof window === 'undefined') return false
+  return window.matchMedia?.('(max-width: 767px)').matches ?? false
 }
 
 function pospuestoReciente(): boolean {
@@ -51,12 +80,25 @@ function pospuestoReciente(): boolean {
   }
 }
 
-export function InstalarApp() {
+function recordar(clave: string, valor: string) {
+  try {
+    localStorage.setItem(clave, valor)
+  } catch {
+    /* sin storage volverá a aparecer; no es grave */
+  }
+}
+
+export function InstalarApp({
+  esperar = false,
+}: {
+  /** `true` mientras el tour de bienvenida esté pendiente: no se apilan dos modales. */
+  esperar?: boolean
+}) {
   const [prompt, setPrompt] = useState<PromptInstalacion | null>(null)
   const [instruirIOS, setInstruirIOS] = useState(false)
 
   useEffect(() => {
-    if (yaInstalada() || pospuestoReciente()) return
+    if (esperar || !esCelular() || yaInstalada() || pospuestoReciente()) return
 
     // iOS: no hay evento, solo instrucciones.
     if (esIOS()) {
@@ -71,65 +113,90 @@ export function InstalarApp() {
       e.preventDefault()
       setPrompt(e as PromptInstalacion)
     }
+    // Si el evento ya pasó antes de montar, el root layout lo guardó.
+    if (window.__kzInstallPrompt) onPrompt(window.__kzInstallPrompt)
     window.addEventListener('beforeinstallprompt', onPrompt)
-    return () => window.removeEventListener('beforeinstallprompt', onPrompt)
-  }, [])
+    // Se instaló (por nuestro botón o por la barra de Chrome): nada que ofrecer.
+    const onInstalada = () => {
+      recordar(YA_LA_TENGO, '1')
+      setPrompt(null)
+    }
+    window.addEventListener('appinstalled', onInstalada)
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onPrompt)
+      window.removeEventListener('appinstalled', onInstalada)
+    }
+  }, [esperar])
 
   function posponer() {
-    try {
-      localStorage.setItem(POSPUESTO, String(Date.now()))
-    } catch {
-      /* sin storage volverá a aparecer; no es grave */
-    }
+    recordar(POSPUESTO, String(Date.now()))
     setPrompt(null)
+    setInstruirIOS(false)
+  }
+
+  function yaLaTengo() {
+    recordar(YA_LA_TENGO, '1')
     setInstruirIOS(false)
   }
 
   async function instalar() {
     if (!prompt) return
     await prompt.prompt()
-    await prompt.userChoice.catch(() => null)
+    const eleccion = await prompt.userChoice.catch(() => null)
+    if (eleccion?.outcome === 'accepted') recordar(YA_LA_TENGO, '1')
+    else recordar(POSPUESTO, String(Date.now()))
+    window.__kzInstallPrompt = undefined
     setPrompt(null)
   }
 
-  if (!prompt && !instruirIOS) return null
+  const abierto = Boolean(prompt) || instruirIOS
 
   return (
-    <div className="rounded-2xl border bg-card p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-sm font-medium">Ten Ketzal a un toque</p>
-          {instruirIOS ? (
-            <p className="mt-1 text-sm text-muted-foreground">
-              Toca{' '}
-              <ShareIcon className="inline size-3.5 align-[-2px]" aria-label="Compartir" />{' '}
-              abajo y luego <strong>Añadir a inicio</strong>. Queda como una app,
-              sin buscar el link cada vez.
-            </p>
-          ) : (
-            <p className="mt-1 text-sm text-muted-foreground">
-              Instálala y ábrela como cualquier app, sin buscar el link.
-            </p>
-          )}
-        </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={posponer}
-          aria-label="Ahora no"
-          className="shrink-0"
-        >
-          <XIcon className="size-4" />
-        </Button>
-      </div>
+    <Sheet
+      open={abierto}
+      onOpenChange={(open) => {
+        if (!open) posponer() // cerrar con la X o el fondo = "ahora no"
+      }}
+    >
+      <SheetContent side="bottom" className="rounded-t-2xl pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+        <SheetHeader className="items-center text-center">
+          <span className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+            <SmartphoneIcon className="size-6" />
+          </span>
+          <SheetTitle className="text-lg">Lleva Ketzal en tu celular</SheetTitle>
+          <SheetDescription>
+            {instruirIOS ? (
+              <>
+                Toca{' '}
+                <ShareIcon
+                  className="inline size-4 align-[-3px]"
+                  aria-label="Compartir"
+                />{' '}
+                abajo en Safari y luego <strong>Añadir a pantalla de inicio</strong>.
+                Queda como una app, sin buscar el link cada vez.
+              </>
+            ) : (
+              <>Instálala y ábrela como cualquier app, sin buscar el link cada vez.</>
+            )}
+          </SheetDescription>
+        </SheetHeader>
 
-      {!instruirIOS && (
-        <Button type="button" size="sm" className="mt-3" onClick={instalar}>
-          <DownloadIcon className="size-4" />
-          Instalar
-        </Button>
-      )}
-    </div>
+        <div className="flex flex-col gap-2 px-4">
+          {instruirIOS ? (
+            <Button type="button" size="touch" onClick={yaLaTengo}>
+              Ya la tengo
+            </Button>
+          ) : (
+            <Button type="button" size="touch" onClick={instalar}>
+              <DownloadIcon className="size-4" />
+              Instalar
+            </Button>
+          )}
+          <Button type="button" variant="ghost" size="touch" onClick={posponer}>
+            Ahora no
+          </Button>
+        </div>
+      </SheetContent>
+    </Sheet>
   )
 }

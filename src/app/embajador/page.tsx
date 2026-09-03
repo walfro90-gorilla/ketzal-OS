@@ -14,7 +14,6 @@ import { pasosActivacion } from '@/lib/domain/embajador'
 import { TarjetaPerfil } from './tarjeta-perfil'
 import { Checklist } from './checklist'
 import { InvitaAmigos } from './invita-amigos'
-import { InstalarApp } from '@/components/shell/instalar-app'
 import { ConfetiPrimeraVenta } from './confeti'
 import { ViajesParaCompartir, type ViajeCompartible } from './viajes-para-compartir'
 
@@ -313,8 +312,6 @@ export default async function EmbajadorPage() {
           />
         </CardContent>
       </Card>
-
-      <InstalarApp />
 
       <Card>
         <CardHeader>
