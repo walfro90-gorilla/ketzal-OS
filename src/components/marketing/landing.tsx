@@ -2,13 +2,13 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { linkWhatsapp } from '@/lib/domain/phone'
-import { buttonVariants } from '@/components/ui/button'
 import { BrandMark } from '@/components/brand-mark'
-import { PublicFooter } from '@/components/public/public-footer'
+import { FooterHome } from './footer-home'
 import { formatTravelDate, mxnEntero } from '@/components/data/format'
 import { inter } from './fonts'
 import { CTA_NAV, CTA_PRIMARIO, CTA_SECUNDARIO, ENLACE } from './cta'
 import { inventarioHome } from './inventario'
+import { HuecoFoto } from './hueco-foto'
 import capturaVenta from './capturas/venta-movil-hero.png'
 import capturaPlan from './capturas/venta-escritorio-plan.png'
 import capturaCobranza from './capturas/cobranza-panel.png'
@@ -22,8 +22,7 @@ import capturaRecibo from './capturas/paso-recibo.png'
 // momento del hero (reveal escalonado + estela trazada), neutralizado por el
 // bloque global de prefers-reduced-motion.
 //
-// Etapa 4 de 6: todo es definitivo salvo el cierre (etapa 5), que sigue siendo
-// el anterior puesto sobre el tema oscuro (clase `dark` en el wrapper).
+// Etapa 5 de 6: la home está completa. Queda la auditoría (etapa 6).
 
 // Los tres pasos son una secuencia real: aquí SÍ va numeración.
 const PASOS = [
@@ -34,6 +33,27 @@ const PASOS = [
 
 // Herramientas reales del MCP (mcp/src/tools): no prometer lo que no existe.
 const HERRAMIENTAS_MCP = ['ketzal_cobranza', 'ketzal_registrar_abono', 'ketzal_ventas']
+
+// Cuatro objeciones reales del comprador (dueño de agencia chica, no técnico).
+// <details> nativo: teclado y lectores de pantalla gratis, cero JavaScript.
+const PREGUNTAS = [
+  {
+    q: '¿Necesito saber de tecnología?',
+    a: 'No. Si sabes usar WhatsApp, sabes usar Ketzal. Registrar una venta son tres campos: cliente, viaje y fecha. Lo demás lo calcula el sistema.',
+  },
+  {
+    q: '¿Funciona en el celular?',
+    a: 'Se diseñó para el celular primero. Cierras la venta parado en el mostrador o en la terminal, con el cliente enfrente, y le mandas su recibo antes de que se vaya.',
+  },
+  {
+    q: '¿Qué pasa con la información de mis clientes?',
+    a: 'Es tuya. Cada agencia solo ve lo suyo, y eso se hace cumplir en la base de datos, no en la pantalla. Los comprobantes viven en almacenamiento privado y se comparten por liga firmada que caduca.',
+  },
+  {
+    q: '¿Cómo paso lo que tengo en mis hojas de cálculo?',
+    a: 'No tienes que pasar el histórico. Empiezas por las ventas vivas, las que todavía te deben, y de ahí para adelante todo entra en Ketzal. Te ayudamos a cargar las primeras.',
+  },
+]
 
 // Lo que dice la spec, sin inflar: dos nombres reales, cero logos inventados.
 const AGENCIAS = [
@@ -115,7 +135,7 @@ export async function Landing() {
                   </Link>
                 )}
               </div>
-              <p className={cn(reveal, 'mt-6 text-small text-low [animation-delay:240ms]')}>
+              <p className={cn(reveal, 'mt-6 text-small text-mid [animation-delay:240ms]')}>
                 Hecho en Ciudad Juárez por gente que operó una agencia seis años.
               </p>
             </div>
@@ -171,12 +191,12 @@ export async function Landing() {
               <ul className="mt-2 flex flex-wrap gap-x-8 gap-y-2">
                 {AGENCIAS.map((a) => (
                   <li key={a.nombre} className="text-body font-semibold">
-                    {a.nombre} <span className="font-normal text-low">({a.ciudad})</span>
+                    {a.nombre} <span className="font-normal text-mid">({a.ciudad})</span>
                   </li>
                 ))}
               </ul>
             </div>
-            <ul aria-label="Construido con" className="flex gap-6 text-caption text-low">
+            <ul aria-label="Construido con" className="flex gap-6 text-caption text-mid">
               <li>Next.js</li>
               <li>Supabase</li>
               <li>MCP</li>
@@ -338,22 +358,22 @@ export async function Landing() {
                       )}
                     </div>
                     <div className="p-5">
-                      <p className="text-caption text-low">{t.agencia}</p>
+                      <p className="text-caption text-mid">{t.agencia}</p>
                       <h3 className="mt-1 font-display text-subheading">{t.nombre}</h3>
                       {t.destino && <p className="mt-1 text-small text-mid">{t.destino}</p>}
                       <dl className="mt-5 grid grid-cols-3 gap-3 border-t border-hairline pt-4 text-small">
                         <div>
-                          <dt className="text-caption text-low">Próxima salida</dt>
+                          <dt className="text-caption text-mid">Próxima salida</dt>
                           <dd className="mt-1 text-hi">{formatTravelDate(t.proxima)}</dd>
                         </div>
                         <div>
-                          <dt className="text-caption text-low">Cupo</dt>
+                          <dt className="text-caption text-mid">Cupo</dt>
                           <dd className="mt-1 text-hi tabular-nums">
                             {t.libres <= 3 ? `Últimos ${t.libres}` : `${t.libres} lugares`}
                           </dd>
                         </div>
                         <div>
-                          <dt className="text-caption text-low">Desde</dt>
+                          <dt className="text-caption text-mid">Desde</dt>
                           <dd className="mt-1 font-semibold text-hi tabular-nums">
                             {t.precio != null ? mxnEntero.format(t.precio) : '—'}
                           </dd>
@@ -403,29 +423,138 @@ export async function Landing() {
           </div>
         </section>
 
-        {/* ---------------- CIERRE (etapa 5 la sustituye) ---------------- */}
-        <section className="mx-auto w-full max-w-6xl px-4 py-16 sm:py-24">
-          <div className="relative overflow-hidden rounded-3xl bg-[color:var(--foreground)] px-6 py-14 text-center sm:px-16">
-            <div aria-hidden className="bg-estela pointer-events-none absolute inset-x-0 top-0 h-1" />
-            <h2 className="font-display mx-auto max-w-[20ch] text-3xl font-semibold tracking-[-0.015em] text-balance text-[color:var(--background)] sm:text-4xl">
+        {/* ---------------- HISTORIA: credibilidad de producto, no biografía ---------------- */}
+        <section aria-labelledby="historia" className="border-t border-hairline">
+          <div className="mx-auto grid w-full max-w-6xl gap-10 px-4 py-section lg:grid-cols-12 lg:gap-12 lg:py-section-lg">
+            <div className="lg:col-span-4">
+              {/* La foto real la sube el fundador; hasta entonces, el hueco
+                  reserva la caja para que no salte el layout al llegar. */}
+              <HuecoFoto
+                descripcion="Foto de Walfre Aguilar, fundador. Pendiente de subir."
+                className="max-w-[320px]"
+              />
+            </div>
+            <div className="lg:col-span-8">
+              <h2 id="historia" className="sr-only">
+                Por qué existe Ketzal
+              </h2>
+              <blockquote className="max-w-[60ch] space-y-5 text-lead text-hi">
+                <p>
+                  En 2017 abrí una agencia de viajes en Ciudad Juárez. Llegó a
+                  tener nueve personas. Fui automatizando lo que se rompía
+                  —primero hojas de cálculo para delegar cobros, luego chatbots
+                  para vender— hasta que quedó claro que necesitábamos un
+                  sistema propio.
+                </p>
+                <p>
+                  El COVID cerró la agencia en 2023. Los dos años siguientes los
+                  dediqué a pagar lo que debía, y en el camino aprendí a
+                  construir lo que en 2020 me hubiera salvado.
+                </p>
+                <p className="font-semibold">
+                  Ketzal OS es eso. No lo diseñé leyendo el mercado. Lo diseñé
+                  perdiendo.
+                </p>
+              </blockquote>
+              <p className="mt-6 text-small text-mid">Walfre Aguilar, fundador</p>
+            </div>
+          </div>
+        </section>
+
+        {/* ---------------- PRECIOS: en pesos, sin comisiones ocultas ---------------- */}
+        <section aria-labelledby="precios" className="scroll-mt-20 border-t border-hairline" id="precios">
+          <div className="mx-auto w-full max-w-6xl px-4 py-section lg:py-section-lg">
+            <div className="max-w-[55ch]">
+              <h2 id="precios" className="font-display text-display-md text-balance">
+                Beta abierta: gratis mientras dure.
+              </h2>
+              <p className="mt-5 text-lead text-mid">
+                Ketzal está en beta con agencias reales. Mientras dure no pagas
+                mensualidad. Cuando haya precio te lo decimos antes, no después.
+              </p>
+            </div>
+            <dl className="mt-12 grid gap-px overflow-hidden rounded-panel border border-hairline bg-hairline sm:grid-cols-3">
+              <div className="bg-surface-1 p-6">
+                <dt className="text-small text-mid">Usar el sistema</dt>
+                <dd className="mt-2 font-display text-heading text-jade-600">Gratis</dd>
+                <p className="mt-2 text-small text-mid">
+                  Ventas, abonos, recibos, cobranza y tu vitrina, sin límite de
+                  usuarios ni de ventas.
+                </p>
+              </div>
+              <div className="bg-surface-1 p-6">
+                <dt className="text-small text-mid">Venta que registras tú</dt>
+                <dd className="mt-2 font-display text-heading">Sin comisión</dd>
+                <p className="mt-2 text-small text-mid">
+                  Si cobraste tú, el dinero es tuyo completo. Ketzal solo lo
+                  anota.
+                </p>
+              </div>
+              <div className="bg-surface-1 p-6">
+                <dt className="text-small text-mid">Venta por tu vitrina</dt>
+                <dd className="mt-2 font-display text-heading">Comisión</dd>
+                <p className="mt-2 text-small text-mid">
+                  Solo cuando el cliente llega y paga por el marketplace. Se
+                  acuerda contigo antes de publicar.
+                </p>
+              </div>
+            </dl>
+            <p className="mt-6 max-w-[60ch] text-small text-mid">
+              Los pagos en línea los procesa Mercado Pago y cobra su tarifa
+              aparte; Ketzal no la retiene ni la aumenta.
+            </p>
+          </div>
+        </section>
+
+        {/* ---------------- PREGUNTAS: <details> nativo, cero JS ---------------- */}
+        <section aria-labelledby="preguntas" className="border-t border-hairline">
+          <div className="mx-auto w-full max-w-6xl px-4 py-section lg:py-section-lg">
+            <h2 id="preguntas" className="font-display text-display-md max-w-[20ch] text-balance">
+              Lo que preguntan antes de empezar.
+            </h2>
+            <div className="mt-10 max-w-[70ch]">
+              {PREGUNTAS.map((p) => (
+                <details key={p.q} name="preguntas" className="group border-t border-hairline">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-5 text-subheading outline-none focus-visible:ring-2 focus-visible:ring-jade-600 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas">
+                    {p.q}
+                    <span aria-hidden className="text-jade-600 transition-transform group-open:rotate-45">
+                      +
+                    </span>
+                  </summary>
+                  <p className="max-w-[60ch] pb-6 text-body text-mid">{p.a}</p>
+                </details>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ---------------- CIERRE ---------------- */}
+        <section aria-labelledby="cierre" className="border-t border-hairline">
+          <div className="mx-auto w-full max-w-6xl px-4 py-section lg:py-section-lg">
+            <h2 id="cierre" className="font-display text-display-md max-w-[20ch] text-balance">
               Deja la hoja de cálculo. Empieza a cobrar a tiempo.
             </h2>
-            <p className="mx-auto mt-4 max-w-[46ch] text-[color:var(--background)]/70">
-              Entra con el correo de tu agencia y registra tu primera venta hoy.
-            </p>
-            <div className="mt-8 flex justify-center">
-              <Link
-                href="/login"
-                className={cn(buttonVariants({ variant: 'estela', size: 'touch' }), 'px-8 text-base')}
-              >
-                Entrar a mi agencia
-              </Link>
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              {waHref ? (
+                <>
+                  <a href={waHref} className={CTA_PRIMARIO}>
+                    Escríbenos por WhatsApp
+                  </a>
+                  <Link href="/login" className={CTA_SECUNDARIO}>
+                    Entrar a mi agencia
+                  </Link>
+                </>
+              ) : (
+                <Link href="/login" className={CTA_PRIMARIO}>
+                  Entrar a mi agencia
+                </Link>
+              )}
             </div>
           </div>
         </section>
       </main>
 
-      <PublicFooter />
+      <FooterHome />
     </div>
   )
 }
