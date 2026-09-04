@@ -1,7 +1,10 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { after } from 'next/server'
 import { redirect } from 'next/navigation'
+import { avisarIndexNow } from '@/lib/marketing/indexnow'
+import { SITE_URL } from '@/lib/site-url'
 import { createClient } from '@/lib/supabase/server'
 import { safeError } from '@/lib/errors'
 import { esBannerValido } from '@/lib/storage/banner-url'
@@ -221,6 +224,10 @@ export async function setServicioPublicado(
   revalidatePath('/servicios')
   revalidatePath('/explora')
   revalidatePath(`/servicio/${id}`)
+
+  // ADR-0026: avisar a Bing tras responder — publicar no debe esperar a un
+  // buscador. Vale igual al despublicar: así re-rastrea y saca la ficha.
+  after(() => avisarIndexNow([`${SITE_URL}/servicio/${id}`, `${SITE_URL}/explora`]))
   return { ok: true }
 }
 

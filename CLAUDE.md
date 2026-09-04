@@ -97,7 +97,9 @@ prueban — prosa como "probado contra la BD real" no cuenta
   `SUPABASE_SERVICE_ROLE_KEY`, `MP_ACCESS_TOKEN`, `MP_CLIENT_ID/SECRET`,
   `CRON_SECRET`, `VAPID_*`, `NEXT_PUBLIC_HCAPTCHA_SITE_KEY`, `WHATSAPP_VENTAS`
   (contacto comercial de la home; sin él no hay botón de WhatsApp), `GROQ_API_KEY`
-  (+ `GROQ_AGENT_MODEL`, `GEMINI_API_KEY`, `DEEPSEEK_API_KEY` del asistente).
+  (+ `GROQ_AGENT_MODEL`, `GEMINI_API_KEY`, `DEEPSEEK_API_KEY` del asistente),
+  `INDEXNOW_KEY` (avisa a Bing al publicar un tour; sin ella es no-op y
+  `/indexnow-key.txt` da 404).
 
 ## Estado actual (corto — historia completa en `docs/BITACORA.md`)
 
@@ -137,7 +139,7 @@ prueban — prosa como "probado contra la BD real" no cuenta
   Migrada a proyecto dedicado 2026-08-26 — pendientes del fundador en la
   bitácora (exposed schemas, Auth dashboard, env vars Vercel, box WA, npm).
 - Tests: 200 de dominio (raíz) + 76 MCP, ambos en CI. Los **hard-tests**
-  (`supabase/tests/`, 31, hoy **31/31**)
+  (`supabase/tests/`, 33, hoy **33/33**)
   corren con **`pnpm hard-test`** (`-v` para el detalle) y **NO están en CI** —
   necesitan la service key y no hay staging
   → [ADR-0034](docs/adr/0034-la-verificacion-nombra-su-prueba.md). Requieren

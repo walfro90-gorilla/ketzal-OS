@@ -19,6 +19,13 @@ export function touristTripJsonLd(s: {
   departures: { departs_on: string }[]
   url: string
 }) {
+  // La pregunta que más se hace de un tour, después del precio, es "¿qué
+  // fechas hay?". `departures` ya viene filtrado a las salidas vendibles, así
+  // que la más próxima es una respuesta fáctica y citable.
+  const proxima = [...s.departures]
+    .map((d) => d.departs_on)
+    .filter(Boolean)
+    .sort()[0]
   const lugar = (ciudad: string | null, estado: string | null) =>
     [ciudad, estado].filter(Boolean).join(', ') || null
   const destino = lugar(s.city_to, s.state_to)
@@ -34,6 +41,7 @@ export function touristTripJsonLd(s: {
       ? { touristType: 'Leisure', itinerary: { '@type': 'Place', name: destino } }
       : {}),
     ...(origen ? { departureLocation: { '@type': 'Place', name: origen } } : {}),
+    ...(proxima ? { departureTime: proxima } : {}),
     provider: { '@type': 'TravelAgency', name: s.agency.name },
     ...(s.price != null && s.price > 0
       ? {
@@ -45,10 +53,43 @@ export function touristTripJsonLd(s: {
               s.departures.length > 0
                 ? 'https://schema.org/InStock'
                 : 'https://schema.org/LimitedAvailability',
+            ...(proxima ? { availabilityStarts: proxima } : {}),
             url: s.url,
           },
         }
       : {}),
+  }
+}
+
+/** schema.org/Organization + WebSite de la marca, para la portada.
+ *  Es lo que ata el nombre "Ketzal" al dominio, al logo y a las redes: sin
+ *  esto un buscador (o un asistente) no tiene forma de saber que la marca y
+ *  el sitio son la misma entidad. Se emite como @graph para no repetir
+ *  `@context` en dos bloques. */
+export function marcaJsonLd(siteUrl: string, logoUrl?: string | null) {
+  const org = `${siteUrl}/#organizacion`
+  return {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'Organization',
+        '@id': org,
+        name: 'Ketzal',
+        url: siteUrl,
+        description:
+          'Marketplace de viajes y tours de agencias locales de Chihuahua, México. Precio final en pesos, salidas con lugares disponibles y reserva en línea.',
+        areaServed: { '@type': 'Country', name: 'México' },
+        ...(logoUrl ? { logo: logoUrl } : {}),
+      },
+      {
+        '@type': 'WebSite',
+        '@id': `${siteUrl}/#sitio`,
+        url: siteUrl,
+        name: 'Ketzal',
+        inLanguage: 'es-MX',
+        publisher: { '@id': org },
+      },
+    ],
   }
 }
 
