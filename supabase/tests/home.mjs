@@ -56,6 +56,20 @@ check('las dos agencias reales aparecen con nombre', html.includes('Wanderlust T
 check('sin métricas inventadas ni logo wall: no hay "+", "%" ni "clientes" en la franja de credibilidad',
   !/Agencias que ya[^<]*<\/h2>[\s\S]{0,600}(\d+\+|\d+ ?%|clientes)/.test(html))
 
+// Etapa 4: pasos numerados con captura, inventario REAL de la vitrina y la
+// capa de IA con enlace verificable.
+const pasos = /<ol[^>]*>([\s\S]*?)<\/ol>/.exec(html)?.[1] ?? ''
+check('"Cómo funciona" es un <ol> con exactamente 3 pasos', (pasos.match(/<li[\s>]/g) ?? []).length === 3)
+check('cada paso lleva su captura (3 <img> dentro del <ol>)', (pasos.match(/<img[\s>]/g) ?? []).length === 3)
+check('el inventario muestra la Huasteca de Border Travels con su precio real',
+  html.includes('Huasteca Potosina en Avión') && html.includes('Border Travels') && html.includes('$7,999'))
+check('las fotos del inventario salen del Storage por el optimizador',
+  /\/_next\/image\?url=https%3A%2F%2F[^"]*ketzal-assets/.test(html))
+check('la capa de IA enlaza al paquete real en npm', html.includes('href="https://www.npmjs.com/package/ketzal-mcp"') && html.includes('npm i ketzal-mcp'))
+check('la home no promete herramientas que el MCP no tiene',
+  ['ketzal_cobranza', 'ketzal_registrar_abono', 'ketzal_ventas'].every((h) => html.includes(h)) && !/ketzal_(whatsapp|enviar_mensaje|cfdi)/.test(html))
+check('sin copy vacío (§7)', !/potencia|transforma|revoluciona|sin fricci|soluci[oó]n integral/i.test(html))
+
 // Nav sin marketplace (ADR-0047). El footer puede tener la puerta discreta.
 const header = /<header[\s\S]*?<\/header>/.exec(html)?.[0] ?? ''
 check('hay <header> con nav', header.includes('<nav'))
