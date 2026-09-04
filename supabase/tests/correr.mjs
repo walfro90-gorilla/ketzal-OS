@@ -290,7 +290,62 @@ if (noCorrieron.length) {
   console.log('\n  NO CORRIERON — nadie está verificando esto ahora mismo:')
   for (const r of noCorrieron) console.log(`    … ${r.f}  (${etiqueta(r)})\n        ${r.nota}`)
 }
+// ── Guard del inventario ───────────────────────────────────────────────────
+/**
+ * ¿El número de hard-tests que declara `CLAUDE.md` coincide con los que hay?
+ *
+ * Por qué existe: ese número se desincronizó DOS veces en dos días, siempre en
+ * silencio. El 2026-09-04 main declaraba 31 con 32 reales; entró en #130, que
+ * sumó `home.mjs` a la tabla de aquí abajo sin mover la línea de CLAUDE.md, y
+ * lo arrastraron las etapas siguientes. Nadie se entera hasta que alguien lo
+ * cuenta a mano.
+ *
+ * El modo de falla real NO es "alguien escribió mal el número", es "alguien
+ * agregó un harness sin saber que había un número que mover". Por eso el
+ * mensaje trae los dos valores, de dónde salió cada uno y la línea exacta:
+ * tiene que enseñar dónde está el número, no solo avisar que no cuadra.
+ *
+ * Si no se puede leer o parsear CLAUDE.md, esto AVISA y no falla. Hoy el
+ * corredor no depende del repo más allá de `supabase/tests/`, y sería absurdo
+ * que el chequeo del inventario impidiera correr las pruebas de dinero.
+ */
+async function revisarInventario(reales) {
+  const ruta = join(RAIZ, 'CLAUDE.md')
+  let texto
+  try {
+    texto = await readFile(ruta, 'utf8')
+  } catch (e) {
+    return { estado: 'sin-leer', motivo: `no se pudo leer CLAUDE.md (${e.code ?? e.message})` }
+  }
+  const lineas = texto.split('\n')
+  const patron = /\(`supabase\/tests\/`,\s*(\d+)/
+  const i = lineas.findIndex((l) => patron.test(l))
+  if (i < 0) {
+    return {
+      estado: 'sin-leer',
+      motivo: 'no se encontró en CLAUDE.md la línea con el conteo (`supabase/tests/`, N)',
+    }
+  }
+  const declarado = Number(lineas[i].match(patron)[1])
+  if (declarado === reales) return { estado: 'ok', declarado }
+  return { estado: 'difiere', declarado, reales, linea: i + 1 }
+}
+
+const inventario = await revisarInventario(HARNESS.length)
+if (inventario.estado === 'difiere') {
+  console.log('  INVENTARIO DESINCRONIZADO — el número de hard-tests no cuadra:')
+  console.log(`    · CLAUDE.md declara ${inventario.declarado}   (línea ${inventario.linea})`)
+  console.log(`    · aquí hay ${inventario.reales}              (entradas de HARNESS en supabase/tests/correr.mjs)`)
+  console.log(`    Corrige la línea ${inventario.linea} de CLAUDE.md para que diga ${inventario.reales}.`)
+} else if (inventario.estado === 'sin-leer') {
+  // Aviso, no fallo: el inventario no vale una suite caída.
+  console.log(`  ⚠ no se pudo verificar el inventario: ${inventario.motivo}`)
+}
 console.log(`${'─'.repeat(72)}\n`)
 
-// Rojo también si algo no corrió: un invariante sin verificar no es un invariante.
-process.exit(fallaron.length + noCorrieron.length === 0 ? 0 : 1)
+// Rojo también si algo no corrió: un invariante sin verificar no es un invariante,
+// y también si el inventario miente: un tablero que dice 31 con 32 reales ya está
+// mintiendo, aunque los 32 pasen.
+process.exit(
+  fallaron.length + noCorrieron.length === 0 && inventario.estado !== 'difiere' ? 0 : 1
+)
