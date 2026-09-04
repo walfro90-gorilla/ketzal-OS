@@ -81,6 +81,7 @@ export async function proxy(request: NextRequest) {
     path.startsWith('/agencia/') || // perfil público de una agencia (marketplace)
     path.startsWith('/comprar/') || // compra en línea (el visitante sin sesión se registra aquí)
     path === '/politica-cancelacion' || // política de cancelación (texto legal público)
+    path === '/privacidad' || // aviso de privacidad (LFPDPPP: tiene que verlo QUIEN NO tiene sesión)
     path.startsWith('/recuperar') ||
     path === '/sw.js' || // service worker (b036): el navegador lo re-fetchea sin contexto de página
     path === '/robots.txt' || // SEO/AEO (ADR-0026): sin esto los crawlers caen en /login
