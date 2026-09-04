@@ -87,6 +87,8 @@ export async function proxy(request: NextRequest) {
     path === '/robots.txt' || // SEO/AEO (ADR-0026): sin esto los crawlers caen en /login
     path === '/sitemap.xml' ||
     path === '/llms.txt' ||
+    path === '/indexnow-key.txt' || // IndexNow: el buscador lee la clave SIN sesión o no valida
+
     path.startsWith('/api/') // endpoints (p.ej. webhook de Mercado Pago) manejan su propia auth
   if (!user && !isPublic) {
     const url = request.nextUrl.clone(); url.pathname = '/login'; return conRef(NextResponse.redirect(url))

@@ -9,6 +9,31 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Que un asistente de IA pueda citarte: marca, fechas, catálogo vivo y aviso
+> a Bing (2026-09-04).** El fundador preguntó cómo lograr que ChatGPT o Gemini
+> recomienden Ketzal. Medido contra producción, ADR-0026 ya tenía viva la base
+> —robots invitando a los cinco crawlers de IA, `TouristTrip` en la ficha,
+> `ItemList` en la vitrina—, así que el trabajo fue tapar tres huecos y decir la
+> parte incómoda: con **5 tours publicados, 4 rutas y cero menciones de
+> terceros**, ningún asistente va a recomendar la marca por más schema que se
+> agregue; lo que decide es estar en el índice, tener contenido con forma de
+> respuesta y que alguien más te corrobore.
+>
+> Lo construido (ADR-0048): la portada declara `Organization` + `WebSite` atados
+> por `@id` —nada ataba el nombre "Ketzal" al dominio—; la ficha publica
+> `departureTime` y `availabilityStarts` con la salida más próxima, que es la
+> pregunta que sigue al precio; `llms.txt` deja de ser estático y sirve el
+> catálogo vivo con nombre, destino, precio en MXN, agencia y URL por tour; y
+> publicar o despublicar un servicio avisa a Bing por **IndexNow** dentro de
+> `after()`, env-gated por `INDEXNOW_KEY`.
+>
+> El harness nuevo `aeo_superficie.mjs` (24 aserciones, anónimo) cazó de
+> inmediato que `/indexnow-key.txt` daba **307 a `/login`**: sin ese archivo
+> público, Bing nunca valida el aviso y IndexNow no sirve para nada. Misma
+> familia que el bug de `/privacidad` de anoche. Y cazó una trampa del propio
+> harness: `fetch` sigue redirects por omisión, así que la primera versión
+> pasaba en verde midiendo la página de login — todas las peticiones llevan ya
+> `redirect: 'manual'`. Verificado por mutación. Suite 32.
 > **Rediseño de la home, etapas 5 y 6: historia, precios, preguntas, cierre y
 > la auditoría que encontró dos fallas de accesibilidad (2026-09-04).** La home
 > queda completa. Historia del fundador firmada, encuadrada como credibilidad
