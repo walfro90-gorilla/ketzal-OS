@@ -9,6 +9,17 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Estreno del pixel de Meta y GA4 en producción (2026-09-03).** Wal creó el
+> Business Portfolio "Ketzal OS", verificó `ketzal.tours` (TXT), creó el
+> conjunto de datos `1461675542488693`, el token CAPI y el código de prueba;
+> GA4 quedó en la propiedad existente con el flujo web apuntando al dominio,
+> referencias no deseadas `mercadopago.com`/`mercadolibre.com` y el secreto de
+> Measurement Protocol. Las cinco env vars en Vercel, bundle desplegado con el
+> pixel y el `G-` inlineados. Primer `begin_checkout` real desde la vitrina:
+> `ga4=sent`, **`meta=failed_400`** — y el log solo decía el status, así que
+> no se sabía si era el token (190) o el payload (100). Ahora se loggea código y
+> mensaje del error de Meta (la respuesta no trae el token).
+
 > **El gate de la contraseña provisional redirigía y aun así entregaba el panel (2026-09-03).**
 > Cerrando un hueco de cobertura salió una fuga. `gate_password_provisional.mjs`
 > sólo probaba `/embajador` y `/proveedor`, los dos FUERA de `(ops)`: el gate del
