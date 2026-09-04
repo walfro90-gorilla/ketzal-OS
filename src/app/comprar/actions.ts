@@ -102,6 +102,7 @@ export async function registrarComprador(
   if (user.identities?.length) {
     try {
       await notificar(await superadmins(), {
+        evento: 'viajero',
         title: 'Viajero nuevo registrado',
         body: `${nombre} (${email}) creó su cuenta en el marketplace.`,
         url: '/viajeros',
@@ -283,6 +284,7 @@ export async function crearPedido(input: {
         currency: 'MXN',
       }).format(Number(b.total))
       await notificar(admins, {
+        evento: 'cotizacion',
         title: clienteNuevo
           ? 'Nueva cotización · cliente nuevo'
           : 'Nueva cotización del marketplace',
@@ -660,6 +662,7 @@ export async function enviarPagoSpei(input: {
     if (b?.selling_supplier_id) {
       const admins = await adminsDeAgencia(b.selling_supplier_id)
       await notificar(admins, {
+        evento: 'spei',
         title: 'Transferencia SPEI por confirmar',
         body: `Un comprador declaró una transferencia de ${new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(input.amount)}.`,
         url: '/cobranza',
