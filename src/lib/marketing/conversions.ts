@@ -111,8 +111,23 @@ async function sendConversion(
             ),
             signal: AbortSignal.timeout(3000),
           }
-        ).then((r) => {
+        ).then(async (r) => {
           result.meta = r.ok ? 'sent' : `failed_${r.status}`
+          if (!r.ok) {
+            // Sin esto un `failed_400` es indebugueable (pasó el 2026-09-03 al
+            // estrenar el pixel). La respuesta de Meta no trae el token: se
+            // loggea código y mensaje (190 = token inválido, 100 = payload malo).
+            const err = (await r.json().catch(() => null)) as {
+              error?: { code?: number; error_subcode?: number; message?: string }
+            } | null
+            console.error(
+              'conversions meta',
+              r.status,
+              err?.error?.code,
+              err?.error?.error_subcode,
+              err?.error?.message
+            )
+          }
         })
       )
     }
