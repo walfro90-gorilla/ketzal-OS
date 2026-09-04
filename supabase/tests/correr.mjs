@@ -56,6 +56,7 @@ const HARNESS = [
   { f: 'expediente_usuario.mjs',          necesita: ['supabase', 'app'],          adr: '0043', afirma: 'el expediente abre también por clic (RSC), y las cuentas efímeras no salen en la lista' },
   { f: 'configuracion_agencia.mjs',       necesita: ['db', 'supabase', 'app'],    adr: '—',    afirma: 'la agencia se configura en /ajustes; /proveedores lista a sus proveedores, no a ella; su ficha redirige' },
   { f: 'agente_gates.mjs',                necesita: ['supabase', 'app'],          adr: '0044', afirma: 'el asistente solo abre al superadmin, corre las tools del MCP con SU JWT y el dinero no corre sin clic' },
+  { f: 'home.mjs',                        necesita: ['app'],                      adr: '0046', afirma: 'la home sirve su hero con UNA sola imagen prioritaria, la nav no enlaza al marketplace, responde también por RSC y /styleguide exige sesión' },
   // ── .sql ────────────────────────────────────────────────────────────────
   { f: 'money_invariants.sql',            necesita: ['db'], adr: '0005', afirma: 'el dinero se deriva; los totales cuadran' },
   { f: 'hard_testing_dinero.sql',         necesita: ['db'], adr: '0006', afirma: 'append-only: nadie muta un asiento por REST' },

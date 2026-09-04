@@ -1,174 +1,138 @@
+import Image from 'next/image'
 import Link from 'next/link'
 import {
   ReceiptTextIcon,
   BellRingIcon,
   SmartphoneIcon,
   StoreIcon,
-  CheckCircle2Icon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { linkWhatsapp } from '@/lib/domain/phone'
 import { buttonVariants } from '@/components/ui/button'
 import { BrandMark } from '@/components/brand-mark'
 import { PublicFooter } from '@/components/public/public-footer'
+import { inter } from './fonts'
+import { CTA_NAV, CTA_PRIMARIO, CTA_SECUNDARIO, ENLACE } from './cta'
+import capturaVenta from './capturas/venta-movil-hero.png'
 
-// Landing de marca (anónimos en `/`). Pitch del OS a la agencia (B2B), con
-// puerta secundaria al marketplace. Sistema "La Estela": display Bricolage,
-// neutros cálidos, firma estela. Server component — CTAs con buttonVariants
-// sobre <Link>, animaciones CSS puras (tw-animate-css) sin hidratar. La audacia
-// se concentra en el hero (product-glimpse + estela trazada); el resto, quieto.
-// reduced-motion neutraliza el movimiento vía el bloque global de globals.css.
+// Home de ketzal.tours (KETZAL_HOME_REDESIGN.md). Pitch del OS a la agencia,
+// sobre canvas oscuro con la paleta jade (ADR-0046); no le habla al viajero
+// (ADR-0047). Server component, cero cliente: la única animación es el
+// momento del hero (reveal escalonado + estela trazada), neutralizado por el
+// bloque global de prefers-reduced-motion.
+//
+// Etapa 2 de 6: nav y hero son los definitivos. Las secciones de abajo son las
+// anteriores puestas sobre el tema oscuro (clase `dark` en el wrapper) hasta
+// que las etapas 3–5 las sustituyan una por una.
 
-// Reveal escalonado: mismas clases + delay por índice. fill-mode:both mantiene
-// el estado inicial (oculto) durante el delay.
 const reveal = 'animate-in fade-in slide-in-from-bottom-4 duration-700 [animation-fill-mode:both]'
+
+// El contacto comercial lo pone el fundador en Vercel (WHATSAPP_VENTAS, 10 dígitos
+// o E.164). Sin él no se inventa un botón: el primario pasa a ser "Entrar".
+const WA = linkWhatsapp(process.env.WHATSAPP_VENTAS ?? null)
+const waHref = WA && `${WA}?text=${encodeURIComponent('Hola, quiero ver Ketzal OS para mi agencia.')}`
 
 export function Landing() {
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-3">
-          <Link href="/" aria-label="Ketzal — inicio" className="flex items-center gap-2">
-            <BrandMark className="size-7 text-primary" />
-            <span className="font-display text-lg font-semibold tracking-[-0.01em]">
-              Ketzal
-            </span>
+    <div className={cn(inter.variable, 'dark font-body scheme-dark flex min-h-screen flex-col bg-canvas text-hi')}>
+      <header className="sticky top-0 z-40 border-b border-hairline bg-canvas/80 backdrop-blur">
+        <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4">
+          <Link href="/" aria-label="Ketzal — inicio" className={cn('flex items-center gap-2 rounded-card', ENLACE, 'px-0 text-hi hover:text-hi')}>
+            <BrandMark className="size-7 text-jade-600" />
+            <span className="font-display text-lg font-semibold tracking-[-0.01em]">Ketzal</span>
           </Link>
-          <nav className="flex items-center gap-2 sm:gap-4">
-            <Link
-              href="/explora"
-              className="hidden text-sm text-muted-foreground transition-colors hover:text-foreground sm:block"
-            >
-              Ver viajes
-            </Link>
-            <Link
-              href="/login"
-              className={cn(buttonVariants({ variant: 'default', size: 'default' }))}
-            >
+          <nav aria-label="Principal" className="flex items-center gap-1 sm:gap-4">
+            <a href="#producto" className={cn(ENLACE, 'hidden sm:inline-flex')}>
+              Producto
+            </a>
+            <Link href="/login" className={ENLACE}>
               Entrar
             </Link>
+            {waHref && (
+              <a href={waHref} className={CTA_NAV}>
+                Escríbenos
+              </a>
+            )}
           </nav>
         </div>
       </header>
 
       <main className="flex-1">
-        {/* ---------------- HERO ---------------- */}
-        <section className="relative overflow-hidden">
-          <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
-            <div className="bg-estela absolute -top-24 right-[-10%] h-[440px] w-[440px] rounded-full opacity-[0.10] blur-3xl" />
-            <div className="bg-estela absolute top-1/2 left-[-15%] h-[360px] w-[360px] rounded-full opacity-[0.06] blur-3xl" />
-          </div>
-
-          <div className="mx-auto grid w-full max-w-6xl items-center gap-12 px-4 pt-14 pb-12 sm:pt-20 lg:grid-cols-[1.05fr_0.95fr] lg:gap-8 lg:pt-24 lg:pb-20">
-            {/* Copy */}
-            <div>
-              <p className={cn(reveal, 'mb-5 inline-flex items-center gap-2 text-xs font-semibold tracking-[0.16em] text-primary uppercase')}>
-                <span className="bg-estela h-[3px] w-6 rounded-full" aria-hidden />
-                Sistema operativo de venta
-              </p>
-              <h1 className={cn(reveal, 'font-display max-w-[16ch] text-4xl leading-[1.02] font-semibold tracking-[-0.02em] text-balance [animation-delay:80ms] sm:text-6xl')}>
-                Vende más viajes.{' '}
-                <span className="text-estela">Cobra a tiempo.</span> Sin hojas de
-                cálculo.
+        {/* ---------------- HERO: 7 columnas de texto, 5 de producto ---------------- */}
+        <section className="relative">
+          <div className="mx-auto grid w-full max-w-6xl gap-12 px-4 pt-14 pb-12 lg:grid-cols-12 lg:items-center lg:gap-10 lg:pt-24 lg:pb-16">
+            <div className="lg:col-span-7">
+              <h1 className={cn(reveal, 'font-display text-display-lg max-w-[18ch] text-balance lg:text-display-xl')}>
+                Vende más viajes. Cobra a tiempo. Sin hojas de cálculo.
               </h1>
-              <p className={cn(reveal, 'mt-6 max-w-[48ch] text-lg text-muted-foreground [animation-delay:160ms]')}>
-                Ketzal es la app donde tu agencia registra la venta, arma el plan
-                de abonos, cobra por WhatsApp y emite el recibo — desde el
-                celular, con el cliente enfrente.
+              <p className={cn(reveal, 'mt-6 max-w-[55ch] text-lead text-mid [animation-delay:80ms]')}>
+                Registra la venta, arma el plan de abonos, cobra por WhatsApp y
+                emite el recibo. Desde el celular, con el cliente enfrente.
               </p>
-              <div className={cn(reveal, 'mt-9 flex flex-wrap items-center gap-3 [animation-delay:240ms]')}>
-                <Link
-                  href="/login"
-                  className={cn(buttonVariants({ variant: 'estela', size: 'touch' }), 'px-6 text-base')}
-                >
-                  Entrar a mi agencia
-                </Link>
-                <Link
-                  href="/explora"
-                  className={cn(buttonVariants({ variant: 'outline', size: 'touch' }), 'px-6 text-base')}
-                >
-                  Ver viajes publicados
-                </Link>
+              <div className={cn(reveal, 'mt-8 flex flex-wrap items-center gap-3 [animation-delay:160ms]')}>
+                {waHref ? (
+                  <>
+                    <a href={waHref} className={CTA_PRIMARIO}>
+                      Escríbenos por WhatsApp
+                    </a>
+                    <Link href="/login" className={CTA_SECUNDARIO}>
+                      Entrar a mi agencia
+                    </Link>
+                  </>
+                ) : (
+                  <Link href="/login" className={CTA_PRIMARIO}>
+                    Entrar a mi agencia
+                  </Link>
+                )}
               </div>
+              <p className={cn(reveal, 'mt-6 text-small text-low [animation-delay:240ms]')}>
+                Hecho en Ciudad Juárez por gente que operó una agencia seis años.
+              </p>
             </div>
 
-            {/* Product-glimpse: la estela llenándose en una reserva real = la tesis. */}
-            <div className={cn(reveal, 'relative [animation-delay:320ms]')}>
-              <div
-                aria-hidden
-                className="bg-estela absolute -inset-4 -z-10 rounded-[2rem] opacity-[0.08] blur-2xl"
-              />
-              <div className="rounded-3xl bg-card p-5 ring-1 ring-foreground/10 shadow-[0_2px_4px_rgba(14,36,29,.06),0_28px_56px_-20px_rgba(14,36,29,.32)] sm:p-6">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-                    Reserva
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-success/12 px-2.5 py-1 text-xs font-semibold text-success">
-                    <span className="size-1.5 rounded-full bg-success" aria-hidden />
-                    Al corriente
-                  </span>
-                </div>
-
-                <div className="mt-4 flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-display text-lg font-semibold tracking-[-0.01em]">
-                      Chiapas · Cascadas y Selva
-                    </p>
-                    <p className="mt-0.5 text-sm text-muted-foreground">
-                      Salida 14 ago · 2 pasajeros · María G.
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-display text-lg font-semibold tabular-nums">
-                      $9,600
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      de $16,000
-                    </p>
-                  </div>
-                </div>
-
-                {/* La barra-estela: el abono avanzando. */}
-                <div className="mt-5">
-                  <div className="relative h-2.5 overflow-hidden rounded-full bg-secondary">
-                    <div className="bg-estela h-full rounded-full" style={{ width: '60%' }} />
-                  </div>
-                  <div className="mt-2 flex justify-between text-xs tabular-nums text-muted-foreground">
-                    <span>60% abonado</span>
-                    <span>Saldo $6,400</span>
-                  </div>
-                </div>
-
-                <div className="mt-5 flex items-center gap-2 border-t pt-4 text-xs text-muted-foreground">
-                  <CheckCircle2Icon className="size-4 shrink-0 text-success" />
-                  Recordatorio del próximo abono enviado por WhatsApp
-                </div>
+            {/* Captura real del producto: la venta con su plan de abonos, en el
+                celular. Es la imagen LCP: la única con priority en toda la home.
+                En Next 16 `priority` solo quita el lazy y emite el <link preload>;
+                el hint al navegador va aparte (`fetchPriority`). Ancho fijo
+                (390 css px máx.) ⇒ sin `sizes`: el srcset sale 1x/2x del width. */}
+            <div className={cn(reveal, 'lg:col-span-5 [animation-delay:200ms]')}>
+              <div className="mx-auto w-full max-w-[390px] overflow-hidden rounded-panel border border-hairline-strong bg-surface-1">
+                <Image
+                  src={capturaVenta}
+                  alt="Pantalla de una venta en Ketzal OS en el celular: plan de pagos con enganche y dos abonos quincenales, y debajo el resumen de total, pagado y saldo."
+                  priority
+                  fetchPriority="high"
+                  quality={85}
+                  placeholder="blur"
+                  className="h-auto w-full"
+                />
               </div>
             </div>
           </div>
 
-          {/* Estela trazada: la firma en movimiento, una vez, al cargar. */}
-          <div className="mx-auto -mt-2 w-full max-w-6xl px-4 pb-8">
-            <svg viewBox="0 0 900 90" className="h-14 w-full max-w-3xl" fill="none" aria-hidden="true">
+          {/* La estela: firma de marca trazada una vez al cargar. Único gradiente del sitio. */}
+          <div className="mx-auto w-full max-w-6xl px-4 pb-4">
+            <svg viewBox="0 0 900 90" className="h-12 w-full max-w-2xl" fill="none" aria-hidden="true">
               <defs>
                 <linearGradient id="estela-hero" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0" stopColor="var(--ring)" />
-                  <stop offset="1" stopColor="var(--success)" />
+                  <stop offset="0" stopColor="#00C89D" />
+                  <stop offset="1" stopColor="#05AE51" />
                 </linearGradient>
               </defs>
               <path
                 className="animate-estela-draw"
                 d="M6 74 C 240 74, 300 22, 470 18 S 760 40, 890 14"
                 stroke="url(#estela-hero)"
-                strokeWidth="7"
+                strokeWidth="6"
                 strokeLinecap="round"
               />
-              <circle cx="890" cy="14" r="6.5" fill="var(--success)" />
+              <circle cx="890" cy="14" r="6" fill="#05AE51" />
             </svg>
           </div>
         </section>
 
-        {/* ---------------- VALOR ---------------- */}
-        <section className="mx-auto w-full max-w-6xl px-4 py-14 sm:py-20">
+        {/* ---------------- VALOR (etapa 3 la sustituye) ---------------- */}
+        <section id="producto" className="mx-auto w-full max-w-6xl scroll-mt-20 px-4 py-14 sm:py-20">
           <div className="grid gap-4 sm:grid-cols-2">
             <Feature
               icon={ReceiptTextIcon}
@@ -193,18 +157,13 @@ export function Landing() {
           </div>
         </section>
 
-        {/* ---------------- CÓMO FUNCIONA (secuencia real → numeración + estela) --- */}
+        {/* ---------------- CÓMO FUNCIONA (etapa 4 la sustituye) ---------------- */}
         <section className="border-y bg-secondary/40">
           <div className="mx-auto w-full max-w-6xl px-4 py-14 sm:py-20">
-            <p className="mb-3 inline-flex items-center gap-2 text-xs font-semibold tracking-[0.16em] text-primary uppercase">
-              <span className="bg-estela h-[3px] w-6 rounded-full" aria-hidden />
-              De la venta al recibo
-            </p>
             <h2 className="font-display max-w-[18ch] text-3xl font-semibold tracking-[-0.015em] text-balance sm:text-4xl">
               Tres pasos, una tarde de trabajo menos
             </h2>
             <div className="relative mt-10">
-              {/* La estela hila los 3 pasos como regla superior: es una secuencia real. */}
               <div
                 aria-hidden
                 className="bg-estela absolute top-0 right-[16%] left-[16%] hidden h-[3px] rounded-full opacity-50 sm:block"
@@ -218,7 +177,7 @@ export function Landing() {
           </div>
         </section>
 
-        {/* ---------------- CTA FINAL ---------------- */}
+        {/* ---------------- CIERRE (etapa 5 la sustituye) ---------------- */}
         <section className="mx-auto w-full max-w-6xl px-4 py-16 sm:py-24">
           <div className="relative overflow-hidden rounded-3xl bg-[color:var(--foreground)] px-6 py-14 text-center sm:px-16">
             <div aria-hidden className="bg-estela pointer-events-none absolute inset-x-0 top-0 h-1" />
@@ -255,7 +214,7 @@ function Feature({
   body: string
 }) {
   return (
-    <div className="rounded-2xl bg-card p-6 ring-1 ring-foreground/10 transition-shadow hover:shadow-[0_2px_4px_rgba(14,36,29,.06),0_18px_40px_-16px_rgba(14,36,29,.28)]">
+    <div className="rounded-2xl bg-card p-6 ring-1 ring-foreground/10">
       <div className="bg-accent text-primary mb-4 flex size-11 items-center justify-center rounded-xl">
         <Icon className="size-5" />
       </div>

@@ -95,7 +95,8 @@ prueban — prosa como "probado contra la BD real" no cuenta
   → [ADR-0014](docs/adr/0014-migraciones-bd-fuente.md)
 - Env vars clave: `NEXT_PUBLIC_SUPABASE_URL/ANON_KEY`,
   `SUPABASE_SERVICE_ROLE_KEY`, `MP_ACCESS_TOKEN`, `MP_CLIENT_ID/SECRET`,
-  `CRON_SECRET`, `VAPID_*`, `NEXT_PUBLIC_HCAPTCHA_SITE_KEY`, `GROQ_API_KEY`
+  `CRON_SECRET`, `VAPID_*`, `NEXT_PUBLIC_HCAPTCHA_SITE_KEY`, `WHATSAPP_VENTAS`
+  (contacto comercial de la home; sin él no hay botón de WhatsApp), `GROQ_API_KEY`
   (+ `GROQ_AGENT_MODEL`, `GEMINI_API_KEY`, `DEEPSEEK_API_KEY` del asistente).
 
 ## Estado actual (corto — historia completa en `docs/BITACORA.md`)

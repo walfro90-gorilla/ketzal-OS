@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { AlertCircleIcon, CheckCircle2Icon } from 'lucide-react'
 import { inter } from '@/components/marketing/fonts'
+import { CTA_PRIMARIO, CTA_SECUNDARIO, ENLACE } from '@/components/marketing/cta'
 import { contraste, veredicto } from '@/lib/contraste'
 import { cn } from '@/lib/utils'
 
@@ -156,19 +157,13 @@ export default function Styleguide() {
         {/* ---------------- COMPONENTES ---------------- */}
         <Seccion titulo="Componentes" nota="Un CTA primario por vista. Estados siempre con icono o etiqueta además del color.">
           <div className="flex flex-wrap items-center gap-3">
-            <a
-              href="#"
-              className="inline-flex h-12 items-center rounded-pill bg-jade-600 px-6 text-body font-semibold text-canvas outline-none transition-colors hover:bg-jade-500 focus-visible:ring-2 focus-visible:ring-jade-600 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
-            >
-              Entrar a mi agencia
-            </a>
-            <a
-              href="#"
-              className="inline-flex h-12 items-center rounded-card border border-hairline-strong px-6 text-body text-hi outline-none transition-colors hover:border-hi/40 focus-visible:ring-2 focus-visible:ring-jade-600 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
-            >
+            <a href="#" className={CTA_PRIMARIO}>
               Escríbenos por WhatsApp
             </a>
-            <a href="#" className="text-body text-mid underline-offset-4 hover:text-hi hover:underline">
+            <a href="#" className={CTA_SECUNDARIO}>
+              Entrar a mi agencia
+            </a>
+            <a href="#" className={ENLACE}>
               Entrar
             </a>
           </div>

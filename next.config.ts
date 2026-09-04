@@ -16,6 +16,12 @@ const nextConfig: NextConfig = {
     serverActions: { bodySizeLimit: "4.5mb" },
   },
   images: {
+    // AVIF primero (la home lo exige para su imagen LCP, ADR-0046); WebP para
+    // quien no lo soporte. Aplica a todo next/image, sin cambio visual.
+    formats: ["image/avif", "image/webp"],
+    // Next 16 solo sirve las calidades de esta lista; sin el 85 la home pedía
+    // quality={85} y el optimizador entregaba 75 en silencio.
+    qualities: [75, 85],
     // Se necesita para que el optimizador de Next (/_next/image) acepte los
     // banners/fotos que viven en Storage — sin esto rechaza el host con
     // "hostname not configured". Lo usa opengraph-image.tsx para no servir
