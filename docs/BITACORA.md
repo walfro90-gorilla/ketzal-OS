@@ -9,6 +9,38 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Rediseño de la home, etapa 2 de 6: nav y hero con captura real (2026-09-03).**
+> La home pasa a canvas oscuro con la paleta jade (ADR-0046). Nav sticky con
+> blur permanente (cero JS): logo, "Producto" (ancla), "Entrar" y, solo si
+> `WHATSAPP_VENTAS` está puesta, el CTA "Escríbenos"; ya no enlaza a `/explora`
+> (ADR-0047). Hero asimétrico 7/5 con el H1 y el párrafo de la spec, CTA
+> primario WhatsApp (o "Entrar a mi agencia" si no hay número: no se inventa
+> un botón), la línea "Hecho en Ciudad Juárez…" y a la derecha la **captura
+> real del producto**: la venta con su plan de abonos en el celular, única
+> imagen con `priority`, servida por el optimizador con AVIF
+> (`images.formats` en `next.config.ts`). Las capturas se generan con
+> `scripts/capturas-home.mjs`: agencia efímera + venta con plan quincenal y dos
+> abonos (RPC reales con el JWT del agente efímero, política congelada y
+> aceptada para que no salga el aviso legado), Chrome headless por CDP con la
+> cookie de sesión —sin extensión, sin teclear contraseñas— a 2x, y limpieza
+> verificada en cero (agencia, venta, cuentas, contadores de folio). Salieron
+> 10 capturas (venta móvil/escritorio, cobranza, dashboard, lista de ventas,
+> vitrina real de la Huasteca); la home usa una; el resto queda para las
+> etapas 3–4 sin commitear. Las secciones viejas siguen debajo sobre el tema
+> `dark` hasta que las etapas 3–5 las sustituyan. Harness nuevo `home.mjs`
+> (12 casos): H1 único, UNA imagen prioritaria con alt descriptivo por
+> `/_next/image`, nav sin marketplace, contenido también por RSC, `/styleguide`
+> exige sesión; mutación gratis: corrido contra la home vieja en producción
+> falla donde debe. Tres cosas que solo salieron midiendo: (1) en Next 16
+> `priority` ya NO pone `fetchpriority="high"` en el `<img>` —solo quita el
+> lazy y emite el `<link rel=preload>`—, el hint va aparte con `fetchPriority`;
+> (2) `quality={85}` se servía como 75 en silencio porque Next 16 solo entrega
+> las calidades de `images.qualities` (quedó `[75, 85]`); (3) `cn()` tiraba
+> `text-lead` al verlo junto a `text-mid`: tailwind-merge no conocía los
+> tokens nuevos y los trató como dos tamaños, así que el párrafo del hero
+> salía a 16 px. Se le enseñan en `lib/utils.ts` (`extendTailwindMerge`) con
+> su test.
+
 > **Aviso de privacidad público, y la ruta legal que nacía tras el login (2026-09-03).**
 > Con el píxel de Meta y GA4 ya midiendo, faltaba el prerequisito legal: el
 > aviso de privacidad (LFPDPPP). Nace `/privacidad` — responsable, qué datos se
@@ -32,6 +64,7 @@
 > Pendiente del fundador: confirmar la identidad legal del responsable
 > (hoy dice "Ketzal", Ciudad Juárez) y **crear el buzón `privacidad@ketzal.tours`**
 > — un correo ARCO que rebota es peor que no ponerlo.
+
 > **Rediseño de la home, etapa 1 de 6: tokens (2026-09-03).** Arranca el
 > rediseño de `ketzal.tours/` por la spec del fundador
 > (`KETZAL_HOME_REDESIGN.md`, 12 secciones, lista de anti-patrones). Antes de
