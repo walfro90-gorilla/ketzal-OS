@@ -70,6 +70,30 @@ check('la home no promete herramientas que el MCP no tiene',
   ['ketzal_cobranza', 'ketzal_registrar_abono', 'ketzal_ventas'].every((h) => html.includes(h)) && !/ketzal_(whatsapp|enviar_mensaje|cfdi)/.test(html))
 check('sin copy vacío (§7)', !/potencia|transforma|revoluciona|sin fricci|soluci[oó]n integral/i.test(html))
 
+// Etapa 5: historia, precios, preguntas y cierre.
+check('la historia del fundador va firmada y sin foto de stock',
+  html.includes('Lo diseñé perdiendo') && html.includes('Walfre Aguilar, fundador'))
+check('el hueco de la foto dice qué falta, en vez de un placeholder mudo',
+  /Espacio reservado: Foto de Walfre Aguilar/.test(html))
+check('hay sección de precios y dice el modelo real (beta gratis + comisión solo por la vitrina)',
+  html.includes('Beta abierta') && html.includes('Sin comisión') && html.includes('Mercado Pago'))
+check('las preguntas son <details> nativos (cero JS) y son 4',
+  (html.match(/<details[\s>]/g) ?? []).length === 4)
+check('cada pregunta tiene su <summary>', (html.match(/<summary[\s>]/g) ?? []).length === 4)
+check('el cierre trae el titular de la spec', html.includes('Deja la hoja de cálculo'))
+// `text-low` (#6B7F79) da 4.38:1 sobre canvas y 4.02 sobre surface-1: la spec
+// lo permite SOLO en ≥18px. Ningún caption (12px) ni small (14px) puede usarlo.
+check('ningún texto chico usa el color terciario (falla AA bajo 18px)',
+  !/class="[^"]*text-(caption|small)[^"]*text-low[^"]*"/.test(html) &&
+  !/class="[^"]*text-low[^"]*text-(caption|small)[^"]*"/.test(html))
+
+// Footer: contacto y legales; la ÚNICA puerta al marketplace (ADR-0047).
+const footer = /<footer[\s\S]*?<\/footer>/.exec(html)?.[0] ?? ''
+check('el footer enlaza los dos textos legales',
+  /href="\/privacidad"/.test(footer) && /href="\/politica-cancelacion"/.test(footer))
+check('el footer tiene la puerta discreta al marketplace, y es la única de la página',
+  /href="\/explora"/.test(footer) && (html.match(/href="\/explora"/g) ?? []).length === 1)
+
 // Nav sin marketplace (ADR-0047). El footer puede tener la puerta discreta.
 const header = /<header[\s\S]*?<\/header>/.exec(html)?.[0] ?? ''
 check('hay <header> con nav', header.includes('<nav'))

@@ -142,8 +142,11 @@
   --color-surface-2: #122923;
   --color-hairline: rgba(255, 255, 255, 0.07);
   --color-hairline-strong: rgba(255, 255, 255, 0.12);
-  /* Texto: `text-hi` / `text-mid` / `text-low` (15.68 / 7.93 / 4.38 sobre canvas;
-     `low` solo en ≥18px). */
+  /* Texto: `text-hi` / `text-mid` / `text-low` (15.68 / 7.93 / 4.38 sobre canvas).
+     OJO con `low`: 4.38 sobre canvas y 4.02 sobre surface-1 ⇒ **solo ≥18px**.
+     La auditoría de la home lo encontró en captions de 12px (falla AA) y ahí
+     se usa `mid`: en texto chico la jerarquía la da el tamaño, no el color.
+     `home.mjs` fija que ningún caption/small lo use. */
   --color-hi: #e6edea;
   --color-mid: #9bada7;
   --color-low: #6b7f79;

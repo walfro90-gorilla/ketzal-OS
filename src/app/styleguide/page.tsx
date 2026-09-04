@@ -37,7 +37,7 @@ const NEUTROS = [
   ['surface-2', '#122923', 'segundo nivel (código, inputs)'],
   ['hi', '#E6EDEA', 'texto principal'],
   ['mid', '#9BADA7', 'texto secundario'],
-  ['low', '#6B7F79', 'texto terciario, solo ≥18px'],
+  ['low', '#6B7F79', 'terciario SOLO ≥18px (4.02 sobre surface-1: falla AA en chico)'],
 ] as const
 
 const ACENTOS = [

@@ -9,6 +9,35 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Rediseño de la home, etapas 5 y 6: historia, precios, preguntas, cierre y
+> la auditoría que encontró dos fallas de accesibilidad (2026-09-04).** La home
+> queda completa. Historia del fundador firmada, encuadrada como credibilidad
+> de producto ("No lo diseñé leyendo el mercado. Lo diseñé perdiendo"), con un
+> **hueco reservado** para su foto (`HuecoFoto`): dice en pantalla qué falta y
+> reserva la caja exacta para que el layout no salte cuando llegue el archivo;
+> nada de stock. Precios en tres columnas con el modelo real —beta gratis, sin
+> comisión en la venta que registra la agencia, comisión solo por la vitrina— y
+> la nota de que la tarifa de Mercado Pago es aparte y Ketzal no la retiene.
+> Cuatro preguntas con `<details name="preguntas">` nativo: acordeón exclusivo,
+> teclado y lectores de pantalla gratis, **cero JavaScript** (verificado: abre
+> con clic y cierra la anterior). Cierre con el titular de la spec. Footer
+> propio de la home (`FooterHome`), porque el compartido le habla al viajero;
+> lleva contacto, los dos textos legales y **la única puerta al marketplace de
+> toda la página** (ADR-0047), medida: `/explora` aparece exactamente una vez.
+>
+> **La auditoría (etapa 6) encontró dos cosas reales antes de mergear**, midiendo
+> el DOM en Chrome, no leyendo la tabla de la spec: (1) `text-low` (#6B7F79) se
+> estaba usando en captions de 12px y small de 14px, donde da **4.02:1 sobre
+> surface-1 y 4.38 sobre canvas** — falla AA; la spec lo permite solo en ≥18px.
+> Se cambiaron los 15 usos a `text-mid` (en texto chico la jerarquía la da el
+> tamaño, no el color) y `home.mjs` lo fija. Resultado: **129 textos medidos, 0
+> fallas, el peor par ahora 7.27:1** (era 4.02). (2) El enlace "Ver salidas
+> publicadas" del footer no tenía anillo de foco. Con Tab real: **16 elementos,
+> orden lógico, ninguno sin anillo**. Trampa de método anotada: `el.focus()`
+> programático NO dispara `:focus-visible`, así que medir el foco así da un
+> falso negativo — hay que mandar Tab de verdad. `home.mjs` cierra en **36
+> casos**.
+
 > **Rediseño de la home, etapa 4 de 6: cómo funciona, inventario y capa de IA
 > (2026-09-04).** Tres pasos numerados (aquí sí: es una secuencia real) con
 > mini-captura cada uno — el formulario de nueva venta, el plan de abonos y el
