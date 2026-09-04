@@ -43,6 +43,19 @@ check('la prioritaria existe y NO es lazy', prioritarias.length === 1 && !/loadi
 check('la prioritaria pide quality 85 (Next 16 exige images.qualities)', /q=85/.test(prioritarias[0] ?? ''))
 check('hay <link rel="preload" as="image"> para la LCP', /<link[^>]*rel="preload"[^>]*as="image"/.test(html))
 
+// Etapa 3: capturas reales (≥ 3 además del hero), todas con alt propio y por
+// el optimizador; solo la del hero es prioritaria, las demás lazy.
+const imgs = html.match(/<img[^>]*>/gi) ?? []
+check('hay al menos 4 imágenes (hero + 3 capturas del producto)', imgs.length >= 4, `${imgs.length}`)
+check('ninguna imagen sale como PNG crudo: todas por /_next/image',
+  imgs.every((i) => /src="\/_next\/image\?/.test(i)))
+check('todas tienen alt descriptivo (≥ 40 caracteres, sin "imagen de")',
+  imgs.every((i) => { const a = /alt="([^"]*)"/.exec(i)?.[1] ?? ''; return a.length >= 40 && !/^imagen/i.test(a) }))
+check('las no prioritarias son lazy', imgs.filter((i) => !/fetchpriority="high"/i.test(i)).every((i) => /loading="lazy"/.test(i)))
+check('las dos agencias reales aparecen con nombre', html.includes('Wanderlust Travels') && html.includes('Border Travels'))
+check('sin métricas inventadas ni logo wall: no hay "+", "%" ni "clientes" en la franja de credibilidad',
+  !/Agencias que ya[^<]*<\/h2>[\s\S]{0,600}(\d+\+|\d+ ?%|clientes)/.test(html))
+
 // Nav sin marketplace (ADR-0047). El footer puede tener la puerta discreta.
 const header = /<header[\s\S]*?<\/header>/.exec(html)?.[0] ?? ''
 check('hay <header> con nav', header.includes('<nav'))

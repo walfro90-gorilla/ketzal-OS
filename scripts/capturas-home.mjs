@@ -155,7 +155,10 @@ function conectar(wsUrl) {
 
 // `desplazarA`: texto de un encabezado; se hace scroll hasta él y se captura
 // SOLO el viewport (con su barra fija real), en vez de la página completa.
-async function capturar(cdp, { ruta, archivo, ancho, alto, movil, cookies, altoMax = 2400, desplazarA = null }) {
+// `soloViewport`: captura el primer viewport tal cual (sin página completa).
+// `formato`: 'png' (UI plana) o 'jpeg' (pantallas con foto: la vitrina en PNG
+// pesa 2 MB y el optimizador la re-codifica igual).
+async function capturar(cdp, { ruta, archivo, ancho, alto, movil, cookies, altoMax = 2400, desplazarA = null, soloViewport = false, formato = 'png' }) {
   const { targetId } = await cdp.enviar('Target.createTarget', { url: 'about:blank' })
   const { sessionId } = await cdp.enviar('Target.attachToTarget', { targetId, flatten: true })
   const s = (m, p) => cdp.enviar(m, p, sessionId)
@@ -185,13 +188,15 @@ async function capturar(cdp, { ruta, archivo, ancho, alto, movil, cookies, altoM
         const h = document.querySelector('header')?.getBoundingClientRect().height ?? 0;
         window.scrollBy(0, -(h + 12)); })()`, awaitPromise: true })
     await new Promise((r) => setTimeout(r, 500))
-  } else {
+  } else if (!soloViewport) {
     const { cssContentSize } = await s('Page.getLayoutMetrics')
     altoReal = Math.min(Math.ceil(cssContentSize.height), altoMax)
     await s('Emulation.setDeviceMetricsOverride', { width: ancho, height: Math.max(alto, altoReal), deviceScaleFactor: 2, mobile: !!movil })
     await new Promise((r) => setTimeout(r, 400))
   }
-  const { data } = await s('Page.captureScreenshot', { format: 'png', captureBeyondViewport: !desplazarA })
+  const { data } = await s('Page.captureScreenshot', {
+    format: formato, ...(formato === 'jpeg' ? { quality: 88 } : {}), captureBeyondViewport: !desplazarA && !soloViewport,
+  })
   writeFileSync(`${OUT}${archivo}`, Buffer.from(data, 'base64'))
   const titulo = (await s('Runtime.evaluate', { expression: 'document.title + " | " + location.pathname', returnByValue: true })).result.value
   console.log(`   ✔ ${archivo}  ${ancho}×${altoReal}@2x  ← ${titulo}`)
@@ -252,6 +257,11 @@ try {
   await capturar(cdp, { ...movil, alto: 720, ruta: V, archivo: 'venta-movil-hero.png', desplazarA: 'Plan de pagos' })
   await capturar(cdp, { ...movil, ruta: V, archivo: 'venta-movil-abonos.png', desplazarA: 'Abonos y recibo' })
   await capturar(cdp, { ...escritorio, ruta: V, archivo: 'venta-escritorio.png', altoMax: 1400 })
+  // Etapa 3 (features): tres pantallas de escritorio a 1280×800, mismo encuadre.
+  const panel = { ancho: 1280, alto: 800, movil: false, cookies, soloViewport: true }
+  await capturar(cdp, { ...panel, ruta: V, archivo: 'venta-escritorio-plan.png', desplazarA: 'Plan de pagos' })
+  await capturar(cdp, { ...panel, ruta: '/cobranza', archivo: 'cobranza-panel.png' })
+  await capturar(cdp, { ...panel, cookies: [], ruta: `/servicio/${SERVICIO_PUBLICO}`, archivo: 'vitrina-panel.jpg', formato: 'jpeg' })
   await capturar(cdp, { ...movil, ruta: '/cobranza', archivo: 'cobranza-movil.png' })
   await capturar(cdp, { ...escritorio, ruta: '/cobranza', archivo: 'cobranza-escritorio.png' })
   await capturar(cdp, { ...escritorio, ruta: '/dashboard', archivo: 'dashboard-escritorio.png' })
