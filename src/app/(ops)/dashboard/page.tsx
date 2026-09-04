@@ -35,6 +35,7 @@ import { getSpeiPendientes } from '../cobranza/data'
 import { BarrasTop } from '../reportes/graficas'
 import type { Reporte } from '../reportes/tipos'
 import { ChecklistArranque, type Onboarding } from './checklist-arranque'
+import { CelebracionArranque } from './celebracion-arranque'
 import { UnirseAgencia, type AgenciaParaUnirse } from './unirse-agencia'
 import {
   ResumenPlataforma,
@@ -1176,6 +1177,9 @@ export default async function DashboardPage({
       {onboarding && onboarding.pendientes > 0 && (
         <ChecklistArranque data={onboarding} />
       )}
+      {/* Aparte de la tarjeta: cuando `pendientes` llega a 0 ésta se desmonta,
+          así que no puede celebrar su propio final. No pinta nada. */}
+      {onboarding && <CelebracionArranque pendientes={onboarding.pendientes} />}
 
       <section aria-label="Requiere atención" className="space-y-3">
         <h2 className="font-display text-lg font-semibold tracking-[-0.01em]">

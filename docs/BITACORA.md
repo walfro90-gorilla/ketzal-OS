@@ -9,6 +9,28 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **El onboarding de una agencia nueva ya se celebraba solo; le faltaban los momentos (2026-09-04).**
+> El fundador pidió tour + confeti para agencias nuevas. Al revisar, casi todo
+> existía: el tour con foco de 13 pasos que se auto-abre (m005) y el checklist
+> "Primeros pasos" derivado de `onboarding_agencia()` (b064). Lo que faltaba era
+> más fino. **Confeti en dos momentos y ninguno más**: la apertura AUTOMÁTICA del
+> tour para el admin que estrena agencia (al reabrir con "?" no dispara, y al
+> agente invitado tampoco — su momento es su primera venta), y "Primeros pasos"
+> al llegar a cero, que es el momento que de verdad vale y que hasta hoy no se
+> marcaba de ninguna forma. Ese segundo vive en un componente APARTE porque la
+> tarjeta solo se monta con `pendientes > 0`: al completarse se desmonta y no
+> puede celebrar su propio final. Se celebra la **transición**, no el estado, para
+> que quien se une a una agencia ya lista no vea confeti por trabajo ajeno.
+> `canvas-confetti` entra con import dinámico: chunk propio de 11 KB, fuera de
+> `main-app` y del layout de ops, y respeta `prefers-reduced-motion`. De paso, el
+> paso "Primeros pasos" del tour dejó de hablar en condicional ("si tu agencia es
+> nueva") — se gatea con `conAgencia` desde `profiles.supplier_id`, que el layout
+> ya leía. **Dos hallazgos del camino:** `vitest.config.ts` no tenía el alias
+> `@/`, y hasta hoy ningún test lo había cruzado, así que el hueco estaba tapado
+> por casualidad; y la prueba en navegador midió la diferencia exacta —el admin
+> pide el chunk del confeti y ve 14 pasos, el superadmin no lo pide y ve 13.
+> → [ADR-0049](adr/0049-el-confeti-solo-celebra-dos-momentos.md).
+
 > **Que un asistente de IA pueda citarte: marca, fechas, catálogo vivo y aviso
 > a Bing (2026-09-04).** El fundador preguntó cómo lograr que ChatGPT o Gemini
 > recomienden Ketzal. Medido contra producción, ADR-0026 ya tenía viva la base

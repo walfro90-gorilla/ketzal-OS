@@ -21,6 +21,7 @@ export default async function OpsLayout({
   let displayName: string | null = null
   let role: string | null = null
   let tourYaVisto = false
+  let tieneAgencia = false
   // Para la tarjeta del menú de cuenta: quién eres, qué eres y de qué agencia.
   let avatar: string | null = null
   let tipoCuenta: string | null = null
@@ -47,6 +48,9 @@ export default async function OpsLayout({
     // m005: la marca del tour vive en el perfil, no en localStorage — antes
     // reaparecía en cada navegador y nadie sabía quién ya lo había visto.
     tourYaVisto = Boolean(profile.onboarded_at)
+    // Ya se leyó `supplier_id` arriba: el tour lo usa para no hablarle al
+    // superadmin de una tarjeta del Panel que solo existe dentro de una agencia.
+    tieneAgencia = Boolean(profile.supplier_id)
     avatar = profile.image ?? null
     tipoCuenta = profile.type ?? null
     if (profile.supplier_id) {
@@ -70,6 +74,7 @@ export default async function OpsLayout({
       tipoCuenta={tipoCuenta}
       agenciaNombre={agenciaNombre}
       tourYaVisto={tourYaVisto}
+      tieneAgencia={tieneAgencia}
       logoUrl={logoUrl}
       sidebarCollapsed={sidebarCollapsed}
     >

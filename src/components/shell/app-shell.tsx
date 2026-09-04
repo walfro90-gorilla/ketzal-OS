@@ -22,6 +22,7 @@ export function AppShell({
   tipoCuenta,
   agenciaNombre,
   tourYaVisto,
+  tieneAgencia = false,
   logoUrl = null,
   sidebarCollapsed = false,
   children,
@@ -35,6 +36,8 @@ export function AppShell({
   agenciaNombre?: string | null
   /** `profiles.onboarded_at` con fecha ⇒ el tour no se auto-abre (m005). */
   tourYaVisto?: boolean
+  /** `profiles.supplier_id`: el tour oculta al superadmin lo que solo existe dentro de una agencia. */
+  tieneAgencia?: boolean
   /** Logo oficial configurado (o null → cae al ícono de marca por defecto). */
   logoUrl?: string | null
   sidebarCollapsed?: boolean
@@ -80,7 +83,7 @@ export function AppShell({
         </Link>
         <div className="flex items-center gap-1 sm:gap-2">
           <GlobalSearch />
-          <ProductTour role={role} yaVisto={tourYaVisto} />
+          <ProductTour role={role} yaVisto={tourYaVisto} tieneAgencia={tieneAgencia} />
           <InstalarApp esperar={!tourYaVisto} />
           <ThemeToggle />
           {email && <Notificaciones />}
