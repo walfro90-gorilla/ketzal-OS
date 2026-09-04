@@ -94,14 +94,51 @@ export async function proxy(request: NextRequest) {
     // '/' resuelve el aterrizaje por persona (agente → dashboard, viajero → mis-compras).
     const url = request.nextUrl.clone(); url.pathname = '/'; return conRef(NextResponse.redirect(url))
   }
-  // Rutas de administración (catálogo, comisiones, equipo): solo admin/superadmin.
-  // El rol se consulta SOLO al entrar a una ruta admin (no en cada request).
-  if (user && isAdminRoute(path)) {
-    const { data: profile } = await supabase
+  // ── Contraseña provisional (ADR-0027) ────────────────────────────────────
+  // El gate vive AQUÍ y no en un layout. `(ops)/loading.tsx` streamea, así que
+  // el `redirect()` del layout no alcanza a cortar el render de la página: el
+  // 2026-09-03 se midió que `/dashboard` pedido con cabecera `RSC: 1` (una
+  // navegación por clic) devolvía 200 con 72 KB de flight que traían el nombre
+  // de la agencia, nombres de clientes y once cifras en pesos — el
+  // `NEXT_REDIRECT` venía adentro, o sea que el router sí navegaba, pero los
+  // datos YA habían viajado. `/ventas` y `/clientes` no filtraban: dependía del
+  // instante en que se cancela el stream de cada página, que es peor que un
+  // hueco parejo porque no hay invariante por página que razonar. El proxy corre
+  // antes de renderizar nada, así que no hay stream que fugar.
+  //
+  // Se CONSULTA la BD en vez de leer el flag del JWT a propósito: un
+  // `app_metadata` desincronizado es un gate que miente, y este gate existe
+  // justamente porque esa contraseña se dicta por WhatsApp y se considera
+  // comprometida desde que se emite.
+  //
+  // `profiles.must_change_password` no está tipado ⇒ cast (convención del repo).
+  const leerPerfil = async () =>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (await (supabase as any)
       .from('profiles')
-      .select('role, supplier_id')
-      .eq('id', user.id)
-      .single()
+      .select('role, supplier_id, must_change_password')
+      .eq('id', user!.id)
+      .maybeSingle()).data as
+      { role: string | null; supplier_id: string | null; must_change_password: boolean | null } | null
+
+  let perfil: Awaited<ReturnType<typeof leerPerfil>> = null
+  // `/nueva-password` queda fuera o el redirect se muerde la cola. Las públicas
+  // tampoco consultan: el anónimo no paga esta query.
+  if (user && !isPublic && path !== '/nueva-password') {
+    perfil = await leerPerfil()
+    if (perfil?.must_change_password) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/nueva-password'
+      url.search = ''
+      return conRef(NextResponse.redirect(url))
+    }
+  }
+
+  // Rutas de administración (catálogo, comisiones, equipo): solo admin/superadmin.
+  // El perfil ya se leyó arriba para el gate de la provisional; se reusa en vez
+  // de consultarlo dos veces en la misma petición.
+  if (user && isAdminRoute(path)) {
+    const profile = perfil ?? (await leerPerfil())
     if (!isAdminRole(profile?.role)) {
       // '/' resuelve por persona: el agente no-admin cae en /dashboard, el viajero
       // en /mis-compras (sin el salto extra vía /dashboard).

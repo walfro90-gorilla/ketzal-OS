@@ -1,11 +1,18 @@
 // Gate de CONTRASEÑA PROVISIONAL contra la app corriendo de verdad.
 //
 // `acceso_provisional.mjs` prueba el lado de Auth y la BD; esto prueba lo otro
-// mitad: que los layouts de /embajador y /proveedor efectivamente NO dejan pasar
-// a una cuenta que aún trae la contraseña que le dictaron, y que /nueva-password
-// sí abre para ellos (si rebotara, quedarían encerrados fuera de su portal).
-// El back-office ya tenía este gate; los dos portales no, y sus cuentas se
-// quedaban con la provisional para siempre.
+// mitad: que los layouts NO dejan pasar a una cuenta que aún trae la contraseña
+// que le dictaron, y que /nueva-password sí abre (si rebotara, quedaría
+// encerrada fuera de su portal).
+//
+// Cubre las TRES superficies, no dos. Hasta el 2026-09-03 sólo probaba
+// /embajador y /proveedor — los dos FUERA de `(ops)` — y el gate del
+// back-office, que es el que más vale porque ahí se mueve el dinero, nunca se
+// había medido. Se agregó al revisar un hallazgo de plataforma: bajo una ruta
+// con `loading.tsx` (y `(ops)` tiene uno), un `redirect()` de PÁGINA se degrada
+// a `<meta http-equiv="refresh">` con 200 en vez de dar 307. El de `(ops)` vive
+// en el LAYOUT y sí corta — pero eso hay que medirlo, no suponerlo, y nada
+// avisaba si dejaba de hacerlo.
 //
 // Necesita la app arriba. Local:  pnpm dev  y luego
 //   APP=http://localhost:3000 node --env-file=.env.local supabase/tests/gate_password_provisional.mjs
@@ -91,6 +98,58 @@ try {
   check('con provisional, /proveedor manda a /nueva-password',
     prov.status === 307 && prov.location?.includes('/nueva-password'),
     `HTTP ${prov.status} -> ${prov.location}`)
+
+  // ── El back-office ────────────────────────────────────────────────────────
+  // La cuenta se vuelve agente de una agencia real: sin `supplier_id` el layout
+  // de `(ops)` la rebotaría por otra razón y el caso no probaría el gate.
+  const agencia = (await (await fetch(
+    `${U}/rest/v1/suppliers?select=id&supplier_type=eq.agency&limit=1`,
+    { headers: { apikey: SK, Authorization: `Bearer ${SK}`, 'Accept-Profile': 'ketzal' } },
+  )).json())[0]
+  if (!agencia?.id) throw new Error('ROTO: no hay ninguna agencia para armar el caso de (ops)')
+  const ra = await fetch(`${U}/rest/v1/profiles?id=eq.${qa.emb.id}`, {
+    method: 'PATCH',
+    headers: { apikey: SK, Authorization: `Bearer ${SK}`, 'Content-Type': 'application/json',
+               'Accept-Profile': 'ketzal', 'Content-Profile': 'ketzal' },
+    body: JSON.stringify({ type: 'agente', supplier_id: agencia.id, must_change_password: true }),
+  })
+  if (!ra.ok) throw new Error(`agente ${ra.status}`)
+
+  // Status Y contenido: en el camino RSC (un clic desde el menú) la respuesta es
+  // 200 aunque el gate corte, y el redirect viaja DENTRO del flight. Mirar sólo
+  // el status daría verde con el gate quitado.
+  const OS = /Cobranza|Clawbot|Comisiones/
+  for (const ruta of ['/dashboard', '/ventas', '/clientes']) {
+    const directa = await fetch(`${APP}${ruta}`, {
+      headers: { cookie: cookies.join('; ') }, redirect: 'manual' })
+    check(`con provisional, ${ruta} manda a /nueva-password`,
+      directa.status === 307 && directa.headers.get('location')?.includes('/nueva-password'),
+      `HTTP ${directa.status} -> ${directa.headers.get('location')}`)
+
+    // Lo que se exige es lo que importa: que NO llegue contenido del OS, y que
+    // el corte lo dé el proxy con un 307 de verdad. Un 200 con `NEXT_REDIRECT`
+    // adentro también "redirige" — y así viajaban 72 KB con clientes y cifras.
+    const rsc = await fetch(`${APP}${ruta}`, {
+      headers: { cookie: cookies.join('; '), RSC: '1' }, redirect: 'manual' })
+    const cuerpo = await rsc.text()
+    check(`con provisional, ${ruta} por clic (RSC) tampoco entra`,
+      rsc.status === 307 &&
+      rsc.headers.get('location')?.includes('/nueva-password') &&
+      !OS.test(cuerpo),
+      `HTTP ${rsc.status} -> ${rsc.headers.get('location')} · contenido del OS=${OS.test(cuerpo)}`)
+  }
+
+  // Y no queda encerrado: /nueva-password abre también desde el back-office.
+  const npOps = await pedir('/nueva-password', cookies)
+  check('/nueva-password abre para el agente del back-office (200, sin rebote)',
+    npOps.status === 200, `HTTP ${npOps.status} -> ${npOps.location}`)
+
+  // Sin el flag, el back-office entra normal (si no, el caso de arriba pasaría
+  // por la razón equivocada).
+  await svcFlag(false)
+  const opsSinFlag = await pedir('/dashboard', cookies)
+  check('sin el flag, /dashboard entra normal', opsSinFlag.status === 200,
+    `HTTP ${opsSinFlag.status} -> ${opsSinFlag.location}`)
 } finally {
   if (!(await qa.destruir())) fallos++
 }

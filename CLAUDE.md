@@ -47,6 +47,11 @@ CFDI/SAT, cálculo social/gamificado, cualquier cosa del sueño 🅰️ sin su f
    `vercel.app` viejo no se le mandan a nadie.
    → [ADR-0040](docs/adr/0040-un-solo-dominio-publico-para-los-links.md)
 
+10. **Un gate de seguridad se hace cumplir en `src/proxy.ts`**, nunca con un
+    `redirect()` de layout o de página: donde hay streaming el redirect ocurre
+    y los datos ya viajaron en el flight.
+    → [ADR-0045](docs/adr/0045-el-gate-de-seguridad-no-vive-en-un-layout.md)
+
 ## Proceso ADR (obligatorio)
 
 Decisión estructural (tabla de dinero nueva, cambio de contrato de RPC
