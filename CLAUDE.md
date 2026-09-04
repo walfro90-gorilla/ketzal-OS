@@ -139,7 +139,7 @@ prueban — prosa como "probado contra la BD real" no cuenta
   Migrada a proyecto dedicado 2026-08-26 — pendientes del fundador en la
   bitácora (exposed schemas, Auth dashboard, env vars Vercel, box WA, npm).
 - Tests: 200 de dominio (raíz) + 76 MCP, ambos en CI. Los **hard-tests**
-  (`supabase/tests/`, 32, hoy **32/32**)
+  (`supabase/tests/`, 33, hoy **33/33**)
   corren con **`pnpm hard-test`** (`-v` para el detalle) y **NO están en CI** —
   necesitan la service key y no hay staging
   → [ADR-0034](docs/adr/0034-la-verificacion-nombra-su-prueba.md). Requieren
