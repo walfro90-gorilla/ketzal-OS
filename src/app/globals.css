@@ -113,6 +113,94 @@
   --animate-border-beam: border-beam calc(var(--duration) * 1s) infinite linear;
 }
 
+/* ------------------------------------------------------------------------
+   Paleta de la HOME (ADR-0046). Tokens ADITIVOS: nombres nuevos, ningún
+   token de La Estela se redefine, así que el OS no cambia. Los usan solo
+   `components/marketing/*` y `/styleguide`. Valores medidos del logo
+   (KETZAL_HOME_REDESIGN.md §3); los ratios de contraste se verifican en
+   `lib/contraste.test.ts` y se pintan en /styleguide, no se estiman.
+   `inline` a propósito: `font-body` debe resolver `--font-inter` donde el
+   wrapper de la home la define, no en :root.
+   ------------------------------------------------------------------------ */
+@theme inline {
+  /* Escala jade: el 67% del logo es #009F7D (jade-700). No usar `emerald`. */
+  --color-jade-50: #f1fbf9;
+  --color-jade-100: #def7f2;
+  --color-jade-200: #bdf2e7;
+  --color-jade-300: #98e1d2;
+  --color-jade-400: #62dac1;
+  --color-jade-500: #24dbb4;
+  --color-jade-600: #00c89d; /* CTA primario (con texto canvas: 8.66:1) */
+  --color-jade-700: #009f7d; /* ancla de marca; NO para párrafos sobre blanco (3.36:1) */
+  --color-jade-800: #027b61; /* texto jade sobre fondo claro (5.24:1) */
+  --color-jade-900: #035e4b;
+  --color-jade-950: #033329;
+
+  /* Neutros: canvas oscuro (= theme-color dark) + dos superficies + hairlines. */
+  --color-canvas: #081512;
+  --color-surface-1: #0d1f1a;
+  --color-surface-2: #122923;
+  --color-hairline: rgba(255, 255, 255, 0.07);
+  --color-hairline-strong: rgba(255, 255, 255, 0.12);
+  /* Texto: `text-hi` / `text-mid` / `text-low` (15.68 / 7.93 / 4.38 sobre canvas;
+     `low` solo en ≥18px). */
+  --color-hi: #e6edea;
+  --color-mid: #9bada7;
+  --color-low: #6b7f79;
+
+  /* Acentos del logo. `signal` SOLO como fill con texto negro (7.18:1) o canvas
+     (6.37:1). `alert` solo saldo vencido, nunca decorativo, nunca <18px (3.62:1). */
+  --color-signal: #05ae51;
+  --color-alert: #dc0419;
+
+  /* Cuerpo de la home: Inter con cv01 (1 con base) y ss03 (r/a redondeadas).
+     Bricolage (display) ya viene de --font-display. */
+  --font-body: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-body--font-feature-settings: "cv01", "ss03";
+
+  /* Escala tipográfica 1.25 / base 16. Tracking negativo solo en display y
+     heading. `text-display-xl` etc. traen line-height, tracking y peso. */
+  --text-display-xl: 3.8125rem;
+  --text-display-xl--line-height: 1.02;
+  --text-display-xl--letter-spacing: -0.03em;
+  --text-display-xl--font-weight: 700;
+  --text-display-lg: 3.0625rem;
+  --text-display-lg--line-height: 1.05;
+  --text-display-lg--letter-spacing: -0.03em;
+  --text-display-lg--font-weight: 700;
+  --text-display-md: 2.4375rem;
+  --text-display-md--line-height: 1.1;
+  --text-display-md--letter-spacing: -0.02em;
+  --text-display-md--font-weight: 700;
+  --text-heading: 1.9375rem;
+  --text-heading--line-height: 1.15;
+  --text-heading--letter-spacing: -0.02em;
+  --text-heading--font-weight: 600;
+  --text-subheading: 1.5625rem;
+  --text-subheading--line-height: 1.25;
+  --text-subheading--letter-spacing: -0.01em;
+  --text-subheading--font-weight: 600;
+  --text-lead: 1.25rem;
+  --text-lead--line-height: 1.45;
+  --text-body: 1rem;
+  --text-body--line-height: 1.55;
+  --text-small: 0.875rem;
+  --text-small--line-height: 1.5;
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1.4;
+  --text-caption--letter-spacing: 0.01em;
+  --text-caption--font-weight: 500;
+
+  /* Radios por rol, no un radio para todo: card/input · contenedor · pill (solo CTA). */
+  --radius-card: 0.5rem;
+  --radius-panel: 0.75rem;
+  --radius-pill: 9999px;
+
+  /* Aire entre secciones: 96 px móvil / 160 px desktop (`py-section lg:py-section-lg`). */
+  --spacing-section: 6rem;
+  --spacing-section-lg: 10rem;
+}
+
 /* Firma de marca como utilidades reutilizables (Tailwind v4 @utility). */
 @utility bg-estela {
   background-image: var(--gradient-estela);

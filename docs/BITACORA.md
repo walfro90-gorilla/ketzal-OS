@@ -9,6 +9,27 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Rediseño de la home, etapa 1 de 6: tokens (2026-09-03).** Arranca el
+> rediseño de `ketzal.tours/` por la spec del fundador
+> (`KETZAL_HOME_REDESIGN.md`, 12 secciones, lista de anti-patrones). Antes de
+> tocar la home: un segundo bloque `@theme inline` en `globals.css` con la
+> paleta jade medida del logo, canvas oscuro `#081512`, tres niveles de texto,
+> hairlines, `signal`/`alert`, la escala tipográfica 1.25 con peso y tracking
+> por token, tres radios por rol y el aire de sección (96/160 px). Todo
+> ADITIVO: `git diff` de `globals.css` solo suma líneas; el OS no cambia ni un
+> byte de CSS (ADR-0046). Inter se carga en `components/marketing/fonts.ts`,
+> no en el layout, para que el OS no la descargue. `/styleguide` (protegida,
+> `noindex`, cero cliente) pinta la paleta y **mide** cada par de contraste en
+> el render con `lib/contraste.ts`; el test fija los nueve pares de la spec y
+> encontró uno distinto: jade-600 sobre canvas da **8.66:1**, no 8.57 (AAA
+> igual). También salió que canvas sobre `signal` es 6.37:1 (AA) y negro sobre
+> `signal` 7.18:1 (AAA): el fill `signal` lleva texto negro. La spec traía
+> `surface-2 #12292322` (ocho dígitos); quedó `#122923`. Con la etapa se
+> documenta también ADR-0047 (propuesta): el apex es la puerta del SaaS hoy,
+> el marketplace conserva sus rutas y el flip a `os.` tiene disparador. Lo que
+> no se hizo a propósito: Bricolage 800 (la escala usa 600/700), AVIF en
+> `next.config.ts` (va con las capturas), tocar `landing.tsx` (etapa 2).
+
 > **Estreno del pixel de Meta y GA4 en producción (2026-09-03).** Wal creó el
 > Business Portfolio "Ketzal OS", verificó `ketzal.tours` (TXT), creó el
 > conjunto de datos `1461675542488693`, el token CAPI y el código de prueba;
@@ -24,6 +45,7 @@
 > tercer checkout: `meta=sent ga4=sent`. **Pixel + CAPI + GA4 en vivo.**
 > Observación: cada `begin_checkout` sale dos veces en `vercel logs`; Meta y
 > GA4 dedupean por `event_id`/`transaction_id`.
+
 
 > **El gate de la contraseña provisional redirigía y aun así entregaba el panel (2026-09-03).**
 > Cerrando un hueco de cobertura salió una fuga. `gate_password_provisional.mjs`
