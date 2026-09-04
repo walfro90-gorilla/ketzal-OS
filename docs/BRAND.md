@@ -25,6 +25,9 @@
 | **Rojo (acento)** | `#DF001A` | `oklch(0.568 0.232 26.8)` | Franja / destructive / alertas |
 | Blanco | `#FFFFFF` | — | Fondo del logo y de la app (light) |
 
+### Paleta de la home (2026-09-03, ADR-0046)
+La home de `ketzal.tours` usa una escala **jade** propia medida del logo (ancla `#009F7D` = jade-700) sobre canvas oscuro `#081512`, ADITIVA a esta tabla: tokens `jade-*`, `canvas`, `surface-*`, `hi/mid/low`, `signal`, `alert` en `globals.css`. La referencia viva con los ratios medidos es `/styleguide` (con sesión). Esta tabla sigue mandando en el OS.
+
 ### Nota de accesibilidad
 Blanco sobre el teal puro `#009E7E` da ~3.2:1 (bien para texto grande/UI, **corto para texto normal AA 4.5**).
 Para **botón primario con texto**, usar el teal de interacción `#00805F` (~4.4:1) o un poco más oscuro. El teal puro queda genial para acentos, nav activa e íconos.
