@@ -280,7 +280,10 @@ export function Notificaciones() {
                   {n.body && (
                     <span className="text-xs text-muted-foreground">{n.body}</span>
                   )}
-                  <span className="text-[11px] text-muted-foreground/70">
+                  {/* Sin `/70`: a 11px la opacidad tumbaba el contraste a 2.95:1 en claro
+                      y 4.13:1 en oscuro, los dos por debajo del 4.5:1 que pide AA
+                      para texto chico. El token solo ya da 5.45 y 7.08. */}
+                  <span className="text-[11px] text-muted-foreground">
                     {tiempoRelativo(n.created_at)}
                   </span>
                 </span>
