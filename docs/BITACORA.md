@@ -9,6 +9,30 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Rediseño de la home, etapa 3 de 6: credibilidad, problema y features
+> (2026-09-04).** Sustituye las cuatro cards iguales con icono (anti-patrón
+> §7) por tres secciones de la spec. Credibilidad: franja delgada sin fondo,
+> "Agencias que ya están en Ketzal" con los dos nombres reales y su ciudad
+> (sin el verbo "operan": el OS sigue en pruebas), y a la derecha Next.js /
+> Supabase / MCP en `caption`; cero logos inventados. Problema: dos columnas
+> "Así opera hoy tu agencia" (5 líneas, en `mid`) contra "Así opera con
+> Ketzal" (4, en `hi`), separadas por hairlines; el único dato en jade de la
+> sección es "Una sola pantalla con todo lo que te deben". Features con
+> jerarquía: uno héroe ancho ("Venta, abonos y recibo en un solo flujo",
+> `display-md`) con la captura de escritorio de la venta —plan de pagos y
+> resumen total/pagado/saldo—, y dos secundarios lado a lado con captura más
+> chica: Cobranza (pantalla real) y Vitrina (la ficha pública real de la
+> Huasteca de Border Travels, en JPEG porque en PNG pesaba 2.2 MB). Las tres
+> capturas nuevas salen del mismo `scripts/capturas-home.mjs` (opciones
+> `soloViewport` y `formato`), encuadre 1280×800 a 2x, agencia efímera y
+> limpieza verificada. `home.mjs` sube de 14 a 20 casos: ≥ 4 imágenes todas
+> por el optimizador con alt ≥ 40 caracteres, solo la del hero prioritaria y
+> las demás lazy, las dos agencias por nombre, y ningún "+", "%" ni
+> "clientes" en la franja de credibilidad. Medido en Chrome: título de
+> feature 39 px Bricolage, subtítulos 25 px Inter 600, problema 31 px, franja
+> 14 px `mid`; sin scroll horizontal a 1440 ni a 390. Quedan del diseño
+> viejo "Cómo funciona" y el cierre (etapas 4 y 5).
+
 > **Rediseño de la home, etapa 2 de 6: nav y hero con captura real (2026-09-03).**
 > La home pasa a canvas oscuro con la paleta jade (ADR-0046). Nav sticky con
 > blur permanente (cero JS): logo, "Producto" (ancla), "Entrar" y, solo si
