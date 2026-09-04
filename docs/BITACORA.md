@@ -9,6 +9,34 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **El gate de la contraseña provisional redirigía y aun así entregaba el panel (2026-09-03).**
+> Cerrando un hueco de cobertura salió una fuga. `gate_password_provisional.mjs`
+> sólo probaba `/embajador` y `/proveedor`, los dos FUERA de `(ops)`: el gate del
+> back-office —donde se mueve el dinero— nunca se había medido. Al escribir esos
+> casos apareció por qué importaba. Con `must_change_password = true`, un GET a
+> `/dashboard` con cabecera `RSC: 1` (lo que manda el navegador al hacer **clic**
+> desde el menú) devolvía **200** y un flight de **72 KB** con el nombre de la
+> agencia, nombres reales de clientes y once cifras en pesos, entre ellas
+> `$20,024.80`. El `NEXT_REDIRECT` venía dentro, o sea que el router sí navegaba
+> a `/nueva-password` — pero los datos ya habían viajado, y se leen pidiendo el
+> RSC a mano. Causa: `(ops)` tiene `loading.tsx`, así que la ruta streamea y el
+> `redirect()` del layout no alcanza a cortar el render de la página. `/ventas` y
+> `/clientes` NO filtraban, por el instante en que se cancela el stream de cada
+> una: peor que un hueco parejo, porque invita a arreglar la página en vez de
+> mover el gate. Exposición al encontrarlo: **cero cuentas con el flag**
+> (medido); la ventana se abre al reclutar embajadores con contraseña
+> provisional. El gate se movió a `src/proxy.ts`, que corre antes de renderizar
+> nada, consultando el flag a la BD y no al JWT —un `app_metadata`
+> desincronizado es un gate que miente— y reusando la lectura de `profiles` que
+> ese archivo ya hacía para las rutas admin, así que las rutas admin no la pagan
+> dos veces. El `redirect()` del layout se queda como segunda línea. Seis casos
+> nuevos en el harness exigen **307 a `/nueva-password` Y que el cuerpo no traiga
+> contenido del OS**: las dos mitades, porque un 200 con `NEXT_REDIRECT` adentro
+> también "redirige". Probado por mutación: anular el gate del proxy pone los
+> tres casos RSC en rojo y **reaparece la fuga**
+> ([ADR-0045](adr/0045-el-gate-de-seguridad-no-vive-en-un-layout.md)). Suite:
+> **30/30**.
+
 > **El OS tiene asistente IA: chat flotante sobre las 37 herramientas del MCP, solo superadmin por ahora (2026-09-03).**
 > Se quería operar el OS en lenguaje natural sin terminal. No se escribió un
 > segundo catálogo: `ToolDef` del MCP ya era agnóstico del transporte, así que
