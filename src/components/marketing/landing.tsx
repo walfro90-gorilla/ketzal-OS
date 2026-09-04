@@ -5,12 +5,16 @@ import { linkWhatsapp } from '@/lib/domain/phone'
 import { buttonVariants } from '@/components/ui/button'
 import { BrandMark } from '@/components/brand-mark'
 import { PublicFooter } from '@/components/public/public-footer'
+import { formatTravelDate, mxnEntero } from '@/components/data/format'
 import { inter } from './fonts'
 import { CTA_NAV, CTA_PRIMARIO, CTA_SECUNDARIO, ENLACE } from './cta'
+import { inventarioHome } from './inventario'
 import capturaVenta from './capturas/venta-movil-hero.png'
 import capturaPlan from './capturas/venta-escritorio-plan.png'
 import capturaCobranza from './capturas/cobranza-panel.png'
 import capturaVitrina from './capturas/vitrina-panel.jpg'
+import capturaRegistrar from './capturas/paso-registrar.png'
+import capturaRecibo from './capturas/paso-recibo.png'
 
 // Home de ketzal.tours (KETZAL_HOME_REDESIGN.md). Pitch del OS a la agencia,
 // sobre canvas oscuro con la paleta jade (ADR-0046); no le habla al viajero
@@ -18,9 +22,18 @@ import capturaVitrina from './capturas/vitrina-panel.jpg'
 // momento del hero (reveal escalonado + estela trazada), neutralizado por el
 // bloque global de prefers-reduced-motion.
 //
-// Etapa 3 de 6: nav, hero, credibilidad, problema y features son definitivos.
-// "Cómo funciona" y el cierre son los anteriores puestos sobre el tema oscuro
-// (clase `dark` en el wrapper) hasta que las etapas 4 y 5 los sustituyan.
+// Etapa 4 de 6: todo es definitivo salvo el cierre (etapa 5), que sigue siendo
+// el anterior puesto sobre el tema oscuro (clase `dark` en el wrapper).
+
+// Los tres pasos son una secuencia real: aquí SÍ va numeración.
+const PASOS = [
+  { titulo: 'Registra la venta', cuerpo: 'Cliente, servicio y salida. Ketzal calcula el total y aparta el cupo.', captura: capturaRegistrar, alt: 'Formulario "Nueva venta" en el celular: elegir cliente existente o nuevo, servicio y fecha de viaje, con el total abajo.' },
+  { titulo: 'Arma los abonos', cuerpo: 'Enganche, frecuencia y fecha límite. El calendario se arma solo.', captura: capturaVenta, alt: 'Plan de pagos de una venta en el celular: enganche y dos abonos quincenales con su fecha y saldo restante.' },
+  { titulo: 'Cobra y da recibo', cuerpo: 'Registras el pago y el recibo sale al instante, con link para compartir por WhatsApp.', captura: capturaRecibo, alt: 'Recibo de pago #0001 en el celular: agencia, cliente, concepto, monto y saldo pendiente.' },
+]
+
+// Herramientas reales del MCP (mcp/src/tools): no prometer lo que no existe.
+const HERRAMIENTAS_MCP = ['ketzal_cobranza', 'ketzal_registrar_abono', 'ketzal_ventas']
 
 // Lo que dice la spec, sin inflar: dos nombres reales, cero logos inventados.
 const AGENCIAS = [
@@ -48,7 +61,8 @@ const reveal = 'animate-in fade-in slide-in-from-bottom-4 duration-700 [animatio
 const WA = linkWhatsapp(process.env.WHATSAPP_VENTAS ?? null)
 const waHref = WA && `${WA}?text=${encodeURIComponent('Hola, quiero ver Ketzal OS para mi agencia.')}`
 
-export function Landing() {
+export async function Landing() {
+  const inventario = await inventarioHome()
   return (
     <div className={cn(inter.variable, 'dark font-body scheme-dark flex min-h-screen flex-col bg-canvas text-hi')}>
       <header className="sticky top-0 z-40 border-b border-hairline bg-canvas/80 backdrop-blur">
@@ -267,22 +281,124 @@ export function Landing() {
           </div>
         </section>
 
-        {/* ---------------- CÓMO FUNCIONA (etapa 4 la sustituye) ---------------- */}
-        <section className="border-y bg-secondary/40">
-          <div className="mx-auto w-full max-w-6xl px-4 py-14 sm:py-20">
-            <h2 className="font-display max-w-[18ch] text-3xl font-semibold tracking-[-0.015em] text-balance sm:text-4xl">
-              Tres pasos, una tarde de trabajo menos
+        {/* ---------------- CÓMO FUNCIONA: secuencia real, numerada, con mini-capturas ---------------- */}
+        <section aria-labelledby="pasos" className="border-t border-hairline">
+          <div className="mx-auto w-full max-w-6xl px-4 py-section lg:py-section-lg">
+            <h2 id="pasos" className="font-display text-display-md max-w-[18ch] text-balance">
+              Tres pasos, una tarde de trabajo menos.
             </h2>
-            <div className="relative mt-10">
-              <div
-                aria-hidden
-                className="bg-estela absolute top-0 right-[16%] left-[16%] hidden h-[3px] rounded-full opacity-50 sm:block"
-              />
-              <ol className="grid gap-8 sm:grid-cols-3 sm:gap-6 sm:pt-7">
-                <Step n="01" title="Registra la venta" body="Elige cliente, servicio y salida. Ketzal calcula el total y reserva el cupo." />
-                <Step n="02" title="Arma los abonos" body="Define el plan de pagos. Cada abono cae en la cobranza con su fecha." />
-                <Step n="03" title="Cobra y da recibo" body="Registra el pago, emite el recibo y comparte el estado de cuenta por WhatsApp." />
-              </ol>
+            <ol className="mt-12 grid gap-10 sm:grid-cols-3 sm:gap-8">
+              {PASOS.map((p, i) => (
+                <li key={p.titulo} className="flex flex-col">
+                  <div className="overflow-hidden rounded-panel border border-hairline">
+                    <Image
+                      src={p.captura}
+                      alt={p.alt}
+                      quality={85}
+                      sizes="(min-width: 640px) 33vw, 100vw"
+                      placeholder="blur"
+                      className="h-auto w-full"
+                    />
+                  </div>
+                  <p className="mt-6 text-caption text-jade-600 tabular-nums">{String(i + 1).padStart(2, '0')}</p>
+                  <h3 className="mt-1 text-subheading">{p.titulo}</h3>
+                  <p className="mt-2 max-w-[40ch] text-body text-mid">{p.cuerpo}</p>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
+
+        {/* ---------------- INVENTARIO: salidas reales de la vitrina, en vivo ---------------- */}
+        {inventario.length > 0 && (
+          <section aria-labelledby="inventario" className="border-t border-hairline">
+            <div className="mx-auto w-full max-w-6xl px-4 py-section lg:py-section-lg">
+              <div className="max-w-[55ch]">
+                <h2 id="inventario" className="font-display text-display-md text-balance">
+                  Tu inventario, publicado.
+                </h2>
+                <p className="mt-5 text-lead text-mid">
+                  Cada salida con su foto, fecha, cupo y precio. Lo que ves aquí
+                  es lo que hoy tienen publicado agencias reales en Ketzal.
+                </p>
+              </div>
+              <ul className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {inventario.map((t) => (
+                  <li key={t.id} className="overflow-hidden rounded-panel border border-hairline bg-surface-1">
+                    <div className="relative aspect-[4/3]">
+                      {t.imagen && (
+                        <Image
+                          src={t.imagen}
+                          alt={`${t.nombre}: foto principal de la salida publicada por ${t.agencia}.`}
+                          fill
+                          quality={85}
+                          sizes="(min-width: 1024px) 360px, (min-width: 640px) 50vw, 100vw"
+                          className="object-cover"
+                        />
+                      )}
+                    </div>
+                    <div className="p-5">
+                      <p className="text-caption text-low">{t.agencia}</p>
+                      <h3 className="mt-1 font-display text-subheading">{t.nombre}</h3>
+                      {t.destino && <p className="mt-1 text-small text-mid">{t.destino}</p>}
+                      <dl className="mt-5 grid grid-cols-3 gap-3 border-t border-hairline pt-4 text-small">
+                        <div>
+                          <dt className="text-caption text-low">Próxima salida</dt>
+                          <dd className="mt-1 text-hi">{formatTravelDate(t.proxima)}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-caption text-low">Cupo</dt>
+                          <dd className="mt-1 text-hi tabular-nums">
+                            {t.libres <= 3 ? `Últimos ${t.libres}` : `${t.libres} lugares`}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-caption text-low">Desde</dt>
+                          <dd className="mt-1 font-semibold text-hi tabular-nums">
+                            {t.precio != null ? mxnEntero.format(t.precio) : '—'}
+                          </dd>
+                        </div>
+                      </dl>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+        )}
+
+        {/* ---------------- CAPA DE IA: en lenguaje de negocio, con enlace verificable ---------------- */}
+        <section aria-labelledby="ia" className="border-t border-hairline">
+          <div className="mx-auto grid w-full max-w-6xl gap-10 px-4 py-section lg:grid-cols-12 lg:gap-12 lg:py-section-lg">
+            <div className="lg:col-span-7">
+              <h2 id="ia" className="font-display text-display-md text-balance">
+                Tu agencia, operable en lenguaje natural.
+              </h2>
+              <p className="mt-5 max-w-[55ch] text-lead text-mid">
+                Ketzal expone su inventario y su operación a través de MCP, el
+                protocolo estándar para que agentes de IA usen herramientas. En
+                la práctica: le pides a un asistente que te diga quién debe esta
+                semana, y te contesta.
+              </p>
+            </div>
+            <div className="lg:col-span-5">
+              <div className="rounded-panel border border-hairline bg-surface-1 p-5">
+                <pre className="overflow-x-auto rounded-card bg-surface-2 px-4 py-3 font-mono text-small text-hi"><code>npm i ketzal-mcp</code></pre>
+                <ul className="mt-4 flex flex-wrap gap-2" aria-label="Algunas herramientas del MCP">
+                  {HERRAMIENTAS_MCP.map((h) => (
+                    <li key={h} className="rounded-card border border-hairline px-2 py-1 font-mono text-caption text-mid">
+                      {h}
+                    </li>
+                  ))}
+                </ul>
+                <a
+                  href="https://www.npmjs.com/package/ketzal-mcp"
+                  rel="noopener"
+                  className={cn(ENLACE, 'mt-4 -ml-2 text-jade-600 hover:text-jade-500')}
+                >
+                  Ver el paquete en npm
+                </a>
+              </div>
             </div>
           </div>
         </section>
@@ -311,19 +427,5 @@ export function Landing() {
 
       <PublicFooter />
     </div>
-  )
-}
-
-function Step({ n, title, body }: { n: string; title: string; body: string }) {
-  return (
-    <li className="relative">
-      <span className="text-estela font-mono text-2xl font-bold tabular-nums">
-        {n}
-      </span>
-      <h3 className="font-display mt-2 text-lg font-semibold tracking-[-0.01em]">
-        {title}
-      </h3>
-      <p className="mt-1.5 text-sm text-muted-foreground">{body}</p>
-    </li>
   )
 }

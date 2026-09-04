@@ -9,6 +9,27 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Rediseño de la home, etapa 4 de 6: cómo funciona, inventario y capa de IA
+> (2026-09-04).** Tres pasos numerados (aquí sí: es una secuencia real) con
+> mini-captura cada uno — el formulario de nueva venta, el plan de abonos y el
+> **recibo público real** (folio #0001, emitido por `emit_receipt` en la
+> corrida). **Inventario en vivo**: `components/marketing/inventario.ts` lee
+> las mismas RPC anónimas de la vitrina (`list_public_services` +
+> `get_public_service`), así la home nunca enseña algo que el marketplace no
+> tenga; hoy salen Huasteca Potosina ($7,999, Border Travels), Colombia 2026 y
+> Creel y Barrancas, con foto del Storage por el optimizador, próxima salida,
+> cupo libre y precio. Si un día no hay nada publicado, la sección
+> simplemente no se pinta. Capa de IA en lenguaje de negocio con el enlace
+> verificable a `npmjs.com/package/ketzal-mcp` y tres nombres de herramienta
+> que existen de verdad en `mcp/src/tools`. `home.mjs` sube de 20 a 27 casos:
+> el `<ol>` tiene exactamente 3 pasos con 3 imágenes, el inventario trae la
+> Huasteca con su precio real, las fotos salen del Storage por
+> `/_next/image`, el enlace a npm está, no se promete ninguna herramienta que
+> el MCP no tenga, y no hay copy vacío ("potencia", "transforma", "sin
+> fricción"). Dos tropiezos de la corrida: `emit_receipt` devuelve el folio,
+> no el id (el recibo se busca por `pg`, porque `receipts` es RPC-only), y esa
+> tabla no tiene `created_at` sino `folio`. Solo queda el cierre (etapa 5).
+
 > **Rediseño de la home, etapa 3 de 6: credibilidad, problema y features
 > (2026-09-04).** Sustituye las cuatro cards iguales con icono (anti-patrón
 > §7) por tres secciones de la spec. Credibilidad: franja delgada sin fondo,

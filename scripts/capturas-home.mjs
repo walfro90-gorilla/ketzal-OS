@@ -241,8 +241,12 @@ try {
     `update ketzal.bookings set policy_accepted_at = now(), policy_accepted_meta = '{"canal":"whatsapp"}' where id = $1`,
     [venta.bookingId])
   const pagos = await rest(ag.token, `payments?booking_id=eq.${venta.bookingId}&select=id&order=paid_at.asc`)
-  for (const p of pagos) await rpc(ag.token, 'emit_receipt', { p_payment_id: p.id }).catch((e) => console.log(`   ⚠ recibo: ${e.message}`))
-  console.log(`   ✔ venta ${venta.bookingId.slice(0, 8)}: plan quincenal, 2 abonos, ${pagos.length} recibos`)
+  const recibos = []
+  for (const p of pagos) {
+    const r = await rpc(ag.token, 'emit_receipt', { p_payment_id: p.id }).catch((e) => console.log(`   ⚠ recibo: ${e.message}`))
+    if (r) recibos.push(r)
+  }
+  console.log(`   ✔ venta ${venta.bookingId.slice(0, 8)}: plan quincenal, 2 abonos, ${recibos.length} recibos`)
 
   chrome = await lanzarChrome()
   const cdp = conectar(chrome.ws)
@@ -262,6 +266,15 @@ try {
   await capturar(cdp, { ...panel, ruta: V, archivo: 'venta-escritorio-plan.png', desplazarA: 'Plan de pagos' })
   await capturar(cdp, { ...panel, ruta: '/cobranza', archivo: 'cobranza-panel.png' })
   await capturar(cdp, { ...panel, cookies: [], ruta: `/servicio/${SERVICIO_PUBLICO}`, archivo: 'vitrina-panel.jpg', formato: 'jpeg' })
+  // Etapa 4 (cómo funciona): mini-capturas móviles 390×720 de los tres pasos.
+  // El paso 2 (armar los abonos) es la misma pantalla del hero: se reusa.
+  const paso = { ancho: 390, alto: 720, movil: true, cookies, soloViewport: true }
+  await capturar(cdp, { ...paso, ruta: '/ventas/nueva', archivo: 'paso-registrar.png' })
+  // El id del recibo no sale por REST (tabla de dinero, RPC-only): se lee por pg.
+  const { rows: rec } = await semilla.c.query(
+    'select id from ketzal.receipts where booking_id = $1 order by folio limit 1', [venta.bookingId])
+  if (rec[0]) await capturar(cdp, { ...paso, cookies: [], ruta: `/recibo/${rec[0].id}`, archivo: 'paso-recibo.png' })
+  else console.log('   ⚠ sin recibo para capturar')
   await capturar(cdp, { ...movil, ruta: '/cobranza', archivo: 'cobranza-movil.png' })
   await capturar(cdp, { ...escritorio, ruta: '/cobranza', archivo: 'cobranza-escritorio.png' })
   await capturar(cdp, { ...escritorio, ruta: '/dashboard', archivo: 'dashboard-escritorio.png' })
