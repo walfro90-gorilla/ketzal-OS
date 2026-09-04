@@ -30,6 +30,12 @@ export type TourStep = {
   label?: string
   adminOnly?: boolean
   superadminOnly?: boolean
+  /**
+   * Solo para quien pertenece a una agencia (`profiles.supplier_id`). El
+   * superadmin pasa `adminOnly` pero no tiene agencia propia, así que la
+   * tarjeta del Panel de la que habla este paso no existe para él.
+   */
+  conAgencia?: boolean
 }
 
 const STEPS: TourStep[] = [
@@ -133,17 +139,19 @@ const STEPS: TourStep[] = [
   // QUÉ es cada sección (y se ve una sola vez); el checklist dice QUÉ FALTA y
   // vive en el Panel hasta que la agencia queda lista. De ahí en adelante, la
   // guía es el checklist, no este tour.
-  // Redactado en condicional ("si tu agencia es nueva") porque `adminOnly`
-  // también alcanza al superadmin, que no tiene agencia propia y por lo tanto
-  // no ve la tarjeta.
+  // Antes decía "si tu agencia es nueva" porque `adminOnly` también alcanza al
+  // superadmin, que no tiene agencia y no ve la tarjeta. Con `conAgencia` el
+  // paso solo le sale a quien SÍ la tiene, así que ya puede hablar en directo:
+  // un tour que duda de lo que muestra enseña menos.
   {
     id: 'primeros-pasos',
     icon: RocketIcon,
     title: 'Empieza por aquí',
-    body: 'Si tu agencia es nueva, en el Panel te espera "Primeros pasos": la lista de lo que falta para poder vender —cargar tu catálogo, invitar a tu equipo, poner tu CLABE— con un botón para resolver cada cosa. Se va tachando sola conforme avanzas y desaparece al terminar. Este tour puedes reabrirlo cuando quieras con el botón "?" de arriba.',
+    body: 'En el Panel te espera "Primeros pasos": la lista de lo que falta para poder vender —cargar tu catálogo, invitar a tu equipo, poner tu CLABE— con un botón para resolver cada cosa. Se va tachando sola conforme avanzas y desaparece al terminar. Este tour puedes reabrirlo cuando quieras con el botón "?" de arriba.',
     href: '/dashboard',
     label: 'Panel',
     adminOnly: true,
+    conAgencia: true,
   },
   {
     id: 'embajadores',
@@ -156,10 +164,14 @@ const STEPS: TourStep[] = [
   },
 ]
 
-/** Pasos visibles según el rol (oculta los de admin a los agentes). */
-export function getTourSteps(role?: string | null): TourStep[] {
+/**
+ * Pasos visibles según el rol (oculta los de admin a los agentes) y según si la
+ * persona tiene agencia (oculta al superadmin lo que solo existe dentro de una).
+ */
+export function getTourSteps(role?: string | null, tieneAgencia = false): TourStep[] {
   return STEPS.filter((s) => {
     if (s.superadminOnly && role !== 'superadmin') return false
+    if (s.conAgencia && !tieneAgencia) return false
     return !s.adminOnly || isAdminRole(role)
   })
 }

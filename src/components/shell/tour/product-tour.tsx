@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { getTourSteps } from './tour-steps'
 import { EMBAJADOR_STEPS, VIAJERO_STEPS } from './tour-steps-personas'
 import { marcarTourVisto } from './onboarding-actions'
+import { lanzarConfeti } from '@/lib/confeti'
 
 // Tour de onboarding con SPOTLIGHT: oscurece el fondo, resalta el ítem del nav
 // (data-tour={href}), auto-scrollea hasta él y ancla la tarjeta al lado. Los
@@ -58,6 +59,7 @@ export function ProductTour({
   persona = 'ops',
   seenKey = SEEN_KEY,
   yaVisto = false,
+  tieneAgencia = false,
 }: {
   role?: string | null
   /**
@@ -72,12 +74,19 @@ export function ProductTour({
   seenKey?: string
   /** `profiles.onboarded_at` ya tiene fecha ⇒ no se auto-abre. */
   yaVisto?: boolean
+  /**
+   * ¿La persona pertenece a una agencia? (`profiles.supplier_id`). El superadmin
+   * no tiene, y `adminOnly` también lo alcanza: sin esto, el paso de "Primeros
+   * pasos" tenía que hablarle en condicional ("si tu agencia es nueva") porque
+   * no podía saber si la tarjeta del Panel existía para quien lo estaba leyendo.
+   */
+  tieneAgencia?: boolean
 }) {
   const steps = useMemo(() => {
     if (persona === 'embajador') return EMBAJADOR_STEPS
     if (persona === 'viajero') return VIAJERO_STEPS
-    return getTourSteps(role)
-  }, [persona, role])
+    return getTourSteps(role, tieneAgencia)
+  }, [persona, role, tieneAgencia])
   const [open, setOpen] = useState(false)
   const [i, setI] = useState(0)
   const [rect, setRect] = useState<DOMRect | null>(null)
@@ -89,11 +98,16 @@ export function ProductTour({
       if (!localStorage.getItem(seenKey)) {
         setI(0)
         setOpen(true)
+        // Confeti SOLO aquí: en la apertura automática, y solo para el admin
+        // que estrena agencia. Al reabrir con "?" no dispara —si sale cada vez
+        // que alguien toca el botón deja de ser celebración y es ruido— y al
+        // agente invitado tampoco: su momento no es entrar, es su primera venta.
+        if (persona === 'ops' && role === 'admin' && tieneAgencia) void lanzarConfeti()
       }
     } catch {
       /* SSR / modo privado: sin auto-open; el botón "?" sigue disponible. */
     }
-  }, [yaVisto, seenKey])
+  }, [yaVisto, seenKey, persona, role, tieneAgencia])
 
   const markSeen = useCallback(() => {
     try {
