@@ -3,9 +3,21 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { BellIcon, BellRingIcon } from 'lucide-react'
+import {
+  BellIcon,
+  BellRingIcon,
+  ClockIcon,
+  FileTextIcon,
+  HandCoinsIcon,
+  MegaphoneIcon,
+  UserRoundIcon,
+  UsersIcon,
+  type LucideIcon,
+} from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { eventoDe, type EventoNoti } from '@/lib/notificaciones'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,6 +37,26 @@ type Noti = {
   url: string | null
   read_at: string | null
   created_at: string
+  metadata: unknown
+}
+
+// Un ícono por acción. Se reusan los del nav (`nav-items.ts`) para que el
+// símbolo signifique lo mismo en los dos lados: una cotización se ve igual en
+// la campana y en el menú. El evento sale de `metadata`, nunca del título: el
+// copy cambia y un ícono elegido por texto se rompe en silencio.
+const ICONOS: Record<EventoNoti, LucideIcon> = {
+  cotizacion: FileTextIcon,
+  pago: HandCoinsIcon,
+  spei: ClockIcon,
+  viajero: UserRoundIcon,
+  embajador: MegaphoneIcon,
+  pasajeros: UsersIcon,
+}
+
+/** Las filas anteriores a esto no traen evento: campana genérica. */
+function iconoDe(metadata: unknown): LucideIcon {
+  const e = eventoDe(metadata)
+  return e ? ICONOS[e] : BellIcon
 }
 
 function tiempoRelativo(iso: string): string {
@@ -54,12 +86,12 @@ export function Notificaciones() {
 
   const cargar = useCallback(async () => {
     const supabase = createClient()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     // La tabla reusa el scaffold B2C: columnas reales message/action_url,
     // aliaseadas aquí a body/url para el shape del componente.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data } = await (supabase as any)
       .from('notifications')
-      .select('id, title, body:message, url:action_url, read_at, created_at')
+      .select('id, title, body:message, url:action_url, read_at, created_at, metadata')
       .order('created_at', { ascending: false })
       .limit(15)
     const rows = (data ?? []) as Noti[]
@@ -144,6 +176,26 @@ export function Notificaciones() {
     }
   }
 
+  /**
+   * Abrir una notificación la marca leída. Optimista a propósito: si el UPDATE
+   * falla, lo peor es que reaparezca en el siguiente refresco — bloquear la
+   * navegación por eso sería peor. La RLS ya acota a las filas propias
+   * (`notifications_upd_own`), así que el `.eq('id')` es precisión, no permiso.
+   */
+  async function abrir(n: Noti) {
+    if (!n.read_at) {
+      setItems((xs) => xs.map((x) => (x.id === n.id ? { ...x, read_at: 'ya' } : x)))
+      setNoLeidas((k) => Math.max(0, k - 1))
+      const supabase = createClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase as any)
+        .from('notifications')
+        .update({ read_at: new Date().toISOString(), is_read: true })
+        .eq('id', n.id)
+    }
+    if (n.url) router.push(n.url)
+  }
+
   async function marcarLeidas() {
     if (!noLeidas) return
     const supabase = createClient()
@@ -200,17 +252,37 @@ export function Notificaciones() {
             {items.map((n) => (
               <DropdownMenuItem
                 key={n.id}
-                onClick={() => n.url && router.push(n.url)}
-                className="flex-col items-start gap-0.5 py-2"
-              >
-                <span className={n.read_at ? 'text-sm' : 'text-sm font-semibold'}>
-                  {n.title}
-                </span>
-                {n.body && (
-                  <span className="text-xs text-muted-foreground">{n.body}</span>
+                onClick={() => abrir(n)}
+                className={cn(
+                  'items-start gap-2 py-2',
+                  // Sin leer = fondo un punto más oscuro que el del menú, en
+                  // los dos temas. Es un matiz, no un bloque de color: la
+                  // jerarquía la sigue cargando el título en negritas.
+                  !n.read_at && 'bg-black/[0.045] dark:bg-black/25'
                 )}
-                <span className="text-[11px] text-muted-foreground/70">
-                  {tiempoRelativo(n.created_at)}
+              >
+                {(() => {
+                  const Icono = iconoDe(n.metadata)
+                  return (
+                    <Icono
+                      aria-hidden
+                      className={cn(
+                        'mt-0.5 size-4 shrink-0',
+                        n.read_at ? 'text-muted-foreground' : 'text-primary'
+                      )}
+                    />
+                  )
+                })()}
+                <span className="flex min-w-0 flex-col gap-0.5">
+                  <span className={n.read_at ? 'text-sm' : 'text-sm font-semibold'}>
+                    {n.title}
+                  </span>
+                  {n.body && (
+                    <span className="text-xs text-muted-foreground">{n.body}</span>
+                  )}
+                  <span className="text-[11px] text-muted-foreground/70">
+                    {tiempoRelativo(n.created_at)}
+                  </span>
                 </span>
               </DropdownMenuItem>
             ))}

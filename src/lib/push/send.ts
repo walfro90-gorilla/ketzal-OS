@@ -1,5 +1,6 @@
 import webpush from 'web-push'
 import { createServiceClient } from '@/lib/supabase/service'
+import type { EventoNoti } from '@/lib/notificaciones'
 
 // Envío de notificaciones (b036): inserta la fila del feed in-app y manda el
 // Web Push a cada dispositivo suscrito del usuario. Server-only (service role:
@@ -7,7 +8,13 @@ import { createServiceClient } from '@/lib/supabase/service'
 // si un endpoint murió (404/410) se borra la suscripción; si faltan las llaves
 // VAPID solo queda el feed in-app (no truena).
 
-export type Notificacion = { title: string; body?: string; url?: string }
+export type Notificacion = {
+  title: string
+  body?: string
+  url?: string
+  /** Qué acción la produjo: la campana elige el ícono con esto. */
+  evento?: EventoNoti
+}
 
 function vapidListo(): boolean {
   return Boolean(
@@ -27,13 +34,16 @@ export async function notificar(
   const db = svc as any
 
   // La tabla es del scaffold B2C (reusada): message NOT NULL y action_url;
-  // type/priority/is_read salen por default ('INFO'/'NORMAL'/false).
+  // type/priority/is_read salen por default ('INFO'/'NORMAL'/false). El evento
+  // va en `metadata` y no en `type`: ese enum es del scaffold y ampliarlo sería
+  // migración sobre una BD compartida (ver src/lib/notificaciones.ts).
   await db.from('notifications').insert(
     ids.map((user_id: string) => ({
       user_id,
       title: n.title,
       message: n.body ?? n.title,
       action_url: n.url ?? null,
+      metadata: n.evento ? { evento: n.evento } : null,
     }))
   )
 

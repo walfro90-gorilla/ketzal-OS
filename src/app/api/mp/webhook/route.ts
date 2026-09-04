@@ -136,6 +136,7 @@ export async function POST(request: Request) {
       if (intent?.supplier_id) {
         const admins = await adminsDeAgencia(intent.supplier_id)
         await notificar(admins, {
+          evento: 'pago',
           title: 'Pago en línea recibido',
           body: `Abono de ${mxn.format(Number(intent.amount))} por Mercado Pago.`,
           url: `/ventas/${intent.booking_id}`,

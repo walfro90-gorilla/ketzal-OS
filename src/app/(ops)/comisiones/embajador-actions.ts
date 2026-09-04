@@ -169,6 +169,7 @@ export async function crearEmbajador(input: {
     }
     try {
       await notificar(await superadmins(), {
+        evento: 'embajador',
         title: 'Embajador nuevo',
         body: `${nombre} se dio de alta con el código ${codigo}.`,
         url: '/comisiones',
@@ -225,6 +226,7 @@ export async function crearEmbajador(input: {
   // b036: avisar a los superadmins — hay un embajador nuevo. Best-effort.
   try {
     await notificar(await superadmins(), {
+      evento: 'embajador',
       title: 'Embajador nuevo',
       body: `${nombre} se dio de alta con el código ${codigo}.`,
       url: '/comisiones',

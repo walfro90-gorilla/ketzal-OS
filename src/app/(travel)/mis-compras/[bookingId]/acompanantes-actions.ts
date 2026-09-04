@@ -46,6 +46,7 @@ export async function agregarAcompanante(input: {
         .eq('booking_id', input.bookingId)
       if ((count ?? 0) >= b.num_pax) {
         await notificar(await adminsDeAgencia(b.selling_supplier_id), {
+          evento: 'pasajeros',
           title: 'Lista de viajeros completa',
           body: `${b.customer?.full_name ?? 'Comprador'} registró a sus ${b.num_pax} viajeros de "${b.service?.name ?? 'viaje'}".`,
           url: `/ventas/${input.bookingId}`,
