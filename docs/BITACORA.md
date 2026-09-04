@@ -18,7 +18,12 @@
 > pixel y el `G-` inlineados. Primer `begin_checkout` real desde la vitrina:
 > `ga4=sent`, **`meta=failed_400`** — y el log solo decía el status, así que
 > no se sabía si era el token (190) o el payload (100). Ahora se loggea código y
-> mensaje del error de Meta (la respuesta no trae el token).
+> mensaje del error de Meta (la respuesta no trae el token). Con el log: **190
+> "Cannot parse access token"** — el token pegado en Vercel no era el token
+> (lección 6 del runbook, calcada). Token regenerado y pegado limpio →
+> tercer checkout: `meta=sent ga4=sent`. **Pixel + CAPI + GA4 en vivo.**
+> Observación: cada `begin_checkout` sale dos veces en `vercel logs`; Meta y
+> GA4 dedupean por `event_id`/`transaction_id`.
 
 > **El gate de la contraseña provisional redirigía y aun así entregaba el panel (2026-09-03).**
 > Cerrando un hueco de cobertura salió una fuga. `gate_password_provisional.mjs`
