@@ -265,6 +265,23 @@ export function PedidoForm({
         </span>
       </label>
 
+      {/* El aviso de privacidad se informa AQUÍ, donde se recaban los datos
+          (LFPDPPP), pero fuera del checkbox: lo que la casilla sella con ip/ua
+          es la aceptación de la política de cancelación y no debe cambiar de
+          significado para las ventas ya selladas. */}
+      <p className="-mt-2 pl-6 text-xs text-muted-foreground">
+        Tus datos se tratan conforme al{' '}
+        <a
+          href="/privacidad"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline underline-offset-2 hover:text-foreground"
+        >
+          aviso de privacidad
+        </a>
+        .
+      </p>
+
       <Button
         type="button"
         size="touch"

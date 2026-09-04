@@ -41,6 +41,30 @@
 > salía a 16 px. Se le enseñan en `lib/utils.ts` (`extendTailwindMerge`) con
 > su test.
 
+> **Aviso de privacidad público, y la ruta legal que nacía tras el login (2026-09-03).**
+> Con el píxel de Meta y GA4 ya midiendo, faltaba el prerequisito legal: el
+> aviso de privacidad (LFPDPPP). Nace `/privacidad` — responsable, qué datos se
+> recaban (contacto, viajeros, comprobantes; las tarjetas nunca tocan Ketzal),
+> finalidades necesarias y secundarias, con quién se comparten (la agencia que
+> opera el viaje, Mercado Pago, proveedores de infraestructura, Meta y Google),
+> cookies y medición nombrando píxel y Analytics, y derechos ARCO — enlazado
+> desde el pie de todas las páginas públicas y desde el checkout, **fuera** del
+> checkbox que sella la política de cancelación con ip/ua (esa casilla no debe
+> cambiar de significado para las ventas ya selladas). También al sitemap, junto
+> con la política de cancelación, que tampoco estaba.
+>
+> Al probarla en el build: **307 a `/login`**. `proxy.ts` no la declaraba
+> pública, así que el aviso que la ley pide mostrar a quien AÚN no es usuario
+> solo lo veía quien ya tenía sesión — y el crawler de Google veía la pantalla
+> de acceso. Un vistazo desde una cuenta abierta jamás lo habría notado.
+> Arreglado en la lista de rutas públicas y fijado con `paginas_legales.mjs`
+> (17 aserciones, sin sesión, exigiendo TEXTO y no status, por URL directa y por
+> `RSC: 1`). Suite 31.
+>
+> Pendiente del fundador: confirmar la identidad legal del responsable
+> (hoy dice "Ketzal", Ciudad Juárez) y **crear el buzón `privacidad@ketzal.tours`**
+> — un correo ARCO que rebota es peor que no ponerlo.
+
 > **Rediseño de la home, etapa 1 de 6: tokens (2026-09-03).** Arranca el
 > rediseño de `ketzal.tours/` por la spec del fundador
 > (`KETZAL_HOME_REDESIGN.md`, 12 secciones, lista de anti-patrones). Antes de

@@ -21,6 +21,9 @@ export function PublicFooter() {
           <Link href="/politica-cancelacion" className="transition-colors hover:text-foreground">
             Política de cancelación
           </Link>
+          <Link href="/privacidad" className="transition-colors hover:text-foreground">
+            Aviso de privacidad
+          </Link>
           <Link href="/login" className="transition-colors hover:text-foreground">
             Soy agencia
           </Link>

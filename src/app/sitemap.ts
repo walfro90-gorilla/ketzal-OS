@@ -23,6 +23,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'weekly',
       priority: 0.5,
     },
+    {
+      url: `${SITE_URL}/politica-cancelacion`,
+      lastModified: now,
+      changeFrequency: 'yearly',
+      priority: 0.3,
+    },
+    {
+      url: `${SITE_URL}/privacidad`,
+      lastModified: now,
+      changeFrequency: 'yearly',
+      priority: 0.3,
+    },
     ...servicios.map((s) => ({
       url: `${SITE_URL}/servicio/${s.id}`,
       lastModified: now,
