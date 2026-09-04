@@ -8,7 +8,10 @@
  * `tool` de cancelación) y el loop la retoma donde iba.
  */
 import type { ToolDef } from '../../../mcp/src/tools/tipos'
-import { completar as completarReal, type Completar, type Mensaje, type ToolCall, type ToolSpec } from './llm'
+import { pendientes, recortar } from './mensajes'
+
+export { MAX_MENSAJES, pendientes, recortar } from './mensajes'
+import { completar as completarReal, type Completar, type Mensaje, type ToolSpec } from './llm'
 import {
   buscarHerramienta,
   ejecutar as ejecutarReal,
@@ -34,8 +37,6 @@ export type Deps = {
 
 /** Llamadas al LLM por petición. Freno anti-bucle; la persona decide si sigue. */
 export const MAX_PASOS = 12
-/** Mensajes de historial que viajan al LLM. */
-export const MAX_MENSAJES = 60
 
 let specsCache: ToolSpec[] | null = null
 export function depsReales(): Deps {
@@ -63,28 +64,6 @@ export function promptSistema(p: { nombre: string | null; email: string | null; 
     '- Responde en español de México, corto y directo, en texto plano: guiones para listas, sin markdown ' +
     'ni tablas (las negritas con ** sí se ven bien). Si tienes la liga de un documento (recibo, voucher, cotización), pégala completa.'
   )
-}
-
-/**
- * Recorta el historial sin partir un turno: si la ventana empieza en medio de
- * un `assistant` con tool_calls y sus resultados, el proveedor responde 400.
- * Se avanza hasta el primer mensaje de la persona.
- */
-export function recortar(mensajes: Mensaje[], max = MAX_MENSAJES): Mensaje[] {
-  if (mensajes.length <= max) return mensajes
-  const ventana = mensajes.slice(-max)
-  const i = ventana.findIndex((m) => m.role === 'user')
-  return i < 0 ? [] : ventana.slice(i)
-}
-
-/** Tool calls del último turno del asistente que aún no tienen resultado. */
-export function pendientes(conv: Mensaje[]): ToolCall[] {
-  let i = conv.length - 1
-  while (i >= 0 && conv[i]!.role === 'tool') i--
-  const m = conv[i]
-  if (!m || m.role !== 'assistant' || !m.tool_calls?.length) return []
-  const hechos = new Set(conv.slice(i + 1).map((x) => x.tool_call_id))
-  return m.tool_calls.filter((c) => !hechos.has(c.id))
 }
 
 function parseArgs(s: string): Record<string, unknown> | null {

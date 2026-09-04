@@ -5,7 +5,8 @@
  *
  * Solo lo monta el shell para superadmin (ADR-0044). Sin estado en el servidor:
  * `mensajes` es la conversación en formato OpenAI que devuelve `/api/agente` en
- * cada evento `fin`; se guarda en sessionStorage para sobrevivir una recarga.
+ * cada evento `fin`; se guarda en `localStorage` (ver `lib/agente/historial.ts`)
+ * para poder releer lo ya trabajado después de cerrar la pestaña.
  * Una operación de dinero llega como tarjeta `confirmar`: la persona la aprueba
  * con un clic (se re-manda con `aprobados`) o la cancela (se inserta el mensaje
  * `tool` de cancelación y el modelo solo contesta).
@@ -22,6 +23,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import type { Evento } from '@/lib/agente/conversacion'
+import { CLAVE, desempacar, empacar, etiquetaDeFecha } from '@/lib/agente/historial'
 import type { Mensaje } from '@/lib/agente/llm'
 import { cn } from '@/lib/utils'
 
@@ -32,13 +34,12 @@ type Item =
   | { k: 'confirmar'; id: string; titulo: string; herramienta: string; args: Record<string, unknown>; resuelto?: 'si' | 'no' }
   | { k: 'error'; texto: string }
 
-const CLAVE = 'ketzal-agente'
 const CANCELADO = 'La persona canceló esta operación. No la repitas a menos que lo pida.'
 
-function leerGuardado(): { items: Item[]; mensajes: Mensaje[] } | null {
+/** Un navegador puede tener el almacenamiento bloqueado: eso no tumba el chat. */
+function leerGuardado() {
   try {
-    const raw = sessionStorage.getItem(CLAVE)
-    return raw ? JSON.parse(raw) : null
+    return desempacar<Item>(localStorage.getItem(CLAVE))
   } catch {
     return null
   }
@@ -47,16 +48,19 @@ function leerGuardado(): { items: Item[]; mensajes: Mensaje[] } | null {
 export function Agente() {
   const [abierto, setAbierto] = useState(false)
   // Inicializador perezoso: el Sheet cerrado no pinta nada en SSR, así que
-  // leer sessionStorage aquí no desincroniza la hidratación.
+  // leer el almacenamiento aquí no desincroniza la hidratación.
   const [items, setItems] = useState<Item[]>(() => leerGuardado()?.items ?? [])
   const [mensajes, setMensajes] = useState<Mensaje[]>(() => leerGuardado()?.mensajes ?? [])
+  // Cuándo se guardó el hilo que se está viendo. Sirve para avisar que sus
+  // montos son de otro día; se limpia en cuanto la persona escribe algo nuevo.
+  const [guardadoEn, setGuardadoEn] = useState<number>(() => leerGuardado()?.guardadoEn ?? 0)
   const [texto, setTexto] = useState('')
   const [ocupado, setOcupado] = useState(false)
   const finRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     try {
-      sessionStorage.setItem(CLAVE, JSON.stringify({ items, mensajes }))
+      localStorage.setItem(CLAVE, empacar(items, mensajes))
     } catch {}
   }, [items, mensajes])
   useEffect(() => {
@@ -125,6 +129,7 @@ export function Agente() {
     const t = texto.trim()
     if (!t || ocupado) return
     setTexto('')
+    setGuardadoEn(0)
     agregar({ k: 'user', texto: t })
     void pedir([...mensajes, { role: 'user', content: t }])
   }
@@ -138,9 +143,11 @@ export function Agente() {
   function limpiar() {
     setItems([])
     setMensajes([])
+    setGuardadoEn(0)
   }
 
   const pendiente = items.some((it) => it.k === 'confirmar' && !it.resuelto)
+  const aviso = etiquetaDeFecha(guardadoEn)
 
   return (
     <>
@@ -173,6 +180,11 @@ export function Agente() {
           </SheetHeader>
 
           <div className="flex-1 space-y-3 overflow-y-auto px-4 py-3">
+            {items.length > 0 && aviso && (
+              <p className="rounded-lg border border-dashed px-3 py-1.5 text-xs text-muted-foreground">
+                {aviso}
+              </p>
+            )}
             {items.length === 0 && (
               <p className="text-muted-foreground">
                 Prueba: &ldquo;¿qué quedó por cobrar esta semana?&rdquo;, &ldquo;dame las salidas de
