@@ -46,11 +46,20 @@ CFDI/SAT, cálculo social/gamificado, cualquier cosa del sueño 🅰️ sin su f
    `host`: hay un solo dominio público (`ketzal.tours`); `os.` y el
    `vercel.app` viejo no se le mandan a nadie.
    → [ADR-0040](docs/adr/0040-un-solo-dominio-publico-para-los-links.md)
-
 10. **Un gate de seguridad se hace cumplir en `src/proxy.ts`**, nunca con un
     `redirect()` de layout o de página: donde hay streaming el redirect ocurre
     y los datos ya viajaron en el flight.
     → [ADR-0045](docs/adr/0045-el-gate-de-seguridad-no-vive-en-un-layout.md)
+11. **Un módulo no mezcla contrato puro con acarreo de plataforma.** Lo puro
+    (tipos, formateadores, funciones sobre datos) vive en un módulo hoja que
+    importan los dos lados; ni un Server Component llama a algo exportado por
+    un `'use client'`, ni un módulo de cliente importa uno que arrastre
+    `node:*`. **La frontera cuesta distinto según la dirección**: de cliente a
+    servidor truena en `next build`; de servidor a cliente compila, despliega
+    y falla en runtime **sirviendo un 200** — el expediente de `/usuarios`
+    vivió así 11 días con CI en verde. Esa mitad solo la ataja un harness que
+    exija CONTENIDO, no status.
+    → [ADR-0043](docs/adr/0043-la-frontera-cliente-servidor-no-se-cruza-con-un-helper.md)
 
 ## Proceso ADR (obligatorio)
 
