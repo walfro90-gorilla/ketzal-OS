@@ -18,6 +18,7 @@ const DISALLOW = [
   '/equipo',
   '/usuarios',
   '/servicios',
+  '/destinos',
   '/salidas',
   '/abordaje',
   '/ajustes',

@@ -10,7 +10,7 @@ import {
   tituloDestino,
   type Destino,
 } from '@/lib/marketing/destinos'
-import { contenidoDe } from '@/lib/marketing/destinos-contenido'
+import { contenidoPorSlug, tieneContenido } from '../data'
 import { itemListJsonLd, serializeJsonLd } from '@/lib/marketing/jsonld'
 import { SITE_URL } from '@/lib/site-url'
 import { PublicHeader } from '@/components/public/public-header'
@@ -108,9 +108,11 @@ export default async function DestinoPage({
   if (!d) notFound()
 
   const foto = fotoDestino(d)
-  // Contenido editorial: solo si alguien que estuvo ahí lo escribió. Sin texto,
-  // la sección no existe — nunca se rellena con prosa inventada.
-  const info = contenidoDe(d.slug)
+  // Contenido editorial (ADR-0053): lo edita el superadmin en /destinos y solo
+  // llega aquí si está publicado. Sin texto, la sección no existe — nunca se
+  // rellena con prosa inventada.
+  const fila = (await contenidoPorSlug()).get(d.slug)
+  const info = tieneContenido(fila) ? fila! : null
 
   return (
     <>
@@ -183,15 +185,15 @@ export default async function DestinoPage({
               </h2>
               <div className="space-y-3 leading-relaxed text-muted-foreground">
                 {info.ubicacion && <p>{info.ubicacion}</p>}
-                {info.comoLlegar && <p>{info.comoLlegar}</p>}
-                {info.porQue && <p>{info.porQue}</p>}
-                {info.cuandoIr && <p>{info.cuandoIr}</p>}
+                {info.como_llegar && <p>{info.como_llegar}</p>}
+                {info.por_que && <p>{info.por_que}</p>}
+                {info.cuando_ir && <p>{info.cuando_ir}</p>}
               </div>
-              {info.queVisitar && info.queVisitar.length > 0 && (
+              {info.que_visitar.length > 0 && (
                 <div className="pt-2">
                   <h3 className="font-display text-base font-semibold">Qué visitar</h3>
                   <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
-                    {info.queVisitar.map((q) => (
+                    {info.que_visitar.map((q) => (
                       <li key={q}>{q}</li>
                     ))}
                   </ul>
