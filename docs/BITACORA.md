@@ -9,6 +9,32 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Páginas por destino: contenido con forma de respuesta, generado del catálogo
+> (2026-09-05).** El fundador preguntó si convenía un blog "con toda la metadata
+> posible". Dos correcciones: más metadatos no posicionan (Google ignora las
+> keywords desde 2009 y el marcado que no corresponde a lo visible es acción
+> manual), y el cuello de botella no es contenido sino autoridad de dominio. Lo
+> que faltaba era otra cosa: páginas que contesten "tours a Creel desde Ciudad
+> Juárez precio", que es lo que la gente escribe.
+>
+> Se construyó `/viajes` y `/viajes/[destino]` (ADR-0051), generadas del catálogo
+> publicado: cuántos viajes, desde qué precio, próxima salida, salidas
+> programadas, quién opera y desde dónde sale. Nada inventado — si el dato no
+> está en el catálogo, no se afirma. La migración **b094** agrega de forma
+> aditiva `city_from`, `state_from`, `next_departure` y `departures_count` al RPC
+> del catálogo; sin eso la página sería un `/explora` filtrado, o sea contenido
+> casi duplicado que resta. Verificado que es aditiva corriendo los tres
+> consumidores después de aplicarla.
+>
+> Detalles que costaron una vuelta: `generateStaticParams` no puede leer cookies
+> y el cliente de Supabase las usa, así que las páginas quedan dinámicas con
+> `revalidate` de una hora. Y el harness pedía `href=` y una etiqueta `<script>`
+> en la respuesta con `RSC: 1`, que es un flight payload y no HTML — dos rojos
+> falsos de la prueba, no de la página; ahora lo del HTML se exige solo en el
+> HTML. Sitemap de 10 a 15 URLs. Suite 34, y por mutación se confirmó que quitar
+> `/viajes` de las rutas públicas de `proxy.ts` deja el harness en rojo: tercera
+> aparición de esa familia de bug, después de `/privacidad` y `/indexnow-key.txt`.
+
 > **Plan comercial de arranque, y la subasta que no se va a construir (2026-09-05).**
 > Sesión larga de estrategia con el fundador, sobre datos medidos esa noche y no
 > sobre supuestos: 5 viajes publicados con **447 lugares vacíos** y cero ventas
