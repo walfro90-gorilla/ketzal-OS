@@ -9,6 +9,28 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **El registro de ADRs se verifica solo, y el primer diseño del guard nació con un falso positivo peligroso (2026-09-05).**
+> Dos carriles tomaron el ADR-0049 a la vez y al renumerar uno quedó
+> `[ADR-0050](adr/0049-…)`: el enlace resuelve y la etiqueta miente. Nada falla,
+> nada se ve. El corredor de hard-tests ahora verifica cuatro cosas —números
+> duplicados, enlaces a ADRs inexistentes, ADRs sin fila en el índice (el que
+> nadie ve, porque todo enlaza bien) y etiquetas que no coinciden con su
+> destino— y sale en rojo. **Lo que más se aprendió fue del error propio:** el
+> primer barrido marcaba como rota la cita de `MARKETING_STACK_HUELLA.md` a
+> `docs/adr/0017-medicion-server-first.md`, y el "arreglo" obvio era renumerarla
+> a 0025. Ese archivo **existe, en el repo `estampida`**: el documento es una
+> transferencia escrita por el agente de allá y lo dice tres líneas antes. O sea
+> que el guard iba a meter una mentira en un dato correcto, con la autoridad de
+> una prueba automática. Lo frenó el otro carril, no yo. La regla que salió:
+> **solo se verifican ENLACES markdown, nunca menciones en prosa** — un enlace
+> promete navegar aquí, un backtick es texto y puede hablar de cualquier máquina.
+> El techo queda documentado con su evidencia (dos referencias en backticks en
+> todo el repo, una ajena y una propia). Y cada hallazgo dice POR QUÉ considera
+> propia esa referencia: el peligro de un guard no es que falle, es que acierte
+> con autoridad sobre algo que no entendió. Probado por mutación en seis
+> escenarios; de paso cazó una cita inventada en el ADR que lo describe.
+> → [ADR-0052](adr/0052-el-registro-de-adrs-se-verifica-solo.md).
+
 > **Páginas por destino: contenido con forma de respuesta, generado del catálogo
 > (2026-09-05).** El fundador preguntó si convenía un blog "con toda la metadata
 > posible". Dos correcciones: más metadatos no posicionan (Google ignora las

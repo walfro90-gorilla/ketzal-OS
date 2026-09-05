@@ -138,7 +138,7 @@ prueban — prosa como "probado contra la BD real" no cuenta
 - **BD limpia para operación real** (reset 2026-08-19; catálogo conservado).
   Migrada a proyecto dedicado 2026-08-26 — pendientes del fundador en la
   bitácora (exposed schemas, Auth dashboard, env vars Vercel, box WA, npm).
-- Tests: 239 de dominio (raíz) + 76 MCP, ambos en CI. Los **hard-tests**
+- Tests: 252 de dominio (raíz) + 76 MCP, ambos en CI. Los **hard-tests**
   (`supabase/tests/`, 34, hoy **34/34**)
   corren con **`pnpm hard-test`** (`-v` para el detalle) y **NO están en CI** —
   necesitan la service key y no hay staging
