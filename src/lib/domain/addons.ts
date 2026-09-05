@@ -10,7 +10,7 @@ export type AddOnInput = { label: string; price: number }
 export type AddOn = { key: string; label: string; price: number }
 
 /** key estable derivada del nombre (sin acentos, minúsculas, guiones). */
-function slug(label: string): string {
+export function slug(label: string): string {
   return label
     .toLowerCase()
     .normalize('NFD')

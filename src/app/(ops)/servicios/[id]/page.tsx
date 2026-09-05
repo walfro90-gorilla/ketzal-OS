@@ -1,4 +1,7 @@
+import Link from 'next/link'
+import { CalculatorIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import { buttonVariants } from '@/components/ui/button'
 import {
   Card,
   CardContent,
@@ -135,6 +138,26 @@ export default async function ServicioDetallePage({
         initial={salidas}
         packs={jsonbAPacks(servicio.packs)}
       />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Costeo</CardTitle>
+          <CardDescription>
+            Qué te cuesta este viaje con las tarifas de tus proveedores, a
+            cuántos pasajeros empatas y qué precio deja tu margen. Solo lo ven
+            los admins de la agencia.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Link
+            href={`/servicios/${servicio.id}/costeo`}
+            className={buttonVariants({ variant: 'outline' })}
+          >
+            <CalculatorIcon className="size-4" />
+            Abrir costeo
+          </Link>
+        </CardContent>
+      </Card>
 
       <Card className="border-destructive/50">
         <CardHeader>

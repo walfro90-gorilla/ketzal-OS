@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 import { safeError } from '@/lib/errors'
 import { esBannerValido } from '@/lib/storage/banner-url'
 import { normalizarClabe, validarClabe, validarTarjeta } from '@/lib/domain/clabe'
+import { limpiarTarifario, type RateInput, type RateLine } from '@/lib/domain/costeo'
 
 /** Datos de perfil público del proveedor (viven en la columna jsonb `info`). */
 export type ProveedorInfo = {
@@ -348,4 +349,30 @@ export async function eliminarProveedor(
 
   revalidatePath('/proveedores')
   redirect('/proveedores?ok=proveedor-eliminado')
+}
+
+/**
+ * Guarda el tarifario del proveedor (ADR-0055). Lo captura la agencia dueña:
+ * la tarifa es negociada, no una lista pública. `limpiarTarifario` es la
+ * frontera de confianza; la RLS de `supplier_rate_cards` decide quién puede
+ * (admin de la agencia dueña o superadmin). Tabla no tipada ⇒ `as never`.
+ */
+export async function guardarTarifario(
+  supplierId: string,
+  rows: RateInput[]
+): Promise<{ error: string } | { ok: true; rates: RateLine[] }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const rates = limpiarTarifario(rows)
+  const { error } = await supabase
+    .from('supplier_rate_cards' as never)
+    .upsert({ supplier_id: supplierId, rates } as never, { onConflict: 'supplier_id' })
+  if (error) return { error: safeError(error, 'No se pudo guardar el tarifario.') }
+
+  revalidatePath(`/proveedores/${supplierId}`)
+  return { ok: true, rates }
 }

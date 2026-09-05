@@ -11,6 +11,7 @@ import { esBannerValido } from '@/lib/storage/banner-url'
 import { videoEmbedUrl } from '@/lib/video'
 import { limpiarPacks, PACK_TYPES, type PackInput, type Pack } from '@/lib/domain/packs'
 import { limpiarAddOns, type AddOnInput, type AddOn } from '@/lib/domain/addons'
+import { limpiarCosteo, type Costeo } from '@/lib/domain/costeo'
 
 export type ItineraryDay = { title: string; description: string }
 
@@ -667,4 +668,74 @@ export async function eliminarSalida(
 
   revalidatePath(`/servicios/${salida.service_id}`)
   return { ok: true }
+}
+
+/**
+ * Guarda la hoja de costeo del servicio (ADR-0055). Es un PLAN, no un ledger:
+ * no toca gastos ni CxP. Los costos de add-ons se ligan por `key` a
+ * `services.add_ons`, así que primero se leen las keys vivas para tirar los
+ * huérfanos. La RLS de `service_costings` decide quién puede (admin de la
+ * agencia dueña o superadmin).
+ */
+export async function guardarCosteo(
+  serviceId: string,
+  doc: unknown
+): Promise<{ error: string } | { ok: true; doc: Costeo }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const { data: servicio, error: e1 } = await supabase
+    .from('services')
+    .select('add_ons')
+    .eq('id', serviceId)
+    .single()
+  if (e1 || !servicio) return { error: 'Servicio no encontrado o sin acceso.' }
+  const addonKeys = (Array.isArray(servicio.add_ons) ? (servicio.add_ons as AddOn[]) : []).map((a) => a.key)
+
+  const limpio = limpiarCosteo(doc, addonKeys)
+  const { error } = await supabase
+    .from('service_costings' as never)
+    .upsert({ service_id: serviceId, doc: limpio } as never, { onConflict: 'service_id' })
+  if (error) return { error: safeError(error, 'No se pudo guardar el costeo.') }
+
+  revalidatePath(`/servicios/${serviceId}`)
+  revalidatePath(`/servicios/${serviceId}/costeo`)
+  return { ok: true, doc: limpio }
+}
+
+/**
+ * Aplica precios a los packs del servicio (botón "Aplicar precios sugeridos"
+ * del costeo). Toca SOLO `packs` y el `price` derivado (b046: el "desde" es el
+ * pack más barato) — `actualizarServicio` reescribe todos los campos y no
+ * sirve para esto.
+ */
+export async function setServicioPacks(
+  serviceId: string,
+  packs: PackInput[]
+): Promise<{ error: string } | { ok: true; packs: Pack[] }> {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const limpios = limpiarPacks(packs)
+  if (limpios.length === 0) return { error: 'No hay packs con precio que aplicar.' }
+  const price = Math.min(...limpios.map((p) => p.price))
+
+  const { error } = await supabase
+    .from('services')
+    .update({ packs: limpios, price } as never)
+    .eq('id', serviceId)
+  if (error) return { error: safeError(error, 'No se pudieron aplicar los precios.') }
+
+  revalidatePath('/servicios')
+  revalidatePath(`/servicios/${serviceId}`)
+  revalidatePath(`/servicios/${serviceId}/costeo`)
+  revalidatePath('/explora')
+  revalidatePath(`/servicio/${serviceId}`)
+  return { ok: true, packs: limpios }
 }

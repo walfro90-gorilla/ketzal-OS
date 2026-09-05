@@ -16,6 +16,8 @@ import { EliminarProveedor } from './eliminar-proveedor'
 import { AccionesProveedor } from './acciones-proveedor'
 import { CrearAcceso } from './crear-acceso'
 import { CobrosMp, avisoMp } from './cobros-mp'
+import { TarifarioForm } from './tarifario-form'
+import type { RateLine } from '@/lib/domain/costeo'
 
 // Formatter local (mismo criterio que el resto de páginas: autocontenidas).
 const mxn = new Intl.NumberFormat('es-MX', {
@@ -90,7 +92,7 @@ export default async function ProveedorDetallePage({
 
   // Proveedor + servicios vinculados en paralelo. El OR cubre los 3 roles;
   // RLS acota lo visible (el agente solo ve servicios de su agencia).
-  const [{ data: proveedor, error }, { data: serviciosData }] =
+  const [{ data: proveedor, error }, { data: serviciosData }, tarifarioRes] =
     await Promise.all([
       supabase.from('suppliers').select('*').eq('id', id).single(),
       supabase
@@ -102,7 +104,11 @@ export default async function ProveedorDetallePage({
           `supplier_id.eq.${id},transport_provider_id.eq.${id},hotel_provider_id.eq.${id}`
         )
         .order('name'),
+      // b097: tarifario del proveedor (tabla no tipada ⇒ cast). La RLS solo lo
+      // entrega al admin de la agencia dueña; sin fila = sin tarifas.
+      supabase.from('supplier_rate_cards' as never).select('rates').eq('supplier_id', id).maybeSingle(),
     ])
+  const tarifas = ((tarifarioRes.data as { rates?: RateLine[] } | null)?.rates ?? []) as RateLine[]
 
   // Fuente de verdad del perfil público (fail-closed, salta RLS igual que la
   // ruta /agencia/[id]): existe solo si la agencia tiene >=1 servicio publicado.
@@ -240,6 +246,21 @@ export default async function ProveedorDetallePage({
             {},
         }}
       />
+
+      {proveedor.supplier_type !== 'agency' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Tarifario</CardTitle>
+            <CardDescription>
+              Lo que este proveedor te cobra, para costear tus tours. Solo lo ven
+              los admins de tu agencia; nunca sale al público.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <TarifarioForm supplierId={proveedor.id} initial={tarifas} />
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
