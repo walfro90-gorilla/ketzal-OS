@@ -90,13 +90,23 @@ export function agruparPorDestino(servicios: PublicServiceCard[]): Destino[] {
   })
 }
 
+/** Primera foto disponible entre los viajes del destino, o `null`. */
+export function fotoDestino(d: Destino): string | null {
+  return d.servicios.find((s) => s.image)?.image ?? null
+}
+
+/** Ciudad y estado juntos, sin repetir cuando son iguales (Chihuahua, Chihuahua). */
+export function lugarDestino(d: Destino): string {
+  return d.estado && d.estado !== d.ciudad ? `${d.ciudad}, ${d.estado}` : d.ciudad
+}
+
 /**
  * Título de la página. Nombra el origen SOLO si todos los viajes salen del
  * mismo lugar: con dos orígenes distintos, "desde X" sería falso, y el título
  * es justo lo que un buscador cita.
  */
 export function tituloDestino(d: Destino): string {
-  const lugar = d.estado && d.estado !== d.ciudad ? `${d.ciudad}, ${d.estado}` : d.ciudad
+  const lugar = lugarDestino(d)
   return d.origenes.length === 1
     ? `Viajes a ${lugar} desde ${d.origenes[0]}`
     : `Viajes a ${lugar}`

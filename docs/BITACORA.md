@@ -9,6 +9,34 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Las páginas por destino dejan de verse como un listado administrativo
+> (2026-09-05).** El fundador las vio funcionales pero básicas y pidió mejorarlas,
+> con idea de un mapa 3D en three.js. El diagnóstico medido fue otro: **las cinco
+> fichas publicadas ya tienen foto de banner y la página no mostraba ninguna**, y
+> tampoco usaba la identidad que ADR-0046 construyó esta semana (paleta jade,
+> tipografía display, escala de titulares). Se veía genérica porque estaba escrita
+> con bordes y texto gris, no porque faltara tecnología.
+>
+> Arreglo: foto real en las tarjetas del índice y de portada en cada destino, con
+> el nombre del lugar encima; tipografía de marca en titulares y precios; tarjetas
+> de viaje con su foto, agencia, origen y próxima salida. Cero arte nuevo, cero
+> dependencias. De paso se cazó en captura que el enlace "Todos los destinos"
+> desaparecía sobre la parte clara de la foto — ahora lleva su propio chip y el
+> contraste no depende de la imagen.
+>
+> Queda listo el hueco para contenido editorial por destino
+> (`src/lib/marketing/destinos-contenido.ts`): dónde está, cuánto se hace desde
+> Juárez, por qué se visita y qué ver. Lo escribe quien ha estado, no un
+> generador de texto; sin texto, la sección no se pinta. Vive en un archivo del
+> repo con `ponytail:` que nombra el disparador para moverlo a tabla.
+>
+> **three.js se descartó por ahora**, con dos razones medidas: la librería pesa
+> del orden de 150 KB comprimida antes de la geometría, para un marketplace que
+> se abre con datos móviles y con **cuatro** destinos; y un lienzo no aporta nada
+> rastreable, así que el contenido tendría que existir igual en HTML. Además
+> apareció un problema de datos que hay que resolver antes de cualquier mapa:
+> **Medellín está en Colombia**, así que un mapa de México no cubre el catálogo, y
+> no hay coordenadas en la BD.
 > **El registro de ADRs se verifica solo, y el primer diseño del guard nació con un falso positivo peligroso (2026-09-05).**
 > Dos carriles tomaron el ADR-0049 a la vez y al renumerar uno quedó
 > `[ADR-0050](adr/0049-…)`: el enlace resuelve y la etiqueta miente. Nada falla,
