@@ -9,6 +9,40 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **El OS ya sabe cuánto cuesta un tour (2026-09-05, b097, ADR-0055, PR #146).**
+> `services` no tenía una sola columna de costo y `add_ons` era `{key,label,price}`
+> sin dueño ni costo: el margen vivía en la cabeza del fundador y al prestador de
+> Creel se le pagaba de memoria. Ahora la agencia captura el **tarifario** de cada
+> proveedor y arma la **hoja de costeo** de un servicio.
+>
+> La decisión que ordenó todo lo demás: el costeo es un **plan, no un ledger**. No
+> crea cuentas por pagar ni toca `expenses`; el dinero real sigue entrando por
+> Gastos. Por eso no es tabla de dinero (no RPC-only-write), se escribe por
+> PostgREST y la autorización es solo RLS → [ADR-0055](adr/0055-el-costeo-es-un-plan-no-un-ledger.md).
+>
+> El costo lo ven **solo los admins**, y ahí estuvo la trampa: no podía vivir en
+> `services`. La RLS es por fila, `services_read` deja leer las filas publicadas a
+> cualquiera y `get_public_service` devuelve `add_ons` — un jsonb de costo ahí se
+> le fuga al público. Van en dos tablas aparte, `supplier_rate_cards` y
+> `service_costings`, con RLS por el admin de la agencia dueña (`owner_supplier_id`
+> del proveedor; `supplier_id` del servicio) y `coalesce(...,false)` en cada guard.
+>
+> Las cuatro unidades escalan distinto con los pasajeros, y una fórmula de punto
+> de equilibrio miente en el escalón: una sprinter de 15 se vuelve dos a 16 pax.
+> Por eso `costeo.ts` lo busca **por escaneo** (N=1..cupo, el primero que no
+> pierde). Cada línea del costeo es un **snapshot** de la tarifa al elegirla, así
+> que cambiar el tarifario o borrar el proveedor no mueve el costeo guardado.
+>
+> Probado en vivo contra Ketzal-OS con una sesión de admin efímera (la cookie de
+> `@supabase/ssr` servida por un `http.server` local con CORS, porque el proxy de
+> la app intercepta `public/`): doble a 16 pax = $2,581.25/pax → sugerido $3,688,
+> equilibrio 6 pax, y "aplicar precios" escribió `services.packs` (3688/7688). Dos
+> detalles que costaron: los clics por `ref` en el navegador se hacen obsoletos
+> tras el re-render de la lista (se pega por coordenada o por JS al botón), y el
+> helper del hard-test va como función `pg_temp`, no como procedure anidado que
+> PL/pgSQL no soporta. Hard-tests `costeo.sql` (29, CHECK + RLS por rol, mutación
+> vista en rojo) y `costeo_pagina.mjs` (12, página + RLS por HTTP). Suite 37.
+
 > **Mapa de destinos: 2 KB de SVG en vez de three.js (2026-09-05).** El fundador
 > lo quería con three.js. Se descartó con números —~150 KB comprimida antes de la
 > geometría, nada rastreable, inservible con lector de pantalla sin lista

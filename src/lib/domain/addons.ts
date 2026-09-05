@@ -9,7 +9,13 @@ export type AddOnInput = { label: string; price: number }
 /** Lo que se guarda en services.add_ons (jsonb). Precio en MXN. */
 export type AddOn = { key: string; label: string; price: number }
 
-/** key estable derivada del nombre (sin acentos, minúsculas, guiones). */
+/**
+ * key estable derivada del nombre (sin acentos, minúsculas, guiones).
+ * CUIDADO: esta key IDENTIFICA UN DATO CON DINERO — es la `key` de cada add-on
+ * (que tiene precio) y el `rate_key` del tarifario/costeo (b097). Cambiar esta
+ * función renombra keys de add-ons ya vendidos y desalinea sus costos. No la
+ * toques pensando que es un helper de texto cualquiera.
+ */
 export function slug(label: string): string {
   return label
     .toLowerCase()
