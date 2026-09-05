@@ -92,30 +92,28 @@ Regla heredada del MCP: **el LLM redacta, nunca produce cifra, fecha ni cupo.**
 Detalle, guardrails y checklist de pendientes en
 [`CONTENIDO_DINAMICO.md`](./CONTENIDO_DINAMICO.md).
 
-## Prestadores locales y add-ons con dueño (nota viva, 2026-08-30)
+## Prestadores locales, tarifario y costeo (construido 2026-09-05: b097, ADR-0055)
 
-**De dónde sale.** Al preguntar el fundador si `profiles.type='proveedor'` servía
-para registrar a los prestadores de un viaje a Creel (tirolesa, motos, caballos)
-y venderles el servicio desde la app, salió que el modelo confunde dos cosas:
+Nació como nota viva el 2026-08-30 al preguntar si `profiles.type='proveedor'`
+servía para los prestadores de Creel. Lo que se decidió y construyó:
 
-- `suppliers` con `supplier_type != 'agency'` = la **empresa** que presta. Es la
-  que hace falta. Hoy: **0 filas**, solo las 2 agencias.
-- `profiles.type='proveedor'` = el **login** de esa empresa para ver `/proveedor`
-  (sus servicios, read-only). Opcional, y hoy también en 0.
+- El prestador es una fila de `suppliers` con `owner_supplier_id` = la agencia
+  (alta en `/proveedores`, como ya existía). `profiles.type='proveedor'` sigue
+  siendo solo el login opcional para ver `/proveedor`.
+- **La agencia captura su tarifario** en `/proveedores/[id]` (por persona, por
+  grupo, por día, por habitación-noche por pack; `cap` = cupo por unidad).
+- **El costeo vive en `/servicios/[id]/costeo`**: líneas snapshot de tarifas,
+  costo por pax por pack, punto de equilibrio por escaneo, precio sugerido al
+  margen objetivo, margen por salida con sus pasajeros de hoy, y costo por
+  add-on ligado por `key`. Solo admins; RLS en tablas aparte.
+- **Corrección a la nota original:** poner `supplier_id` + `cost` dentro de
+  `services.add_ons` habría filtrado el costo al público (`get_public_service`
+  devuelve `add_ons`). El costo del extra vive en `service_costings.doc.addon_costs`.
 
-Agentes **no**: al agente se le paga comisión sobre lo que vendió; al prestador
-se le paga un costo. Flujo de dinero opuesto, y el costo ya vive en
-`expenses` + CxP.
-
-**El hueco real.** Los extras son `services.add_ons`, un jsonb de
-`{key, label, price}`: **sin `supplier_id` y sin costo**. Se le cobra la tirolesa
-al viajero, pero el sistema no sabe a quién se le debe ni cuánto — así que ese
-margen no aparece en ningún reporte y el pago al prestador se hace de memoria.
-
-**Lo mínimo que lo cierra** (nada construido): `add_ons` gana `supplier_id` y
-`cost` opcionales → el add-on vendido genera su CxP contra el prestador al
-confirmarse la venta → el margen del extra se deriva como el resto del dinero
-(ADR-0005). Alta de prestadores: reusar `/proveedores`, que ya existe.
+**Queda fuera, con su cuándo** (detalle en el ADR): CxP automática desde el plan
+al confirmar salida (cuando haya salidas operadas); `cost_overrides` por salida
+(cuando una salida real cueste distinto); `expenses.departure_id` + plan vs
+real por proveedor; autoservicio del prestador; USD; tool MCP de costeo.
 
 ## Fuera de alcance hasta que se decida explícitamente
 - Facturación fiscal (CFDI/SAT con PAC) — proyecto propio

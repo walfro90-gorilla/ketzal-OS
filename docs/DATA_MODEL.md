@@ -82,6 +82,22 @@ Ya existía. **Ampliada** con `booking_id`, `supplier_id`, `type` (`ketzal.payme
 ### 🔵 `services` — catálogo de tours (reusada, excelente)
 32 columnas: origen/destino, `packs`, `add_ons`, `seasonal_prices`, `itinerary`, `dates`, `current_bookings`, `max_capacity`, `transport_provider_id`, `hotel_provider_id`. `supplier_id` = agencia dueña.
 
+### 🟢 `supplier_rate_cards` — tarifario del proveedor (b097, ADR-0055)
+**Clave:** lo captura la agencia dueña (`suppliers.owner_supplier_id`); solo lo ve/escribe su admin o superadmin. Es un plan, no dinero.
+| columna | tipo | notas |
+|---|---|---|
+| supplier_id | uuid pk fk → suppliers (cascade) | el proveedor operativo |
+| rates | jsonb | `[{key,label,unit: pax\|grupo\|dia\|habitacion, cost, cap?, cost_by_pack?}]`, CHECK `valid_rate_card` |
+| updated_at | timestamptz | trigger `set_updated_at` |
+
+### 🟢 `service_costings` — hoja de costeo del servicio (b097, ADR-0055)
+**Clave:** snapshot de tarifas elegidas + pax plan + margen; RLS = admin de la agencia dueña del servicio. No crea CxP ni toca `expenses`.
+| columna | tipo | notas |
+|---|---|---|
+| service_id | uuid pk fk → services (cascade) | el tour |
+| doc | jsonb | `{plan_pax, nights, days, margin_pct, lines[], addon_costs{}}`, CHECK `valid_costing` |
+| updated_at | timestamptz | trigger `set_updated_at` |
+
 ### ⚪ Dormidas (fase 4)
 `wallets`, `wallet_transactions`, `wishlists`, `wishlist_items`, `travel_planners`, `planner_items`, `reviews`, `notifications`, `products`, `categories`.
 
