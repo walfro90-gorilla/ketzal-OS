@@ -235,7 +235,10 @@ el dato, y sin el dato no hay escalón 2 ni 3.
 
 ### Bloqueantes del fundador (nada de código)
 
-- [ ] Bing Webmaster Tools + `INDEXNOW_KEY` en Vercel
+- [x] Bing Webmaster Tools (propiedad verificada + sitemap enviado) y
+      `INDEXNOW_KEY` en Vercel — validado el 2026-09-05: `/indexnow-key.txt`
+      sirve la clave y la API de IndexNow respondió **202 Accepted** con las 10
+      URLs del sitemap
 - [ ] Google Business Profile por agencia, con reseñas reales; reclamar la ficha
       vieja cuya cuenta se perdió
 - [ ] Identidad legal del responsable en el aviso de privacidad
