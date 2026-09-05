@@ -42,6 +42,12 @@ check('la prioritaria sale por el optimizador (/_next/image) con srcset',
 check('la prioritaria existe y NO es lazy', prioritarias.length === 1 && !/loading="lazy"/.test(prioritarias[0]))
 check('la prioritaria pide quality 85 (Next 16 exige images.qualities)', /q=85/.test(prioritarias[0] ?? ''))
 check('hay <link rel="preload" as="image"> para la LCP', /<link[^>]*rel="preload"[^>]*as="image"/.test(html))
+// El hero se ata al alto de la ventana y la captura se escala dentro, para que
+// se vea COMPLETA al abrir en vez de cortarse por abajo (reporte de Wal,
+// 2026-09-05, en una pantalla de ~950px útiles).
+check('el hero se ata al alto de la ventana en escritorio', /lg:min-h-\[calc\(100svh-4rem\)\]/.test(html))
+check('la captura del hero se topa al alto disponible y se escala entera',
+  /lg:max-h-\[calc\(100svh-11rem\)\]/.test(html) && /object-contain/.test(prioritarias[0] ?? ''))
 
 // Etapa 3: capturas reales (≥ 3 además del hero), todas con alt propio y por
 // el optimizador; solo la del hero es prioritaria, las demás lazy.
