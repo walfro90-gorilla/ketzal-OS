@@ -344,9 +344,142 @@ if (inventario.estado === 'difiere') {
 }
 console.log(`${'─'.repeat(72)}\n`)
 
+// ── Guard del registro de decisiones ───────────────────────────────────────
+/**
+ * ¿El mapa de ADRs miente sobre sí mismo?
+ *
+ * `docs/adr/` es la puerta de entrada del proyecto (CLAUDE.md). El número se
+ * ELIGE al abrir el carril y se USA al mergear, y entre esos dos momentos cabe
+ * otro agente: el 2026-09-04 dos carriles tomaron el 0049 a la vez, y al
+ * renumerar uno con un reemplazo ciego quedó `[ADR-0050](adr/0049-…)` — enlace
+ * que resuelve y etiqueta que miente. Nada falla, nada se ve, y el documento
+ * renderiza igual. Solo se caza leyendo el diff o barriendo a mano.
+ *
+ * SOLO SE VERIFICAN ENLACES, NUNCA MENCIONES EN PROSA. Es la regla que evita el
+ * falso positivo que este guard tuvo en su primer diseño: `MARKETING_STACK_HUELLA.md`
+ * cita `docs/adr/0017-medicion-server-first.md` entre backticks, y ese archivo
+ * existe — en el repo `estampida`, no aquí. Un barrido por forma-de-ruta lo
+ * marcaba roto, y el "arreglo" obvio (renumerar a 0025) metía una MENTIRA en un
+ * dato correcto. La distinción es semántica, no una lista de excepciones que se
+ * pudre: un enlace es una promesa de navegar dentro de este repo; una mención
+ * entre backticks es texto, y puede hablar de cualquier máquina del mundo.
+ *
+ * Los cuatro casos, cada uno nacido de un error real:
+ *   1. dos archivos con el mismo número
+ *   2. enlace a un ADR que no existe
+ *   3. ADR que existe y NO tiene fila en el índice (nadie lo ve: todo enlaza bien)
+ *   4. etiqueta `ADR-NNNN` cuyo destino es otro número
+ *
+ * Si no puede leer lo que barre, AVISA y no falla: un chequeo de inventario
+ * documental jamás debe impedir que corran las pruebas de dinero.
+ */
+async function revisarRegistroAdr() {
+  const problemas = []
+  const dirAdr = join(RAIZ, 'docs', 'adr')
+
+  let archivos
+  try {
+    archivos = readdirSync(dirAdr).filter((f) => /^\d{4}-.+\.md$/.test(f)).sort()
+  } catch (e) {
+    return { estado: 'sin-leer', motivo: `no se pudo leer docs/adr/ (${e.code ?? e.message})` }
+  }
+  if (!archivos.length) return { estado: 'sin-leer', motivo: 'docs/adr/ no tiene ADRs' }
+
+  // 1. Números duplicados.
+  const porNumero = new Map()
+  for (const f of archivos) {
+    const n = f.slice(0, 4)
+    porNumero.set(n, [...(porNumero.get(n) ?? []), f])
+  }
+  for (const [n, fs] of porNumero) {
+    if (fs.length > 1) problemas.push(`número ${n} usado por ${fs.length} archivos: ${fs.join(', ')}`)
+  }
+
+  // 3. ADR sin fila en el índice.
+  let indice = ''
+  try {
+    indice = await readFile(join(dirAdr, 'README.md'), 'utf8')
+  } catch (e) {
+    return { estado: 'sin-leer', motivo: `no se pudo leer docs/adr/README.md (${e.code ?? e.message})` }
+  }
+  for (const f of archivos) {
+    if (f === 'README.md') continue
+    if (!indice.includes(`(${f})`)) {
+      problemas.push(`${f} existe pero NO tiene fila en docs/adr/README.md (invisible para quien lee el índice)`)
+    }
+  }
+
+  // 2 y 4: solo ENLACES markdown, resueltos desde la carpeta del archivo que enlaza.
+  const docs = []
+  const recorrer = (dir, rel) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      if (e.isDirectory()) recorrer(join(dir, e.name), `${rel}${e.name}/`)
+      else if (e.name.endsWith('.md')) docs.push(`${rel}${e.name}`)
+    }
+  }
+  try {
+    recorrer(join(RAIZ, 'docs'), 'docs/')
+    docs.push('CLAUDE.md')
+  } catch (e) {
+    return { estado: 'sin-leer', motivo: `no se pudo recorrer docs/ (${e.code ?? e.message})` }
+  }
+
+  for (const rel of docs) {
+    let texto
+    try {
+      texto = await readFile(join(RAIZ, rel), 'utf8')
+    } catch {
+      continue // un archivo ilegible no vuelve rojo el registro entero
+    }
+    const lineas = texto.split('\n')
+    lineas.forEach((linea, i) => {
+      // Enlace markdown cuyo destino termina en NNNN-....md dentro de adr/.
+      const re = /\[([^\]]*)\]\(([^)\s]*?(\d{4})-[a-z0-9-]+\.md)\)/g
+      for (const m of linea.matchAll(re)) {
+        const [, etiqueta, destino, num] = m
+        if (!/(^|\/)adr\//.test(destino) && !rel.startsWith('docs/adr/')) continue
+        // Absoluto o de otra máquina ⇒ no es asunto de este repo.
+        if (/^(https?:|~|\/)/.test(destino)) continue
+        const base = dirname(join(RAIZ, rel))
+        if (!existsSync(join(base, destino))) {
+          problemas.push(
+            `${rel}:${i + 1} enlaza a "${destino}" y ese archivo no existe ` +
+              `(se considera de este repo porque es un enlace markdown relativo, resuelto desde ${dirname(rel) || '.'})`,
+          )
+        }
+        const enEtiqueta = etiqueta.match(/ADR-(\d{4})/)
+        if (enEtiqueta && enEtiqueta[1] !== num) {
+          problemas.push(
+            `${rel}:${i + 1} la etiqueta dice ADR-${enEtiqueta[1]} pero enlaza al ${num} ("${destino}") — ` +
+              `el enlace resuelve, el texto miente`,
+          )
+        }
+      }
+    })
+  }
+
+  const ultimo = archivos.at(-1).slice(0, 4)
+  return problemas.length
+    ? { estado: 'roto', problemas, ultimo }
+    : { estado: 'ok', total: archivos.length, ultimo }
+}
+
+const registro = await revisarRegistroAdr()
+if (registro.estado === 'roto') {
+  console.log('  REGISTRO DE ADRs INCONSISTENTE:')
+  for (const p of registro.problemas) console.log(`    · ${p}`)
+  console.log(`    El índice (docs/adr/README.md) es la puerta de entrada: si miente, nadie lo nota.`)
+} else if (registro.estado === 'sin-leer') {
+  console.log(`  ⚠ no se pudo verificar el registro de ADRs: ${registro.motivo}`)
+}
+
 // Rojo también si algo no corrió: un invariante sin verificar no es un invariante,
 // y también si el inventario miente: un tablero que dice 31 con 32 reales ya está
 // mintiendo, aunque los 32 pasen.
 process.exit(
-  fallaron.length + noCorrieron.length === 0 && inventario.estado !== 'difiere' ? 0 : 1
+  fallaron.length + noCorrieron.length === 0 &&
+    inventario.estado !== 'difiere' &&
+    registro.estado !== 'roto'
+    ? 0
+    : 1
 )
