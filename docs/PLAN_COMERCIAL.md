@@ -72,7 +72,155 @@ Reglas que se fijan antes de vender el primero:
 - **Todos los lugares se venden en línea**, o por cotización enviada. Una venta
   de mostrador sin cotización es un cliente que no queda en la app.
 
+## El mercado y el techo (investigado 2026-09-05)
+
+**México tiene 10 unicornios** al primer trimestre de 2026: Bitso, Kavak, Clip,
+Konfío, Incode, Clara, Merama, Nowports, Stori y Plata. **Siete de los diez son
+fintech o tienen una capa financiera adentro** (Kavak vende autos, pero lo que la
+hizo valer 8,700 millones de dólares fue financiarlos).
+
+**El turismo a México crece de verdad.** Primer trimestre de 2026: 26.22 millones
+de visitantes internacionales, +10.2% contra 2025, con derrama de 10,287 millones
+de dólares. Enero de 2026 fue el mes con más llegadas desde que hay registro.
+
+**Pero el software de turismo no es donde se hacen unicornios.** En toda
+Latinoamérica hay 916 empresas de viajes en línea; entre todas, en toda su
+historia, han levantado 1,660 millones de dólares y han producido **un solo
+unicornio**. No es mala suerte, es aritmética: una agencia chica paga cientos de
+pesos al mes, y en México no hay decenas de miles de agencias. **El techo del
+SaaS puro está puesto por el tamaño del mercado, no por la ejecución.**
+
+**La versión con techo alto es otra, y ya está a medio construir.** Ketzal tiene
+plan de pagos, apartado, abonos, ledger inmutable y separación de dinero al
+cobrar: eso no es software de gestión, es infraestructura financiera de la venta
+de viajes. El mercado de compras a plazos en México valía 4,560 millones de
+dólares en 2024 creciendo 54.5% anual, con proyección de superar los 18,000
+millones al inicio de la próxima década, y los viajes son uno de sus casos de uso
+originales. La tesis de escala no es "vender software a agencias" sino **ser por
+dónde pasa el dinero de los viajes**, distribuido a través de agencias.
+
+**Nada de eso se decide sin datos.** Con cero ventas en línea no hay tesis que
+sostener. Por eso la secuencia de la brújula es: una venta real → diez ventas con
+la medición de cuántos pagan a plazos y cuántos se caen por no poder pagar de
+golpe → una agencia ajena pagando.
+
+**Sobre pivotar a transporte o bienes raíces: no.** El código es lo barato de lo
+que hay; el conocimiento del negocio es lo caro. Cambiar de industria tira lo
+valioso y conserva lo reemplazable.
+
+## Competencia (investigada 2026-09-05)
+
+Tres frentes con niveles de peligro muy distintos. El comparativo funcional
+contra un back-office tradicional vive en [PLAN_COMPETIDOR.md](PLAN_COMPETIDOR.md).
+
+### Software para agencias
+
+**Sistemas MIG / ICAAVweb** (40 años, CFDI, conectividad GDS con Amadeus, Sabre y
+Galileo), **OfiViaje** (2,300 agencias entre España, México, Portugal y Chile),
+**Amadeus Selling Platform Connect**, y locales como Corsario o SoftFabrics.
+
+Ketzal les gana en pago en línea, enlaces públicos compartibles y aplicación
+instalable. Les pierde en dos cosas que están fuera de alcance por decisión:
+
+- **CFDI.** Una agencia mexicana tiene que facturar. Sin factura necesita un
+  segundo sistema, y el prescindible es el nuestro. **Es el mayor hueco
+  competitivo del SaaS** y hay que decidirlo conscientemente, no por omisión.
+- **Conexión a GDS.** Sin Amadeus o Sabre no se sirve a quien vende vuelos. Eso
+  define el nicho real: **el operador con inventario propio** (tours, salidas,
+  cupos), no la agencia que revende boletos.
+
+### Marketplace de tours
+
+**Viator, GetYourGuide, Klook y Expedia concentran más del 90%** de las reservas
+de tours y actividades; Civitatis lidera en español con ~97,000 actividades en
+más de 4,270 destinos. Contra eso no se compite de frente.
+
+La distinción que salva el nicho: **ellos venden turismo receptor, Ketzal vende
+emisor.** Civitatis le vende un cenote a quien ya está en Cancún; nadie le vende
+a la gente de Ciudad Juárez el fin de semana en Creel. Nicho real y defendible,
+también más chico.
+
+### El dinero
+
+**Aplazo** (más de 15,000 comercios, ya en aerolíneas y autobuses) y **Kueski
+Pay** (categoría de viajes explícita, vuelos en quincenas) ya están adentro;
+Aeroméxico ofrece Aplazo, Kueski y Atrato.
+
+Pero hacen algo distinto: **dan crédito y asumen el riesgo.** El apartado con
+abonos de Ketzal no presta nada — el cliente paga por adelantado su propio viaje
+y el sistema lleva la cuenta y reparte al cobrar. Aplazo no lo hace porque ahí no
+hay intereses que ganar. **La jugada es integrarlos, no competirles**: botón de
+Aplazo o Kueski en el checkout para quien no puede apartar. Ketzal se queda con
+la venta y, más importante, con el dato de quién compra a plazos.
+
+### El competidor que de verdad puede ganar
+
+**WhatsApp y una hoja de Excel.** Para Meny la alternativa no es ICAAVweb ni
+Civitatis: es lo que hace hoy, que funciona y no cuesta nada. Contra eso la
+ventaja no es tener más funciones sino quitarle trabajo — que no sume abonos a
+mano, que el recibo salga solo, que sepa quién le debe sin releer conversaciones.
+Es el único frente donde ganar depende solo de nosotros.
+
+## Dónde está el unicornio (2026-09-05)
+
+No está en una función que falte construir. Está en un hecho económico del
+negocio que Ketzal ya intermedia: **el viajero paga meses antes de viajar.**
+
+Ese anticipo es, visto de cerca, un préstamo sin garantía de una persona a un
+negocio pequeño sin balance. Es la razón por la que mucha gente no le compra a
+una agencia local y prefiere pagar más caro con una aerolínea o una OTA grande.
+Y del otro lado, la agencia necesita ese dinero para operar y no tiene de dónde
+sacar capital de trabajo. Las dos partes tienen el mismo problema y ninguna lo
+puede resolver sola.
+
+**Ketzal ya está sentado exactamente en medio de esa transacción**, y con las
+piezas que hacen falta para resolverla:
+
+- el **ledger append-only** sabe cuánto se pagó, cuánto se debe y cuándo;
+- el **split al cobrar** puede enrutar o retener el dinero;
+- los **cupos por salida** saben si el viaje existe de verdad;
+- la **política de cancelación y el motor de créditos** saben qué pasa si falla.
+
+De ahí salen tres escalones, y el tercero es el del unicornio:
+
+1. **Comisión sobre el flujo.** Es lo que hay hoy: 10% de las ventas del portal.
+   Real, pero pequeño.
+2. **Garantía del anticipo.** Ketzal retiene el anticipo y lo libera a la agencia
+   contra hitos o contra la salida. Eso es lo que hace que un desconocido se
+   atreva a prepagarle a una agencia chica, y es la diferencia entre un
+   marketplace y un directorio.
+3. **Capital de trabajo.** Cuando el ledger conoce la cobranza real, la tasa de
+   cancelación y la ocupación de una agencia, se le puede prestar contra salidas
+   futuras. **Es la jugada de Konfío, con un dato que ningún banco tiene.**
+
+Ese es el mismo patrón de los unicornios mexicanos: Kavak no le vendió software a
+las lotes de autos, se quedó con la transacción y el financiamiento.
+
+**Las dos advertencias, escritas para no engañarse:**
+
+- El escalón 2 es una decisión **regulatoria**, no de producto. Hoy ADR-0016 dice
+  explícitamente *registro ≠ custodia*: Ketzal anota, no guarda dinero ajeno.
+  Retener anticipos cambia esa naturaleza y hay que entrar con abogado, no con un
+  sprint.
+- El escalón 3 necesita capital y figura (SOFOM). Es otra empresa, financiada, no
+  una función más del OS.
+
+**Y la consecuencia práctica, que sí aplica desde mañana:** el activo no es el
+código, es **el historial de transacciones reales**. Se construye operando, no
+programando. Por eso la regla de decisión de aquí en adelante es:
+
+> Ante dos tareas, gana la que mete más transacciones reales al ledger.
+
+Eso también reencuadra por qué importa que Meny capture **todas** sus ventas,
+incluidas las de mostrador: no es un tema de adopción de software, es que cada
+venta que se queda fuera del sistema es un ladrillo que le falta al único activo
+que puede valer mil millones. Un Ketzal usado solo como aparador nunca acumula
+el dato, y sin el dato no hay escalón 2 ni 3.
+
 ## Checklist
+
+> **Regla de decisión:** ante dos tareas, gana la que mete más transacciones
+> reales al ledger.
 
 ### Ya hecho (2026-09-03/04)
 
@@ -130,6 +278,18 @@ Reglas que se fijan antes de vender el primero:
       hoy son cero)
 - [ ] Google: solo campañas de búsqueda, intención alta
 - [ ] Encuestas de investigación: **orgánicas**, no pagadas
+
+### Carril tesis (lo que decide si esto escala)
+
+- [ ] Medir en las primeras 10 ventas: **qué porcentaje paga a plazos**, cuánto
+      aparta, y cuántos abandonan el checkout sin pagar. Es el dato que sostiene
+      o tumba la tesis financiera
+- [ ] Evaluar integrar **Aplazo o Kueski** en el checkout para quien no puede
+      apartar (no competirles: quedarnos con la venta y con el dato)
+- [ ] **Decidir CFDI conscientemente.** Hoy está fuera de alcance por ADR-0002 y
+      es el mayor hueco para que una agencia formal adopte el OS
+- [ ] Asumir por escrito el nicho: **operador con inventario propio**, no agencia
+      que revende vuelos (sin GDS no se sirve a la segunda)
 
 ### Carril Border (venta con fecha)
 
