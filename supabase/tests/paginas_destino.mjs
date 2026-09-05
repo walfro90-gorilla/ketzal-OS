@@ -91,6 +91,22 @@ if (destinos.length) {
     new RegExp(raiz, 'i').test(html), `slug=${ciudad}`)
 }
 
+// ── El mapa (ADR-0054) ─────────────────────────────────────────────────────
+{
+  const html = await (await pide('/viajes')).text()
+  // El mapa se dibuja en el SERVIDOR: si algún día se vuelve un lienzo o se
+  // mueve a JavaScript del cliente, esto sale en rojo — y con ello se pierde
+  // que un buscador y un lector de pantalla puedan recorrerlo.
+  check('el índice trae el mapa como SVG del servidor', /<svg[^>]*viewBox=/.test(html))
+  check('el trazo de México está inline', /<path[^>]*\sd="M[\d.]/.test(html))
+  // Cada punto es un enlace real, no un manejador de clic.
+  const enlaces = new Set(
+    [...html.matchAll(/href="\/viajes\/([a-z0-9-]+)"/g)].map((m) => m[1])
+  )
+  check('los puntos del mapa son enlaces a destinos', enlaces.size > 0, `${enlaces.size}`)
+  check('el mapa se describe para lectores de pantalla', /aria-label="Mapa de M/.test(html))
+}
+
 // ── Un destino que no existe NO puede ser un 200 vacío ─────────────────────
 {
   const r = await pide('/viajes/destino-que-no-existe-jamas')
