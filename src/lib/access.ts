@@ -15,6 +15,7 @@ export const ADMIN_HREFS = [
   '/comisiones',
   '/equipo',
   '/servicios',
+  '/destinos',
   '/proveedores',
   '/gastos',
   '/reportes',

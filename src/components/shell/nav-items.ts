@@ -22,6 +22,7 @@ import {
   ReceiptTextIcon,
   ActivityIcon,
   SettingsIcon,
+  GlobeIcon,
 } from 'lucide-react'
 
 export type NavIcon = ComponentType<{ className?: string }>
@@ -62,6 +63,9 @@ export const NAV_ITEMS: NavItem[] = [
   // necesita auditar a su propio equipo; `can_view_user` lo acota a su agencia.
   { label: 'Usuarios', href: '/usuarios', icon: UserSearchIcon, primary: false, adminOnly: true },
   { label: 'Servicios', href: '/servicios', icon: MapPinIcon, primary: false, adminOnly: true },
+  // ADR-0053: contenido público de los destinos. Es de PLATAFORMA (lo que ve
+  // cualquier visitante), no de una agencia ⇒ solo superadmin.
+  { label: 'Destinos', href: '/destinos', icon: GlobeIcon, primary: false, adminOnly: true, superadminOnly: true },
   { label: 'Proveedores', href: '/proveedores', icon: Building2Icon, primary: false, adminOnly: true },
   // Salud (invariantes globales) es de PLATAFORMA: solo superadmin. La página
   // ya se auto-protege; esto la saca del nav del admin de agencia.

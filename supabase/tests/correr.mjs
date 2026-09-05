@@ -59,6 +59,7 @@ const HARNESS = [
   { f: 'paginas_legales.mjs',             necesita: ['app'],                      adr: '—',    afirma: 'el aviso de privacidad y la política de cancelación abren SIN sesión, con su texto' },
   { f: 'aeo_superficie.mjs',              necesita: ['app'],                      adr: '0026', afirma: 'marca, ficha y llms.txt publican hechos citables y ningún JSON-LD está roto' },
   { f: 'paginas_destino.mjs',             necesita: ['app'],                      adr: '0051', afirma: 'las páginas por destino abren sin sesión con hechos citables; un destino inexistente da 404' },
+  { f: 'destinos_contenido.sql',          necesita: ['db'],                       adr: '0053', afirma: 'solo el superadmin edita el contenido público de destinos y un borrador no se escapa a la vitrina' },
   { f: 'home.mjs',                        necesita: ['app'],                      adr: '0046', afirma: 'la home sirve su hero con UNA sola imagen prioritaria, la nav no enlaza al marketplace, responde también por RSC y /styleguide exige sesión' },
   // ── .sql ────────────────────────────────────────────────────────────────
   { f: 'money_invariants.sql',            necesita: ['db'], adr: '0005', afirma: 'el dinero se deriva; los totales cuadran' },

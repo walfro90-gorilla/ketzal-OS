@@ -9,6 +9,32 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **El contenido de destino se edita en el panel, y el harness encontró dos bugs
+> de la migración (2026-09-05).** El `ponytail:` que ayer dejé en
+> `destinos-contenido.ts` nombraba su disparador —"el día que Meny necesite
+> editarlos sin pasar por un deploy"— y **se cumplió en un día**: el fundador
+> pidió CRUD en el panel de god admin. El archivo se elimina y lo sustituye
+> `ketzal.destinos` (b095) con panel en `/destinos`, RLS solo-superadmin y
+> lectura pública por RPC que filtra borradores y no expone columnas internas
+> → [ADR-0053](adr/0053-el-contenido-de-destino-se-edita-en-el-panel.md).
+>
+> La lista de destinos NO se administra: la sigue mandando el catálogo. El panel
+> solo llena lo editorial, y una fila cuyo destino se quedó sin viajes aparece
+> marcada como huérfana en vez de desaparecer callada.
+>
+> Se investigó y sembró el contenido de los cuatro destinos (Creel, Ciudad
+> Valles, Mazatlán y Medellín) **como borrador**: lo verificable se puede
+> documentar, pero quien ha estado es el fundador y sus agencias, así que
+> revisar y publicar es de ellos.
+>
+> **Lo que más valió del ejercicio fueron dos bugs míos que cazó
+> `destinos_contenido.sql`, y que ninguna revisión a ojo habría visto.** El CHECK
+> de coordenadas aceptaba media coordenada, porque con `lat` puesta y `lng` nula
+> la comparación da NULL y **un CHECK acepta NULL**. Y el trigger sellaba
+> `updated_at` con `now()`, que es la hora de la transacción, así que editar una
+> fila recién creada dejaba el sello idéntico; ahora usa `clock_timestamp()`.
+> Suite 35.
+
 > **Las páginas por destino dejan de verse como un listado administrativo
 > (2026-09-05).** El fundador las vio funcionales pero básicas y pidió mejorarlas,
 > con idea de un mapa 3D en three.js. El diagnóstico medido fue otro: **las cinco
