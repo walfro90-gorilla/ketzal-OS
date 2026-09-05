@@ -342,8 +342,14 @@ if (inventario.estado === 'difiere') {
 } else if (inventario.estado === 'sin-leer') {
   // Aviso, no fallo: el inventario no vale una suite caída.
   console.log(`  ⚠ no se pudo verificar el inventario: ${inventario.motivo}`)
+} else if (verboso) {
+  // Callado en verde por default; con `-v` dice qué midió. Un guard silencioso
+  // es INDISTINGUIBLE de uno que no corrió, y esa duda es exactamente el modo
+  // de falla que este corredor existe para matar (ADR-0023). Pero imprimir
+  // "todo bien" en cada corrida es ruido, y el ruido en verde hace que nadie
+  // lea la salida. `-v` resuelve las dos: demostrable cuando alguien dude.
+  console.log(`  ✔ inventario: ${inventario.declarado} hard-tests, coincide con CLAUDE.md`)
 }
-console.log(`${'─'.repeat(72)}\n`)
 
 // ── Guard del registro de decisiones ───────────────────────────────────────
 /**
@@ -376,6 +382,7 @@ console.log(`${'─'.repeat(72)}\n`)
  */
 async function revisarRegistroAdr() {
   const problemas = []
+  let enlaces = 0
   const dirAdr = join(RAIZ, 'docs', 'adr')
 
   let archivos
@@ -438,6 +445,7 @@ async function revisarRegistroAdr() {
       const re = /\[([^\]]*)\]\(([^)\s]*?(\d{4})-[a-z0-9-]+\.md)\)/g
       for (const m of linea.matchAll(re)) {
         const [, etiqueta, destino, num] = m
+        enlaces++
         if (!/(^|\/)adr\//.test(destino) && !rel.startsWith('docs/adr/')) continue
         // Absoluto o de otra máquina ⇒ no es asunto de este repo.
         if (/^(https?:|~|\/)/.test(destino)) continue
@@ -462,7 +470,7 @@ async function revisarRegistroAdr() {
   const ultimo = archivos.at(-1).slice(0, 4)
   return problemas.length
     ? { estado: 'roto', problemas, ultimo }
-    : { estado: 'ok', total: archivos.length, ultimo }
+    : { estado: 'ok', total: archivos.length, ultimo, enlaces }
 }
 
 const registro = await revisarRegistroAdr()
@@ -472,11 +480,17 @@ if (registro.estado === 'roto') {
   console.log(`    El índice (docs/adr/README.md) es la puerta de entrada: si miente, nadie lo nota.`)
 } else if (registro.estado === 'sin-leer') {
   console.log(`  ⚠ no se pudo verificar el registro de ADRs: ${registro.motivo}`)
+} else if (verboso) {
+  console.log(
+    `  ✔ registro de ADRs: ${registro.total} ADRs (último ${registro.ultimo}), ` +
+      `${registro.enlaces} enlaces verificados, todos indexados`,
+  )
 }
 
 // Rojo también si algo no corrió: un invariante sin verificar no es un invariante,
 // y también si el inventario miente: un tablero que dice 31 con 32 reales ya está
 // mintiendo, aunque los 32 pasen.
+console.log(`${'─'.repeat(72)}\n`)
 process.exit(
   fallaron.length + noCorrieron.length === 0 &&
     inventario.estado !== 'difiere' &&
