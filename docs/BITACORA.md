@@ -9,6 +9,34 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Plan comercial de arranque, y la subasta que no se va a construir (2026-09-05).**
+> Sesión larga de estrategia con el fundador, sobre datos medidos esa noche y no
+> sobre supuestos: 5 viajes publicados con **447 lugares vacíos** y cero ventas
+> en línea; las páginas de Facebook (Border 29 mil seguidores y publicando a
+> diario con 317 reseñas al 96%, Wanderlust 9,800 dormida desde 2022, Ketzal
+> 3,100 dormida desde mayo de 2025); y las tarifas de comisión vivas (plataforma
+> 10%, embajador $250 por pasajero, agente $300).
+>
+> Tres decisiones: **Wanderlust es el laboratorio** (es la única con Mercado Pago
+> conectado y no requiere convencer a nadie), **Border es una venta y no un
+> canal** (lo opera Meny; se le lleva el reporte de Wanderlust a los 60 días, no
+> insistencia), y **la página de Ketzal se calienta para hablarle a quien quiere
+> vender**, no a quien quiere viajar. Producto de entrada: fin de semana de
+> campamento en quinta más dunas de Samalayuca con sandboarding, cuyo trabajo es
+> producir clientes con cuenta, no margen.
+>
+> Hallazgo que cambia una configuración: con las tarifas fijas de hoy, un tour
+> local de $600 acumula $610 de comisiones y **el motor rechaza el devengo en
+> silencio** por exceder la venta. Antes de vender el primer tour barato hay que
+> ponerle regla propia, porcentual, a ese servicio.
+>
+> Y una idea del fundador que se descarta con su razón escrita: una **subasta**
+> donde las agencias compitan por viajes a la medida. Se descarta por arranque en
+> frío por los dos lados, desintermediación (en el grupo de Facebook las agencias
+> ya responden con su nombre y cierran por WhatsApp) y porque ser juez y jugador
+> cierra la puerta del SaaS. En su lugar, formulario que produce un lead y se
+> contesta con la cotización que ya existe → ADR-0050. Todo el plan con su
+> checklist en `docs/PLAN_COMERCIAL.md`.
 > **El onboarding de una agencia nueva ya se celebraba solo; le faltaban los momentos (2026-09-04).**
 > El fundador pidió tour + confeti para agencias nuevas. Al revisar, casi todo
 > existía: el tour con foco de 13 pasos que se auto-abre (m005) y el checklist

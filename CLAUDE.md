@@ -169,6 +169,7 @@ prueban — prosa como "probado contra la BD real" no cuenta
 - `docs/adr/` — **reglas del juego** (empezar aquí)
 - `docs/BITACORA.md` — historia de construcción completa, verbatim
 - `docs/ARCHITECTURE.md` · `docs/DATA_MODEL.md` · `docs/ROADMAP.md`
+- `docs/PLAN_COMERCIAL.md` — **plan de arranque comercial + checklist vivo**
 - `docs/OPERACION_VIAJE.md` · `docs/FINANZAS_PLATAFORMA.md` ·
   `docs/COMISIONES_MOTOR.md` · `docs/PLAN_CANCELACIONES.md`
 - `docs/WORKTREES.md` + `db/proposed/README.md` — coordinación multi-carril
