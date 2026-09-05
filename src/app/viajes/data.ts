@@ -40,3 +40,20 @@ export function tieneContenido(d: DestinoContenido | undefined | null): boolean 
     d.ubicacion || d.como_llegar || d.por_que || d.cuando_ir || (d.que_visitar?.length ?? 0) > 0
   )
 }
+
+/** Punto del mapa. NO depende de `publicado`: la ubicación de un destino que ya
+ *  tiene página pública no es contenido editorial (b096, ADR-0054). */
+export type DestinoMapa = {
+  slug: string
+  nombre: string
+  pais: string
+  lat: number | null
+  lng: number | null
+}
+
+export const listDestinosMapa = cache(async (): Promise<DestinoMapa[]> => {
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc('list_destinos_mapa' as never)
+  if (error || data == null) return []
+  return data as unknown as DestinoMapa[]
+})

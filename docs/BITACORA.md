@@ -9,6 +9,33 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Mapa de destinos: 2 KB de SVG en vez de three.js (2026-09-05).** El fundador
+> lo quería con three.js. Se descartó con números —~150 KB comprimida antes de la
+> geometría, nada rastreable, inservible con lector de pantalla sin lista
+> paralela, y todo para **cuatro** destinos— y se hizo SVG renderizado en el
+> servidor → [ADR-0054](adr/0054-el-mapa-es-svg-del-servidor-y-lo-de-fuera-se-lista.md).
+>
+> La parte que costó fue la licencia, no el código. El SVG de México de Wikimedia
+> es **CC-BY-SA**: obliga a atribuir y a compartir igual sobre una página
+> comercial. Los bancos de vectores no dejaron verificar su licencia (403). La
+> salida fue derivar el contorno de **Natural Earth**, que es dominio público sin
+> condiciones: su polígono de México a escala 1:110m trae 170 puntos, que
+> proyectados quedan en ~2 KB de `path` inline. Cero dependencias, cero
+> JavaScript, y cada punto es un `<a>` de verdad.
+>
+> Dos problemas eran de datos, no de dibujo. **Medellín está en Colombia**, así
+> que `proyectar()` devuelve `null` fuera del lienzo y esos destinos se listan
+> como "Fuera de México" en vez de forzarlos adentro. Y las coordenadas vivían
+> tras el interruptor de `publicado`, que gobierna el TEXTO: el mapa habría
+> estado vacío hasta que alguien publicara prosa. b096 las separa, con el
+> argumento de que dónde queda un destino que ya tiene página pública no es
+> contenido editorial.
+>
+> Anclas de la prueba: el norte arriba (Juárez sobre Creel, Creel sobre
+> Mazatlán) y el este a la derecha (Ciudad Valles a la derecha de Creel), que
+> cualquiera puede comprobar mirando un mapa. Y en captura se vio que el mapa
+> empujaba las tarjetas fuera de la primera pantalla; quedó topado de ancho.
+
 > **El contenido de destino se edita en el panel, y el harness encontró dos bugs
 > de la migración (2026-09-05).** El `ponytail:` que ayer dejé en
 > `destinos-contenido.ts` nombraba su disparador —"el día que Meny necesite

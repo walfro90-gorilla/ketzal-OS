@@ -3,8 +3,10 @@ import Link from 'next/link'
 import { MapPinIcon } from 'lucide-react'
 import { listPublicServices } from '@/app/explora/data'
 import { agruparPorDestino, fotoDestino } from '@/lib/marketing/destinos'
+import { listDestinosMapa } from './data'
 import { PublicHeader } from '@/components/public/public-header'
 import { PublicFooter } from '@/components/public/public-footer'
+import { MapaDestinos } from '@/components/public/mapa-destinos'
 import { BrandMark } from '@/components/brand-mark'
 
 // ADR-0051: índice de destinos. Existe para que las páginas por destino NO sean
@@ -36,8 +38,23 @@ export const metadata: Metadata = {
 }
 
 export default async function DestinosPage() {
-  const destinos = agruparPorDestino(await listPublicServices())
+  const [servicios, enMapa] = await Promise.all([listPublicServices(), listDestinosMapa()])
+  const destinos = agruparPorDestino(servicios)
   const total = destinos.reduce((n, d) => n + d.servicios.length, 0)
+
+  // El mapa se arma cruzando lo que el catálogo publica con las coordenadas que
+  // el panel guardó: un destino sin ubicar simplemente no es un punto.
+  const puntos = destinos.map((d) => {
+    const m = enMapa.find((x) => x.slug === d.slug)
+    return {
+      slug: d.slug,
+      nombre: m?.nombre ?? d.ciudad,
+      pais: m?.pais ?? 'México',
+      lat: m?.lat ?? null,
+      lng: m?.lng ?? null,
+      viajes: d.servicios.length,
+    }
+  })
 
   return (
     <>
@@ -56,12 +73,16 @@ export default async function DestinosPage() {
           )}
         </header>
 
+        <div className="mt-8">
+          <MapaDestinos destinos={puntos} />
+        </div>
+
         {destinos.length === 0 ? (
           <p className="py-16 text-center text-muted-foreground">
             Todavía no hay viajes publicados. Vuelve pronto.
           </p>
         ) : (
-          <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {destinos.map((d) => {
               const foto = fotoDestino(d)
               return (
