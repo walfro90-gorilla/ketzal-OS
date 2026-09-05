@@ -76,6 +76,8 @@ const HARNESS = [
   { f: 'simulacion_1000_ops.sql',         necesita: ['db'], adr: '0006', afirma: 'los invariantes aguantan volumen' },
   { f: 'volumen_y_clawbot.sql',           necesita: ['db'], adr: '0006', afirma: 'el Clawbot no rompe invariantes a volumen' },
   { f: 'mp_desconectar.sql',              necesita: ['db'], adr: '0042', afirma: 'solo el admin de la agencia (o superadmin) desconecta su MP; la tabla sigue deny-all y queda rastro' },
+  { f: 'costeo.sql',                      necesita: ['db'], adr: '0055', afirma: 'tarifario y costeo los ve y escribe solo el admin de la agencia dueña; los CHECK rechazan el documento roto' },
+  { f: 'costeo_pagina.mjs',               necesita: ['supabase', 'app'],          adr: '0055', afirma: 'el costeo abre para el admin con su contenido (también por RSC), el agente no llega y por PostgREST recibe cero filas' },
 ]
 
 // `qa_setup.sql` y `_fixtures.mjs` no son harness (siembra y utilería).
