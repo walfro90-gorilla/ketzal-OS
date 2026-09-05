@@ -110,7 +110,12 @@ export async function Landing() {
       <main className="flex-1">
         {/* ---------------- HERO: 7 columnas de texto, 5 de producto ---------------- */}
         <section className="relative">
-          <div className="mx-auto grid w-full max-w-6xl gap-12 px-4 pt-14 pb-12 lg:grid-cols-12 lg:items-center lg:gap-10 lg:pt-24 lg:pb-16">
+          {/* En escritorio el hero se ata al alto de la ventana (menos el header
+              de 4rem) y centra su contenido ahí: sin esto centraba respecto al
+              contenido y la captura se salía por abajo al abrir la página.
+              `svh` y no `vh`: en móvil `vh` cuenta la barra del navegador que
+              luego se esconde, y deja un salto. */}
+          <div className="mx-auto grid w-full max-w-6xl gap-12 px-4 pt-14 pb-12 lg:min-h-[calc(100svh-4rem)] lg:grid-cols-12 lg:items-center lg:gap-10 lg:py-12">
             <div className="lg:col-span-7">
               <h1 className={cn(reveal, 'font-display text-display-lg max-w-[18ch] text-balance lg:text-display-xl')}>
                 Vende más viajes. Cobra a tiempo. Sin hojas de cálculo.
@@ -146,7 +151,11 @@ export async function Landing() {
                 el hint al navegador va aparte (`fetchPriority`). Ancho fijo
                 (390 css px máx.) ⇒ sin `sizes`: el srcset sale 1x/2x del width. */}
             <div className={cn(reveal, 'lg:col-span-5 [animation-delay:200ms]')}>
-              <div className="mx-auto w-full max-w-[390px] overflow-hidden rounded-panel border border-hairline-strong bg-surface-1">
+              {/* La caja se topa al alto disponible y la imagen se escala
+                  proporcional dentro (`object-contain`): la captura se ve
+                  COMPLETA en pantallas bajas en vez de cortarse por abajo.
+                  El ancho lo pone la propia imagen, por eso `w-fit`. */}
+              <div className="mx-auto w-fit max-w-[390px] overflow-hidden rounded-panel border border-hairline-strong bg-surface-1 lg:max-h-[calc(100svh-11rem)]">
                 <Image
                   src={capturaVenta}
                   alt="Pantalla de una venta en Ketzal OS en el celular: plan de pagos con enganche y dos abonos quincenales, y debajo el resumen de total, pagado y saldo."
@@ -154,7 +163,7 @@ export async function Landing() {
                   fetchPriority="high"
                   quality={85}
                   placeholder="blur"
-                  className="h-auto w-full"
+                  className="h-auto w-full object-contain lg:max-h-[calc(100svh-11rem)] lg:w-auto"
                 />
               </div>
             </div>
