@@ -75,6 +75,8 @@ export async function proxy(request: NextRequest) {
     path.startsWith('/voucher/') || // voucher de servicio (público por uuid del voucher)
     path === '/explora' ||
     path.startsWith('/explora/') || // catálogo público (marketplace)
+    path === '/viajes' ||
+    path.startsWith('/viajes/') || // páginas por destino (ADR-0051): las lee el crawler SIN sesión
     path.startsWith('/servicio/') || // ficha pública de un servicio (marketplace)
     path.startsWith('/opina/') || // encuesta de investigación de mercado (tráfico de Meta Ads)
     path === '/agencias' || // directorio público de agencias (marketplace)

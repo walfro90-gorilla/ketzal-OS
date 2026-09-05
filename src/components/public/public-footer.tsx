@@ -15,6 +15,9 @@ export function PublicFooter() {
           <Link href="/explora" className="transition-colors hover:text-foreground">
             Explora
           </Link>
+          <Link href="/viajes" className="transition-colors hover:text-foreground">
+            Destinos
+          </Link>
           <Link href="/agencias" className="transition-colors hover:text-foreground">
             Agencias
           </Link>

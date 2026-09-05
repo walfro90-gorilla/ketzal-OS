@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next'
 import { listPublicServices } from './explora/data'
+import { agruparPorDestino } from '@/lib/marketing/destinos'
 import { SITE_URL } from '@/lib/site-url'
 
 // ADR-0026: sitemap dinámico desde la vitrina pública (list_public_services,
@@ -8,6 +9,7 @@ export const revalidate = 3600
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const servicios = await listPublicServices()
+  const destinos = agruparPorDestino(servicios)
   const now = new Date()
   return [
     { url: SITE_URL, lastModified: now, changeFrequency: 'daily', priority: 1 },
@@ -23,6 +25,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'weekly',
       priority: 0.5,
     },
+    {
+      url: `${SITE_URL}/viajes`,
+      lastModified: now,
+      changeFrequency: 'weekly',
+      priority: 0.7,
+    },
+    // ADR-0051: una URL por destino con viajes publicados. Se generan del
+    // catálogo, así que un destino sin viajes desaparece solo del sitemap.
+    ...destinos.map((d) => ({
+      url: `${SITE_URL}/viajes/${d.slug}`,
+      lastModified: now,
+      changeFrequency: 'daily' as const,
+      priority: 0.8,
+    })),
     {
       url: `${SITE_URL}/politica-cancelacion`,
       lastModified: now,
