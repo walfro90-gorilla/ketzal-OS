@@ -8,7 +8,16 @@ lo prueba una función pura.
 pnpm hard-test                              # todo lo que se pueda correr
 pnpm hard-test embajador                    # solo los que casen con el texto
 APP=http://localhost:3100 pnpm hard-test    # incluye los que necesitan la app
+pnpm hard-test -v                           # además, qué midió cada guard
 ```
+
+Al final de cada corrida se verifican dos inventarios: que el número de
+hard-tests de `CLAUDE.md` coincida con los que hay, y que el registro de ADRs no
+mienta (números duplicados, enlaces rotos, ADR fuera del índice, etiqueta que no
+coincide con su destino → ADR-0052). **Callan cuando todo está sano**, porque el
+ruido en verde hace que nadie lea la salida. Con `-v` dicen qué midieron: un
+guard silencioso es indistinguible de uno que no corrió, y esa duda es justo el
+modo de falla que este corredor existe para matar.
 
 ## La regla del corredor: nunca saltarse algo en silencio
 
