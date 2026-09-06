@@ -9,6 +9,16 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **El menú móvil no scrolleaba (2026-09-05).** El sheet inferior (`side="bottom"`,
+> el "Más" de `bottom-tabs`) crecía con la lista de navegación pero `h-auto` lo
+> dejaba sin tope ni scroll: en pantallas cortas los últimos ítems y "Salir"
+> quedaban debajo del borde, inalcanzables. Causa raíz en el primitivo compartido
+> `ui/sheet.tsx`, no en el llamador: los lados `bottom`/`top` ahora llevan
+> `max-h-[90dvh] overflow-y-auto`. Un diff de una línea que arregla los cuatro
+> sheets inferiores (menú, Filtros de /explora, instalar-app). Verificado por el
+> CSS servido: la regla `[data-side="bottom"]{max-height:90dvh;overflow-y:auto}`
+> se emite y el popup ya carga `data-side`.
+
 > **El campo de estado guardaba países (2026-09-05).** El fundador pidió que
 > ciudad, estado y país dejaran de ser texto libre para poder agrupar. Al medirlo
 > apareció el bug de fondo: `services.state_to` no tenía columna de país al lado,
