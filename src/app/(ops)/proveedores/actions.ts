@@ -222,16 +222,37 @@ export async function crearProveedor(
   const result = normalizarCampos(input)
   if ('error' in result) return result
 
-  // RLS: solo superadmin puede crear proveedores; si no lo es, el mensaje
-  // de permiso denegado se muestra tal cual.
+  // Tenencia: la policy de INSERT deja crear a un superadmin (proveedor global,
+  // sin dueño) o a un admin de agencia SOLO si `owner_supplier_id` es su agencia.
+  // El server tiene que poner ese dueño; si no, el admin de agencia choca contra
+  // RLS (42501) aunque tenga todo el derecho. Superadmin lo deja nulo.
+  const { data: perfil } = await supabase
+    .from('profiles')
+    .select('role, supplier_id')
+    .eq('id', user.id)
+    .maybeSingle<{ role: string | null; supplier_id: string | null }>()
+
+  const fields =
+    perfil?.role === 'superadmin'
+      ? result.fields
+      : { ...result.fields, owner_supplier_id: perfil?.supplier_id ?? null }
+
   const { data, error } = await supabase
     .from('suppliers')
-    .insert(result.fields as never)
+    .insert(fields as never)
     .select('id')
     .single()
   if (error || !data) {
     if (esCodigoReferidoDuplicado(error)) {
       return { error: 'Ese código de referido ya está en uso por otro embajador.' }
+    }
+    // 42501 = la policy de RLS negó la fila: no es un fallo de datos, es de
+    // permiso. Se lo decimos claro en vez del genérico "no se pudo guardar".
+    if (error?.code === '42501') {
+      return {
+        error:
+          'Tu cuenta no tiene permiso para crear proveedores. Entra como administrador de tu agencia o como superadmin.',
+      }
     }
     return { error: safeError(error, 'No se pudo guardar el proveedor.') }
   }
