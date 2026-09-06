@@ -157,11 +157,29 @@ export async function Landing() {
                   COMPLETA en pantallas bajas en vez de cortarse por abajo.
                   El ancho lo pone la propia imagen, por eso `w-fit`. */}
               <div className="relative mx-auto w-fit max-w-[390px] overflow-hidden rounded-panel border border-hairline-strong bg-surface-1 lg:max-h-[calc(100svh-11rem)]">
-                {/* El mismo haz que recorre la tarjeta de login. Cruza de
-                    `components/ui` a la home sin romper ADR-0046 porque no
-                    lee tokens: recibe los colores por prop y anima con CSS.
-                    `prefers-reduced-motion` lo detiene por la regla global. */}
-                <BorderBeam />
+                {/* El haz de la tarjeta de login, subido de intensidad SOLO
+                    aquí: todo va por props, así que `(auth)/login` sigue con
+                    sus valores por defecto. Cruza de `components/ui` sin
+                    romper ADR-0046 porque no lee tokens, y
+                    `prefers-reduced-motion` lo detiene por la regla global.
+                    Son dos pasadas con el MISMO `size` y `duration` para que
+                    viajen pegadas: la de atrás, gruesa y desenfocada, hace el
+                    resplandor; la de encima, fina y clara, marca el filo. */}
+                <BorderBeam
+                  size={420}
+                  duration={8}
+                  borderWidth={7}
+                  colorFrom="#00C89D"
+                  colorTo="#24DBB4"
+                  className="opacity-70 after:blur-[7px]"
+                />
+                <BorderBeam
+                  size={420}
+                  duration={8}
+                  borderWidth={2}
+                  colorFrom="#24DBB4"
+                  colorTo="#9BF7E0"
+                />
                 <Image
                   src={capturaVenta}
                   alt="Pantalla de una venta en Ketzal OS en el celular: plan de pagos con enganche y dos abonos quincenales, y debajo el resumen de total, pagado y saldo."
