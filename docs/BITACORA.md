@@ -9,6 +9,17 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **El costeo por proveedores no era descubrible desde el form del servicio (2026-09-05).**
+> El fundador preguntó por qué al crear un servicio no aparecía "agregar proveedores"
+> para que el precio saliera del costo. La feature YA existe (b097/ADR-0055): tarifario
+> por proveedor en `/proveedores/[id]` + hoja de costeo en `/servicios/[id]/costeo` que
+> calcula costo/pax × días × viajeros, precio sugerido, margen y punto de equilibrio, con
+> "Aplicar precios sugeridos a los packs". Pero vive tras guardar el servicio (necesita su
+> id, packs y add-ons para escribir los precios de vuelta), y solo se llegaba por "Abrir
+> costeo" en el detalle. Se agrega un puntero en la tarjeta "Paquetes por ocupación":
+> link a costeo si edita, aviso "guarda primero" si es nuevo. Sin lógica nueva, solo
+> descubribilidad.
+
 > **El itinerario acepta varias acciones por día (2026-09-05).** Cada día tenía
 > un solo título + un textarea; el fundador pidió poder listar varias cosas que se
 > hacen el mismo día (tours de 1-2 días con varias paradas). Sin tocar el modelo
