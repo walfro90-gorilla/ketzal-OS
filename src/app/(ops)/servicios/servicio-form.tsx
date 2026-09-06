@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useState, useTransition } from 'react'
+import Link from 'next/link'
 import { toast } from 'sonner'
 import { ImageIcon, XIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -746,6 +747,25 @@ export function ServicioForm({
                 />
               </div>
             ))}
+            {/* Puntero al costeo: los precios se pueden calcular desde el costo
+                de proveedores × días × viajeros. Vive tras guardar (necesita el
+                id, sus packs y add-ons para escribir los sugeridos de vuelta). */}
+            <div className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
+              ¿No sabes qué precio poner? Calcúlalos desde el costo de tus
+              proveedores, los días de uso y el número de viajeros.{' '}
+              {servicioId ? (
+                <Link
+                  href={`/servicios/${servicioId}/costeo`}
+                  className="font-medium text-primary underline underline-offset-2"
+                >
+                  Abrir costeo →
+                </Link>
+              ) : (
+                <span className="font-medium text-foreground">
+                  Guarda el servicio primero y aparecerá el botón “Abrir costeo”.
+                </span>
+              )}
+            </div>
           </CardContent>
         </Card>
       )}
