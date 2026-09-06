@@ -99,9 +99,11 @@ export async function Credibilidad() {
         className="group relative overflow-hidden pb-10"
         style={{ '--desfile-duracion': duracion } as React.CSSProperties}
       >
-        {/* Degradados en los extremos: las tarjetas entran y salen sin cortarse en seco. */}
-        <div aria-hidden className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16 bg-gradient-to-r from-canvas to-transparent" />
-        <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16 bg-gradient-to-l from-canvas to-transparent" />
+        {/* Degradados en los extremos: las tarjetas entran y salen sin cortarse en
+            seco. Anchos (128px en escritorio) porque una tarjeta mide 304: con
+            64px se veía el corte a media tarjeta. */}
+        <div aria-hidden className="pointer-events-none absolute inset-y-0 left-0 z-10 w-20 bg-gradient-to-r from-canvas via-canvas/80 to-transparent sm:w-32" />
+        <div aria-hidden className="pointer-events-none absolute inset-y-0 right-0 z-10 w-20 bg-gradient-to-l from-canvas via-canvas/80 to-transparent sm:w-32" />
         <ul className="animate-desfile flex w-max gap-4 group-hover:[animation-play-state:paused]">
           {porVuelta.map((a, i) => (
             <Tarjeta key={`v1-${i}`} a={a} copia={i >= agencias.length} />

@@ -45,7 +45,9 @@ check('hay <link rel="preload" as="image"> para la LCP', /<link[^>]*rel="preload
 // El hero se ata al alto de la ventana y la captura se escala dentro, para que
 // se vea COMPLETA al abrir en vez de cortarse por abajo (reporte de Wal,
 // 2026-09-05, en una pantalla de ~950px útiles).
-check('el hero se ata al alto de la ventana en escritorio', /lg:min-h-\[calc\(100svh-4rem\)\]/.test(html))
+// Con techo: sin él, en un monitor muy alto el hero crecía sin límite y dejaba
+// el resto de la página fuera de la primera pantalla.
+check('el hero se ata al alto de la ventana, con techo', /lg:min-h-\[min\(calc\(100svh-4rem\),52rem\)\]/.test(html))
 check('la captura del hero se topa al alto disponible y se escala entera',
   /lg:max-h-\[calc\(100svh-11rem\)\]/.test(html) && /object-contain/.test(prioritarias[0] ?? ''))
 
@@ -101,6 +103,8 @@ check('las fotos del inventario salen del Storage por el optimizador',
 check('la capa de IA enlaza al paquete real en npm', html.includes('href="https://www.npmjs.com/package/ketzal-mcp"') && html.includes('npm i ketzal-mcp'))
 check('la home no promete herramientas que el MCP no tiene',
   ['ketzal_cobranza', 'ketzal_registrar_abono', 'ketzal_ventas'].every((h) => html.includes(h)) && !/ketzal_(whatsapp|enviar_mensaje|cfdi)/.test(html))
+check('cada herramienta dice QUÉ hace, no solo su nombre',
+  /Quién te debe, cuánto y desde cuándo/.test(html) && /Anota un pago y actualiza el saldo/.test(html))
 check('sin copy vacío (§7)', !/potencia|transforma|revoluciona|sin fricci|soluci[oó]n integral/i.test(html))
 
 // Etapa 5: historia, precios, preguntas y cierre.

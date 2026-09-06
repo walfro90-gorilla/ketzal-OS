@@ -33,8 +33,13 @@ const PASOS = [
   { titulo: 'Cobra y da recibo', cuerpo: 'Registras el pago y el recibo sale al instante, con link para compartir por WhatsApp.', captura: capturaRecibo, alt: 'Recibo de pago #0001 en el celular: agencia, cliente, concepto, monto y saldo pendiente.' },
 ]
 
-// Herramientas reales del MCP (mcp/src/tools): no prometer lo que no existe.
-const HERRAMIENTAS_MCP = ['ketzal_cobranza', 'ketzal_registrar_abono', 'ketzal_ventas']
+// Herramientas reales del MCP (`mcp/src/tools`): no prometer lo que no existe.
+// Van con lo que hace cada una: el nombre solo no le dice nada a una agencia.
+const HERRAMIENTAS_MCP = [
+  { nombre: 'ketzal_cobranza', hace: 'Quién te debe, cuánto y desde cuándo.' },
+  { nombre: 'ketzal_registrar_abono', hace: 'Anota un pago y actualiza el saldo.' },
+  { nombre: 'ketzal_ventas', hace: 'Busca una venta por cliente, folio o salida.' },
+]
 
 // Cuatro objeciones reales del comprador (dueño de agencia chica, no técnico).
 // <details> nativo: teclado y lectores de pantalla gratis, cero JavaScript.
@@ -110,9 +115,11 @@ export async function Landing() {
           {/* En escritorio el hero se ata al alto de la ventana (menos el header
               de 4rem) y centra su contenido ahí: sin esto centraba respecto al
               contenido y la captura se salía por abajo al abrir la página.
+              El `min(…, 52rem)` es el techo: sin él, en un monitor muy alto el
+              hero crecía sin límite y dejaba el resto de la página enterrado.
               `svh` y no `vh`: en móvil `vh` cuenta la barra del navegador que
               luego se esconde, y deja un salto. */}
-          <div className="mx-auto grid w-full max-w-6xl gap-12 px-4 pt-14 pb-12 lg:min-h-[calc(100svh-4rem)] lg:grid-cols-12 lg:items-center lg:gap-10 lg:py-12">
+          <div className="mx-auto grid w-full max-w-6xl gap-12 px-4 pt-14 pb-12 lg:min-h-[min(calc(100svh-4rem),52rem)] lg:grid-cols-12 lg:items-center lg:gap-10 lg:py-12">
             <div className="lg:col-span-7">
               <h1 className={cn(reveal, 'font-display text-display-lg max-w-[18ch] text-balance lg:text-display-xl')}>
                 Vende más viajes. Cobra a tiempo. Sin hojas de cálculo.
@@ -305,14 +312,18 @@ export async function Landing() {
             <ol className="mt-12 grid gap-10 sm:grid-cols-3 sm:gap-8">
               {PASOS.map((p, i) => (
                 <li key={p.titulo} className="flex flex-col">
-                  <div className="overflow-hidden rounded-panel border border-hairline">
+                  {/* En una sola columna, la captura completa (390×720) medía
+                      720px de alto y estiraba la página a lo absurdo. Se topa a
+                      22rem y se ancla arriba: se ve la parte que importa de
+                      cada pantalla, y en 3 columnas la altura ya no aprieta. */}
+                  <div className="max-h-[22rem] overflow-hidden rounded-panel border border-hairline sm:max-h-none">
                     <Image
                       src={p.captura}
                       alt={p.alt}
                       quality={85}
                       sizes="(min-width: 640px) 33vw, 100vw"
                       placeholder="blur"
-                      className="h-auto w-full"
+                      className="h-auto w-full object-cover object-top"
                     />
                   </div>
                   <p className="mt-6 text-caption text-jade-600 tabular-nums">{String(i + 1).padStart(2, '0')}</p>
@@ -399,13 +410,16 @@ export async function Landing() {
             <div className="lg:col-span-5">
               <div className="rounded-panel border border-hairline bg-surface-1 p-5">
                 <pre className="overflow-x-auto rounded-card bg-surface-2 px-4 py-3 font-mono text-small text-hi"><code>npm i ketzal-mcp</code></pre>
-                <ul className="mt-4 flex flex-wrap gap-2" aria-label="Algunas herramientas del MCP">
+                {/* Cada herramienta con lo que hace: el panel iba casi vacío y
+                    tres nombres sueltos no dicen nada a quien no es técnico. */}
+                <dl className="mt-5 space-y-3" aria-label="Algunas herramientas del MCP">
                   {HERRAMIENTAS_MCP.map((h) => (
-                    <li key={h} className="rounded-card border border-hairline px-2 py-1 font-mono text-caption text-mid">
-                      {h}
-                    </li>
+                    <div key={h.nombre} className="border-t border-hairline pt-3">
+                      <dt className="font-mono text-caption text-jade-600">{h.nombre}</dt>
+                      <dd className="mt-1 text-small text-mid">{h.hace}</dd>
+                    </div>
                   ))}
-                </ul>
+                </dl>
                 <a
                   href="https://www.npmjs.com/package/ketzal-mcp"
                   rel="noopener"
