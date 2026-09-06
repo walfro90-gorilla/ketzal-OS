@@ -216,7 +216,7 @@ export default async function CotizacionPublicaPage({
                   {dia.title ? `: ${dia.title}` : ''}
                 </p>
                 {dia.description && (
-                  <p className="mt-0.5 text-sm text-muted-foreground">
+                  <p className="mt-0.5 whitespace-pre-line text-sm text-muted-foreground">
                     {dia.description}
                   </p>
                 )}
