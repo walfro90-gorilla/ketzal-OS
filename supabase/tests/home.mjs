@@ -55,12 +55,39 @@ const imgs = html.match(/<img[^>]*>/gi) ?? []
 check('hay al menos 4 imágenes (hero + 3 capturas del producto)', imgs.length >= 4, `${imgs.length}`)
 check('ninguna imagen sale como PNG crudo: todas por /_next/image',
   imgs.every((i) => /src="\/_next\/image\?/.test(i)))
-check('todas tienen alt descriptivo (≥ 40 caracteres, sin "imagen de")',
-  imgs.every((i) => { const a = /alt="([^"]*)"/.exec(i)?.[1] ?? ''; return a.length >= 40 && !/^imagen/i.test(a) }))
+// Toda imagen lleva alt con sentido. El umbral largo aplica a las CAPTURAS
+// del producto; a un logo se le pide identificar la marca, no 40 caracteres
+// (obligarlo produciría un alt peor, no mejor).
+check('ninguna imagen usa un alt vacío ni genérico ("imagen de…")',
+  imgs.every((i) => { const a = /alt="([^"]*)"/.exec(i)?.[1] ?? ''; return a.length >= 12 && !/^imagen/i.test(a) }))
+check('las capturas del producto llevan alt descriptivo (≥ 40 caracteres)',
+  imgs.filter((i) => !/alt="Logo de/.test(i))
+      .every((i) => (/alt="([^"]*)"/.exec(i)?.[1] ?? '').length >= 40))
 check('las no prioritarias son lazy', imgs.filter((i) => !/fetchpriority="high"/i.test(i)).every((i) => /loading="lazy"/.test(i)))
 check('las dos agencias reales aparecen con nombre', html.includes('Wanderlust Travels') && html.includes('Border Travels'))
 check('sin métricas inventadas ni logo wall: no hay "+", "%" ni "clientes" en la franja de credibilidad',
   !/Agencias que ya[^<]*<\/h2>[\s\S]{0,600}(\d+\+|\d+ ?%|clientes)/.test(html))
+// La franja de agencias sale del MISMO RPC que el directorio público, con
+// logo real y desfile CSS; y las estrellas SOLO si hay reseñas de verdad.
+check('la franja usa los logos reales del Storage por el optimizador',
+  (html.match(/\/_next\/image\?url=https%3A%2F%2F[^"]*suppliers%2F/g) ?? []).length >= 2)
+// Se cuenta el ATRIBUTO alt, no el texto suelto: el payload RSC al final del
+// documento repite las cadenas y contarlas ahí infla el número (daba 4).
+// Una vuelta se repite hasta pasar de 6 tarjetas (si no, con 2 agencias la fila
+// no llena la pantalla y el giro deja un hueco), y va dos veces para el bucle:
+// de ahí que el logo salga un número PAR de veces, y al menos 6 en total.
+const logosBorder = (html.match(/alt="Logo de Border Travels"/g) ?? []).length
+check('el desfile es CSS puro, con vueltas suficientes para llenar la pantalla',
+  /animate-desfile/.test(html) && logosBorder >= 6 && logosBorder % 2 === 0, `${logosBorder} logos`)
+check('la copia del desfile no se le dicta dos veces a un lector de pantalla',
+  (html.match(/aria-hidden="true"[^>]*class="[^"]*w-\[19rem\]/g) ?? []).length >= 1 ||
+  (html.match(/class="[^"]*w-\[19rem\][^"]*"[^>]*aria-hidden="true"/g) ?? []).length >= 1)
+check('sin estrellas inventadas: hoy no hay reseñas, así que no se pinta calificación',
+  !/de 5 estrellas/.test(html))
+check('la franja ya no presume el stack (Next.js / Supabase / MCP)',
+  !/>Next\.js</.test(html) && !/>Supabase</.test(html))
+check('la estela suelta del hero se retiró (el haz es el único movimiento)',
+  !/estela-hero/.test(html) && !/animate-estela-draw/.test(html))
 
 // Etapa 4: pasos numerados con captura, inventario REAL de la vitrina y la
 // capa de IA con enlace verificable.

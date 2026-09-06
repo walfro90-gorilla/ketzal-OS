@@ -218,6 +218,18 @@
   border-image: var(--gradient-estela) 1;
 }
 
+/* Desfile continuo de la franja de agencias en la home: la lista se pinta DOS
+   veces y esto la corre media vuelta, así el bucle no tiene costura. Pura CSS;
+   `prefers-reduced-motion` lo detiene con el bloque global de accesibilidad. */
+@keyframes desfile {
+  to {
+    transform: translateX(-50%);
+  }
+}
+@utility animate-desfile {
+  animation: desfile var(--desfile-duracion, 40s) linear infinite;
+}
+
 @keyframes border-beam {
   to {
     offset-distance: 100%;
