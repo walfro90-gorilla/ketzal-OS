@@ -9,6 +9,14 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Registrar proveedor solo con WhatsApp seguía pidiendo correo (2026-09-05).**
+> b098/ADR-0057 dejó el correo opcional en el server (`actions.ts`), el CHECK
+> `suppliers_contacto_chk` (COALESCE de email/teléfono) y hasta el texto de ayuda
+> del form, pero se escapó el guard de cliente en `proveedor-form.tsx`: seguía
+> `if (!contactEmail.trim()) setError('Escribe el correo de contacto.')`. El
+> fundador lo pegó registrando un proveedor con su WhatsApp. Se alinea el guard al
+> server (correo o teléfono) y el correo vacío se manda como `undefined`, no `""`.
+
 > **El aviso de instalar la app ahora sale en cada visita (2026-09-05).** Antes se
 > mostraba una sola vez y se callaba 14 días con "ahora no" o para siempre con
 > "ya la tengo" (memoria en `localStorage`). Pedido del fundador: insistir hasta
