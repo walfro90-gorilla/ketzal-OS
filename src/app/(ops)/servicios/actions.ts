@@ -1,6 +1,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { paisCanonico } from '@/lib/domain/mexico'
 import { after } from 'next/server'
 import { redirect } from 'next/navigation'
 import { avisarIndexNow } from '@/lib/marketing/indexnow'
@@ -26,6 +27,9 @@ export type ServicioInput = {
   city_from?: string
   state_to?: string
   city_to?: string
+  /** País (ADR-0057): antes se colaba en `state_to`. */
+  country_from?: string
+  country_to?: string
   max_capacity?: number
   /** Tipo de transporte (b041): habilita el mapa de asientos. null = sin mapa. */
   transport_type?: string
@@ -82,6 +86,8 @@ function normalizarCampos(input: ServicioInput):
         city_from: string | null
         state_to: string | null
         city_to: string | null
+        country_from: string | null
+        country_to: string | null
         max_capacity: number | null
         transport_type: string | null
         available_from: string | null
@@ -127,6 +133,10 @@ function normalizarCampos(input: ServicioInput):
       city_from: input.city_from?.trim() || null,
       state_to: input.state_to?.trim() || null,
       city_to: input.city_to?.trim() || null,
+      // Se guarda el nombre canónico del catálogo para que dos capturas del
+      // mismo lugar caigan en el mismo grupo (ADR-0057).
+      country_from: paisCanonico(input.country_from) ?? (input.country_from?.trim() || null),
+      country_to: paisCanonico(input.country_to) ?? (input.country_to?.trim() || null),
       max_capacity: maxCapacity,
       // Solo los 4 tipos con preset de layout; otro valor ⇒ sin mapa (null).
       transport_type: ['autobus', 'sprinter', 'van', 'avion'].includes(

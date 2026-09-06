@@ -14,6 +14,8 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { NativeSelect } from '@/components/ui/native-select'
+import { CamposUbicacion, type Ubicacion } from '@/components/data/campos-ubicacion'
+import { MEXICO, estadoCanonico, paisCanonico } from '@/lib/domain/mexico'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -65,8 +67,10 @@ export type ServicioFormInitial = {
   service_type: string | null
   state_from: string
   city_from: string
+  country_from?: string | null
   state_to: string
   city_to: string
+  country_to?: string | null
   max_capacity: number | null
   /** Tipo de transporte (b041) o null = sin mapa de asientos. */
   transport_type: string | null
@@ -92,11 +96,21 @@ export type ServicioFormInitial = {
   video: string | null
 }
 
+/** Un texto suelto de la IA cae en estado o en país, según qué sea. */
+function lugarLeido(texto: string): Partial<Ubicacion> {
+  const estado = estadoCanonico(texto)
+  if (estado) return { estado, pais: MEXICO }
+  const pais = paisCanonico(texto)
+  if (pais) return { pais, estado: '' }
+  return {}
+}
+
 export function ServicioForm({
   servicioId,
   agencias,
   defaultSupplierId,
   initial,
+  ciudadesSugeridas = [],
 }: {
   /** Si viene, el formulario edita (actualizarServicio); si no, crea (crearServicio). */
   servicioId?: string
@@ -105,6 +119,8 @@ export function ServicioForm({
   /** Agencia del usuario, para preseleccionarla al crear. */
   defaultSupplierId?: string
   initial?: ServicioFormInitial
+  /** Ciudades ya usadas, para reusar en vez de inventar (ADR-0057). */
+  ciudadesSugeridas?: string[]
 }) {
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -117,10 +133,19 @@ export function ServicioForm({
   const [tipo, setTipo] = useState<ServicioTipo>(
     initial ? normalizarTipo(initial.service_type) : 'tour'
   )
-  const [stateFrom, setStateFrom] = useState(initial?.state_from ?? '')
-  const [cityFrom, setCityFrom] = useState(initial?.city_from ?? '')
-  const [stateTo, setStateTo] = useState(initial?.state_to ?? '')
-  const [cityTo, setCityTo] = useState(initial?.city_to ?? '')
+  // ADR-0057: origen y destino como ubicación estructurada. El país iba
+  // colándose en el campo de estado ("Colombia" junto a "Jalisco"), que es lo
+  // que impedía agrupar.
+  const [origen, setOrigen] = useState<Ubicacion>({
+    ciudad: initial?.city_from ?? '',
+    estado: initial?.state_from ?? '',
+    pais: initial?.country_from ?? 'México',
+  })
+  const [destino, setDestino] = useState<Ubicacion>({
+    ciudad: initial?.city_to ?? '',
+    estado: initial?.state_to ?? '',
+    pais: initial?.country_to ?? 'México',
+  })
   const [maxCapacity, setMaxCapacity] = useState(
     initial?.max_capacity != null ? String(initial.max_capacity) : ''
   )
@@ -315,10 +340,13 @@ export function ServicioForm({
     if (d.description) setDescription(d.description)
     const tipoLeido = normalizarTipo(d.service_type)
     if (tipoLeido) setTipo(tipoLeido)
-    if (d.state_from) setStateFrom(d.state_from)
-    if (d.city_from) setCityFrom(d.city_from)
-    if (d.state_to) setStateTo(d.state_to)
-    if (d.city_to) setCityTo(d.city_to)
+    // Lo que lee la IA es texto libre: se pasa por el catálogo para que caiga
+    // en el select. Si lo que trae es un país (el bug histórico), se guarda
+    // como país, no como estado (ADR-0057).
+    if (d.state_from) setOrigen((o) => ({ ...o, ...lugarLeido(d.state_from!) }))
+    if (d.city_from) setOrigen((o) => ({ ...o, ciudad: d.city_from! }))
+    if (d.state_to) setDestino((x) => ({ ...x, ...lugarLeido(d.state_to!) }))
+    if (d.city_to) setDestino((x) => ({ ...x, ciudad: d.city_to! }))
     if (d.max_capacity != null) setMaxCapacity(String(d.max_capacity))
     if (d.available_from) setAvailableFrom(d.available_from)
     if (d.available_to) setAvailableTo(d.available_to)
@@ -396,10 +424,12 @@ export function ServicioForm({
       supplier_id: supplierId,
       description: description.trim() || undefined,
       service_type: tipo || undefined,
-      state_from: stateFrom.trim() || undefined,
-      city_from: cityFrom.trim() || undefined,
-      state_to: stateTo.trim() || undefined,
-      city_to: cityTo.trim() || undefined,
+      state_from: origen.estado.trim() || undefined,
+      city_from: origen.ciudad.trim() || undefined,
+      country_from: origen.pais.trim() || undefined,
+      state_to: destino.estado.trim() || undefined,
+      city_to: destino.ciudad.trim() || undefined,
+      country_to: destino.pais.trim() || undefined,
       max_capacity: cupo,
       transport_type: transportType || undefined,
       available_from: availableFrom || undefined,
@@ -523,42 +553,29 @@ export function ServicioForm({
                 asientos = cupo de cada salida.
               </p>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="servicio-estado-origen">Origen — estado</Label>
-              <Input
-                id="servicio-estado-origen"
-                value={stateFrom}
-                onChange={(e) => setStateFrom(e.target.value)}
-                placeholder="Ej. Chihuahua"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="servicio-ciudad-origen">Origen — ciudad</Label>
-              <Input
-                id="servicio-ciudad-origen"
-                value={cityFrom}
-                onChange={(e) => setCityFrom(e.target.value)}
-                placeholder="Ej. Ciudad Juárez"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="servicio-estado-destino">Destino — estado</Label>
-              <Input
-                id="servicio-estado-destino"
-                value={stateTo}
-                onChange={(e) => setStateTo(e.target.value)}
-                placeholder="Ej. Chihuahua"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="servicio-ciudad-destino">Destino — ciudad</Label>
-              <Input
-                id="servicio-ciudad-destino"
-                value={cityTo}
-                onChange={(e) => setCityTo(e.target.value)}
-                placeholder="Ej. Creel"
-              />
-            </div>
+            {/* ADR-0057: país y estado cerrados, ciudad sugerida. Se agrupan en
+                dos bloques con su título porque seis campos de ubicación en fila
+                se confunden entre sí. */}
+            <fieldset className="space-y-3 sm:col-span-2">
+              <legend className="text-sm font-medium">De dónde sale</legend>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <CamposUbicacion
+                  valor={origen}
+                  onChange={setOrigen}
+                  ciudadesSugeridas={ciudadesSugeridas}
+                />
+              </div>
+            </fieldset>
+            <fieldset className="space-y-3 sm:col-span-2">
+              <legend className="text-sm font-medium">A dónde va</legend>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <CamposUbicacion
+                  valor={destino}
+                  onChange={setDestino}
+                  ciudadesSugeridas={ciudadesSugeridas}
+                />
+              </div>
+            </fieldset>
             <div className="space-y-2">
               <Label htmlFor="servicio-disponible-desde">
                 Disponible desde
