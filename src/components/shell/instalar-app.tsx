@@ -22,17 +22,14 @@ import {
 // 2. Si ya está instalada, no hay nada que ofrecer. Se detecta con
 //    `display-mode: standalone` (y `navigator.standalone` en iOS, previo al
 //    estándar). Chrome además deja de disparar el evento una vez instalada.
-// 3. NO se muestra en cada visita ni encima del tour de bienvenida. Un modal
-//    que reaparece siempre es la forma más rápida de que lo cierren sin leer.
-//    Se muestra una vez; el "ahora no" (o cerrar) se respeta 14 días.
+// 3. Se muestra en CADA carga mientras la detección diga que NO está instalada
+//    (pedido explícito: insistir hasta que la instalen). No se apila encima del
+//    tour de bienvenida. Cerrarla solo la calla en ESTA carga; vuelve a la
+//    siguiente visita. Sin memoria de "ahora no": la única señal es si está
+//    instalada o no.
 // 4. `beforeinstallprompt` puede dispararse ANTES de que React monte este
 //    efecto. Por eso el root layout lo captura en `window.__kzInstallPrompt`
 //    (script beforeInteractive) y aquí se lee primero.
-
-const POSPUESTO = 'kz_instalar_pospuesto'
-const YA_LA_TENGO = 'kz_instalar_lista'
-/** Cuánto se respeta un "ahora no" antes de volver a ofrecer. */
-const DIAS_ESPERA = 14
 
 type PromptInstalacion = Event & {
   prompt: () => Promise<void>
@@ -47,16 +44,13 @@ declare global {
 
 function yaInstalada(): boolean {
   if (typeof window === 'undefined') return true
-  const standalone =
+  return (
     window.matchMedia?.('(display-mode: standalone)').matches ||
-    // iOS previo al estándar; no está en los tipos de TS.
+    // iOS previo al estándar; no está en los tipos de TS. Solo es true DENTRO
+    // de la PWA instalada; en la pestaña de Safari no hay forma de saberlo, así
+    // que ahí el aviso sale en cada visita aunque ya la tengan.
     (window.navigator as unknown as { standalone?: boolean }).standalone === true
-  if (standalone) return true
-  try {
-    return localStorage.getItem(YA_LA_TENGO) === '1'
-  } catch {
-    return false
-  }
+  )
 }
 
 function esIOS(): boolean {
@@ -70,24 +64,6 @@ function esCelular(): boolean {
   return window.matchMedia?.('(max-width: 767px)').matches ?? false
 }
 
-function pospuestoReciente(): boolean {
-  try {
-    const t = Number(localStorage.getItem(POSPUESTO) ?? 0)
-    return Boolean(t) && Date.now() - t < DIAS_ESPERA * 24 * 60 * 60 * 1000
-  } catch {
-    // Sin storage no se puede recordar el "ahora no": mejor no insistir.
-    return true
-  }
-}
-
-function recordar(clave: string, valor: string) {
-  try {
-    localStorage.setItem(clave, valor)
-  } catch {
-    /* sin storage volverá a aparecer; no es grave */
-  }
-}
-
 export function InstalarApp({
   esperar = false,
 }: {
@@ -98,7 +74,7 @@ export function InstalarApp({
   const [instruirIOS, setInstruirIOS] = useState(false)
 
   useEffect(() => {
-    if (esperar || !esCelular() || yaInstalada() || pospuestoReciente()) return
+    if (esperar || !esCelular() || yaInstalada()) return
 
     // iOS: no hay evento, solo instrucciones.
     if (esIOS()) {
@@ -118,7 +94,7 @@ export function InstalarApp({
     window.addEventListener('beforeinstallprompt', onPrompt)
     // Se instaló (por nuestro botón o por la barra de Chrome): nada que ofrecer.
     const onInstalada = () => {
-      recordar(YA_LA_TENGO, '1')
+      // display-mode pasa a standalone; yaInstalada() la ataja en la próxima carga.
       setPrompt(null)
     }
     window.addEventListener('appinstalled', onInstalada)
@@ -128,23 +104,19 @@ export function InstalarApp({
     }
   }, [esperar])
 
-  function posponer() {
-    recordar(POSPUESTO, String(Date.now()))
+  // Cerrar (X, fondo, "ahora no"): calla el aviso solo en esta carga; vuelve
+  // a la siguiente visita mientras siga sin estar instalada.
+  function cerrar() {
     setPrompt(null)
-    setInstruirIOS(false)
-  }
-
-  function yaLaTengo() {
-    recordar(YA_LA_TENGO, '1')
     setInstruirIOS(false)
   }
 
   async function instalar() {
     if (!prompt) return
     await prompt.prompt()
-    const eleccion = await prompt.userChoice.catch(() => null)
-    if (eleccion?.outcome === 'accepted') recordar(YA_LA_TENGO, '1')
-    else recordar(POSPUESTO, String(Date.now()))
+    await prompt.userChoice.catch(() => null)
+    // Aceptada: appinstalled + display-mode standalone la atajan luego.
+    // Rechazada: sin memoria, vuelve a ofrecerse en la próxima carga.
     window.__kzInstallPrompt = undefined
     setPrompt(null)
   }
@@ -155,7 +127,7 @@ export function InstalarApp({
     <Sheet
       open={abierto}
       onOpenChange={(open) => {
-        if (!open) posponer() // cerrar con la X o el fondo = "ahora no"
+        if (!open) cerrar() // cerrar con la X o el fondo: reaparece la próxima visita
       }}
     >
       <SheetContent side="bottom" className="rounded-t-2xl pb-[max(1.5rem,env(safe-area-inset-bottom))]">
@@ -183,7 +155,7 @@ export function InstalarApp({
 
         <div className="flex flex-col gap-2 px-4">
           {instruirIOS ? (
-            <Button type="button" size="touch" onClick={yaLaTengo}>
+            <Button type="button" size="touch" onClick={cerrar}>
               Ya la tengo
             </Button>
           ) : (
@@ -192,7 +164,7 @@ export function InstalarApp({
               Instalar
             </Button>
           )}
-          <Button type="button" variant="ghost" size="touch" onClick={posponer}>
+          <Button type="button" variant="ghost" size="touch" onClick={cerrar}>
             Ahora no
           </Button>
         </div>
