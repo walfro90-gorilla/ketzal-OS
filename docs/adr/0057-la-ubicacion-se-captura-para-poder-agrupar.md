@@ -57,10 +57,11 @@ y nadie sabe que es falso.
 - El backfill movió los cuatro países fuera de `state_to` y marcó `México` en
   los que tenían estado mexicano, así que no hay que tratar el `NULL` como caso
   especial al agrupar por país.
-- **Pendiente:** el formulario de servicios todavía captura estado y ciudad como
-  texto libre. Las columnas de país ya existen; falta llevarle
-  `CamposUbicacion`, que es el mismo componente. Mientras tanto la regresión
-  está cubierta por el harness.
+- **Cerrado el 2026-09-05:** el formulario de servicios ya usa el mismo
+  componente, en dos bloques (de dónde sale, a dónde va), y escribe
+  `country_from` / `country_to`. Lo que la IA lee de una plantilla pasa por el
+  catálogo antes de entrar al campo: si trae un país, cae en país y no en
+  estado, que era la puerta por la que el bug regresaba.
 
 ## Alternativas descartadas
 
@@ -82,9 +83,14 @@ y nadie sabe que es falso.
   que nombra el bug original—; `etiquetaLugar` usa el estado dentro de México y
   el **país** fuera, y no repite cuando ciudad y estado se llaman igual.
 - `supabase/tests/ubicacion_contacto.sql` (`pnpm hard-test ubicacion_contacto`,
-  8 aserciones, fixtures propias y revertidas): un proveedor con **solo
+  10 aserciones, fixtures propias y revertidas): un proveedor con **solo
   teléfono** se guarda; sin correo **ni** teléfono no se guarda; una cadena
   vacía no cuenta como contacto; dos proveedores sin correo conviven pese al
   `UNIQUE`; el servicio guarda el país en su columna y deja el estado libre; y
   **ningún servicio real tiene un país en `state_to`**, que es la regresión del
   bug que motivó todo.
+- Ampliado a **10 aserciones** al llevar el componente al formulario de
+  servicios: el **origen** guarda su país en `country_from` dejando
+  `state_from` vacío —la misma separación, por la otra puerta—, y la unión de
+  ciudades que alimenta las sugerencias corre contra las tres columnas reales,
+  así que renombrar una sale en rojo en vez de dejar el campo mudo.

@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { ciudadesConocidas } from '@/app/(ops)/proveedores/data'
 import { createClient } from '@/lib/supabase/server'
 import { PageHeader } from '@/components/data/page-header'
 import { ServicioForm } from '../servicio-form'
@@ -34,6 +35,7 @@ export default async function NuevoServicioPage() {
       )}
 
       <ServicioForm
+        ciudadesSugeridas={await ciudadesConocidas()}
         agencias={agenciasRes.data ?? []}
         defaultSupplierId={profileRes.data?.supplier_id ?? undefined}
       />

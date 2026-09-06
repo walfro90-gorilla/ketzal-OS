@@ -30,11 +30,22 @@
 > (`suppliers_contacto_chk`), porque una ficha sin forma de llamar no sirve. El
 > `UNIQUE` del correo sigue valiendo: Postgres permite varios NULL.
 >
-> Cubierto por `ubicacion_contacto.sql` (8 aserciones, incluida la regresión de
+> Cubierto por `ubicacion_contacto.sql` (10 aserciones, incluida la regresión de
 > que ningún servicio tenga un país en `state_to`) y 12 casos de `mexico.test.ts`,
 > donde la afirmación que nombra el bug es que `estadoCanonico('Colombia')` es
-> nulo. Suite 38. **Queda pendiente** llevar el mismo componente al formulario de
-> servicios, que todavía captura estado y ciudad como texto libre.
+> nulo. Suite 38, en verde con la app levantada.
+>
+> **El formulario de servicios cerró el hueco el mismo día.** Los cuatro campos
+> libres de origen y destino se volvieron dos bloques con el mismo componente —"de
+> dónde sale" y "a dónde va"—, agrupados con su título porque seis campos de
+> ubicación en fila se confunden entre sí, y ahora escriben `country_from` y
+> `country_to`. El detalle que faltaba: **lo que la IA lee de una plantilla pasa
+> por el catálogo antes de entrar al campo**, así que un "Colombia" leído cae en
+> país y no en estado. Sin eso el bug volvía por la puerta del autollenado. Dos
+> aserciones nuevas lo defienden: el origen guarda su país dejando `state_from`
+> vacío, y la unión de ciudades que alimenta las sugerencias corre contra las tres
+> columnas reales, así que renombrar una sale en rojo en vez de dejar el campo
+> mudo.
 > **La franja de agencias de la home ahora desfila con logos reales, y la
 > estela suelta del hero se retiró (2026-09-05).** Wal pidió quitar el trío
 > "Next.js · Supabase · MCP" (presumía el stack a un comprador que no es

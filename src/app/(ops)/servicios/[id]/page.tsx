@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { ciudadesConocidas } from '@/app/(ops)/proveedores/data'
 import { CalculatorIcon } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { buttonVariants } from '@/components/ui/button'
@@ -99,6 +100,7 @@ export default async function ServicioDetallePage({
       )}
 
       <ServicioForm
+        ciudadesSugeridas={await ciudadesConocidas()}
         servicioId={servicio.id}
         agencias={agenciasRes.data ?? []}
         initial={{
@@ -108,8 +110,11 @@ export default async function ServicioDetallePage({
           service_type: servicio.service_type,
           state_from: servicio.state_from ?? '',
           city_from: servicio.city_from ?? '',
+          country_from:
+            (servicio as { country_from?: string | null }).country_from ?? null,
           state_to: servicio.state_to ?? '',
           city_to: servicio.city_to ?? '',
+          country_to: (servicio as { country_to?: string | null }).country_to ?? null,
           max_capacity: servicio.max_capacity,
           // transport_type (b041) es columna nueva no tipada ⇒ cast.
           transport_type:

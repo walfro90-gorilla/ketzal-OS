@@ -99,6 +99,32 @@ begin
   if got = 'Samalayuca|Chihuahua|México' then ok:=ok+1;
   else fails:=fails+1; det:=det||format(' [8 la ubicación del proveedor no se guardó separada: %s]',got); end if;
 
+  -- 9 · El ORIGEN también tiene su país aparte. Es lo que faltaba cuando el
+  --     formulario de servicios se pasó a ubicación estructurada: si
+  --     `country_from` no existiera, el país del origen volvería a colarse en
+  --     `state_from` y el bug regresa por la otra puerta.
+  insert into ketzal.services(id,supplier_id,name,price,
+                              city_from,state_from,country_from,
+                              city_to,state_to,country_to)
+    values ('0000c098-0000-4000-8000-00000000b002',ag,'QA Tour origen',1000,
+            'El Paso',null,'Estados Unidos','Creel','Chihuahua','México');
+  select coalesce(country_from,'∅')||'|'||coalesce(state_from,'∅')
+    into got from ketzal.services
+   where id='0000c098-0000-4000-8000-00000000b002';
+  if got = 'Estados Unidos|∅' then ok:=ok+1;
+  else fails:=fails+1; det:=det||format(' [9 el país del origen no quedó separado del estado: %s]',got); end if;
+
+  -- 10 · La consulta que alimenta las sugerencias de ciudad (`ciudadesConocidas`)
+  --      corre de verdad contra las tres columnas. Si alguna se renombra, el
+  --      formulario se queda mudo sin que nadie lo note.
+  select count(*) into n from (
+    select city from ketzal.suppliers where city is not null
+    union select city_from from ketzal.services where city_from is not null
+    union select city_to   from ketzal.services where city_to   is not null
+  ) t;
+  if n >= 3 then ok:=ok+1;
+  else fails:=fails+1; det:=det||format(' [10 la unión de ciudades devolvió %s]',n); end if;
+
   raise exception 'UBICACIÓN Y CONTACTO -- % pasaron, % fallaron.%  (todo revertido)',
     ok, fails, coalesce(nullif(det,''),' Sin fallas.');
 end $$;
