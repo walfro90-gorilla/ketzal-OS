@@ -35,6 +35,41 @@
 > de `alt` a un logo produce un alt peor, no mejor (ese umbral es para las
 > capturas).
 
+> **"Solo veo Hotel": la pregunta chica que destapó el criterio de fondo
+> (2026-09-05).** El fundador iba a registrar la quinta de Samalayuca y propuso
+> agregar tipos nuevos, o un "+" para crearlos desde el desplegable. Medido antes
+> de decidir, las dos ideas eran peores que el problema: **`supplier_type` es
+> texto libre sin restricción**, y sobre todo **el tipo no decide dónde se
+> enchufa un proveedor en un servicio** — eso lo dan dos columnas fijas,
+> `transport_provider_id` y `hotel_provider_id`. Un tipo "Finca" no habría creado
+> ningún hueco nuevo, y el "+" habría llenado la tabla de "quinta", "Quinta" y
+> "finca" como valores distintos, con el filtro fragmentado y nada que los
+> consuma.
+>
+> Lo que entró (PR #150): el **tipo va primero** porque de él dependen las
+> secciones de abajo; **"Hotel" pasa a "Hospedaje"**, que cubre quinta, finca,
+> cabañas y campamento con el mismo hueco; y el detalle fino va a
+> `supplier_sub_type`, columna que **ya existía en la tabla y en los tipos sin
+> una sola referencia en el código**. Además el **perfil público solo se muestra
+> a agencias**: `get_public_supplier()` exige ser dueño de servicios publicados,
+> así que a una quinta se le pedían ocho campos —año de fundación, kilómetros,
+> redes, especialidades— que jamás se iban a publicar.
+>
+> Se descartó el formulario por pasos, y la razón decisiva no fue estética: **el
+> mismo componente crea y edita**, y un asistente por pasos es cómodo la primera
+> vez y molesto siempre después, porque para corregir un teléfono hay que
+> recordar en qué paso quedó.
+>
+> Y de ahí salió la pregunta de fondo, que quedó en
+> [ADR-0056](adr/0056-quien-vende-es-dueno-de-sus-servicios.md): **quién puede
+> vender en Ketzal se sabe por la relación, no por la etiqueta**. Vende quien es
+> dueño de sus servicios; surte quien se enlaza por las otras dos columnas. El
+> ADR declara el hueco en vez de fingir que no existe: hoy la base no impide que
+> un proveedor que no es agencia quede como dueño de un servicio. No muerde
+> porque las dos agencias son del fundador; el día que entre una ajena, ese
+> guard va en la BD.
+
+
 > **El OS ya sabe cuánto cuesta un tour (2026-09-05, b097, ADR-0055, PR #146).**
 > `services` no tenía una sola columna de costo y `add_ons` era `{key,label,price}`
 > sin dueño ni costo: el margen vivía en la cabeza del fundador y al prestador de
