@@ -9,6 +9,20 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Un admin de agencia no podía crear proveedores: 42501 (2026-09-05).** Tras
+> volver opcional el correo, `wallyagui87` (admin de Wanderlust) siguió sin poder
+> guardar: la app mostraba "No se pudo guardar el proveedor" y en los logs de
+> Vercel estaba el motivo real, `42501 new row violates row-level security policy`.
+> La policy de INSERT de `suppliers` deja crear a un superadmin (dueño nulo) o a un
+> admin de agencia SOLO si `owner_supplier_id` es su agencia — pero el server nunca
+> seteaba ese dueño, así que el admin chocaba con RLS pese a tener el derecho. Fix:
+> `crearProveedor` pone `owner_supplier_id = supplier_id` del creador cuando no es
+> superadmin; superadmin lo deja nulo (proveedor global). Además el `42501` deja de
+> esconderse tras el genérico y se explica como permiso. Probado como el uid del
+> admin contra la BD real (insert con payload real, rollback): pasa y queda legible
+> por `my_supplier_id()`. El síntoma que reportó el fundador ("no me deja con
+> WhatsApp sin email") ya NO era el correo — ese fix (b098/PR #158) sí funcionó.
+
 > **Registrar proveedor solo con WhatsApp seguía pidiendo correo (2026-09-05).**
 > b098/ADR-0057 dejó el correo opcional en el server (`actions.ts`), el CHECK
 > `suppliers_contacto_chk` (COALESCE de email/teléfono) y hasta el texto de ayuda
