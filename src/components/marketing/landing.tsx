@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { linkWhatsapp } from '@/lib/domain/phone'
 import { BrandMark } from '@/components/brand-mark'
+import { BorderBeam } from '@/components/ui/border-beam'
 import { FooterHome } from './footer-home'
 import { formatTravelDate, mxnEntero } from '@/components/data/format'
 import { inter } from './fonts'
@@ -155,7 +156,12 @@ export async function Landing() {
                   proporcional dentro (`object-contain`): la captura se ve
                   COMPLETA en pantallas bajas en vez de cortarse por abajo.
                   El ancho lo pone la propia imagen, por eso `w-fit`. */}
-              <div className="mx-auto w-fit max-w-[390px] overflow-hidden rounded-panel border border-hairline-strong bg-surface-1 lg:max-h-[calc(100svh-11rem)]">
+              <div className="relative mx-auto w-fit max-w-[390px] overflow-hidden rounded-panel border border-hairline-strong bg-surface-1 lg:max-h-[calc(100svh-11rem)]">
+                {/* El mismo haz que recorre la tarjeta de login. Cruza de
+                    `components/ui` a la home sin romper ADR-0046 porque no
+                    lee tokens: recibe los colores por prop y anima con CSS.
+                    `prefers-reduced-motion` lo detiene por la regla global. */}
+                <BorderBeam />
                 <Image
                   src={capturaVenta}
                   alt="Pantalla de una venta en Ketzal OS en el celular: plan de pagos con enganche y dos abonos quincenales, y debajo el resumen de total, pagado y saldo."
