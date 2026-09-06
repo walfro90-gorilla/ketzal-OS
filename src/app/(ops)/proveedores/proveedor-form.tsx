@@ -216,8 +216,10 @@ export function ProveedorForm({
       setError('Escribe el nombre del proveedor.')
       return
     }
-    if (!contactEmail.trim()) {
-      setError('Escribe el correo de contacto.')
+    // Correo OPCIONAL (b098): basta un contacto, correo o teléfono. El server
+    // y el CHECK `suppliers_contacto_chk` lo re-exigen; aquí solo el eco rápido.
+    if (!contactEmail.trim() && !phoneNumber.trim()) {
+      setError('Deja al menos un contacto: correo o teléfono.')
       return
     }
 
@@ -256,7 +258,7 @@ export function ProveedorForm({
 
     const input: ProveedorInput = {
       name: name.trim(),
-      contact_email: contactEmail.trim(),
+      contact_email: contactEmail.trim() || undefined,
       phone_number: phoneNumber.trim() || undefined,
       address: address.trim() || undefined,
       description: description.trim() || undefined,
