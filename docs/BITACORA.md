@@ -9,6 +9,32 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **El campo de estado guardaba países (2026-09-05).** El fundador pidió que
+> ciudad, estado y país dejaran de ser texto libre para poder agrupar. Al medirlo
+> apareció el bug de fondo: `services.state_to` no tenía columna de país al lado,
+> así que convivían "Jalisco", "Sinaloa" y "San Luis Potosí" con **"Colombia",
+> "Brasil", "Perú" y "Costa Rica"**. Agrupar por estado mezclaba entidades con
+> países, y en pantalla no se notaba porque "Medellín, Colombia" se lee bien.
+>
+> b098 agrega `country_from`/`country_to` a servicios, `city`/`state`/`country` a
+> proveedores, y mueve los cuatro países fuera del campo de estado. La captura
+> pasa a ser cerrada donde el conjunto lo es —país y las 32 entidades, y el
+> estado **solo** si el país es México— y sugerida donde es abierto: la ciudad
+> lleva sugerencias de las ya usadas, y la agrupación no depende de que se teclee
+> igual porque se normaliza con la misma clave que los destinos
+> → [ADR-0057](adr/0057-la-ubicacion-se-captura-para-poder-agrupar.md).
+>
+> En el mismo golpe, el fundador reportó que no podía guardar la quinta sin
+> correo: **`contact_email` era NOT NULL** y hay proveedores que solo tienen
+> WhatsApp. Ahora es opcional, pero la BD exige **al menos un contacto**
+> (`suppliers_contacto_chk`), porque una ficha sin forma de llamar no sirve. El
+> `UNIQUE` del correo sigue valiendo: Postgres permite varios NULL.
+>
+> Cubierto por `ubicacion_contacto.sql` (8 aserciones, incluida la regresión de
+> que ningún servicio tenga un país en `state_to`) y 12 casos de `mexico.test.ts`,
+> donde la afirmación que nombra el bug es que `estadoCanonico('Colombia')` es
+> nulo. Suite 38. **Queda pendiente** llevar el mismo componente al formulario de
+> servicios, que todavía captura estado y ciudad como texto libre.
 > **La franja de agencias de la home ahora desfila con logos reales, y la
 > estela suelta del hero se retiró (2026-09-05).** Wal pidió quitar el trío
 > "Next.js · Supabase · MCP" (presumía el stack a un comprador que no es

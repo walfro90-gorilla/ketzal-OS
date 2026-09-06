@@ -14,6 +14,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { NativeSelect } from '@/components/ui/native-select'
+import { CamposUbicacion, type Ubicacion } from '@/components/data/campos-ubicacion'
 import { PhoneInput } from '@/components/ui/phone-input'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -42,6 +43,9 @@ export type ProveedorFormInitial = {
   contact_email: string
   phone_number: string
   address: string
+  city?: string | null
+  state?: string | null
+  country?: string | null
   description: string
   supplier_type: string | null
   supplier_sub_type?: string | null
@@ -59,10 +63,13 @@ export type ProveedorFormInitial = {
 export function ProveedorForm({
   proveedorId,
   initial,
+  ciudadesSugeridas = [],
 }: {
   /** Si viene, el formulario edita (actualizarProveedor); si no, crea (crearProveedor). */
   proveedorId?: string
   initial?: ProveedorFormInitial
+  /** Ciudades ya usadas en el catálogo, para reusar en vez de inventar. */
+  ciudadesSugeridas?: string[]
 }) {
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
@@ -71,6 +78,11 @@ export function ProveedorForm({
   const [contactEmail, setContactEmail] = useState(initial?.contact_email ?? '')
   const [phoneNumber, setPhoneNumber] = useState(initial?.phone_number ?? '')
   const [address, setAddress] = useState(initial?.address ?? '')
+  const [ubicacion, setUbicacion] = useState<Ubicacion>({
+    ciudad: initial?.city ?? '',
+    estado: initial?.state ?? '',
+    pais: initial?.country ?? 'México',
+  })
   const [description, setDescription] = useState(initial?.description ?? '')
   // Las agencias se crean en /equipo (negocio + su admin en un paso); aquí solo
   // proveedores operativos ⇒ el default al CREAR es 'transporte'. El tipo 'agency'
@@ -250,6 +262,9 @@ export function ProveedorForm({
       description: description.trim() || undefined,
       supplier_type: tipo,
       supplier_sub_type: subtipo,
+      city: ubicacion.ciudad,
+      state: ubicacion.estado,
+      country: ubicacion.pais,
       commission_rate: tipo === 'agency' ? rate : undefined,
       referral_code: null,
       info: infoInput,
@@ -274,7 +289,8 @@ export function ProveedorForm({
         <CardHeader>
           <CardTitle>Datos del proveedor</CardTitle>
           <CardDescription>
-            El nombre y el correo de contacto son obligatorios.
+            El nombre es obligatorio. Del contacto basta con uno: correo o
+            teléfono. Hay proveedores que solo manejan WhatsApp.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -334,7 +350,7 @@ export function ProveedorForm({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="proveedor-email">Correo de contacto *</Label>
+              <Label htmlFor="proveedor-email">Correo de contacto</Label>
               <Input
                 id="proveedor-email"
                 type="email"
@@ -367,13 +383,20 @@ export function ProveedorForm({
                 />
               </div>
             )}
+            {/* Ubicación agrupable (ADR-0057): país y estado cerrados, ciudad
+                sugerida. `address` se queda solo para la calle. */}
+            <CamposUbicacion
+              valor={ubicacion}
+              onChange={setUbicacion}
+              ciudadesSugeridas={ciudadesSugeridas}
+            />
             <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="proveedor-direccion">Dirección</Label>
+              <Label htmlFor="proveedor-direccion">Calle y número</Label>
               <Input
                 id="proveedor-direccion"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
-                placeholder="Calle, ciudad… (opcional)"
+                placeholder="Ej. Ave. Insurgentes 789 (opcional)"
               />
             </div>
             <div className="space-y-2 sm:col-span-2">

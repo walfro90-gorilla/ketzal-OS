@@ -1,4 +1,5 @@
 import { MapPinIcon } from 'lucide-react'
+import { ciudadesConocidas } from '../data'
 import { createClient } from '@/lib/supabase/server'
 import {
   Card,
@@ -224,12 +225,16 @@ export default async function ProveedorDetallePage({
       )}
 
       <ProveedorForm
+        ciudadesSugeridas={await ciudadesConocidas()}
         proveedorId={proveedor.id}
         initial={{
           name: proveedor.name,
           contact_email: proveedor.contact_email ?? '',
           phone_number: proveedor.phone_number ?? '',
           address: proveedor.address ?? '',
+          city: (proveedor as { city?: string | null }).city ?? null,
+          state: (proveedor as { state?: string | null }).state ?? null,
+          country: (proveedor as { country?: string | null }).country ?? null,
           description: proveedor.description ?? '',
           supplier_type: proveedor.supplier_type,
           supplier_sub_type:

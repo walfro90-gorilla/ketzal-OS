@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { safeError } from '@/lib/errors'
+import { estadoCanonico, paisCanonico } from '@/lib/domain/mexico'
 import { esBannerValido } from '@/lib/storage/banner-url'
 import { normalizarClabe, validarClabe, validarTarjeta } from '@/lib/domain/clabe'
 import { limpiarTarifario, type RateInput, type RateLine } from '@/lib/domain/costeo'
@@ -31,13 +32,17 @@ export type ProveedorInfo = {
 
 export type ProveedorInput = {
   name: string
-  contact_email: string
+  /** Opcional: hay proveedores informales que solo tienen WhatsApp. */
+  contact_email?: string | null
   phone_number?: string
   address?: string
   description?: string
   supplier_type: string
   /** Etiqueta libre (Quinta, Finca, Camioneta). No decide nada. */
   supplier_sub_type?: string | null
+  city?: string | null
+  state?: string | null
+  country?: string | null
   commission_rate?: number
   /** Código de referido del embajador (para atribuir ventas por `?ref`). */
   referral_code?: string | null
@@ -119,12 +124,15 @@ function normalizarCampos(input: ProveedorInput):
   | {
       fields: {
         name: string
-        contact_email: string
+        contact_email: string | null
         phone_number: string | null
         address: string | null
         description: string | null
         supplier_type: string
         supplier_sub_type: string | null
+        city: string | null
+        state: string | null
+        country: string | null
         commission_rate: number
         referral_code: string | null
         info: ProveedorInfo | null
@@ -134,9 +142,14 @@ function normalizarCampos(input: ProveedorInput):
   if (!name) {
     return { error: 'Escribe el nombre del proveedor.' }
   }
-  const contactEmail = input.contact_email?.trim()
-  if (!contactEmail) {
-    return { error: 'Escribe el correo de contacto.' }
+  // Correo OPCIONAL (b098): hay proveedores informales que solo manejan
+  // WhatsApp, y un correo inventado para pasar la validación es peor que un
+  // campo vacío. Pero sin NINGÚN contacto el registro no sirve: se exige uno de
+  // los dos, y la BD lo vuelve a exigir con `suppliers_contacto_chk`.
+  const contactEmail = input.contact_email?.trim() || null
+  const telefono = input.phone_number?.trim() || null
+  if (!contactEmail && !telefono) {
+    return { error: 'Deja al menos un contacto: correo o teléfono.' }
   }
 
   const esAgencia = input.supplier_type === 'agency'
@@ -176,7 +189,7 @@ function normalizarCampos(input: ProveedorInput):
     fields: {
       name,
       contact_email: contactEmail,
-      phone_number: input.phone_number?.trim() || null,
+      phone_number: telefono,
       address: input.address?.trim() || null,
       description: input.description?.trim() || null,
       supplier_type: input.supplier_type,
@@ -184,6 +197,11 @@ function normalizarCampos(input: ProveedorInput):
       // Camioneta). No decide nada: el rol en un servicio lo da la columna a la
       // que se enlaza, no este texto.
       supplier_sub_type: input.supplier_sub_type?.trim() || null,
+      // Ubicación agrupable (ADR-0057). Se guarda el nombre canónico del
+      // catálogo para que dos capturas del mismo lugar caigan en el mismo grupo.
+      city: input.city?.trim() || null,
+      state: estadoCanonico(input.state) ?? (input.state?.trim() || null),
+      country: paisCanonico(input.country) ?? (input.country?.trim() || null),
       commission_rate: rate,
       referral_code: referralCode,
       info: limpiarInfo(input.info),

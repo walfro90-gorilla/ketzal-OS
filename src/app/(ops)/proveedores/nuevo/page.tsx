@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { ciudadesConocidas } from '../data'
 import { createClient } from '@/lib/supabase/server'
 import { PageHeader } from '@/components/data/page-header'
 import { ProveedorForm } from '../proveedor-form'
@@ -18,7 +19,7 @@ export default async function NuevoProveedorPage() {
         backLabel="Volver a proveedores"
       />
 
-      <ProveedorForm />
+      <ProveedorForm ciudadesSugeridas={await ciudadesConocidas()} />
     </div>
   )
 }
