@@ -10,7 +10,9 @@ const TIPO_LABELS: Record<string, string> = {
   tour_operator: 'Tour operador',
   transport: 'Transporte',
   transporte: 'Transporte',
-  hotel: 'Hotel',
+  // Cubre quintas, fincas, cabañas y campamentos: el hueco en un servicio es
+  // el mismo (`hotel_provider_id`). El detalle fino va en el subtipo.
+  hotel: 'Hospedaje',
   embajador: 'Embajador',
   otro: 'Otro',
 }

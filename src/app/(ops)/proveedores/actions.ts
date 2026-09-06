@@ -36,6 +36,8 @@ export type ProveedorInput = {
   address?: string
   description?: string
   supplier_type: string
+  /** Etiqueta libre (Quinta, Finca, Camioneta). No decide nada. */
+  supplier_sub_type?: string | null
   commission_rate?: number
   /** Código de referido del embajador (para atribuir ventas por `?ref`). */
   referral_code?: string | null
@@ -122,6 +124,7 @@ function normalizarCampos(input: ProveedorInput):
         address: string | null
         description: string | null
         supplier_type: string
+        supplier_sub_type: string | null
         commission_rate: number
         referral_code: string | null
         info: ProveedorInfo | null
@@ -177,6 +180,10 @@ function normalizarCampos(input: ProveedorInput):
       address: input.address?.trim() || null,
       description: input.description?.trim() || null,
       supplier_type: input.supplier_type,
+      // Etiqueta libre para distinguir de un vistazo (Quinta, Finca,
+      // Camioneta). No decide nada: el rol en un servicio lo da la columna a la
+      // que se enlaza, no este texto.
+      supplier_sub_type: input.supplier_sub_type?.trim() || null,
       commission_rate: rate,
       referral_code: referralCode,
       info: limpiarInfo(input.info),

@@ -232,6 +232,8 @@ export default async function ProveedorDetallePage({
           address: proveedor.address ?? '',
           description: proveedor.description ?? '',
           supplier_type: proveedor.supplier_type,
+          supplier_sub_type:
+            (proveedor as { supplier_sub_type?: string | null }).supplier_sub_type ?? null,
           commission_rate: Number(proveedor.commission_rate ?? 0),
           referral_code:
             (proveedor as { referral_code?: string | null }).referral_code ??
