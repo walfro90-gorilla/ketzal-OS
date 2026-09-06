@@ -13,7 +13,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet'
-import { navItemsForRole, isNavActive } from './nav-items'
+import { navItemsForRole, groupedNavItems, isNavActive } from './nav-items'
 
 // Bottom tab bar (sólo móvil). Rutas primarias + "Más" que abre un sheet con
 // el resto de la navegación y la cuenta (email + salir), para no obligar a
@@ -40,6 +40,11 @@ export function BottomTabs({
   const items = navItemsForRole(role)
   const primaryItems = items.filter((i) => i.primary)
   const secondaryItems = items.filter((i) => !i.primary)
+  // El sheet "Más" muestra lo no-primario, ya agrupado por sección (mismos
+  // encabezados que el sidebar); un grupo sin ítems no-primarios se cae solo.
+  const moreGroups = groupedNavItems(role)
+    .map((g) => ({ ...g, items: g.items.filter((i) => !i.primary) }))
+    .filter((g) => g.items.length > 0)
   const hasMore = secondaryItems.length > 0
   const moreActive = secondaryItems.some((i) => isNavActive(pathname, i.href))
 
@@ -100,29 +105,38 @@ export function BottomTabs({
               <SheetHeader>
                 <SheetTitle>Más</SheetTitle>
               </SheetHeader>
-              <ul className="flex flex-col gap-1 px-2 pb-2">
-                {secondaryItems.map(({ label, href, icon: Icon }) => {
-                  const active = isNavActive(pathname, href)
-                  return (
-                    <li key={href}>
-                      <Link
-                        href={href}
-                        onClick={() => setOpen(false)}
-                        aria-current={active ? 'page' : undefined}
-                        className={cn(
-                          'flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                          active
-                            ? 'bg-primary/10 text-primary'
-                            : 'hover:bg-muted'
-                        )}
-                      >
-                        <Icon className="size-5 shrink-0" />
-                        {label}
-                      </Link>
-                    </li>
-                  )
-                })}
-              </ul>
+              <div className="px-2 pb-2">
+                {moreGroups.map((group) => (
+                  <div key={group.key} className="pt-2 first:pt-0">
+                    <p className="px-3 pb-1 text-xs font-semibold tracking-wide text-muted-foreground/70 uppercase">
+                      {group.label}
+                    </p>
+                    <ul className="flex flex-col gap-1">
+                      {group.items.map(({ label, href, icon: Icon }) => {
+                        const active = isNavActive(pathname, href)
+                        return (
+                          <li key={href}>
+                            <Link
+                              href={href}
+                              onClick={() => setOpen(false)}
+                              aria-current={active ? 'page' : undefined}
+                              className={cn(
+                                'flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                                active
+                                  ? 'bg-primary/10 text-primary'
+                                  : 'hover:bg-muted'
+                              )}
+                            >
+                              <Icon className="size-5 shrink-0" />
+                              {label}
+                            </Link>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  </div>
+                ))}
+              </div>
               {/* Cuenta: email + salir al alcance del pulgar (plan §4). */}
               {email && (
                 <div className="px-2 pb-2">
