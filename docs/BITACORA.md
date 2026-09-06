@@ -9,6 +9,16 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **El aviso de instalar la app ahora sale en cada visita (2026-09-05).** Antes se
+> mostraba una sola vez y se callaba 14 días con "ahora no" o para siempre con
+> "ya la tengo" (memoria en `localStorage`). Pedido del fundador: insistir hasta
+> que la instalen. Se quita toda la memoria persistente; la única señal es la
+> detección real de instalada (`display-mode: standalone` / `navigator.standalone`).
+> Cerrar el modal lo calla solo en esa carga; reaparece a la siguiente. Tradeoff
+> honesto: en iOS la pestaña de Safari no puede saber si ya la agregaron a inicio,
+> así que ahí saldrá en cada visita aunque ya la tengan (solo la instancia
+> instalada reporta `navigator.standalone`).
+
 > **La franja de la status bar se veía teal contra el header oscuro (2026-09-05).**
 > El `<meta name="theme-color">` ya salía bien (dark `#081512`, claro `#fbfaf6`),
 > pero el `manifest.theme_color` seguía en `#00805F` (teal de marca). En la PWA
