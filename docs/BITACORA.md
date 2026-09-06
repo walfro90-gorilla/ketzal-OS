@@ -9,6 +9,14 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **La franja de la status bar se veía teal contra el header oscuro (2026-09-05).**
+> El `<meta name="theme-color">` ya salía bien (dark `#081512`, claro `#fbfaf6`),
+> pero el `manifest.theme_color` seguía en `#00805F` (teal de marca). En la PWA
+> instalada Android pinta la status bar con el `theme_color` del manifest, así que
+> contra el chrome oscuro de la app quedaba una banda teal pegada arriba. Se alinea
+> el `theme_color` del manifest al canvas oscuro `#081512` (= meta dark). Efectivo
+> al recargar/reinstalar la PWA (Android cachea el manifest).
+
 > **El menú móvil no scrolleaba (2026-09-05).** El sheet inferior (`side="bottom"`,
 > el "Más" de `bottom-tabs`) crecía con la lista de navegación pero `h-auto` lo
 > dejaba sin tope ni scroll: en pantallas cortas los últimos ítems y "Salir"
