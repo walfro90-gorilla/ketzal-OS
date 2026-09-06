@@ -44,6 +44,7 @@ export type ProveedorFormInitial = {
   address: string
   description: string
   supplier_type: string | null
+  supplier_sub_type?: string | null
   commission_rate: number
   /** Código de referido del embajador (referral_code), o null. */
   referral_code: string | null
@@ -80,6 +81,10 @@ export function ProveedorForm({
   const [commissionRate, setCommissionRate] = useState(
     String(initial?.commission_rate ?? 0)
   )
+  // Subtipo: etiqueta libre para distinguir de un vistazo (Quinta, Finca,
+  // Cabañas, Camioneta…). NO decide nada — el rol en un servicio lo da la
+  // columna a la que se enlaza (transporte u hospedaje), no este texto.
+  const [subtipo, setSubtipo] = useState(initial?.supplier_sub_type ?? '')
 
   // Perfil público (info jsonb).
   const info = initial?.info
@@ -244,6 +249,7 @@ export function ProveedorForm({
       address: address.trim() || undefined,
       description: description.trim() || undefined,
       supplier_type: tipo,
+      supplier_sub_type: subtipo,
       commission_rate: tipo === 'agency' ? rate : undefined,
       referral_code: null,
       info: infoInput,
@@ -273,6 +279,51 @@ export function ProveedorForm({
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
+            {/* El TIPO va primero: de él depende qué secciones se muestran
+                abajo, así que preguntarlo al final obliga a releer el formulario.
+                No cambia dónde se enchufa el proveedor en un servicio — eso lo
+                decide la columna (transporte u hospedaje) — pero sí qué campos
+                tienen sentido llenar. */}
+            <div className="space-y-2">
+              <Label htmlFor="proveedor-tipo">Tipo</Label>
+              <NativeSelect
+                id="proveedor-tipo"
+                value={tipo}
+                onChange={(e) => setTipo(e.target.value as ProveedorTipo)}
+                // Una agencia no se convierte en transporte/hospedaje: bloqueado
+                // sobre todo para el admin que edita SU agencia desde /ajustes.
+                disabled={initial?.supplier_type === 'agency'}
+              >
+                {/* "Agencia" solo aparece al EDITAR una agencia existente. Al crear
+                    no se ofrece: las agencias se dan de alta en /equipo (negocio +
+                    admin en un paso). Embajador tampoco es un supplier (se crea en
+                    Comisiones como profile type='embajador', refactor de identidad F2). */}
+                {proveedorId && tipo === 'agency' && (
+                  <option value="agency">Agencia</option>
+                )}
+                <option value="transporte">Transporte</option>
+                {/* "Hospedaje" y no "Hotel": el mismo hueco lo ocupan quintas,
+                    fincas, cabañas y campamentos. El valor guardado sigue siendo
+                    `hotel`, que es al que apunta `services.hotel_provider_id`. */}
+                <option value="hotel">Hospedaje</option>
+                <option value="otro">Otro</option>
+              </NativeSelect>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="proveedor-subtipo">Subtipo (opcional)</Label>
+              <Input
+                id="proveedor-subtipo"
+                value={subtipo}
+                onChange={(e) => setSubtipo(e.target.value)}
+                placeholder={
+                  tipo === 'hotel'
+                    ? 'Ej. Quinta, Finca, Cabañas'
+                    : tipo === 'transporte'
+                      ? 'Ej. Camioneta, Autobús'
+                      : 'Ej. Guía, Restaurante'
+                }
+              />
+            </div>
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="proveedor-nombre">Nombre *</Label>
               <Input
@@ -299,28 +350,6 @@ export function ProveedorForm({
                 value={phoneNumber}
                 onChange={setPhoneNumber}
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="proveedor-tipo">Tipo</Label>
-              <NativeSelect
-                id="proveedor-tipo"
-                value={tipo}
-                onChange={(e) => setTipo(e.target.value as ProveedorTipo)}
-                // Una agencia no se convierte en transporte/hotel: bloqueado
-                // sobre todo para el admin que edita SU agencia desde /ajustes.
-                disabled={initial?.supplier_type === 'agency'}
-              >
-                {/* "Agencia" solo aparece al EDITAR una agencia existente. Al crear
-                    no se ofrece: las agencias se dan de alta en /equipo (negocio +
-                    admin en un paso). Embajador tampoco es un supplier (se crea en
-                    Comisiones como profile type='embajador', refactor de identidad F2). */}
-                {proveedorId && tipo === 'agency' && (
-                  <option value="agency">Agencia</option>
-                )}
-                <option value="transporte">Transporte</option>
-                <option value="hotel">Hotel</option>
-                <option value="otro">Otro</option>
-              </NativeSelect>
             </div>
             {tipo === 'agency' && (
               <div className="space-y-2">
@@ -419,6 +448,12 @@ export function ProveedorForm({
         </CardContent>
       </Card>
 
+      {/* Perfil público SOLO para agencias: `get_public_supplier` exige ser
+          DUEÑO de servicios publicados (`services.supplier_id`), y un
+          transporte o un hospedaje se enlaza por otra columna. Mostrarle estos
+          ocho campos a una quinta es pedir datos que no se van a publicar en
+          ningún lado. */}
+      {tipo === 'agency' && (
       <Card>
         <CardHeader>
           <CardTitle>Perfil público</CardTitle>
@@ -515,6 +550,8 @@ export function ProveedorForm({
           </div>
         </CardContent>
       </Card>
+
+      )}
 
       {tipo === 'agency' && (
         <Card>
