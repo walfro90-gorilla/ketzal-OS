@@ -9,6 +9,7 @@ import { formatTravelDate, mxnEntero } from '@/components/data/format'
 import { inter } from './fonts'
 import { CTA_NAV, CTA_PRIMARIO, CTA_SECUNDARIO, ENLACE } from './cta'
 import { inventarioHome } from './inventario'
+import { Credibilidad } from './credibilidad'
 import { HuecoFoto } from './hueco-foto'
 import capturaVenta from './capturas/venta-movil-hero.png'
 import capturaPlan from './capturas/venta-escritorio-plan.png'
@@ -56,11 +57,6 @@ const PREGUNTAS = [
   },
 ]
 
-// Lo que dice la spec, sin inflar: dos nombres reales, cero logos inventados.
-const AGENCIAS = [
-  { nombre: 'Wanderlust Travels', ciudad: 'Cd. Juárez' },
-  { nombre: 'Border Travels', ciudad: 'Cd. Juárez' },
-]
 const HOY = [
   'Ventas en un cuaderno.',
   'Abonos en una hoja de cálculo que solo tú entiendes.',
@@ -193,49 +189,15 @@ export async function Landing() {
             </div>
           </div>
 
-          {/* La estela: firma de marca trazada una vez al cargar. Único gradiente del sitio. */}
-          <div className="mx-auto w-full max-w-6xl px-4 pb-4">
-            <svg viewBox="0 0 900 90" className="h-12 w-full max-w-2xl" fill="none" aria-hidden="true">
-              <defs>
-                <linearGradient id="estela-hero" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0" stopColor="#00C89D" />
-                  <stop offset="1" stopColor="#05AE51" />
-                </linearGradient>
-              </defs>
-              <path
-                className="animate-estela-draw"
-                d="M6 74 C 240 74, 300 22, 470 18 S 760 40, 890 14"
-                stroke="url(#estela-hero)"
-                strokeWidth="6"
-                strokeLinecap="round"
-              />
-              <circle cx="890" cy="14" r="6" fill="#05AE51" />
-            </svg>
-          </div>
+          {/* Aquí vivía la estela trazada (la curva verde bajo el hero). Fuera
+              desde 2026-09-05: el haz que recorre la captura hace ya ese papel
+              de firma en movimiento, y la spec pide UN solo momento animado en
+              el hero. La estela sigue siendo la firma de marca en el resto del
+              sitio (`bg-estela`, `docs/BRAND.md`); solo se retira de aquí. */}
         </section>
 
-        {/* ---------------- CREDIBILIDAD: franja delgada, dos nombres reales ---------------- */}
-        <section aria-labelledby="credibilidad" className="border-y border-hairline">
-          <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h2 id="credibilidad" className="text-small text-mid">
-                Agencias que ya están en Ketzal
-              </h2>
-              <ul className="mt-2 flex flex-wrap gap-x-8 gap-y-2">
-                {AGENCIAS.map((a) => (
-                  <li key={a.nombre} className="text-body font-semibold">
-                    {a.nombre} <span className="font-normal text-mid">({a.ciudad})</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <ul aria-label="Construido con" className="flex gap-6 text-caption text-mid">
-              <li>Next.js</li>
-              <li>Supabase</li>
-              <li>MCP</li>
-            </ul>
-          </div>
-        </section>
+        {/* ---------------- CREDIBILIDAD: agencias reales, en vivo ---------------- */}
+        <Credibilidad />
 
         {/* ---------------- EL PROBLEMA: dos columnas, sin iconos ---------------- */}
         <section aria-labelledby="problema" className="mx-auto w-full max-w-6xl px-4 py-section lg:py-section-lg">

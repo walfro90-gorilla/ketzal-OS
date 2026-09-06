@@ -9,6 +9,32 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **La franja de agencias de la home ahora desfila con logos reales, y la
+> estela suelta del hero se retiró (2026-09-05).** Wal pidió quitar el trío
+> "Next.js · Supabase · MCP" (presumía el stack a un comprador que no es
+> técnico) y mejorar la franja con logos, estrellas y carrusel automático.
+> `components/marketing/credibilidad.tsx` lee el MISMO RPC anónimo que el
+> directorio público (`list_public_suppliers`), así que la home nunca presume
+> una agencia que el marketplace no muestre: logo del Storage por el
+> optimizador, ciudad, y el dato real de cada una. **Las estrellas se pintan
+> SOLO si hay reseñas**: hoy las dos agencias tienen `count = 0`, así que en su
+> lugar va lo que sí existe (viajes publicados y especialidad). Pintar cinco
+> estrellas vacías —o llenas— habría sido justo la métrica sin fuente que
+> prohíbe la spec. El desfile es CSS puro (`@keyframes desfile` +
+> `animate-desfile`, aditivo en globals.css), se pausa al pasar el mouse y lo
+> detiene `prefers-reduced-motion`. Detalle que solo salió midiendo: **una
+> vuelta tiene que ser más ancha que la pantalla** o el giro deja un hueco; con
+> dos agencias (38rem) no lo era, así que la vuelta se repite hasta juntar 6
+> tarjetas — medido, 1912 px contra 1422 de ventana. La estela trazada bajo el
+> hero se quitó: el haz que recorre la captura ya hace de firma en movimiento y
+> la spec pide UN solo momento animado; la estela sigue viva en el resto del
+> sitio (`bg-estela`, `docs/BRAND.md`). `home.mjs`: 38 → 45 casos. Dos de las
+> aserciones nuevas nacieron mal y lo dijeron en rojo antes de mergear: contar
+> el texto suelto del alt cuenta también el payload RSC del final del documento
+> (daba 4 en vez de 2 — hay que contar el atributo), y exigirle 40 caracteres
+> de `alt` a un logo produce un alt peor, no mejor (ese umbral es para las
+> capturas).
+
 > **"Solo veo Hotel": la pregunta chica que destapó el criterio de fondo
 > (2026-09-05).** El fundador iba a registrar la quinta de Samalayuca y propuso
 > agregar tipos nuevos, o un "+" para crearlos desde el desplegable. Medido antes
@@ -42,6 +68,7 @@
 > un proveedor que no es agencia quede como dueño de un servicio. No muerde
 > porque las dos agencias son del fundador; el día que entre una ajena, ese
 > guard va en la BD.
+
 
 > **El OS ya sabe cuánto cuesta un tour (2026-09-05, b097, ADR-0055, PR #146).**
 > `services` no tenía una sola columna de costo y `add_ons` era `{key,label,price}`
