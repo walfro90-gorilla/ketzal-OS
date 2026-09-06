@@ -9,6 +9,16 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **El itinerario acepta varias acciones por día (2026-09-05).** Cada día tenía
+> un solo título + un textarea; el fundador pidió poder listar varias cosas que se
+> hacen el mismo día (tours de 1-2 días con varias paradas). Sin tocar el modelo
+> `{title, description}` ni la BD: en el form cada día ahora tiene una lista de
+> renglones "acción" (un `Input` c/u) con "+ Agregar acción" y "Quitar"; se guardan
+> en `description` separados por `\n`. En guardado se colapsan los renglones
+> vacíos. Los renders al cliente (cotización y `/mis-compras`) muestran los
+> renglones con `whitespace-pre-line`. Cero cambios en el import por IA, jsonld ni
+> tipos. Round-trip split/join probado con asserts.
+
 > **Un admin de agencia no podía crear proveedores: 42501 (2026-09-05).** Tras
 > volver opcional el correo, `wallyagui87` (admin de Wanderlust) siguió sin poder
 > guardar: la app mostraba "No se pudo guardar el proveedor" y en los logs de

@@ -234,7 +234,7 @@ export default async function TripPage({
               <li key={i} className="rounded-xl border p-3">
                 {paso.title && <p className="font-semibold">{paso.title}</p>}
                 {paso.description && (
-                  <p className="mt-1 text-sm text-muted-foreground">{paso.description}</p>
+                  <p className="mt-1 whitespace-pre-line text-sm text-muted-foreground">{paso.description}</p>
                 )}
               </li>
             ))}

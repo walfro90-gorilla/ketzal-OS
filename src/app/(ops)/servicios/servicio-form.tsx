@@ -652,13 +652,55 @@ export function ServicioForm({
                 onChange={(e) => actualizarDia(i, { title: e.target.value })}
                 placeholder="Título del día. Ej. Llegada a Creel y recorrido"
               />
-              <Textarea
-                value={dia.description}
-                onChange={(e) =>
-                  actualizarDia(i, { description: e.target.value })
+              {/* Varias acciones por día: una por renglón. Se guardan en
+                  `description` separadas por salto de línea, así ningún render
+                  (cotización, mis-compras) necesita cambiar de forma. */}
+              {(dia.description ? dia.description.split('\n') : ['']).map(
+                (accion, j, lineas) => (
+                  <div key={j} className="flex items-center gap-2">
+                    <Input
+                      value={accion}
+                      onChange={(e) => {
+                        const next = [...lineas]
+                        next[j] = e.target.value
+                        actualizarDia(i, { description: next.join('\n') })
+                      }}
+                      placeholder="Qué se hace… Ej. Visita a las cascadas de Cusárare"
+                    />
+                    {lineas.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          actualizarDia(i, {
+                            description: lineas
+                              .filter((_, k) => k !== j)
+                              .join('\n'),
+                          })
+                        }
+                      >
+                        Quitar
+                      </Button>
+                    )}
+                  </div>
+                )
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  actualizarDia(i, {
+                    description: [
+                      ...(dia.description ? dia.description.split('\n') : ['']),
+                      '',
+                    ].join('\n'),
+                  })
                 }
-                placeholder="Qué se hace ese día… (opcional)"
-              />
+              >
+                + Agregar acción
+              </Button>
             </div>
           ))}
           <Button

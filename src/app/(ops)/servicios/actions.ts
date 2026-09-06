@@ -67,7 +67,13 @@ function limpiarItinerario(dias?: ItineraryDay[]): ItineraryDay[] {
   return (dias ?? [])
     .map((d) => ({
       title: String(d?.title ?? '').trim(),
-      description: String(d?.description ?? '').trim(),
+      // Varias acciones por día = renglones separados por \n; se limpian los
+      // vacíos para no dejar viñetas en blanco en la cotización.
+      description: String(d?.description ?? '')
+        .split('\n')
+        .map((l) => l.trim())
+        .filter(Boolean)
+        .join('\n'),
     }))
     .filter((d) => d.title !== '')
 }
