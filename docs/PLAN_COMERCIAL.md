@@ -299,17 +299,17 @@ el dato, y sin el dato no hay escalón 2 ni 3.
 > `temporadas fijas − salidas = huecos`. Un puente sin salida es una transacción
 > que no ocurrió; por eso entra en este plan y no en el de "features".
 
-- [ ] `services.duration_days` y `services.meses_ideales` capturados en el
-      formulario de servicios (sin duración se asume 1 día)
-- [ ] `temporadas-mx.ts`: catálogo `nacional` + `frontera` con unit test
+- [x] `services.duration_days` y `services.meses_ideales` capturados en el
+      formulario de servicios (sin duración se asume 1 día) — b099, 2026-09-07
+- [x] `temporadas-mx.ts`: catálogo `nacional` + `frontera` con unit test
       (Pascua 2026-04-05, 2027-03-28, 2028-04-16; puentes de la LFT)
-- [ ] `oportunidades.ts` puro: horizonte 120 días y aviso a 4 semanas como
+- [x] `oportunidades.ts` puro: horizonte 120 días y aviso a 4 semanas como
       parámetros; test de la salida de 3 días que sí cubre el puente
-- [ ] Pestaña "Huecos" en `/salidas` para admins **y agentes**: lista plana,
-      **Crear salida** precargada, **Descartar**
-- [ ] Tabla `oportunidades_fecha` (RLS por agencia) + hard-test; el Clawbot
-      emite `hueco_temporada` a la campana una vez por semana
-- [ ] "¿Qué ofrezco?" solo al clic, por `llm.ts`, texto guardado por
+- [x] Sección "Huecos en el calendario" en `/salidas#huecos` para admins **y
+      agentes**: lista plana, **Sacar X** con la fecha precargada, **Descartar**
+- [x] Tabla `oportunidades_fecha` (RLS por agencia) + hard-test (16); el Clawbot
+      emite `hueco_temporada` a la campana una vez por hueco
+- [x] "¿Qué ofrezco?" solo al clic, por `llm.ts`, texto guardado por
       `(agencia, temporada, año)`
 - [ ] **Del fundador:** marcar `meses_ideales` de cada servicio real y elegir
       alcances por agencia (Border: nacional + frontera)

@@ -1,18 +1,20 @@
 # ADR-0058 — El calendario de huecos es una regla, no un modelo: temporadas fijas menos salidas, y la IA solo redacta
 
-- **Estado:** aceptada · **implementación pendiente** (la decisión gobierna la
-  función cuando se construya)
+- **Estado:** aceptada · **construida el 2026-09-07** (decidida y construida el
+  mismo día; el ADR se escribió antes del código)
 - **Fecha:** 2026-09-07
-- **Migración:** ninguna todavía. Cuando se construya: `services.duration_days`
-  (int, opcional) · `services.meses_ideales` (int[], opcional) · tabla
-  `ketzal.oportunidades_fecha` (RLS por agencia) · una columna de alcances
-  vistos por agencia
+- **Migración:** `b099_calendario_huecos` — `services.duration_days` (int 1-365,
+  opcional) · `services.meses_ideales` (int[] ⊂ 1..12, opcional) ·
+  `suppliers.alcances_temporada` (text[] ⊂ {nacional, frontera}, al menos uno,
+  default nacional) · tabla `ketzal.oportunidades_fecha` (RLS por agencia,
+  sin delete)
 - **Sustituye a:** ninguno
-- **Toca (cuando se implemente):** `src/lib/domain/temporadas-mx.ts` (nuevo,
-  puro) · `src/lib/domain/oportunidades.ts` (nuevo, puro) · pestaña en
-  `/salidas` · el tick del Clawbot (`/api/clawbot/tick`) · la campana
-  (`src/lib/notificaciones.ts`, evento nuevo) · `src/lib/agente/llm.ts` para el
-  texto al clic
+- **Toca:** `src/lib/domain/temporadas-mx.ts` y `oportunidades.ts` (nuevos,
+  puros) · `/salidas` (sección `#huecos`, `huecos-list.tsx`,
+  `huecos-actions.ts`) · formulario de servicios (duración y meses) ·
+  `/servicios/[id]?salida=&hueco=` precarga la salida · `/ajustes` (alcances) ·
+  `src/lib/clawbot/huecos.ts` desde el tick · la campana (evento
+  `hueco_temporada`) · `src/lib/agente/llm.ts` para el texto al clic
 - **Relacionadas:** [ADR-0057](0057-la-ubicacion-se-captura-para-poder-agrupar.md)
   (sin destino estructurado no hay "destino" que sugerir),
   [ADR-0008](0008-cupos-transaccionales.md) (las salidas son la fuente de lo
@@ -76,14 +78,20 @@ Son unas 25 filas por año. No hay nada que aprender.
    horizonte, aviso a partir de 4 semanas antes. Se dejan como parámetros de
    la función pura (`horizonteDias`, `anticipacionDias`) para que pasar a
    anticipación por tipo de temporada sea cambiar la llamada, no la función.
-5. **La UI es una lista, no un grid mensual.** Pestaña "Huecos" en `/salidas`:
-   "Puente 16 sep · en 9 días · sin salida · podrías sacar: Creel, Samalayuca",
-   con **Crear salida** que precarga `departs_on`, y **Descartar**. La ven
-   **admins y agentes** de la agencia. Lista plana y botones grandes: Meny
-   opera Border con movilidad reducida.
-6. **El aviso lo emite el Clawbot** una vez por semana, a la campana, con
-   `evento = 'hueco_temporada'`, para huecos dentro de la ventana de
-   anticipación. Descartar apaga esa temporada para esa agencia ese año.
+5. **La UI es una lista, no un grid mensual.** Sección "Huecos en el
+   calendario" en `/salidas#huecos` (una sección con ancla, no una pestaña: la
+   campana enlaza al ancla y una pestaña escondería las salidas detrás de un
+   clic): "Fiestas Patrias · 16 sep · en 9 días · Sin salida · Sacar Creel,
+   Sacar Samalayuca", con **Sacar X** que abre el servicio con `departs_on`
+   precargado, **Descartar** y **¿Qué ofrezco?**. La ven **admins y agentes**
+   de la agencia. Lista plana y botones grandes: Meny opera Border con
+   movilidad reducida.
+6. **El aviso lo emite el Clawbot** en su tick diario, **una sola vez por
+   hueco**: al entrar a la ventana de anticipación se inserta la fila en
+   `oportunidades_fecha` y se notifica a admins y agentes con
+   `evento = 'hueco_temporada'`; la unicidad `(agencia, clave, año)` frena
+   cualquier repetición. Descartar apaga esa temporada para esa agencia ese
+   año (y se puede reactivar).
 7. **La IA entra solo al clic** ("¿Qué ofrezco?"): catálogo de la agencia +
    temporada + ventas previas a `llm.ts`; el texto se guarda por
    `(agencia, temporada, año)` para no pagar dos veces. Sin clic, sin costo.
@@ -126,24 +134,41 @@ Son unas 25 filas por año. No hay nada que aprender.
 
 ## Verificación
 
-**Pendiente: la función no está construida.** Cuando se implemente, este ADR
-exige que su verificación nombre (ADR-0034):
-
-- `src/lib/domain/temporadas-mx.test.ts`: Pascua correcta para años conocidos
-  (2026-04-05, 2027-03-28, 2028-04-16), el 5 de febrero, el 21 de marzo y el 20 de noviembre
-  se recorren al lunes que dice la LFT (primer, tercer y tercer lunes) y el 16
-  de septiembre no se mueve, y una fila `frontera` no aparece para una agencia
-  que solo ve `nacional`.
-- `src/lib/domain/oportunidades.test.ts`: una salida de 3 días el viernes
-  **cubre** el puente del lunes; la misma salida con `duration_days = 1` **no**;
-  un servicio con `meses_ideales` sin septiembre **no** se sugiere para el 16;
-  una temporada descartada no vuelve a salir ese año.
-- Hard-test `oportunidades.sql`: una fila de `oportunidades_fecha` de la
-  agencia A **no** es visible para la agencia B; descartar deja
-  `descartada_at`; tomar deja `departure_id`. Con fixtures efímeras y
+- `src/lib/domain/temporadas-mx.test.ts` (11 casos): Pascua 2026-04-05,
+  2027-03-28 y 2028-04-16; el 5 de febrero, el 21 de marzo y el 20 de noviembre
+  caen en el lunes que dice la LFT (2026: 02-02, 03-16, 11-16) y el 16 de
+  septiembre no se mueve; Thanksgiving 2026-11-26..29; las cinco filas
+  `frontera` llevan su alcance y las doce `nacional` el suyo; cada fila es
+  válida, única y viene ordenada.
+- `src/lib/domain/oportunidades.test.ts` (14 casos): una salida de 3 días el
+  viernes 13 **cubre** el puente del 14-16 de noviembre y la misma con
+  `duration_days = 1` **no**; sin duración se asume 1; Huasteca sin septiembre
+  en sus meses **no** se sugiere para el 16; una descartada no vuelve como
+  hueco y cubierta gana a descartada; la agencia que solo ve `nacional` no
+  recibe Labor Day; el horizonte es parámetro; el invierno del año anterior
+  sigue vivo en enero; `paraAvisar` solo a 28 días; `temporadaPorId` rechaza
+  basura.
+- `supabase/tests/oportunidades.sql` (16 aserciones, `pnpm hard-test
+  oportunidades`): los CHECK de b099 (duración 0, mes 13, alcance inventado,
+  agencia sin alcance, inicio > fin) rechazan; el default es `nacional`; el
+  **agente** (role `user`) de A escribe y lee el historial de A y **no lo
+  borra** (sin policy de delete la fila se queda); el admin de B no lo ve, no
+  escribe a nombre de A ni lo actualiza; `(agencia, clave, año)` es único;
+  la salida ligada por `departure_id` se suelta con `set null` al borrarla sin
+  perder la fila; borrar la agencia se lleva su historial. Fixtures efímeras y
   `raise exception` al final (ADR-0035).
-- El evento `hueco_temporada` tiene ícono propio en la campana (el test de
-  `notificaciones.test.ts` que ya cubre `eventoDe`).
-
-Mientras no exista, la medición es manual: cuántos puentes de los próximos
-120 días tienen salida en cada agencia, contados a mano en `/salidas`.
+- `src/lib/notificaciones.test.ts` recorre `EVENTOS`, que ahora incluye
+  `hueco_temporada`; el ícono vive en `ICONOS` de la campana, tipado sobre el
+  mismo arreglo, así que un evento sin ícono no compila.
+- **Probado en vivo el 2026-09-07:** el tick real (`/api/clawbot/tick` en la
+  app construida, contra la BD real) emitió `independencia:2026` a las dos
+  agencias reales (`emitidas: 2, avisos: 3` en `system_log`), las
+  notificaciones quedaron con `evento = 'hueco_temporada'` y
+  `action_url = /salidas#huecos`, y el segundo tick dio `emitidas: 0` con el
+  conteo intacto (idempotente). La consulta con embed que usa `/salidas`
+  (`services!inner(supplier_id)`) se validó contra PostgREST real. El primer
+  tick había emitido 0: `lista.filter(paraAvisar)` pasaba el índice como
+  anticipación; por eso el segundo parámetro es un objeto y hay un test que
+  usa `.filter(paraAvisar)` tal cual. **No probado con sesión en pantalla:** la
+  sección y las acciones (`Descartar`, `¿Qué ofrezco?`) se verifican al abrir
+  `/salidas` con una cuenta real.

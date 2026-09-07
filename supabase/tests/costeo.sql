@@ -234,7 +234,10 @@ begin
   begin
     set local role authenticated;
     insert into ketzal.supplier_rate_cards(supplier_id,rates) values (prov_q, tarifa_ok);
-    select (select count(*) from ketzal.supplier_rate_cards) + (select count(*) from ketzal.service_costings) into n;
+    -- Solo las filas de ESTE harness: contar la tabla entera se puso rojo el
+    -- 2026-09-07 en cuanto hubo tarifarios y costeos reales en la BD.
+    select (select count(*) from ketzal.supplier_rate_cards where supplier_id in (prov_p, prov_q))
+         + (select count(*) from ketzal.service_costings where service_id = serv_s) into n;
     reset role;
     if n = 3 then ok:=ok+1; else fails:=fails+1; det:=det||format(' [28 el superadmin vio %s filas, esperaba 3]', n); end if;
   exception when others then reset role; fails:=fails+1; det:=det||format(' [28 el superadmin no pudo: %s]', sqlerrm); end;

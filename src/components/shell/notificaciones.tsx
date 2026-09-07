@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import {
   BellIcon,
   BellRingIcon,
+  CalendarPlusIcon,
   ClockIcon,
   FileTextIcon,
   HandCoinsIcon,
@@ -51,6 +52,7 @@ const ICONOS: Record<EventoNoti, LucideIcon> = {
   viajero: UserRoundIcon,
   embajador: MegaphoneIcon,
   pasajeros: UsersIcon,
+  hueco_temporada: CalendarPlusIcon,
 }
 
 /** Las filas anteriores a esto no traen evento: campana genérica. */

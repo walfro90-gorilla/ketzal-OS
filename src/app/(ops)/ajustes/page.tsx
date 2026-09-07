@@ -14,6 +14,7 @@ import { type ProveedorInfo } from '../proveedores/actions'
 import { AccionesProveedor } from '../proveedores/[id]/acciones-proveedor'
 import { CobrosMp, avisoMp } from '../proveedores/[id]/cobros-mp'
 import { LogoConfig } from './logo-config'
+import { AlcancesConfig } from './alcances-config'
 import { WaConfig } from './wa-config'
 import { estadoWhatsApp } from './wa-actions'
 
@@ -106,6 +107,24 @@ export default async function AjustesPage({
                 phone={agencia.phone_number}
                 email={agencia.contact_email}
                 website={(agencia as { info?: ProveedorInfo | null }).info?.website ?? null}
+              />
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Calendario de huecos</CardTitle>
+              <CardDescription>
+                Qué calendarios de fechas altas ve tu agencia en Salidas. Border
+                vende a fronterizos: ahí Thanksgiving pesa más que el 5 de febrero.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <AlcancesConfig
+                inicial={
+                  (agencia as { alcances_temporada?: string[] | null }).alcances_temporada ?? [
+                    'nacional',
+                  ]
+                }
               />
             </CardContent>
           </Card>
