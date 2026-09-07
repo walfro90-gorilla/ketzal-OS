@@ -294,6 +294,28 @@ el dato, y sin el dato no hay escalón 2 ni 3.
 - [ ] Asumir por escrito el nicho: **operador con inventario propio**, no agencia
       que revende vuelos (sin GDS no se sirve a la segunda)
 
+### Carril calendario de huecos (decidido 2026-09-07 → [ADR-0058](adr/0058-el-calendario-de-huecos-es-una-regla-no-un-modelo.md))
+
+> `temporadas fijas − salidas = huecos`. Un puente sin salida es una transacción
+> que no ocurrió; por eso entra en este plan y no en el de "features".
+
+- [ ] `services.duration_days` y `services.meses_ideales` capturados en el
+      formulario de servicios (sin duración se asume 1 día)
+- [ ] `temporadas-mx.ts`: catálogo `nacional` + `frontera` con unit test
+      (Pascua 2026-04-05, 2027-03-28, 2028-04-16; puentes de la LFT)
+- [ ] `oportunidades.ts` puro: horizonte 120 días y aviso a 4 semanas como
+      parámetros; test de la salida de 3 días que sí cubre el puente
+- [ ] Pestaña "Huecos" en `/salidas` para admins **y agentes**: lista plana,
+      **Crear salida** precargada, **Descartar**
+- [ ] Tabla `oportunidades_fecha` (RLS por agencia) + hard-test; el Clawbot
+      emite `hueco_temporada` a la campana una vez por semana
+- [ ] "¿Qué ofrezco?" solo al clic, por `llm.ts`, texto guardado por
+      `(agencia, temporada, año)`
+- [ ] **Del fundador:** marcar `meses_ideales` de cada servicio real y elegir
+      alcances por agencia (Border: nacional + frontera)
+- [ ] Medir en 2027 con el historial: sugerencias emitidas → salidas creadas →
+      ventas de esas salidas
+
 ### Carril Border (venta con fecha)
 
 - [ ] 60 días operando Wanderlust en el OS
@@ -305,6 +327,8 @@ el dato, y sin el dato no hay escalón 2 ni 3.
 ## Lo que NO vamos a hacer
 
 - **Subasta entre agencias** para viajes a la medida → [ADR-0050](adr/0050-el-viaje-a-la-medida-es-un-lead-no-una-subasta.md)
+- **Cerebro IA que decide cuáles son las fechas altas.** El calendario de
+  México es determinista; la IA solo redacta al clic → [ADR-0058](adr/0058-el-calendario-de-huecos-es-una-regla-no-un-modelo.md)
 - **Notoriedad de marca antes que conversiones.** Con presupuesto chico se
   reparte el aprendizaje y no aprende ninguno.
 - **Vender el SaaS a nivel nacional** antes de que el OS haya operado un mes
