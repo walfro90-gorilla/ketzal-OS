@@ -53,10 +53,14 @@ function fechaAInput(valor: string | null): string {
 
 export default async function ServicioDetallePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  /** `salida` y `hueco` los manda /salidas#huecos para precargar la fecha (ADR-0058). */
+  searchParams: Promise<{ salida?: string; hueco?: string }>
 }) {
   const { id } = await params
+  const { salida: fechaSugerida, hueco } = await searchParams
   const supabase = await createClient()
 
   const [servicioRes, agenciasRes, salidasRes] = await Promise.all([
@@ -116,6 +120,8 @@ export default async function ServicioDetallePage({
           city_to: servicio.city_to ?? '',
           country_to: (servicio as { country_to?: string | null }).country_to ?? null,
           max_capacity: servicio.max_capacity,
+          duration_days: (servicio as { duration_days?: number | null }).duration_days ?? null,
+          meses_ideales: (servicio as { meses_ideales?: number[] | null }).meses_ideales ?? null,
           // transport_type (b041) es columna nueva no tipada ⇒ cast.
           transport_type:
             (servicio as { transport_type?: string | null }).transport_type ?? null,
@@ -142,6 +148,8 @@ export default async function ServicioDetallePage({
         serviceId={servicio.id}
         initial={salidas}
         packs={jsonbAPacks(servicio.packs)}
+        fechaSugerida={/^\d{4}-\d{2}-\d{2}$/.test(fechaSugerida ?? '') ? fechaSugerida : undefined}
+        hueco={hueco}
       />
 
       <Card>

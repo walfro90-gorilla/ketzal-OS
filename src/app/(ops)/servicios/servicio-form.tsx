@@ -73,6 +73,9 @@ export type ServicioFormInitial = {
   city_to: string
   country_to?: string | null
   max_capacity: number | null
+  /** ADR-0058: días que dura y meses en que conviene venderlo. */
+  duration_days?: number | null
+  meses_ideales?: number[] | null
   /** Tipo de transporte (b041) o null = sin mapa de asientos. */
   transport_type: string | null
   /** Fecha YYYY-MM-DD (ya recortada) o ''. */
@@ -96,6 +99,8 @@ export type ServicioFormInitial = {
   /** Link de video (YouTube/Vimeo), o null. */
   video: string | null
 }
+
+const MESES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 
 /** Un texto suelto de la IA cae en estado o en país, según qué sea. */
 function lugarLeido(texto: string): Partial<Ubicacion> {
@@ -150,6 +155,12 @@ export function ServicioForm({
   const [maxCapacity, setMaxCapacity] = useState(
     initial?.max_capacity != null ? String(initial.max_capacity) : ''
   )
+  // ADR-0058: duración (decide si una salida cubre un puente) y meses ideales
+  // (filtro determinista de qué se sugiere para un hueco).
+  const [durationDays, setDurationDays] = useState(
+    initial?.duration_days != null ? String(initial.duration_days) : ''
+  )
+  const [mesesIdeales, setMesesIdeales] = useState<number[]>(initial?.meses_ideales ?? [])
   // b041: tipo de transporte — habilita el mapa de asientos ('' = sin mapa).
   const [transportType, setTransportType] = useState(
     initial?.transport_type ?? ''
@@ -432,6 +443,8 @@ export function ServicioForm({
       city_to: destino.ciudad.trim() || undefined,
       country_to: destino.pais.trim() || undefined,
       max_capacity: cupo,
+      duration_days: durationDays.trim() === '' ? undefined : Number(durationDays),
+      meses_ideales: mesesIdeales,
       transport_type: transportType || undefined,
       available_from: availableFrom || undefined,
       available_to: availableTo || undefined,
@@ -536,6 +549,55 @@ export function ServicioForm({
                 placeholder="Ej. 40 (opcional)"
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="servicio-duracion">Duración (días)</Label>
+              <Input
+                id="servicio-duracion"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={365}
+                step="1"
+                value={durationDays}
+                onChange={(e) => setDurationDays(e.target.value)}
+                placeholder="Ej. 3 (vacío = 1)"
+              />
+              <p className="text-xs text-muted-foreground">
+                Con la duración, el calendario de huecos sabe si una salida del
+                viernes cubre el puente del lunes.
+              </p>
+            </div>
+            <fieldset className="space-y-2 sm:col-span-2">
+              <legend className="text-sm font-medium">Meses ideales</legend>
+              <p className="text-xs text-muted-foreground">
+                Marca en qué meses conviene venderlo; así no se sugiere en
+                temporada de lluvias o de calor. Sin marcar = todo el año.
+              </p>
+              <div className="grid grid-cols-4 gap-2 sm:grid-cols-6">
+                {MESES.map((nombre, i) => {
+                  const mes = i + 1
+                  const marcado = mesesIdeales.includes(mes)
+                  return (
+                    <label
+                      key={mes}
+                      className="flex cursor-pointer items-center gap-2 rounded-md border px-2 py-1.5 text-sm has-[:checked]:border-primary has-[:checked]:bg-primary/10"
+                    >
+                      <input
+                        type="checkbox"
+                        className="accent-primary"
+                        checked={marcado}
+                        onChange={() =>
+                          setMesesIdeales((prev) =>
+                            marcado ? prev.filter((m) => m !== mes) : [...prev, mes].sort((a, b) => a - b)
+                          )
+                        }
+                      />
+                      {nombre}
+                    </label>
+                  )
+                })}
+              </div>
+            </fieldset>
             <div className="space-y-2">
               <Label htmlFor="servicio-transporte">Transporte (mapa de asientos)</Label>
               <NativeSelect

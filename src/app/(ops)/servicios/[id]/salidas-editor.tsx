@@ -37,14 +37,20 @@ export function SalidasEditor({
   serviceId,
   initial,
   packs,
+  fechaSugerida,
+  hueco,
 }: {
   serviceId: string
   initial: Salida[]
   /** Paquetes del servicio: acota qué packs se pueden dar precio especial (b057). */
   packs: Pack[]
+  /** Fecha precargada desde el calendario de huecos (ADR-0058). */
+  fechaSugerida?: string
+  /** Id de la oportunidad (`clave:año`) que originó la precarga. */
+  hueco?: string
 }) {
   const [salidas, setSalidas] = useState<Salida[]>(initial)
-  const [fecha, setFecha] = useState('')
+  const [fecha, setFecha] = useState(fechaSugerida ?? '')
   const [cupo, setCupo] = useState('')
   // b045: ajuste de temporada en % (vacío = 0 = precio normal).
   const [pct, setPct] = useState('')
@@ -72,12 +78,17 @@ export function SalidasEditor({
       return
     }
     startTransition(async () => {
-      const res = await crearSalida(serviceId, {
-        departs_on: fecha,
-        max_capacity: n,
-        price_pct: pct.trim() === '' ? 0 : Number(pct),
-        pack_price_overrides: overridesNueva,
-      })
+      const res = await crearSalida(
+        serviceId,
+        {
+          departs_on: fecha,
+          max_capacity: n,
+          price_pct: pct.trim() === '' ? 0 : Number(pct),
+          pack_price_overrides: overridesNueva,
+        },
+        // Solo la primera salida creada desde el hueco lo marca como tomado.
+        hueco && fecha === fechaSugerida ? hueco : null
+      )
       if ('error' in res) {
         setError(res.error)
         toast.error(res.error)
@@ -181,7 +192,7 @@ export function SalidasEditor({
   }
 
   return (
-    <Card>
+    <Card id="salidas">
       <CardHeader>
         <CardTitle>Salidas y cupo</CardTitle>
         <CardDescription>

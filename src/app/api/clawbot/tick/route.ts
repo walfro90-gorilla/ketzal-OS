@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { logSistema } from '@/lib/system-log'
+import { emitirHuecos } from '@/lib/clawbot/huecos'
 
 // Clawbot tick — lo llama Vercel Cron a diario (ver vercel.json). (1) genera los
 // recordatorios del día en el outbox (idempotente); (2) corre el chequeo de
@@ -41,6 +42,18 @@ export async function GET(request: Request) {
   } else {
     await logSistema(supabase, 'clawbot_tick', 'info', 'reglas operativas generadas', {
       pendientes: operativos,
+    })
+  }
+
+  // 1c. Huecos del calendario (ADR-0058): cada puente o temporada sin salida
+  //     se avisa UNA vez al entrar a la ventana de anticipación. La unicidad de
+  //     la fila lo hace idempotente, así que corre a diario sin repetir.
+  try {
+    const huecos = await emitirHuecos(supabase)
+    await logSistema(supabase, 'clawbot_tick', 'info', 'huecos de calendario revisados', huecos)
+  } catch (e) {
+    await logSistema(supabase, 'clawbot_tick', 'error', 'fallo al emitir huecos de calendario', {
+      message: (e as Error).message,
     })
   }
 

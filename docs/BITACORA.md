@@ -9,6 +9,32 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Calendario de huecos: temporadas fijas − salidas (2026-09-07, b099, ADR-0058).**
+> El fundador pidió un "calendario inteligente" que viera puentes y temporadas sin
+> salida y sugiriera día, porqué y qué ofrecer. Se decidió primero (ADR-0058, PR #162)
+> y se construyó el mismo día: el cerebro es una consulta, no un modelo.
+> `temporadas(año)` es función pura en git (12 filas `nacional` + 5 `frontera`:
+> Spring Break, Memorial Day, 4 de julio, Labor Day, Thanksgiving; Pascua por Meeus,
+> puentes de la LFT) y `oportunidades()` resta las salidas de la agencia contando
+> `departs_on + duration_days`. Para eso b099 agregó `services.duration_days` y
+> `services.meses_ideales` (capturados en el form: un tour sin septiembre en sus
+> meses no se sugiere para el 16), `suppliers.alcances_temporada` (casillas en
+> `/ajustes`; Border debe marcar frontera) y `oportunidades_fecha`, el historial:
+> cada sugerencia emitida y qué pasó con ella (descartada, o `departure_id` de la
+> salida que nació de ella al crearla desde "Sacar X", que abre el servicio con la
+> fecha precargada). En `/salidas#huecos` la ven admins y agentes: lista plana con
+> **Sacar**, **Descartar/Reactivar** y **¿Qué ofrezco?** (Groq→Gemini→DeepSeek con
+> el catálogo real, guardado por temporada para no pagar dos veces). El Clawbot
+> emite cada hueco UNA vez al entrar a 28 días, a la campana con ícono propio
+> (`hueco_temporada`); la fila única frena la repetición. Probado: 25 unit tests,
+> hard-test `oportunidades.sql` 16/16 (el agente escribe y lee, no borra; B no ve
+> A; la salida ligada se suelta con `set null`), y el tick real contra la BD real
+> emitió Fiestas Patrias a las dos agencias (2 huecos, 3 avisos; el segundo tick
+> emitió 0). El primer tick había emitido 0: `.filter(paraAvisar)` pasaba el índice
+> como "anticipación" y solo el unit test que llamaba la función a mano estaba en
+> verde; ahora el parámetro es un objeto y el test usa `.filter` tal cual.
+> Pendiente de pantalla con sesión. Suite 39.
+
 > **El costeo por proveedores no era descubrible desde el form del servicio (2026-09-05).**
 > El fundador preguntó por qué al crear un servicio no aparecía "agregar proveedores"
 > para que el precio saliera del costo. La feature YA existe (b097/ADR-0055): tarifario

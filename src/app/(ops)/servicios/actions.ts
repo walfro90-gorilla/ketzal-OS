@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { paisCanonico } from '@/lib/domain/mexico'
+import { temporadaPorId } from '@/lib/domain/oportunidades'
 import { after } from 'next/server'
 import { redirect } from 'next/navigation'
 import { avisarIndexNow } from '@/lib/marketing/indexnow'
@@ -31,6 +32,10 @@ export type ServicioInput = {
   country_from?: string
   country_to?: string
   max_capacity?: number
+  /** Días que dura (ADR-0058): decide si una salida cubre un puente. Vacío = 1. */
+  duration_days?: number
+  /** Meses (1-12) en que conviene venderlo; vacío = todo el año. */
+  meses_ideales?: number[]
   /** Tipo de transporte (b041): habilita el mapa de asientos. null = sin mapa. */
   transport_type?: string
   /** Fecha YYYY-MM-DD del input date. */
@@ -95,6 +100,8 @@ function normalizarCampos(input: ServicioInput):
         country_from: string | null
         country_to: string | null
         max_capacity: number | null
+        duration_days: number | null
+        meses_ideales: number[] | null
         transport_type: string | null
         available_from: string | null
         available_to: string | null
@@ -123,6 +130,18 @@ function normalizarCampos(input: ServicioInput):
     maxCapacity = Math.trunc(cupo)
   }
 
+  let durationDays: number | null = null
+  if (input.duration_days != null) {
+    const d = Number(input.duration_days)
+    if (!Number.isInteger(d) || d < 1 || d > 365) {
+      return { error: 'La duración debe ser un entero de días entre 1 y 365.' }
+    }
+    durationDays = d
+  }
+  const mesesIdeales = [...new Set(input.meses_ideales ?? [])]
+    .filter((m) => Number.isInteger(m) && m >= 1 && m <= 12)
+    .sort((a, b) => a - b)
+
   return {
     fields: {
       supplier_id: supplierId,
@@ -144,6 +163,8 @@ function normalizarCampos(input: ServicioInput):
       country_from: paisCanonico(input.country_from) ?? (input.country_from?.trim() || null),
       country_to: paisCanonico(input.country_to) ?? (input.country_to?.trim() || null),
       max_capacity: maxCapacity,
+      duration_days: durationDays,
+      meses_ideales: mesesIdeales.length ? mesesIdeales : null,
       // Solo los 4 tipos con preset de layout; otro valor ⇒ sin mapa (null).
       transport_type: ['autobus', 'sprinter', 'van', 'avion'].includes(
         input.transport_type ?? ''
@@ -584,7 +605,9 @@ export async function listarSalidas(
 
 export async function crearSalida(
   serviceId: string,
-  input: SalidaInput
+  input: SalidaInput,
+  /** Id de la oportunidad (`clave:año`) desde la que se creó, si vino de /salidas#huecos (ADR-0058). */
+  hueco?: string | null
 ): Promise<{ error: string } | { ok: true }> {
   const supabase = await createClient()
   const {
@@ -602,18 +625,53 @@ export async function crearSalida(
   }
 
   // RLS: solo inserta si el servicio es de tu agencia (o superadmin).
-  const { error } = await supabase
+  const { data: creada, error } = await supabase
     .from('service_departures')
     .insert({ service_id: svc, ...result.fields } as never)
-  if (error) {
-    if (error.code === '23505') {
+    .select('id')
+    .single()
+  if (error || !creada) {
+    if (error?.code === '23505') {
       return { error: 'Ya existe una salida para esa fecha en este servicio.' }
     }
     return { error: safeError(error) }
   }
 
+  // ADR-0058 §9: el historial dice qué sugerencia produjo qué salida. Si esto
+  // falla no se deshace la salida: el dato real es la salida, el rastro es extra.
+  if (hueco) await marcarHuecoTomado(supabase, svc, hueco, creada.id)
+
   revalidatePath(`/servicios/${svc}`)
+  revalidatePath('/salidas')
   return { ok: true }
+}
+
+/** Upsert de la oportunidad con el `departure_id` que nació de ella. */
+async function marcarHuecoTomado(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  serviceId: string,
+  hueco: string,
+  departureId: string
+) {
+  const t = temporadaPorId(hueco)
+  if (!t) return
+  const { data: svc } = await supabase
+    .from('services')
+    .select('supplier_id')
+    .eq('id', serviceId)
+    .maybeSingle()
+  if (!svc?.supplier_id) return
+  await supabase.from('oportunidades_fecha' as never).upsert(
+    {
+      supplier_id: svc.supplier_id,
+      clave: t.clave,
+      anio: Number(t.inicio.slice(0, 4)),
+      inicio: t.inicio,
+      fin: t.fin,
+      departure_id: departureId,
+    } as never,
+    { onConflict: 'supplier_id,clave,anio' }
+  )
 }
 
 export async function actualizarSalida(
