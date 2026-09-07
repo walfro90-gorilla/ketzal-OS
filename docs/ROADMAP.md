@@ -115,6 +115,18 @@ al confirmar salida (cuando haya salidas operadas); `cost_overrides` por salida
 (cuando una salida real cueste distinto); `expenses.departure_id` + plan vs
 real por proveedor; autoservicio del prestador; USD; tool MCP de costeo.
 
+## Calendario de huecos por agencia (decidido 2026-09-07: ADR-0058, pendiente de construir)
+
+El fundador pidió un "calendario inteligente" que viera puentes y temporadas
+sin salida y sugiriera día, porqué y qué ofrecer. Se decidió que el cerebro es
+una **consulta**, no un modelo: `temporadas(año)` como función pura en git
+(alcances `nacional` y `frontera`, sin fechas locales) menos las salidas de la
+agencia contando `departs_on + duration_days`. La IA solo redacta el "qué
+ofrezco" al clic y se guarda. Lista en `/salidas`, aviso semanal del Clawbot a
+la campana, nunca crea salidas sola. Cada sugerencia y su destino se guardan
+desde el día uno para poder medir en 2027. Detalle y verificación exigida en el
+ADR; carril con casillas en `docs/PLAN_COMERCIAL.md`.
+
 ## Fuera de alcance hasta que se decida explícitamente
 - Facturación fiscal (CFDI/SAT con PAC) — proyecto propio
 - App móvil nativa
