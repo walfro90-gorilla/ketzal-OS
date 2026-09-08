@@ -9,6 +9,14 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Los atajos de importar servicio arrancan colapsados (2026-09-08).** En "Nuevo
+> servicio", las tarjetas "Llenar desde un archivo" y "Llenar desde WhatsApp" se
+> comían toda la parte de arriba y empujaban el formulario real fuera de la vista.
+> Nuevo `ImportarAtajos`: dos botones chicos en fila (PDF/imagen · link de
+> WhatsApp); al hacer clic se despliega solo el elegido y el otro se cierra.
+> `ImportarArchivo`/`ImportarUrl` no cambian; solo se envuelven. Solo aparece al
+> crear, como antes.
+
 > **El asistente lee PDFs, imágenes y documentos (2026-09-08, ADR-0059).** El
 > fundador pidió que el chat del OS pudiera leer lo que le arrastren. Se decidió
 > que un adjunto entra como TEXTO, no como archivo: `POST /api/agente/adjunto`
