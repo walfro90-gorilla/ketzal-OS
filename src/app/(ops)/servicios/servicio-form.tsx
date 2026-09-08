@@ -467,8 +467,59 @@ export function ServicioForm({
     })
   }
 
+  const estadoPub = !servicioId ? 'borrador' : published ? 'publicado' : 'privado'
+  const pillPub =
+    estadoPub === 'borrador'
+      ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+      : estadoPub === 'publicado'
+        ? 'bg-primary/15 text-primary'
+        : 'bg-muted text-muted-foreground'
+  const puntoPub =
+    estadoPub === 'borrador'
+      ? 'bg-amber-500'
+      : estadoPub === 'publicado'
+        ? 'bg-primary'
+        : 'bg-muted-foreground/60'
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Estatus de publicación: arriba y siempre visible (sticky). El estado se
+          deriva — sin guardar = Borrador; guardado y oculto = Privado; en el
+          catálogo = Publicado. El toggle vive aquí, no en una tarjeta al fondo. */}
+      <div className="sticky top-16 z-20 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-xl border bg-card px-3 py-2.5 shadow-sm supports-backdrop-filter:bg-card/85 supports-backdrop-filter:backdrop-blur">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span
+            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${pillPub}`}
+          >
+            <span aria-hidden className={`size-1.5 rounded-full ${puntoPub}`} />
+            {estadoPub === 'borrador'
+              ? 'Borrador'
+              : estadoPub === 'publicado'
+                ? 'Publicado'
+                : 'Privado'}
+          </span>
+          <p className="hidden truncate text-xs text-muted-foreground sm:block">
+            {estadoPub === 'borrador'
+              ? 'Aún sin guardar. Guarda para poder publicarlo.'
+              : estadoPub === 'publicado'
+                ? 'Visible en el catálogo público del sitio.'
+                : 'Solo tu agencia lo ve; se vende directo.'}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <Label htmlFor="servicio-publicado" className="cursor-pointer text-sm font-medium">
+            {published ? 'Público' : 'Privado'}
+          </Label>
+          <Switch
+            id="servicio-publicado"
+            checked={published}
+            onCheckedChange={togglePublicado}
+            disabled={!servicioId || publishing}
+            aria-label={published ? 'Quitar del catálogo público' : 'Publicar en el catálogo'}
+          />
+        </div>
+      </div>
+
       {/* Solo al crear: editando, el atajo confundiría más de lo que ayuda.
           Colapsados por defecto (ImportarAtajos), para no comerse el arranque. */}
       {!servicioId && <ImportarAtajos onDatos={aplicarLeido} />}
@@ -1039,43 +1090,6 @@ export function ServicioForm({
               Guarda el servicio primero; después podrás agregar un video.
             </p>
           )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Publicación</CardTitle>
-          <CardDescription>
-            Un servicio público aparece en el catálogo del sitio; uno privado
-            solo lo ven tu agencia y tú para venderlo directo.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
-            <div className="space-y-0.5">
-              <Label htmlFor="servicio-publicado" className="cursor-pointer">
-                {published ? 'Público' : 'Privado'}
-              </Label>
-              <p className="text-sm text-muted-foreground">
-                {!servicioId
-                  ? 'Guarda el servicio primero; después podrás publicarlo.'
-                  : published
-                    ? 'Visible en el catálogo público.'
-                    : 'Oculto del catálogo público.'}
-              </p>
-            </div>
-            <Switch
-              id="servicio-publicado"
-              checked={published}
-              onCheckedChange={togglePublicado}
-              disabled={!servicioId || publishing}
-              aria-label={
-                published
-                  ? 'Quitar del catálogo público'
-                  : 'Publicar en el catálogo'
-              }
-            />
-          </div>
         </CardContent>
       </Card>
 
