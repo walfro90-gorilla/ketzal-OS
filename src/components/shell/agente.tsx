@@ -12,7 +12,7 @@
  * `tool` de cancelación y el modelo solo contesta).
  */
 import { useEffect, useRef, useState } from 'react'
-import { SparklesIcon, SendIcon, Trash2Icon } from 'lucide-react'
+import { PaperclipIcon, SparklesIcon, SendIcon, Trash2Icon, XIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -25,10 +25,16 @@ import {
 import type { Evento } from '@/lib/agente/conversacion'
 import { CLAVE, desempacar, empacar, etiquetaDeFecha } from '@/lib/agente/historial'
 import type { Mensaje } from '@/lib/agente/llm'
+import {
+  ACEPTA_ADJUNTO,
+  MAX_BYTES_ADJUNTO,
+  MENSAJE_PESO_ADJUNTO,
+  mensajeConAdjuntos,
+} from '@/lib/agente/adjunto-texto'
 import { cn } from '@/lib/utils'
 
 type Item =
-  | { k: 'user'; texto: string }
+  | { k: 'user'; texto: string; adjuntos?: string[] }
   | { k: 'asistente'; texto: string }
   | { k: 'tool'; id: string; titulo: string; args: Record<string, unknown>; estado: 'corriendo' | 'ok' | 'error'; resumen?: string }
   | { k: 'confirmar'; id: string; titulo: string; herramienta: string; args: Record<string, unknown>; resuelto?: 'si' | 'no' }
@@ -56,6 +62,11 @@ export function Agente() {
   const [guardadoEn, setGuardadoEn] = useState<number>(() => leerGuardado()?.guardadoEn ?? 0)
   const [texto, setTexto] = useState('')
   const [ocupado, setOcupado] = useState(false)
+  // ADR-0059: los adjuntos ya vienen convertidos a texto por /api/agente/adjunto
+  // y se pegan al siguiente mensaje; el archivo no se guarda en ningún lado.
+  const [adjuntos, setAdjuntos] = useState<{ nombre: string; texto: string; recortado: boolean }[]>([])
+  const [subiendo, setSubiendo] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
   const finRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -125,13 +136,63 @@ export function Agente() {
     }
   }
 
+  /** Una foto de celular pesa 3-8 MB; a 1600 px JPEG cabe en el tope y el modelo la lee igual. */
+  async function reducirImagen(f: File): Promise<File> {
+    if (!f.type.startsWith('image/')) return f
+    try {
+      const bmp = await createImageBitmap(f)
+      const escala = Math.min(1, 1600 / Math.max(bmp.width, bmp.height))
+      if (escala === 1 && f.size <= MAX_BYTES_ADJUNTO) return f
+      const c = document.createElement('canvas')
+      c.width = Math.round(bmp.width * escala)
+      c.height = Math.round(bmp.height * escala)
+      c.getContext('2d')?.drawImage(bmp, 0, 0, c.width, c.height)
+      const blob = await new Promise<Blob | null>((res) => c.toBlob(res, 'image/jpeg', 0.85))
+      return blob ? new File([blob], f.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' }) : f
+    } catch {
+      return f
+    }
+  }
+
+  async function adjuntar(lista: FileList | null) {
+    if (!lista?.length) return
+    setSubiendo(true)
+    try {
+      for (const original of Array.from(lista)) {
+        const f = await reducirImagen(original)
+        if (f.size > MAX_BYTES_ADJUNTO) {
+          agregar({ k: 'error', texto: `${f.name}: ${MENSAJE_PESO_ADJUNTO}` })
+          continue
+        }
+        const fd = new FormData()
+        fd.append('archivo', f)
+        const r = await fetch('/api/agente/adjunto', { method: 'POST', body: fd })
+        const j = (await r.json().catch(() => null)) as
+          | { nombre?: string; texto?: string; recortado?: boolean; error?: string }
+          | null
+        if (!r.ok || !j?.texto) {
+          agregar({ k: 'error', texto: `${f.name}: ${j?.error ?? `no se pudo leer (HTTP ${r.status}).`}` })
+          continue
+        }
+        const texto = j.texto
+        setAdjuntos((prev) => [...prev, { nombre: j.nombre ?? f.name, texto, recortado: Boolean(j.recortado) }])
+      }
+    } finally {
+      setSubiendo(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
+
   function enviar() {
     const t = texto.trim()
-    if (!t || ocupado) return
+    if ((!t && !adjuntos.length) || ocupado || subiendo) return
+    const visible = t || 'Revisa lo adjunto.'
+    const contenido = mensajeConAdjuntos(visible, adjuntos)
     setTexto('')
+    setAdjuntos([])
     setGuardadoEn(0)
-    agregar({ k: 'user', texto: t })
-    void pedir([...mensajes, { role: 'user', content: t }])
+    agregar({ k: 'user', texto: visible, adjuntos: adjuntos.map((a) => a.nombre) })
+    void pedir([...mensajes, { role: 'user', content: contenido }])
   }
 
   function resolver(id: string, ok: boolean) {
@@ -199,30 +260,76 @@ export function Agente() {
           </div>
 
           <form
-            className="flex items-end gap-2 border-t p-3"
+            className="flex flex-col gap-2 border-t p-3"
             onSubmit={(e) => {
               e.preventDefault()
               enviar()
             }}
           >
-            <Textarea
-              value={texto}
-              onChange={(e) => setTexto(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
-                  enviar()
+            {adjuntos.length > 0 && (
+              <ul className="flex flex-wrap gap-1.5" aria-label="Adjuntos por enviar">
+                {adjuntos.map((a, i) => (
+                  <li key={i} className="flex items-center gap-1 rounded-full border bg-muted px-2 py-0.5 text-xs">
+                    <PaperclipIcon className="size-3" />
+                    <span className="max-w-40 truncate">{a.nombre}</span>
+                    {a.recortado && <span className="text-muted-foreground">· recortado</span>}
+                    <button
+                      type="button"
+                      aria-label={`Quitar ${a.nombre}`}
+                      className="rounded-full p-0.5 hover:bg-background"
+                      onClick={() => setAdjuntos((prev) => prev.filter((_, j) => j !== i))}
+                    >
+                      <XIcon className="size-3" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="flex items-end gap-2">
+              <input
+                ref={fileRef}
+                type="file"
+                accept={ACEPTA_ADJUNTO}
+                multiple
+                hidden
+                onChange={(e) => void adjuntar(e.target.files)}
+              />
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                aria-label="Adjuntar PDF, imagen o documento"
+                disabled={ocupado || pendiente || subiendo}
+                onClick={() => fileRef.current?.click()}
+              >
+                <PaperclipIcon className="size-4" />
+              </Button>
+              <Textarea
+                value={texto}
+                onChange={(e) => setTexto(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    enviar()
+                  }
+                }}
+                placeholder={
+                  pendiente ? 'Resuelve la tarjeta de arriba…' : subiendo ? 'Leyendo el archivo…' : 'Escribe o dicta…'
                 }
-              }}
-              placeholder={pendiente ? 'Resuelve la tarjeta de arriba…' : 'Escribe o dicta…'}
-              rows={2}
-              disabled={ocupado || pendiente}
-              className="min-h-0 resize-none"
-              aria-label="Mensaje para el asistente"
-            />
-            <Button type="submit" size="icon" aria-label="Enviar" disabled={ocupado || pendiente || !texto.trim()}>
-              <SendIcon className="size-4" />
-            </Button>
+                rows={2}
+                disabled={ocupado || pendiente}
+                className="min-h-0 resize-none"
+                aria-label="Mensaje para el asistente"
+              />
+              <Button
+                type="submit"
+                size="icon"
+                aria-label="Enviar"
+                disabled={ocupado || pendiente || subiendo || (!texto.trim() && !adjuntos.length)}
+              >
+                <SendIcon className="size-4" />
+              </Button>
+            </div>
           </form>
         </SheetContent>
       </Sheet>
@@ -272,9 +379,18 @@ function Burbuja({
   switch (it.k) {
     case 'user':
       return (
-        <p className="ml-8 whitespace-pre-wrap rounded-2xl rounded-br-sm bg-primary px-3 py-2 text-primary-foreground">
-          {it.texto}
-        </p>
+        <div className="ml-8 rounded-2xl rounded-br-sm bg-primary px-3 py-2 text-primary-foreground">
+          <p className="whitespace-pre-wrap">{it.texto}</p>
+          {it.adjuntos?.length ? (
+            <p className="mt-1 flex flex-wrap gap-1 text-xs opacity-90">
+              {it.adjuntos.map((n, i) => (
+                <span key={i} className="rounded-full bg-primary-foreground/20 px-2 py-0.5">
+                  📎 {n}
+                </span>
+              ))}
+            </p>
+          ) : null}
+        </div>
       )
     case 'asistente':
       return (

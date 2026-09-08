@@ -10,7 +10,7 @@ import { z } from 'zod'
 import { tokenScope } from '../../../../mcp/src/session'
 import { correr, promptSistema, type Evento } from '@/lib/agente/conversacion'
 import { LlmError, type Mensaje } from '@/lib/agente/llm'
-import { createClient } from '@/lib/supabase/server'
+import { sesionAsistente } from '@/lib/agente/sesion'
 
 const esquemaCuerpo = z.object({
   mensajes: z
@@ -35,33 +35,17 @@ const esquemaCuerpo = z.object({
 })
 
 export async function POST(req: Request) {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Sin sesión.' }, { status: 401 })
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: perfil } = await (supabase as any)
-    .from('profiles')
-    .select('role, name')
-    .eq('id', user.id)
-    .maybeSingle()
-  if (perfil?.role !== 'superadmin') {
-    return NextResponse.json({ error: 'Solo el superadmin.' }, { status: 403 })
-  }
-  // El JWT de la cookie: con él corren las herramientas (nunca service role).
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-  const token = session?.access_token
-  if (!token) return NextResponse.json({ error: 'Sin sesión.' }, { status: 401 })
+  // Sesión + superadmin + el JWT de la cookie con el que corren las
+  // herramientas (nunca service role). Compartido con /api/agente/adjunto.
+  const sesion = await sesionAsistente()
+  if (!sesion.ok) return sesion.respuesta
+  const { token } = sesion
 
   const cuerpo = esquemaCuerpo.safeParse(await req.json().catch(() => null))
   if (!cuerpo.success) return NextResponse.json({ error: 'Cuerpo inválido.' }, { status: 400 })
   const historial = cuerpo.data.mensajes as Mensaje[]
   const aprobados = new Set(cuerpo.data.aprobados)
-  const sistema = promptSistema({ nombre: perfil.name ?? null, email: user.email ?? null })
+  const sistema = promptSistema({ nombre: sesion.nombre, email: sesion.email })
 
   const enc = new TextEncoder()
   const stream = new ReadableStream<Uint8Array>({
