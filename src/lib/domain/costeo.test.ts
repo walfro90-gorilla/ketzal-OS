@@ -12,6 +12,7 @@ import {
   precioSugerido,
   puntoEquilibrio,
   tablaPorPack,
+  totalLinea,
   unidades,
   variablesPorPax,
   type CostLine,
@@ -38,7 +39,7 @@ const doc: Costeo = {
   margin_pct: 30,
   lines: [
     linea({ unit: 'grupo', label: 'Sprinter', cost: 8000, cap: 15 }),
-    linea({ unit: 'dia', label: 'Guía', cost: 1500 }),
+    linea({ unit: 'dia', label: 'Guía', cost: 1500, qty: 3 }), // 3 días de guía
     linea({ unit: 'habitacion', label: 'Hotel', cost_by_pack: { doble: 1200, sencilla: 2000 } }),
     linea({ unit: 'pax', label: 'Entrada', cost: 100 }),
   ],
@@ -52,6 +53,22 @@ describe('unidades', () => {
   it('cap 15: a 15 pax una unidad, a 16 dos', () => {
     expect(unidades({ cap: 15 }, 15)).toBe(1)
     expect(unidades({ cap: 15 }, 16)).toBe(2)
+  })
+})
+
+describe('por día: la cantidad son los días; la cabecera no vuelve a multiplicar', () => {
+  // Caso real (2026-09-08): quinta de $12,500 por día, 1 día, en un viaje de 2
+  // días salía en $25,000; la sprinter de $2,000 a 1.5 días y 2 unidades, en
+  // $12,000. El fundador tecleó 1.5 porque para él Cant. eran días.
+  const quinta = linea({ unit: 'dia', label: 'Quinta p/40', cost: 12500, cap: 40, qty: 1 })
+  const van = linea({ unit: 'dia', label: 'Sprinter 20', cost: 2000, cap: 20, qty: 1.5 })
+  it('quinta 12,500 · 1 día a 40 pax = 12,500 aunque el viaje dure 2 días', () => {
+    expect(totalLinea(quinta, 40)).toBe(12500)
+    expect(fijos({ ...doc, days: 2, lines: [quinta] }, 40)).toBe(12500)
+  })
+  it('sprinter 2,000 · 1.5 días · 2 unidades a 40 pax = 6,000', () => {
+    expect(totalLinea(van, 40)).toBe(6000)
+    expect(totalLinea(van, 20)).toBe(3000)
   })
 })
 
