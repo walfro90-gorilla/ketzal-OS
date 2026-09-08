@@ -65,8 +65,31 @@ async function borrarUsuario(id) {
   if (!r.ok) throw new Error(`Admin API delete ${r.status}: ${(await r.text()).slice(0, 200)}`)
 }
 
+// Los avisos que una fixture provoca en buzones REALES no se van con la cuenta:
+// b036 notifica a los superadmins de verdad cuando nace un embajador, y el
+// "Embajador nuevo · QA Cliente Fiel" se quedó 29 veces en la campana del
+// fundador (2026-09-03 al 07). Convención que lo hace barrible: toda fixture se
+// llama "QA …" y su correo lleva PREFIJO, así que el mensaje empieza por "QA ".
+const FILTRO_AVISOS_QA = `or=(message.ilike.QA%20*,message.ilike.*${PREFIJO}*)`
+
+/** Borra los avisos que dejaron las fixtures y verifica que no quede ninguno. */
+async function barrerAvisosQa() {
+  const r = await fetch(`${U}/rest/v1/notifications?${FILTRO_AVISOS_QA}`, {
+    method: 'DELETE', headers: rest({ Prefer: 'return=representation' }),
+  })
+  if (!r.ok) throw new Error(`REST delete notifications ${r.status}: ${(await r.text()).slice(0, 200)}`)
+  const borrados = (await r.json()).length
+  const v = await fetch(`${U}/rest/v1/notifications?select=id&${FILTRO_AVISOS_QA}`, { headers: rest() })
+  const quedan = v.ok ? (await v.json()).length : -1
+  return { borrados, quedan }
+}
+
 /** Borra restos de una corrida que murió a medias (kill -9, excepción sin finally). */
 async function barrerRestos() {
+  try {
+    const avisos = await barrerAvisosQa()
+    if (avisos.borrados) console.log(`   ⚠ barridos ${avisos.borrados} aviso(s) QA de corridas anteriores`)
+  } catch (e) { console.error(`   ⚠ no se pudieron barrer avisos QA: ${e.message}`) }
   const restos = (await listarUsuarios()).filter((u) => u.email?.startsWith(PREFIJO))
   let tercos = 0
   for (const u of restos) {
@@ -103,8 +126,10 @@ export async function crearPosiciones(posiciones) {
         try { await borrarUsuario(c.id) } catch (e) { console.error(`   ✘ no se borró ${c.email}: ${e.message}`) }
       }
       // Verificar, no suponer: si el borrado falló, la cuenta sigue viva en prod.
+      let avisos
       try {
         quedan = (await listarUsuarios()).filter((u) => u.email?.startsWith(PREFIJO))
+        avisos = await barrerAvisosQa()
       } catch (e) {
         console.error(`   ✘ no se pudo verificar la limpieza: ${e.message}`)
         return false
@@ -113,7 +138,11 @@ export async function crearPosiciones(posiciones) {
         console.error(`   ✘ QUEDARON VIVAS ${quedan.length} cuentas efímeras: ${quedan.map((u) => u.email).join(', ')}`)
         return false
       }
-      console.log(`   ✔ limpieza verificada: 0 cuentas efímeras vivas`)
+      if (avisos.quedan !== 0) {
+        console.error(`   ✘ QUEDARON ${avisos.quedan} aviso(s) QA en buzones reales`)
+        return false
+      }
+      console.log(`   ✔ limpieza verificada: 0 cuentas efímeras vivas, ${avisos.borrados} aviso(s) QA borrado(s)`)
       return true
     },
   }
@@ -256,6 +285,8 @@ export async function borrarEscenario(supplierId) {
     await c.query('delete from ketzal.service_departures where service_id in (select id from ketzal.services where supplier_id = $1)', [supplierId])
     await c.query('delete from ketzal.services where supplier_id = $1', [supplierId])
     await c.query('delete from ketzal.suppliers where id = $1', [supplierId])
+    // Mismo barrido que `destruir()`: los avisos a buzones reales no se van solos.
+    await c.query(`delete from ketzal.notifications where message like 'QA %' or message like '%${PREFIJO}%'`)
     for (const t of TABLAS_APPEND_ONLY) {
       await c.query(`alter table ketzal.${t} enable trigger user`)
     }

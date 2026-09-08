@@ -9,6 +9,17 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Las fixtures efímeras barren los avisos que dejan en buzones reales (2026-09-07).**
+> El fundador preguntó por qué su campana traía 29 "Embajador nuevo · QA Cliente
+> Fiel". Causa: `conversion_alta.mjs` ejercita `crearEmbajador` de verdad y esa
+> acción (b036) notifica a los superadmins REALES; `destruir()` borraba la cuenta
+> QA pero la notificación ya estaba en el buzón de Wal. 33 avisos QA acumulados
+> desde el 2026-09-03 (29 de ese harness, 4 de cotización/viajero). Ahora
+> `_fixtures.mjs` barre `notifications` cuyo mensaje empieza por "QA " o trae el
+> prefijo `qa.efimero.` al arrancar (`barrerRestos`) y al cerrar (`destruir()`
+> verifica que queden 0 o marca la corrida en rojo); `borrarEscenario` hace lo
+> mismo por pg. Medido: 33 → 0 tras una corrida de `conversion_alta` (10/10).
+
 > **Calendario de huecos: temporadas fijas − salidas (2026-09-07, b099, ADR-0058).**
 > El fundador pidió un "calendario inteligente" que viera puentes y temporadas sin
 > salida y sugiriera día, porqué y qué ofrecer. Se decidió primero (ADR-0058, PR #162)
