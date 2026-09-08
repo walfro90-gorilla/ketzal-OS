@@ -33,8 +33,7 @@ import { subirImagenServicio } from './subir-imagen'
 import { videoEmbedUrl } from '@/lib/video'
 import { PACK_TYPES, type Pack, type PackInput } from '@/lib/domain/packs'
 import type { AddOn, AddOnInput } from '@/lib/domain/addons'
-import { ImportarArchivo } from './importar-archivo'
-import { ImportarUrl } from './importar-url'
+import { ImportarAtajos } from './importar-atajos'
 import type { ServicioLeido } from '@/lib/ai/servicio-leido'
 
 const TIPO_OPCIONES = [
@@ -470,13 +469,9 @@ export function ServicioForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Solo al crear: editando, el atajo confundiría más de lo que ayuda. */}
-      {!servicioId && (
-        <>
-          <ImportarArchivo onDatos={aplicarLeido} />
-          <ImportarUrl onDatos={aplicarLeido} />
-        </>
-      )}
+      {/* Solo al crear: editando, el atajo confundiría más de lo que ayuda.
+          Colapsados por defecto (ImportarAtajos), para no comerse el arranque. */}
+      {!servicioId && <ImportarAtajos onDatos={aplicarLeido} />}
 
       <Card>
         <CardHeader>
