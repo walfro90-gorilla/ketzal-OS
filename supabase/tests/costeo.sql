@@ -251,6 +251,14 @@ begin
        + (select count(*) from ketzal.supplier_rate_cards where supplier_id = prov_p) into n;
   if n = 0 then ok:=ok+1; else fails:=fails+1; det:=det||format(' [29 quedaron %s filas huérfanas tras el cascade]', n); end if;
 
+  -- 30 · b100: la unidad "noche" (cabaña, quinta, camping por noche) entra al tarifario.
+  begin
+    update ketzal.supplier_rate_cards
+       set rates = '[{"key":"cabana","label":"Cabaña 8 pax","unit":"noche","cost":1900,"cap":8}]'
+     where supplier_id = prov_q;
+    ok:=ok+1;
+  exception when others then fails:=fails+1; det:=det||format(' [30 la unidad noche fue rechazada: %s]', sqlerrm); end;
+
   raise exception 'COSTEO -- % pasaron, % fallaron.%  (todo revertido)',
     ok, fails, coalesce(nullif(det,''),' Sin fallas.');
 end $$;

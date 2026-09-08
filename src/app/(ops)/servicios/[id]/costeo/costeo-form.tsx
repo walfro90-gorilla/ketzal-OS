@@ -157,8 +157,8 @@ export function CosteoForm({
         cost: r.cost,
         cap: r.cap,
         cost_by_pack: r.cost_by_pack,
-        // Por día: la cantidad son los días; arranca con los del viaje.
-        qty: r.unit === 'dia' ? String(doc.days) : '1',
+        // Por día / por noche: la cantidad son los días o las noches del viaje.
+        qty: r.unit === 'dia' ? String(doc.days) : r.unit === 'noche' ? String(Math.max(1, doc.nights)) : '1',
       },
     ])
   }
@@ -328,13 +328,21 @@ export function CosteoForm({
                                 min={0}
                                 step="0.5"
                                 className="w-20 text-right"
-                                aria-label={l.unit === 'dia' ? `Días de ${l.label}` : `Cantidad de ${l.label}`}
+                                aria-label={
+                                  l.unit === 'dia'
+                                    ? `Días de ${l.label}`
+                                    : l.unit === 'noche'
+                                      ? `Noches de ${l.label}`
+                                      : `Cantidad de ${l.label}`
+                                }
                                 value={l.qty}
                                 onChange={(e) =>
                                   setLineas((ls) => ls.map((x) => (x.uid === l.uid ? { ...x, qty: e.target.value } : x)))
                                 }
                               />
-                              {l.unit === 'dia' && <span className="text-xs text-muted-foreground">días</span>}
+                              {(l.unit === 'dia' || l.unit === 'noche') && (
+                                <span className="text-xs text-muted-foreground">{l.unit === 'dia' ? 'días' : 'noches'}</span>
+                              )}
                             </span>
                           )}
                         </TableCell>

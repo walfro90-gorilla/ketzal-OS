@@ -7,6 +7,7 @@
 //   pax        · por persona           ⇒ cost · qty · N
 //   grupo      · fijo por viaje        ⇒ cost · qty · unidades(N)
 //   dia        · fijo por día          ⇒ cost · qty · unidades(N)   (qty = DÍAS de esa línea)
+//   noche      · fijo por noche        ⇒ cost · qty · unidades(N)   (qty = NOCHES: cabaña, quinta, camping)
 //   habitacion · por habitación-noche  ⇒ por pax y por pack: cost_by_pack[pack] / ocupación · noches
 // `cap` (opcional en grupo/día) es el cupo por unidad: una sprinter de 15 a
 // 16 pax son 2 sprinters. Ese escalón es lo que hace mentir a un equilibrio
@@ -24,13 +25,14 @@ import { OCCUPANCY, PACK_TYPES, type Pack, type PackKey } from './packs'
 import { slug, type AddOn } from './addons'
 import { round2 } from './currency'
 
-export const UNITS = ['pax', 'grupo', 'dia', 'habitacion'] as const
+export const UNITS = ['pax', 'grupo', 'dia', 'noche', 'habitacion'] as const
 export type Unit = (typeof UNITS)[number]
 
 export const UNIT_LABELS: Record<Unit, string> = {
   pax: 'Por persona',
   grupo: 'Por grupo (fijo por viaje)',
   dia: 'Por día',
+  noche: 'Por noche',
   habitacion: 'Por habitación y noche',
 }
 
@@ -40,9 +42,9 @@ export type CostByPack = Partial<Record<PackKey, number>>
 type RateBody = {
   label: string
   unit: Unit
-  /** pax | grupo | dia. MXN. */
+  /** pax | grupo | dia | noche. MXN. */
   cost?: number
-  /** grupo | dia: cupo por unidad (sprinter 15). */
+  /** grupo | dia | noche: cupo por unidad (sprinter 15, cabaña 8). */
   cap?: number
   /** habitacion: costo por noche según pack; falta = ese hotel no ofrece el pack. */
   cost_by_pack?: CostByPack
@@ -216,6 +218,7 @@ export function totalLinea(l: CostLine, n: number): number {
       return cost * l.qty * n
     case 'grupo':
     case 'dia':
+    case 'noche':
       return cost * l.qty * unidades(l, n)
     case 'habitacion':
       return 0
@@ -225,7 +228,7 @@ export function totalLinea(l: CostLine, n: number): number {
 /** Costos fijos del viaje a N pax (grupo + día, con sus escalones). */
 export function fijos(doc: Costeo, n: number): number {
   return doc.lines
-    .filter((l) => l.unit === 'grupo' || l.unit === 'dia')
+    .filter((l) => l.unit === 'grupo' || l.unit === 'dia' || l.unit === 'noche')
     .reduce((s, l) => s + totalLinea(l, n), 0)
 }
 

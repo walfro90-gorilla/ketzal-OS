@@ -66,7 +66,11 @@ Sólo lectura (recomendado en máquinas de consulta): agrega
 
 ## Qué puede hacer
 
-37 herramientas: 17 de lectura y 20 de escritura, de las cuales 8 mueven dinero.
+42 herramientas: 19 de lectura y 23 de escritura, de las cuales 8 mueven dinero.
+
+> v0.5: proveedores y tarifario (`ketzal_proveedores`, `ketzal_crear_proveedor`,
+> `ketzal_tarifario`, `ketzal_tarifario_guardar`). Proveedores, nunca agencias:
+> el proveedor cuelga de la agencia de quien pregunta y la RLS decide.
 
 > `convertir_cotizacion` se eliminó (b071): con el flujo estricto
 > cotización→abono→venta, una cotización solo asciende con un pago real —
@@ -151,7 +155,7 @@ interfaz**. Las reglas de navegación de la app web (qué secciones ve cada rol)
 sólo en TypeScript: no son una frontera de seguridad y nunca lo fueron — cualquier
 usuario autenticado puede llamar la API de Postgres directo desde el navegador.
 
-Por eso este servidor **no filtra herramientas por rol**: sería teatro. Las 38 se
+Por eso este servidor **no filtra herramientas por rol**: sería teatro. Las 42 se
 listan siempre, y las que tu cuenta no puede usar responden con el mensaje del guard
 en SQL, que explica por qué. La frontera real son la RLS y esos guards. Si vas a
 repartir este MCP a agentes de agencia, audítalos primero.

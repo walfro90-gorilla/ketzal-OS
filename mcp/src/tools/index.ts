@@ -14,6 +14,7 @@ import { tools as fotos } from './fotos.js'
 import { tools as reportes } from './reportes.js'
 import { tools as dinero } from './dinero.js'
 import { tools as gastos } from './gastos.js'
+import { tools as proveedores } from './proveedores.js'
 import type { ToolDef } from './tipos.js'
 
 export const ALL_TOOLS: ToolDef[] = [
@@ -24,6 +25,7 @@ export const ALL_TOOLS: ToolDef[] = [
   ...cobranza,
   ...salidas,
   ...catalogo,
+  ...proveedores,
   ...fotos,
   ...reportes,
   ...gastos,

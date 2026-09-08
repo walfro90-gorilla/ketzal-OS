@@ -28,6 +28,9 @@ export type ProveedorInfo = {
   /** Depósito en efectivo en cajero (b038): cuenta y tarjeta de débito. */
   spei_cuenta?: string
   spei_tarjeta?: string
+  /** Condiciones de pago y cancelación DEL proveedor (anticipo, liquidación,
+      penalizaciones): lo que quien costea necesita antes de vender. Interno. */
+  condiciones?: string
 }
 
 export type ProveedorInput = {
@@ -86,6 +89,7 @@ function limpiarInfo(info?: ProveedorInfo): ProveedorInfo | null {
     return t ? t : undefined
   }
   if (s(info.about)) out.about = s(info.about)
+  if (s(info.condiciones)) out.condiciones = s(info.condiciones)
   if (s(info.city_zone)) out.city_zone = s(info.city_zone)
   if (s(info.website)) out.website = s(info.website)
   if (s(info.instagram)) out.instagram = s(info.instagram)

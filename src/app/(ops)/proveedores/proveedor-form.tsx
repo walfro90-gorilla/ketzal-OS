@@ -101,6 +101,7 @@ export function ProveedorForm({
   // Perfil público (info jsonb).
   const info = initial?.info
   const [about, setAbout] = useState(info?.about ?? '')
+  const [condiciones, setCondiciones] = useState(info?.condiciones ?? '')
   const [cityZone, setCityZone] = useState(info?.city_zone ?? '')
   const [foundedYear, setFoundedYear] = useState(
     info?.founded_year != null ? String(info.founded_year) : ''
@@ -239,6 +240,7 @@ export function ProveedorForm({
 
     const infoInput: ProveedorInfo = {
       about: about.trim() || undefined,
+      condiciones: condiciones.trim() || undefined,
       city_zone: cityZone.trim() || undefined,
       founded_year: foundedYear.trim() ? Number(foundedYear) : undefined,
       website: website.trim() || undefined,
@@ -496,6 +498,18 @@ export function ProveedorForm({
               onChange={(e) => setAbout(e.target.value)}
               placeholder="Qué hace la agencia, su historia, su sello…"
             />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="prov-condiciones">Condiciones de pago y cancelación (interno)</Label>
+            <Textarea
+              id="prov-condiciones"
+              value={condiciones}
+              onChange={(e) => setCondiciones(e.target.value)}
+              placeholder="Ej. Anticipo 50% para confirmar; liquidación 5 días antes; no reembolsable, un cambio de fecha con 15 días…"
+            />
+            <p className="text-xs text-muted-foreground">
+              Lo que hay que saber antes de vender con este proveedor. No se publica.
+            </p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">

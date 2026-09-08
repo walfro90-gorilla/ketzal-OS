@@ -9,6 +9,29 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **El asistente da de alta proveedores y su tarifario; unidad "noche" (2026-09-08, b100, MCP 0.5).**
+> El fundador intentó crear "Rancho San Lorenzo" desde el chat y el asistente
+> contestó que `ketzal_agencias` solo lista. Faltaba la herramienta, no el permiso.
+> Cuatro tools nuevas en `mcp/src/tools/proveedores.ts`: `ketzal_proveedores`
+> (lista/detalle con conteo de tarifas), `ketzal_crear_proveedor` (PROVEEDOR de la
+> agencia de quien pregunta, nunca agencia: el esquema rechaza `agency`; se niega
+> ante nombre parecido salvo `forzar`; exige teléfono o correo; guarda
+> `info.condiciones` y datos de pago), `ketzal_tarifario` y
+> `ketzal_tarifario_guardar` (mezcla por key, `reemplazar` opcional). Al leer el
+> PDF real de Cabañas Rancho San Lorenzo (17 páginas: 12 cabañas por noche con
+> cupo 4-10, camping $600/noche por vehículo hasta 5, acceso al parque $65/pax,
+> anticipo 50%, no reembolsable, CLABE) salieron dos huecos del modelo: no había
+> unidad **por noche con cupo** (una cabaña de 8 no es un pack doble ni se cobra
+> por día) ni dónde guardar las **condiciones de pago y cancelación** del
+> proveedor. b100 agrega `noche` al CHECK del tarifario (el costeo la precarga con
+> las noches del viaje) e `info.condiciones` entra por el form y se muestra en
+> `/proveedores/[id]`. Probado: 88 tests del MCP (14 nuevos), 38 de costeo y
+> asistente, `mcp_proveedores.mjs` 15/15 ejecutando los handlers compilados con el
+> JWT de cuentas efímeras (dedupe, forzar, sin contacto, tipo agency, mezcla,
+> reemplazo, unidad inválida, admin de otra agencia no escribe; limpieza
+> verificada), `costeo.sql` 30/30 con la noche aceptada. Suite 41. Publicar
+> `ketzal-mcp` 0.5.0 a npm es del fundador.
+
 > **Publicar/ocultar un servicio pide confirmación en un modal (2026-09-08).** El
 > toggle de la barra de estatus aplicaba al instante; el fundador lo quiso con
 > confirmación porque cambia lo que ve el público. Nuevo primitivo
