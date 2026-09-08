@@ -30,7 +30,9 @@ import {
   MAX_BYTES_ADJUNTO,
   MENSAJE_PESO_ADJUNTO,
   mensajeConAdjuntos,
+  tipoAdjunto,
 } from '@/lib/agente/adjunto-texto'
+import { MAX_BYTES_PDF_NAVEGADOR, MENSAJE_PESO_PDF, seLeeEnNavegador } from '@/lib/agente/pdf-cliente'
 import { cn } from '@/lib/utils'
 
 type Item =
@@ -159,6 +161,19 @@ export function Agente() {
     setSubiendo(true)
     try {
       for (const original of Array.from(lista)) {
+        // ADR-0060: el PDF se lee aquí mismo; el servidor corta el body en 4.5 MB
+        // y un folleto de Canva pesa más aunque su texto sean dos párrafos.
+        if (seLeeEnNavegador(tipoAdjunto(original.name, original.type))) {
+          if (original.size > MAX_BYTES_PDF_NAVEGADOR) {
+            agregar({ k: 'error', texto: `${original.name}: ${MENSAJE_PESO_PDF}` })
+            continue
+          }
+          const { textoDePdfEnNavegador } = await import('@/lib/agente/pdf-cliente')
+          const r = await textoDePdfEnNavegador(new Uint8Array(await original.arrayBuffer()))
+          if ('error' in r) agregar({ k: 'error', texto: `${original.name}: ${r.error}` })
+          else setAdjuntos((prev) => [...prev, { nombre: original.name, texto: r.texto, recortado: r.recortado }])
+          continue
+        }
         const f = await reducirImagen(original)
         if (f.size > MAX_BYTES_ADJUNTO) {
           agregar({ k: 'error', texto: `${f.name}: ${MENSAJE_PESO_ADJUNTO}` })
