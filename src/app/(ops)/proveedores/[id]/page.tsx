@@ -196,6 +196,12 @@ export default async function ProveedorDetallePage({
               (proveedor as { info?: ProveedorInfo | null }).info?.website ?? null
             }
           />
+          {(proveedor as { info?: ProveedorInfo | null }).info?.condiciones && (
+            <p className="mt-4 whitespace-pre-line text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">Condiciones del proveedor: </span>
+              {(proveedor as { info?: ProveedorInfo | null }).info?.condiciones}
+            </p>
+          )}
         </CardContent>
       </Card>
 

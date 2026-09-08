@@ -70,6 +70,12 @@ describe('por día: la cantidad son los días; la cabecera no vuelve a multiplic
     expect(totalLinea(van, 40)).toBe(6000)
     expect(totalLinea(van, 20)).toBe(3000)
   })
+  it('noche: cabaña 1,900 · 1 noche · cupo 8 → 3 cabañas a 20 pax = 5,700 (b100)', () => {
+    const cabana = linea({ unit: 'noche', label: 'Cabaña 8 pax', cost: 1900, cap: 8, qty: 1 })
+    expect(totalLinea(cabana, 20)).toBe(5700)
+    expect(totalLinea({ ...cabana, qty: 2 }, 8)).toBe(3800)
+    expect(fijos({ ...doc, lines: [cabana] }, 20)).toBe(5700)
+  })
 })
 
 describe('fijos / variablesPorPax / habitacionPorPax', () => {
