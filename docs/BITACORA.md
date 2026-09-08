@@ -9,6 +9,15 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Barra de estatus de publicación arriba del form de servicio (2026-09-08).** El
+> toggle de publicar vivía en una tarjeta al fondo; el fundador lo quería arriba y
+> siempre visible, con el estado a la vista. Se agrega una barra sticky (`top-16`)
+> como primer elemento del form, en creación y edición, con una píldora de estado
+> derivada del modelo binario `published`: **Borrador** (sin guardar), **Privado**
+> (guardado y oculto), **Publicado** (en el catálogo). El `Switch` se mueve ahí
+> (mismo `togglePublicado`) y se quita la tarjeta "Publicación" del fondo. Sin
+> campo nuevo: los tres estados salen de `servicioId` + `published`.
+
 > **El PDF se lee en el navegador (2026-09-08, ADR-0060).** El primer PDF real
 > que el fundador adjuntó al asistente (un folleto de Canva, "Rancho San
 > Lorenzo 2026") pesaba más de 4 MB y el chat lo rechazó. Se midió antes de
