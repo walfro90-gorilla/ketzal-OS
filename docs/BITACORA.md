@@ -9,6 +9,14 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Los huecos también para el superadmin sin agencia (2026-09-07).** El fundador
+> abrió `/salidas` y no vio la sección: su perfil es superadmin con `supplier_id`
+> nulo y `cargarHuecos` solo armaba "mi agencia". Ahora resuelve las agencias
+> visibles igual que la lista de salidas (la mía, o todas si soy superadmin sin
+> agencia), agrupa por agencia cuando hay más de una, y las acciones reciben la
+> agencia explícita desde la fila: quién puede tocarla lo decide la RLS de
+> `oportunidades_fecha`, no el archivo de acciones.
+
 > **Las fixtures efímeras barren los avisos que dejan en buzones reales (2026-09-07).**
 > El fundador preguntó por qué su campana traía 29 "Embajador nuevo · QA Cliente
 > Fiel". Causa: `conversion_alta.mjs` ejercita `crearEmbajador` de verdad y esa
