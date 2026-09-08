@@ -157,7 +157,8 @@ export function CosteoForm({
         cost: r.cost,
         cap: r.cap,
         cost_by_pack: r.cost_by_pack,
-        qty: '1',
+        // Por día: la cantidad son los días; arranca con los del viaje.
+        qty: r.unit === 'dia' ? String(doc.days) : '1',
       },
     ])
   }
@@ -320,18 +321,21 @@ export function CosteoForm({
                           {l.unit === 'habitacion' ? (
                             <span className="text-muted-foreground">—</span>
                           ) : (
-                            <Input
-                              type="number"
-                              inputMode="decimal"
-                              min={0}
-                              step="0.5"
-                              className="ml-auto w-20 text-right"
-                              aria-label={`Cantidad de ${l.label}`}
-                              value={l.qty}
-                              onChange={(e) =>
-                                setLineas((ls) => ls.map((x) => (x.uid === l.uid ? { ...x, qty: e.target.value } : x)))
-                              }
-                            />
+                            <span className="ml-auto flex items-center justify-end gap-1">
+                              <Input
+                                type="number"
+                                inputMode="decimal"
+                                min={0}
+                                step="0.5"
+                                className="w-20 text-right"
+                                aria-label={l.unit === 'dia' ? `Días de ${l.label}` : `Cantidad de ${l.label}`}
+                                value={l.qty}
+                                onChange={(e) =>
+                                  setLineas((ls) => ls.map((x) => (x.uid === l.uid ? { ...x, qty: e.target.value } : x)))
+                                }
+                              />
+                              {l.unit === 'dia' && <span className="text-xs text-muted-foreground">días</span>}
+                            </span>
                           )}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">{resumenCosto(l)}</TableCell>
@@ -339,7 +343,7 @@ export function CosteoForm({
                           {l.unit === 'habitacion'
                             ? 'por pax'
                             : limpio
-                              ? mxn.format(totalLinea(limpio, n, doc))
+                              ? mxn.format(totalLinea(limpio, n))
                               : '—'}
                         </TableCell>
                         <TableCell>

@@ -9,6 +9,15 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **El costeo por día doblaba los fijos (2026-09-08).** El fundador vio una quinta
+> de $12,500 "por día" en $25,000 y una sprinter de $2,000 a 1.5 días en $12,000.
+> `totalLinea` multiplicaba `cost · qty · unidades · days`: la cantidad de la
+> línea Y los días de la cabecera. Para quien captura, "Cant." en una línea por
+> día son los días (por eso tecleó 1.5). Ahora por día es `cost · qty · unidades`,
+> el form precarga la cantidad con los días del viaje y la etiqueta dice "días".
+> Test de regresión con los dos casos reales; el fixture del guía pasa a `qty: 3`
+> para conservar el escenario.
+
 > **Barra de estatus de publicación arriba del form de servicio (2026-09-08).** El
 > toggle de publicar vivía en una tarjeta al fondo; el fundador lo quería arriba y
 > siempre visible, con el estado a la vista. Se agrega una barra sticky (`top-16`)

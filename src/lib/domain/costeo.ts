@@ -6,11 +6,16 @@
 // Unidades de costo y cómo escalan con N pasajeros:
 //   pax        · por persona           ⇒ cost · qty · N
 //   grupo      · fijo por viaje        ⇒ cost · qty · unidades(N)
-//   dia        · fijo por día          ⇒ cost · qty · unidades(N) · días
+//   dia        · fijo por día          ⇒ cost · qty · unidades(N)   (qty = DÍAS de esa línea)
 //   habitacion · por habitación-noche  ⇒ por pax y por pack: cost_by_pack[pack] / ocupación · noches
 // `cap` (opcional en grupo/día) es el cupo por unidad: una sprinter de 15 a
 // 16 pax son 2 sprinters. Ese escalón es lo que hace mentir a un equilibrio
 // "cerrado"; por eso el punto de equilibrio se busca por escaneo.
+//
+// En una línea por día la cantidad SON los días (1.5 = día y medio de van). La
+// cabecera `days` NO vuelve a multiplicar: hasta el 2026-09-08 lo hacía y una
+// quinta de $12,500 "por día" en un fin de semana de 2 días salía en $25,000.
+// El form precarga la cantidad con los días del viaje; la persona la ajusta.
 //
 // Margen = utilidad ÷ precio (la misma convención que reportes y gross-up),
 // bruto: comisiones de agente/embajador y `commission_rate` salen de ahí.
@@ -204,15 +209,14 @@ export function unidades(l: { cap?: number }, n: number): number {
 }
 
 /** Costo de una línea para el grupo de N pax. Habitación no entra: va por pax y por pack. */
-export function totalLinea(l: CostLine, n: number, doc: Pick<Costeo, 'days'>): number {
+export function totalLinea(l: CostLine, n: number): number {
   const cost = l.cost ?? 0
   switch (l.unit) {
     case 'pax':
       return cost * l.qty * n
     case 'grupo':
-      return cost * l.qty * unidades(l, n)
     case 'dia':
-      return cost * l.qty * unidades(l, n) * doc.days
+      return cost * l.qty * unidades(l, n)
     case 'habitacion':
       return 0
   }
@@ -222,7 +226,7 @@ export function totalLinea(l: CostLine, n: number, doc: Pick<Costeo, 'days'>): n
 export function fijos(doc: Costeo, n: number): number {
   return doc.lines
     .filter((l) => l.unit === 'grupo' || l.unit === 'dia')
-    .reduce((s, l) => s + totalLinea(l, n, doc), 0)
+    .reduce((s, l) => s + totalLinea(l, n), 0)
 }
 
 /** Costos que crecen uno a uno con cada pasajero. */
