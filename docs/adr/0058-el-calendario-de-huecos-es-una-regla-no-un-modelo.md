@@ -84,8 +84,10 @@ Son unas 25 filas por año. No hay nada que aprender.
    clic): "Fiestas Patrias · 16 sep · en 9 días · Sin salida · Sacar Creel,
    Sacar Samalayuca", con **Sacar X** que abre el servicio con `departs_on`
    precargado, **Descartar** y **¿Qué ofrezco?**. La ven **admins y agentes**
-   de la agencia. Lista plana y botones grandes: Meny opera Border con
-   movilidad reducida.
+   de la agencia; el **superadmin sin agencia ve las de todas**, agrupadas por
+   agencia, igual que la lista de salidas (las acciones reciben la agencia
+   explícita y la RLS decide, no la acción). Lista plana y botones grandes:
+   Meny opera Border con movilidad reducida.
 6. **El aviso lo emite el Clawbot** en su tick diario, **una sola vez por
    hueco**: al entrar a la ventana de anticipación se inserta la fila en
    `oportunidades_fecha` y se notifica a admins y agentes con

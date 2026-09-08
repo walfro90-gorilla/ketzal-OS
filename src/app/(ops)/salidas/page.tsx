@@ -66,63 +66,93 @@ export default async function SalidasPage() {
 
 type Cliente = Awaited<ReturnType<typeof createClient>>
 
-/** null = el usuario no tiene agencia (superadmin suelto): no hay qué mostrar. */
-async function cargarHuecos(supabase: Cliente): Promise<HuecoVista[] | null> {
+type Agencia = { id: string; name: string; alcances_temporada: Alcance[] | null }
+
+/**
+ * Las agencias cuyos huecos ve esta persona: la suya si tiene; TODAS si es
+ * superadmin sin agencia (igual que la lista de salidas de arriba). null = sin
+ * sesión o sin nada que mostrar.
+ */
+async function agenciasVisibles(supabase: Cliente): Promise<Agencia[] | null> {
   const {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return null
   const { data: perfil } = await supabase
     .from('profiles')
-    .select('supplier_id')
+    .select('supplier_id, role')
     .eq('id', user.id)
     .maybeSingle()
-  const supplierId = perfil?.supplier_id
-  if (!supplierId) return null
+  let q = supabase
+    .from('suppliers')
+    .select('id, name, alcances_temporada')
+    .eq('supplier_type', 'agency')
+    .order('name')
+  if (perfil?.supplier_id) q = q.eq('id', perfil.supplier_id)
+  else if (perfil?.role !== 'superadmin') return null
+  const { data } = await q
+  const lista = (data ?? []) as unknown as Agencia[]
+  return lista.length ? lista : null
+}
+
+async function cargarHuecos(supabase: Cliente): Promise<HuecoVista[] | null> {
+  const agencias = await agenciasVisibles(supabase)
+  if (!agencias) return null
+  const ids = agencias.map((a) => a.id)
 
   const hoy = hoyEn()
-  const [svcRes, agRes, opRes, salRes] = await Promise.all([
+  // Tres lecturas para todas las agencias visibles; la RLS ya acota lo que cada
+  // quien puede ver, así que el filtro por agencia aquí es solo agrupación.
+  const [svcRes, opRes, salRes] = await Promise.all([
     supabase
       .from('services')
-      .select('id,name,duration_days,meses_ideales')
-      .eq('supplier_id', supplierId),
-    supabase.from('suppliers').select('alcances_temporada').eq('id', supplierId).maybeSingle(),
+      .select('id,name,supplier_id,duration_days,meses_ideales')
+      .in('supplier_id', ids),
     supabase
       .from('oportunidades_fecha' as never)
-      .select('clave,anio,descartada_at,texto_ia')
-      .eq('supplier_id', supplierId),
+      .select('supplier_id,clave,anio,descartada_at,texto_ia')
+      .in('supplier_id', ids),
     supabase
       .from('service_departures')
       .select('service_id,departs_on,services!inner(supplier_id)')
-      .eq('services.supplier_id', supplierId)
+      .in('services.supplier_id', ids)
       .gte('departs_on', hoy),
   ])
 
-  const servicios = (svcRes.data ?? []) as unknown as ServicioParaHuecos[]
-  const alcances =
-    ((agRes.data as { alcances_temporada?: Alcance[] | null } | null)?.alcances_temporada ??
-      ['nacional']) as Alcance[]
+  const servicios = (svcRes.data ?? []) as unknown as (ServicioParaHuecos & { supplier_id: string })[]
   const filas = (opRes.data ?? []) as unknown as {
+    supplier_id: string
     clave: string
     anio: number
     descartada_at: string | null
     texto_ia: string | null
   }[]
-  const salidas = ((salRes.data ?? []) as unknown as { service_id: string; departs_on: string }[]).map(
-    (s) => ({ service_id: s.service_id, departs_on: s.departs_on })
-  )
+  const salidas = (salRes.data ?? []) as unknown as {
+    service_id: string
+    departs_on: string
+    services: { supplier_id: string } | { supplier_id: string }[] | null
+  }[]
+  const agenciaDeServicio = new Map(servicios.map((s) => [s.id, s.supplier_id]))
   const nombre = new Map(servicios.map((s) => [s.id, s.name]))
-  const textoPor = new Map(filas.map((f) => [`${f.clave}:${f.anio}`, f.texto_ia]))
 
-  return oportunidades({
-    hoy,
-    alcances,
-    servicios,
-    salidas,
-    descartadas: filas.filter((f) => f.descartada_at).map((f) => `${f.clave}:${f.anio}`),
-  }).map((o) => ({
-    ...o,
-    cubiertaNombres: o.cubiertaPor.map((id) => nombre.get(id) ?? 'servicio'),
-    textoIa: textoPor.get(o.id) ?? null,
-  }))
+  return agencias.flatMap((ag) => {
+    const propios = servicios.filter((s) => s.supplier_id === ag.id)
+    const misFilas = filas.filter((f) => f.supplier_id === ag.id)
+    const textoPor = new Map(misFilas.map((f) => [`${f.clave}:${f.anio}`, f.texto_ia]))
+    return oportunidades({
+      hoy,
+      alcances: ag.alcances_temporada ?? ['nacional'],
+      servicios: propios,
+      salidas: salidas
+        .filter((s) => agenciaDeServicio.get(s.service_id) === ag.id)
+        .map((s) => ({ service_id: s.service_id, departs_on: s.departs_on })),
+      descartadas: misFilas.filter((f) => f.descartada_at).map((f) => `${f.clave}:${f.anio}`),
+    }).map((o) => ({
+      ...o,
+      supplierId: ag.id,
+      agenciaNombre: ag.name,
+      cubiertaNombres: o.cubiertaPor.map((id) => nombre.get(id) ?? 'servicio'),
+      textoIa: textoPor.get(o.id) ?? null,
+    }))
+  })
 }

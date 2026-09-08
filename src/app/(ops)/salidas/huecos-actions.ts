@@ -11,23 +11,25 @@ import { fmtFechaSalida } from './tipos'
 
 /**
  * Acciones del calendario de huecos (ADR-0058). Todas escriben en
- * `oportunidades_fecha` con el cliente del usuario: la RLS decide si la fila es
- * de su agencia. La tabla no está en `database.types.ts` (un solo dueño) ⇒ casts.
+ * `oportunidades_fecha` con el cliente del usuario y reciben la agencia
+ * EXPLÍCITA desde la fila que se ve: la RLS (`is_superadmin() or supplier_id =
+ * my_supplier_id()`) es quien decide si esa persona puede tocar esa agencia, no
+ * este archivo. Así el superadmin sin agencia opera las de todas y un agente no
+ * puede colar otra aunque edite el request. La tabla no está en
+ * `database.types.ts` (un solo dueño) ⇒ casts.
  */
 
 type Cliente = Awaited<ReturnType<typeof createClient>>
 
-async function miAgencia(supabase: Cliente): Promise<string | null> {
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** Exige sesión y una agencia con forma de uuid; el permiso real lo pone la RLS. */
+async function agenciaPedida(supabase: Cliente, supplierId: string): Promise<string | null> {
   const {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
-  const { data } = await supabase
-    .from('profiles')
-    .select('supplier_id')
-    .eq('id', user.id)
-    .maybeSingle()
-  return data?.supplier_id ?? null
+  return UUID.test(supplierId ?? '') ? supplierId : null
 }
 
 function filaBase(id: string, supplierId: string) {
@@ -52,26 +54,32 @@ async function upsertHueco(
   const { error } = await supabase
     .from('oportunidades_fecha' as never)
     .upsert(fila as never, { onConflict: 'supplier_id,clave,anio' })
-  if (error) return { error: safeError(error, 'No se pudo guardar.') }
+  if (error) return { error: safeError(error, 'No se pudo guardar o no tienes permiso sobre esa agencia.') }
   revalidatePath('/salidas')
   return { ok: true }
 }
 
 /** Apaga esa temporada para esta agencia este año. Queda en el historial. */
-export async function descartarHueco(id: string): Promise<{ error: string } | { ok: true }> {
+export async function descartarHueco(
+  id: string,
+  agencia: string
+): Promise<{ error: string } | { ok: true }> {
   const supabase = await createClient()
-  const supplierId = await miAgencia(supabase)
-  if (!supplierId) return { error: 'Tu usuario no tiene agencia.' }
+  const supplierId = await agenciaPedida(supabase, agencia)
+  if (!supplierId) return { error: 'Agencia no válida.' }
   const f = filaBase(id, supplierId)
   if (!f) return { error: 'Temporada no válida.' }
   return upsertHueco(supabase, { ...f.fila, descartada_at: new Date().toISOString() })
 }
 
 /** Deshace un descarte (clic equivocado). */
-export async function reactivarHueco(id: string): Promise<{ error: string } | { ok: true }> {
+export async function reactivarHueco(
+  id: string,
+  agencia: string
+): Promise<{ error: string } | { ok: true }> {
   const supabase = await createClient()
-  const supplierId = await miAgencia(supabase)
-  if (!supplierId) return { error: 'Tu usuario no tiene agencia.' }
+  const supplierId = await agenciaPedida(supabase, agencia)
+  if (!supplierId) return { error: 'Agencia no válida.' }
   const f = filaBase(id, supplierId)
   if (!f) return { error: 'Temporada no válida.' }
   return upsertHueco(supabase, { ...f.fila, descartada_at: null })
@@ -94,10 +102,13 @@ type ServicioCtx = {
  * temporada y cuántas ventas lleva cada servicio. Se guarda por
  * (agencia, temporada, año) para no pagar dos veces (ADR-0058 §7).
  */
-export async function queOfrezco(id: string): Promise<{ error: string } | { texto: string }> {
+export async function queOfrezco(
+  id: string,
+  agencia: string
+): Promise<{ error: string } | { texto: string }> {
   const supabase = await createClient()
-  const supplierId = await miAgencia(supabase)
-  if (!supplierId) return { error: 'Tu usuario no tiene agencia.' }
+  const supplierId = await agenciaPedida(supabase, agencia)
+  if (!supplierId) return { error: 'Agencia no válida.' }
   const f = filaBase(id, supplierId)
   if (!f) return { error: 'Temporada no válida.' }
   const { temporada: t, fila } = f

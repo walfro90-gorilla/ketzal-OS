@@ -11,6 +11,9 @@ import { fmtFechaSalida } from './tipos'
 
 /** Lo que la página ya resolvió del lado del servidor. */
 export type HuecoVista = Oportunidad & {
+  /** Agencia dueña del hueco: la acción la recibe explícita y la RLS decide. */
+  supplierId: string
+  agenciaNombre: string
   cubiertaNombres: string[]
   textoIa: string | null
 }
@@ -30,6 +33,7 @@ function cuando(dias: number): string {
  * Lista plana de temporadas próximas (ADR-0058 §5): sin grid mensual, botones
  * grandes, todo alcanzable con teclado o dictado. La decisión que toma la
  * persona es "sacar salida", "descartar" o "pedir una idea", nada más.
+ * El superadmin sin agencia ve las de todas, agrupadas por agencia.
  */
 export function HuecosList({ items }: { items: HuecoVista[] }) {
   if (!items.length) {
@@ -39,12 +43,22 @@ export function HuecosList({ items }: { items: HuecoVista[] }) {
       </p>
     )
   }
+  const grupos = new Map<string, HuecoVista[]>()
+  for (const o of items) grupos.set(o.supplierId, [...(grupos.get(o.supplierId) ?? []), o])
+  const variasAgencias = grupos.size > 1
   return (
-    <ul className="divide-y">
-      {items.map((o) => (
-        <Hueco key={o.id} o={o} />
+    <div className="space-y-6">
+      {[...grupos.values()].map((lista) => (
+        <section key={lista[0].supplierId} className="space-y-1">
+          {variasAgencias && <h3 className="text-sm font-semibold">{lista[0].agenciaNombre}</h3>}
+          <ul className="divide-y">
+            {lista.map((o) => (
+              <Hueco key={o.id} o={o} />
+            ))}
+          </ul>
+        </section>
       ))}
-    </ul>
+    </div>
   )
 }
 
@@ -109,17 +123,17 @@ function Hueco({ o }: { o: HuecoVista }) {
       <div className="flex shrink-0 flex-wrap gap-2 sm:flex-col">
         {esHueco && (
           <>
-            <Button size="sm" variant="secondary" disabled={pending} onClick={() => correr(() => queOfrezco(o.id))}>
+            <Button size="sm" variant="secondary" disabled={pending} onClick={() => correr(() => queOfrezco(o.id, o.supplierId))}>
               <SparklesIcon />
               {texto ? 'Ver idea' : '¿Qué ofrezco?'}
             </Button>
-            <Button size="sm" variant="ghost" disabled={pending} onClick={() => correr(() => descartarHueco(o.id))}>
+            <Button size="sm" variant="ghost" disabled={pending} onClick={() => correr(() => descartarHueco(o.id, o.supplierId))}>
               Descartar
             </Button>
           </>
         )}
         {o.estado === 'descartada' && (
-          <Button size="sm" variant="ghost" disabled={pending} onClick={() => correr(() => reactivarHueco(o.id))}>
+          <Button size="sm" variant="ghost" disabled={pending} onClick={() => correr(() => reactivarHueco(o.id, o.supplierId))}>
             Reactivar
           </Button>
         )}
