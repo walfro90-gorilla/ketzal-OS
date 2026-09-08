@@ -18,6 +18,14 @@ import { NativeSelect } from '@/components/ui/native-select'
 import { CamposUbicacion, type Ubicacion } from '@/components/data/campos-ubicacion'
 import { MEXICO, estadoCanonico, paisCanonico } from '@/lib/domain/mexico'
 import { Switch } from '@/components/ui/switch'
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Textarea } from '@/components/ui/textarea'
 import {
   actualizarServicio,
@@ -204,7 +212,12 @@ export function ServicioForm({
   // Los paquetes por ocupación solo aplican a tours y paquetes.
   const muestraPaquetes = tipo === 'tour' || tipo === 'paquete'
 
-  function togglePublicado(next: boolean) {
+  // `pendiente` = destino elegido en el toggle, esperando confirmación en el
+  // modal. null = sin modal abierto. Publicar/ocultar cambia lo que ve el
+  // público, así que se confirma antes de aplicar.
+  const [pendiente, setPendiente] = useState<boolean | null>(null)
+
+  function aplicarPublicado(next: boolean) {
     if (!servicioId) return
     setPublished(next) // optimista: se revierte si la acción falla
     startPublishing(async () => {
@@ -513,12 +526,53 @@ export function ServicioForm({
           <Switch
             id="servicio-publicado"
             checked={published}
-            onCheckedChange={togglePublicado}
+            onCheckedChange={(next) => servicioId && setPendiente(next)}
             disabled={!servicioId || publishing}
             aria-label={published ? 'Quitar del catálogo público' : 'Publicar en el catálogo'}
           />
         </div>
       </div>
+
+      {/* Confirmación antes de cambiar lo que ve el público. */}
+      <AlertDialog
+        open={pendiente !== null}
+        onOpenChange={(abierto) => {
+          if (!abierto) setPendiente(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pendiente ? '¿Publicar en el catálogo?' : '¿Volver a privado?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendiente
+                ? 'El servicio será visible para cualquier persona en el catálogo público del sitio.'
+                : 'El servicio saldrá del catálogo público. Solo tu agencia lo verá para venderlo directo.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setPendiente(null)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant={pendiente ? 'default' : 'secondary'}
+              onClick={() => {
+                const destino = pendiente
+                setPendiente(null)
+                if (destino !== null) aplicarPublicado(destino)
+              }}
+            >
+              {pendiente ? 'Sí, publicar' : 'Sí, volver a privado'}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Solo al crear: editando, el atajo confundiría más de lo que ayuda.
           Colapsados por defecto (ImportarAtajos), para no comerse el arranque. */}

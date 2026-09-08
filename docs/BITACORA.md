@@ -9,6 +9,14 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Publicar/ocultar un servicio pide confirmación en un modal (2026-09-08).** El
+> toggle de la barra de estatus aplicaba al instante; el fundador lo quiso con
+> confirmación porque cambia lo que ve el público. Nuevo primitivo
+> `components/ui/alert-dialog.tsx` (base-nova sobre `@base-ui/react/alert-dialog`,
+> el repo no tenía modal). El toggle ya no aplica: abre el modal con el destino
+> pendiente; confirmar llama `aplicarPublicado`, cancelar lo deja como estaba. El
+> `Switch` sigue controlado por `published`, así que no se mueve hasta confirmar.
+
 > **El costeo por día doblaba los fijos (2026-09-08).** El fundador vio una quinta
 > de $12,500 "por día" en $25,000 y una sprinter de $2,000 a 1.5 días en $12,000.
 > `totalLinea` multiplicaba `cost · qty · unidades · days`: la cantidad de la
