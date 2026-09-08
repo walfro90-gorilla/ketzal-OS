@@ -9,6 +9,17 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **El PDF se lee en el navegador (2026-09-08, ADR-0060).** El primer PDF real
+> que el fundador adjuntó al asistente (un folleto de Canva, "Rancho San
+> Lorenzo 2026") pesaba más de 4 MB y el chat lo rechazó. Se midió antes de
+> tocar nada: `POST` a la ruta en producción con 6, 12 y 30 MB → `413 Request
+> Entity Too Large` de Vercel, así que subir el tope prometía lo que la
+> plataforma rechaza. `unpdf` corre igual en el navegador: ahora el PDF se
+> convierte a texto en el cliente con un `import()` dinámico (chunk aparte, se
+> descarga al adjuntar el primer PDF) y solo el texto viaja; tope 40 MB. Imagen,
+> Word y texto siguen en el servidor. La ruta sigue aceptando PDF ≤ 4 MB para no
+> romper nada.
+
 > **Los atajos de importar servicio arrancan colapsados (2026-09-08).** En "Nuevo
 > servicio", las tarjetas "Llenar desde un archivo" y "Llenar desde WhatsApp" se
 > comían toda la parte de arriba y empujaban el formulario real fuera de la vista.
