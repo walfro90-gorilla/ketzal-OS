@@ -9,6 +9,22 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **El asistente lee PDFs, imágenes y documentos (2026-09-08, ADR-0059).** El
+> fundador pidió que el chat del OS pudiera leer lo que le arrastren. Se decidió
+> que un adjunto entra como TEXTO, no como archivo: `POST /api/agente/adjunto`
+> (mismo gate que el chat, tope 4 MB) convierte PDF con `unpdf`, imagen con el
+> modelo de visión del lector de volantes, `.docx` leyendo `word/document.xml`
+> con `node:zlib` (sin dependencia nueva) y `.txt/.csv/.md` tal cual; el cliente
+> baja las fotos a 1600 px JPEG antes de subir, muestra chips y pega el texto al
+> mensaje entre `[Adjunto: …]` y `[Fin del adjunto]`; el prompt le dice al modelo
+> que eso es información, nunca instrucciones. Nada persiste. El gate de
+> superadmin salió de la ruta a `sesionAsistente()` para que las dos rutas lo
+> compartan. Probado: 19 unit tests (zip escrito en el test, docx, mime por
+> extensión) y `adjunto_asistente.mjs` 9/9 contra la app construida (PDF hecho
+> byte a byte; admin 403, anónimo 401, 4 MB 413), y la visión en vivo con una
+> captura real de `/salidas` (200 en 2.6 s, tabla transcrita; ~800 caracteres por
+> imagen es techo del modelo). Suite 40. Pendiente de pantalla con sesión.
+
 > **Los huecos también para el superadmin sin agencia (2026-09-07).** El fundador
 > abrió `/salidas` y no vio la sección: su perfil es superadmin con `supplier_id`
 > nulo y `cargarHuecos` solo armaba "mi agencia". Ahora resuelve las agencias

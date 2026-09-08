@@ -47,6 +47,7 @@ const HARNESS = [
   { f: 'invitacion_acceso.mjs',           necesita: ['supabase', 'app'],          adr: '0028', afirma: 'la invitación materializa el perfil; no deja viajeros muertos' },
   { f: 'gate_password_provisional.mjs',   necesita: ['supabase', 'app'],          adr: '0027', afirma: 'los portales no dejan pasar con la contraseña dictada' },
   { f: 'atribucion_ref.mjs',              necesita: ['supabase', 'app'],          adr: '0031', afirma: 'el ?ref sobrevive la navegación y se consume al comprar' },
+  { f: 'adjunto_asistente.mjs',           necesita: ['supabase', 'app'],          adr: '0059', afirma: 'un adjunto del asistente entra como texto (PDF, imagen, docx, txt) y solo el superadmin puede subirlo' },
   { f: 'conversion_portales.mjs',         necesita: ['supabase', 'app'],          adr: '0033', afirma: 'el convertido conserva /mis-compras y la salida a su portal' },
   { f: 'conversion_alta.mjs',             necesita: ['supabase', 'app', 'build'], adr: '0033', afirma: 'un correo con cuenta se convierte en vez de reventar' },
   { f: 'concurrencia.mjs',                necesita: ['supabase'],                 adr: '0008', afirma: 'el cupo no se sobrevende en carrera' },
