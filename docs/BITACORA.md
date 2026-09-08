@@ -9,6 +9,32 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **La ficha de servicio se agrupa por tema y estrena índice lateral (2026-09-08).**
+> El formulario creció hasta que encontrar una sección costaba scroll a ciegas, y
+> "Datos del servicio" era un cajón de sastre de 200 líneas con catorce bloques
+> sin relación: el nombre y la agencia junto al cupo, los meses ideales, el
+> transporte, el origen y destino, las fechas de disponibilidad y el
+> incluye/no incluye. Ahora son cuatro tarjetas por tema —Identidad, Ruta y
+> fechas, Capacidad y transporte, Qué incluye— y la página de editar tiene a la
+> izquierda un índice de once entradas que salta a cada sección, solo en
+> escritorio. **Ningún `id` de input cambió**, así que el autollenado del lector
+> de volantes y los harness de página siguen apuntando a lo mismo; `CamposUbicacion`
+> cambió de tarjeta sin tocar props ni estado, así que el bug de países no revive.
+> Se reusó el `id="salidas"` que ya existía en `salidas-editor.tsx`, load-bearing
+> porque el calendario de huecos enlaza `?salida=…&hueco=…#salidas` (ADR-0058).
+> **Tres cosas que solo salieron probando en el navegador:** (1) al llegar al
+> final ya no hay scroll, así que la última sección se ve pero nunca alcanza la
+> franja del observador y la marca se quedaba en "Salidas" estando en "Zona de
+> peligro"; se resolvió con un segundo observador solo para la última, y
+> decidiendo al pintar en vez de escribir el mismo estado desde dos lados (eso
+> era una carrera). (2) **En esta app la ventana NO hace scroll** — lo hace un
+> contenedor del shell (`div.min-h-0.flex-1.overflow-y-auto`), así que el primer
+> arreglo, basado en `window.scrollY`, era falso por construcción. (3) `items-start`
+> en el grid encogía la columna del índice a la altura de su contenido y el
+> `sticky` se iba con el scroll. **Y una trampa de medición:** el tab de
+> automatización vive OCULTO, y `IntersectionObserver` no corre en tabs ocultos;
+> durante un rato pareció que el índice no marcaba nada y era el medidor, no el
+> código. Solo dispara durante el instante del screenshot.
 > **El asistente da de alta proveedores y su tarifario; unidad "noche" (2026-09-08, b100, MCP 0.5).**
 > El fundador intentó crear "Rancho San Lorenzo" desde el chat y el asistente
 > contestó que `ketzal_agencias` solo lista. Faltaba la herramienta, no el permiso.

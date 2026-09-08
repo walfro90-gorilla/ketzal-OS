@@ -578,11 +578,11 @@ export function ServicioForm({
           Colapsados por defecto (ImportarAtajos), para no comerse el arranque. */}
       {!servicioId && <ImportarAtajos onDatos={aplicarLeido} />}
 
-      <Card>
+      <Card id="identidad" className="scroll-mt-32">
         <CardHeader>
-          <CardTitle>Datos del servicio</CardTitle>
+          <CardTitle>Identidad</CardTitle>
           <CardDescription>
-            El nombre y la agencia dueña son obligatorios. El precio público (“desde”) se toma solo del pack más barato.
+            Cómo se llama, de quién es y qué es. El nombre y la agencia dueña son obligatorios.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -636,17 +636,59 @@ export function ServicioForm({
                 placeholder="Qué incluye la experiencia, duración… (opcional)"
               />
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card id="ruta" className="scroll-mt-32">
+        <CardHeader>
+          <CardTitle>Ruta y fechas</CardTitle>
+          <CardDescription>
+            De dónde sale, a dónde va y cuándo se puede vender. La duración y los meses ideales alimentan el calendario de huecos.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <fieldset className="space-y-3 sm:col-span-2">
+              <legend className="text-sm font-medium">De dónde sale</legend>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <CamposUbicacion
+                  valor={origen}
+                  onChange={setOrigen}
+                  ciudadesSugeridas={ciudadesSugeridas}
+                />
+              </div>
+            </fieldset>
+            <fieldset className="space-y-3 sm:col-span-2">
+              <legend className="text-sm font-medium">A dónde va</legend>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <CamposUbicacion
+                  valor={destino}
+                  onChange={setDestino}
+                  ciudadesSugeridas={ciudadesSugeridas}
+                />
+              </div>
+            </fieldset>
             <div className="space-y-2">
-              <Label htmlFor="servicio-cupo">Cupo máximo</Label>
+              <Label htmlFor="servicio-disponible-desde">
+                Disponible desde
+              </Label>
               <Input
-                id="servicio-cupo"
-                type="number"
-                inputMode="numeric"
-                min={1}
-                step="1"
-                value={maxCapacity}
-                onChange={(e) => setMaxCapacity(e.target.value)}
-                placeholder="Ej. 40 (opcional)"
+                id="servicio-disponible-desde"
+                type="date"
+                value={availableFrom}
+                onChange={(e) => setAvailableFrom(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="servicio-disponible-hasta">
+                Disponible hasta
+              </Label>
+              <Input
+                id="servicio-disponible-hasta"
+                type="date"
+                value={availableTo}
+                onChange={(e) => setAvailableTo(e.target.value)}
               />
             </div>
             <div className="space-y-2">
@@ -698,6 +740,32 @@ export function ServicioForm({
                 })}
               </div>
             </fieldset>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card id="capacidad" className="scroll-mt-32">
+        <CardHeader>
+          <CardTitle>Capacidad y transporte</CardTitle>
+          <CardDescription>
+            Cuánta gente cabe y en qué se viaja. El transporte define el mapa de asientos que ve el pasajero.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="servicio-cupo">Cupo máximo</Label>
+              <Input
+                id="servicio-cupo"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                step="1"
+                value={maxCapacity}
+                onChange={(e) => setMaxCapacity(e.target.value)}
+                placeholder="Ej. 40 (opcional)"
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="servicio-transporte">Transporte (mapa de asientos)</Label>
               <NativeSelect
@@ -716,51 +784,19 @@ export function ServicioForm({
                 asientos = cupo de cada salida.
               </p>
             </div>
-            {/* ADR-0057: país y estado cerrados, ciudad sugerida. Se agrupan en
-                dos bloques con su título porque seis campos de ubicación en fila
-                se confunden entre sí. */}
-            <fieldset className="space-y-3 sm:col-span-2">
-              <legend className="text-sm font-medium">De dónde sale</legend>
-              <div className="grid gap-4 sm:grid-cols-3">
-                <CamposUbicacion
-                  valor={origen}
-                  onChange={setOrigen}
-                  ciudadesSugeridas={ciudadesSugeridas}
-                />
-              </div>
-            </fieldset>
-            <fieldset className="space-y-3 sm:col-span-2">
-              <legend className="text-sm font-medium">A dónde va</legend>
-              <div className="grid gap-4 sm:grid-cols-3">
-                <CamposUbicacion
-                  valor={destino}
-                  onChange={setDestino}
-                  ciudadesSugeridas={ciudadesSugeridas}
-                />
-              </div>
-            </fieldset>
-            <div className="space-y-2">
-              <Label htmlFor="servicio-disponible-desde">
-                Disponible desde
-              </Label>
-              <Input
-                id="servicio-disponible-desde"
-                type="date"
-                value={availableFrom}
-                onChange={(e) => setAvailableFrom(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="servicio-disponible-hasta">
-                Disponible hasta
-              </Label>
-              <Input
-                id="servicio-disponible-hasta"
-                type="date"
-                value={availableTo}
-                onChange={(e) => setAvailableTo(e.target.value)}
-              />
-            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card id="incluye" className="scroll-mt-32">
+        <CardHeader>
+          <CardTitle>Qué incluye</CardTitle>
+          <CardDescription>
+            Lo que el precio cubre y lo que no. Aparece tal cual en la cotización y en la ficha pública.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="servicio-incluye">Incluye</Label>
               <Textarea
@@ -783,7 +819,7 @@ export function ServicioForm({
         </CardContent>
       </Card>
 
-      <Card>
+      <Card id="itinerario" className="scroll-mt-32">
         <CardHeader>
           <CardTitle>Itinerario</CardTitle>
           <CardDescription>
@@ -878,7 +914,7 @@ export function ServicioForm({
       </Card>
 
       {muestraPaquetes && (
-        <Card>
+        <Card id="precios" className="scroll-mt-32">
           <CardHeader>
             <CardTitle>Paquetes por ocupación</CardTitle>
             <CardDescription>
@@ -932,7 +968,7 @@ export function ServicioForm({
         </Card>
       )}
 
-      <Card>
+      <Card id="addons" className="scroll-mt-32">
         <CardHeader>
           <CardTitle>Add-ons</CardTitle>
           <CardDescription>
@@ -990,7 +1026,7 @@ export function ServicioForm({
         </CardContent>
       </Card>
 
-      <Card>
+      <Card id="medios" className="scroll-mt-32">
         <CardHeader>
           <CardTitle>Imágenes</CardTitle>
           <CardDescription>
@@ -1112,7 +1148,7 @@ export function ServicioForm({
         </CardContent>
       </Card>
 
-      <Card>
+      <Card id="video" className="scroll-mt-32">
         <CardHeader>
           <CardTitle>Video (opcional)</CardTitle>
           <CardDescription>

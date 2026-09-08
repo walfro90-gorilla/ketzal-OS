@@ -14,6 +14,7 @@ import { PageHeader } from '@/components/data/page-header'
 import { ServicioForm } from '../servicio-form'
 import { listarSalidas } from '../actions'
 import { EliminarServicio } from './eliminar-servicio'
+import { IndiceSecciones, type SeccionFicha } from './indice-secciones'
 import { SalidasEditor } from './salidas-editor'
 import type { Pack } from '@/lib/domain/packs'
 import type { AddOn } from '@/lib/domain/addons'
@@ -89,8 +90,22 @@ export default async function ServicioDetallePage({
     )
   }
 
+  const SECCIONES: SeccionFicha[] = [
+    { id: 'identidad', label: 'Identidad' },
+    { id: 'ruta', label: 'Ruta y fechas' },
+    { id: 'capacidad', label: 'Capacidad' },
+    { id: 'incluye', label: 'Qué incluye' },
+    { id: 'itinerario', label: 'Itinerario' },
+    { id: 'precios', label: 'Precios' },
+    { id: 'addons', label: 'Add-ons' },
+    { id: 'medios', label: 'Imágenes y video' },
+    { id: 'salidas', label: 'Salidas' },
+    { id: 'costeo', label: 'Costeo' },
+    { id: 'peligro', label: 'Zona de peligro' },
+  ]
+
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="mx-auto max-w-2xl space-y-6 lg:max-w-5xl">
       <PageHeader
         title={servicio.name}
         backHref="/servicios"
@@ -103,6 +118,12 @@ export default async function ServicioDetallePage({
         </p>
       )}
 
+      <div className="lg:grid lg:grid-cols-[13rem_minmax(0,1fr)] lg:gap-8">
+        <aside className="hidden lg:block">
+          <IndiceSecciones secciones={SECCIONES} />
+        </aside>
+
+        <div className="space-y-6">
       <ServicioForm
         ciudadesSugeridas={await ciudadesConocidas()}
         servicioId={servicio.id}
@@ -152,7 +173,7 @@ export default async function ServicioDetallePage({
         hueco={hueco}
       />
 
-      <Card>
+      <Card id="costeo" className="scroll-mt-32">
         <CardHeader>
           <CardTitle>Costeo</CardTitle>
           <CardDescription>
@@ -172,7 +193,7 @@ export default async function ServicioDetallePage({
         </CardContent>
       </Card>
 
-      <Card className="border-destructive/50">
+      <Card id="peligro" className="scroll-mt-32 border-destructive/50">
         <CardHeader>
           <CardTitle>Zona de peligro</CardTitle>
           <CardDescription>
@@ -184,6 +205,8 @@ export default async function ServicioDetallePage({
           <EliminarServicio servicioId={servicio.id} />
         </CardContent>
       </Card>
+        </div>
+      </div>
     </div>
   )
 }
