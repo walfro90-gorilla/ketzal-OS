@@ -7,6 +7,25 @@ import { grossUpMp } from '@/lib/domain/gross-up'
 // crearLinkPagoMarketplace (Checkout Pro) para que el checkout embebido
 // (Payment Brick, Checkout API) lo reuse sin duplicar la lógica.
 
+// El id de la cuenta MP dueña del token de plataforma. Se pide una vez a MP
+// (/users/me) y se memoiza por instancia; nunca se imprime el token. Sirve para
+// no mandarle `application_fee` a un cobro donde el vendedor ES la plataforma
+// (MP responde 400 code 2059: no puedes cobrarte comisión a ti mismo).
+let _platformUid: string | null | undefined
+async function platformMpUserId(platformToken: string): Promise<string | null> {
+  if (_platformUid !== undefined) return _platformUid
+  try {
+    const r = await fetch('https://api.mercadopago.com/users/me', {
+      headers: { Authorization: `Bearer ${platformToken}` },
+    })
+    const u = r.ok ? ((await r.json()) as { id?: number | string }) : null
+    _platformUid = u?.id != null ? String(u.id) : null
+  } catch {
+    _platformUid = null
+  }
+  return _platformUid
+}
+
 export type SplitResolution = {
   /** Token con el que se debe crear el cobro en Mercado Pago. */
   cobroToken: string
@@ -43,9 +62,16 @@ export async function resolverSplitMp(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: cuenta } = await (svcClient as any)
         .from('mp_accounts')
-        .select('access_token')
+        .select('access_token, mp_user_id')
         .eq('supplier_id', b.selling_supplier_id)
         .maybeSingle()
+      // Vendedor == marketplace: no se puede separar `application_fee` (MP 2059).
+      // Se cobra directo con el token de plataforma, sin split ni comisión.
+      const platformUid = await platformMpUserId(platformToken)
+      const sellerUid = cuenta?.mp_user_id != null ? String(cuenta.mp_user_id) : null
+      if (platformUid && sellerUid && platformUid === sellerUid) {
+        return { cobroToken: platformToken, marketplaceFee: 0, esSplit: false, montoACobrar: Number(amount), cargoProcesamiento: 0 }
+      }
       if (cuenta?.access_token) {
         // b074: el fee sale del MISMO motor que el devengo (tarifa por servicio,
         // % o fijo por pax), prorrateado por el pago. Antes se calculaba con el

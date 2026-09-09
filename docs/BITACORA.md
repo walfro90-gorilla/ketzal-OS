@@ -9,6 +9,16 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **El split no se cobra comisión a sí mismo (2026-09-08).** Con el log de #179 se
+> vio la causa del pago rechazado: MP 400 code **2059** "You cannot use
+> application_fee with this payment" — el vendedor (Wanderlust, única cuenta MP
+> conectada) resulta ser la MISMA cuenta MP que el marketplace, y MP no deja
+> separar `application_fee` a ti mismo. `resolverSplitMp` ahora pide una vez el id
+> de cuenta de la plataforma (`/users/me` con el token de plataforma, memoizado,
+> sin imprimir nada) y, si el `mp_user_id` del vendedor coincide, cobra directo
+> (sin split ni comisión). Para agencias con cuenta MP distinta, el split y el fee
+> siguen igual. Se prueba con el reintento en vivo: el 2059 desaparece.
+
 > **Diagnóstico: por qué MP rechaza al crear el pago (2026-09-08).** El fundador
 > probó pago con débito y salió "Mercado Pago rechazó el pago. Intenta con otra
 > tarjeta." Ese texto solo sale de `pagarConBrickMarketplace` cuando el POST a
