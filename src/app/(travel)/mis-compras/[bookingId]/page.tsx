@@ -16,6 +16,7 @@ import { marketplaceActivo } from '@/lib/marketplace'
 import { buttonVariants } from '@/components/ui/button'
 import { VoucherViajero } from './voucher-viajero'
 import { AcompanantesSection, type Acompanante } from './acompanantes'
+import { CalificarViaje, type RatingViaje } from './calificar-viaje'
 import type { SeatMapData } from '@/lib/actions/asientos'
 
 import { etiquetaDia } from '@/lib/domain/itinerario'
@@ -50,6 +51,8 @@ type Trip = {
   }
   agency: { name: string; phone: string | null; email: string | null; logo: string | null } | null
   voucher_id: string | null
+  /** b102: la calificación se muestra aquí, solo cuando el viaje ya ocurrió. */
+  rating?: RatingViaje
 }
 
 const mxn = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' })
@@ -215,6 +218,14 @@ export default async function TripPage({
           </div>
         </section>
       )}
+
+      {trip.rating?.can_rate ? (
+        <CalificarViaje bookingId={bk.id} rating={trip.rating} />
+      ) : bk.status === 'paid' && bk.travel_date ? (
+        <p className="mt-6 text-sm text-muted-foreground">
+          Podrás calificar tu viaje después del {fecha}.
+        </p>
+      ) : null}
 
       {sv.description && (
         <section className="mt-6">
