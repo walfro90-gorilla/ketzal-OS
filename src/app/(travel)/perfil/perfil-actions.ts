@@ -12,6 +12,7 @@ export type PerfilViajeroInput = {
   bio: string
   ciudad: string
   publico: boolean
+  fotoPath: string | null
 }
 
 /**
@@ -38,6 +39,7 @@ export async function guardarPerfilViajero(
     p_bio: input.bio?.trim() || null,
     p_city: input.ciudad?.trim() || null,
     p_is_public: input.publico,
+    p_social_photo_path: input.fotoPath,
   })
   if (error) return { error: safeError(error, 'No se pudo guardar el perfil.') }
 
