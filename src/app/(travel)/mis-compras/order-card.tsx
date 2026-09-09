@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import {
-  StarIcon,
   ChevronRightIcon,
   ChevronDownIcon,
   CircleCheckIcon,
@@ -17,7 +16,7 @@ import {
 import { cn } from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { crearLinkPagoMarketplace, calificar } from '@/app/comprar/actions'
+import { crearLinkPagoMarketplace } from '@/app/comprar/actions'
 import { SpeiPanel } from '@/app/comprar/[serviceId]/spei-panel'
 import { MpPaymentBrick, type ResultadoBrick } from '@/app/comprar/[serviceId]/mp-payment-brick'
 import { eliminarPedido } from './pedido-actions'
@@ -146,47 +145,8 @@ function PlanChecklist({
   )
 }
 
-/** Selector de estrellas 1-5. readOnly ⇒ muestra la calificación sin editar. */
-function StarPicker({
-  value,
-  onChange,
-  readOnly = false,
-}: {
-  value: number
-  onChange?: (n: number) => void
-  readOnly?: boolean
-}) {
-  const [hover, setHover] = useState(0)
-  const shown = readOnly ? value : hover || value
-  return (
-    <div className="flex gap-1" role={readOnly ? 'img' : 'radiogroup'} aria-label={readOnly ? `${value} de 5 estrellas` : 'Calificación'}>
-      {[1, 2, 3, 4, 5].map((n) => (
-        <button
-          key={n}
-          type="button"
-          disabled={readOnly}
-          onClick={() => onChange?.(n)}
-          onMouseEnter={() => !readOnly && setHover(n)}
-          onMouseLeave={() => !readOnly && setHover(0)}
-          aria-label={`${n} estrella${n > 1 ? 's' : ''}`}
-          aria-pressed={!readOnly ? n <= value : undefined}
-          className={cn('p-0.5', readOnly ? 'cursor-default' : 'cursor-pointer')}
-        >
-          <StarIcon
-            className={cn(
-              readOnly ? 'size-5' : 'size-7',
-              n <= shown ? 'fill-primary text-primary' : 'text-muted-foreground/40'
-            )}
-          />
-        </button>
-      ))}
-    </div>
-  )
-}
-
 export function OrderCard({ order }: { order: Order }) {
   const router = useRouter()
-  const [busy, setBusy] = useState(false)
   // Monto que se le pasó al Payment Brick embebido; null = aún no se mostró.
   const [brickAmount, setBrickAmount] = useState<number | null>(null)
   // b068: eliminar pedidos draft sin dinero, para que no se acumulen.
@@ -196,28 +156,13 @@ export function OrderCard({ order }: { order: Order }) {
   const [speiOpen, setSpeiOpen] = useState(false)
   // 'abono' = siguiente abono del plan; 'todo' = liquidar el saldo.
   const [speiOpcion, setSpeiOpcion] = useState<'abono' | 'todo'>('abono')
-  // Calificación (viajero→proveedor + →app). Editable: submit_rating hace upsert,
-  // así que se muestra lo ya calificado (read-only) con opción de editar.
-  const [prov, setProv] = useState(order.provider_rating ?? 0)
-  const [comentario, setComentario] = useState(order.provider_comment ?? '')
-  const [app, setApp] = useState(order.app_rating ?? 0)
-  const [provListo, setProvListo] = useState(order.rated_provider)
-  const [appListo, setAppListo] = useState(order.rated_app)
-  const [editProv, setEditProv] = useState(false)
-  const [editApp, setEditApp] = useState(false)
-  // Baseline de lo guardado (para restaurar al cancelar una edición).
-  const [savedProv, setSavedProv] = useState(order.provider_rating ?? 0)
-  const [savedComentario, setSavedComentario] = useState(order.provider_comment ?? '')
-  const [savedApp, setSavedApp] = useState(order.app_rating ?? 0)
 
   // Respaldo: checkout de Mercado Pago por redirect (Checkout Pro).
   async function pagarFallback(amount?: number) {
     if (!order.service_id) return
-    setBusy(true)
     const res = await crearLinkPagoMarketplace(order.booking_id, order.service_id, amount)
     if ('error' in res) {
       toast.error(res.error)
-      setBusy(false)
       return
     }
     window.location.href = res.url
@@ -251,42 +196,6 @@ export function OrderCard({ order }: { order: Order }) {
   }
 
 
-  async function enviarProveedor() {
-    if (prov < 1) {
-      toast.error('Elige de 1 a 5 estrellas.')
-      return
-    }
-    setBusy(true)
-    const res = await calificar(order.booking_id, 'traveler_to_provider', prov, comentario)
-    setBusy(false)
-    if ('error' in res) {
-      toast.error(res.error)
-      return
-    }
-    setProvListo(true)
-    setEditProv(false)
-    setSavedProv(prov)
-    setSavedComentario(comentario)
-    toast.success('¡Gracias por tu reseña!')
-  }
-
-  async function enviarApp() {
-    if (app < 1) {
-      toast.error('Elige de 1 a 5 estrellas.')
-      return
-    }
-    setBusy(true)
-    const res = await calificar(order.booking_id, 'traveler_to_app', app)
-    setBusy(false)
-    if ('error' in res) {
-      toast.error(res.error)
-      return
-    }
-    setAppListo(true)
-    setEditApp(false)
-    setSavedApp(app)
-    toast.success('¡Gracias!')
-  }
 
   const conPlan = order.payment_type === 'abonos'
   const manual = order.channel === 'manual'
@@ -490,99 +399,15 @@ export function OrderCard({ order }: { order: Order }) {
           )
         )}
 
-        {/* Calificación post-viaje */}
-        {order.can_rate && (
-          <div className="space-y-4 border-t pt-4">
-            {/* Viajero → proveedor */}
-            {provListo && !editProv ? (
-              <div className="space-y-1">
-                <p className="text-sm font-medium">Tu reseña</p>
-                <StarPicker value={savedProv} readOnly />
-                {savedComentario && (
-                  <p className="text-sm text-muted-foreground">“{savedComentario}”</p>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setEditProv(true)}
-                  className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
-                >
-                  Editar
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Califica tu viaje</p>
-                <StarPicker value={prov} onChange={setProv} />
-                <textarea
-                  value={comentario}
-                  onChange={(e) => setComentario(e.target.value)}
-                  placeholder="¿Cómo estuvo? (opcional)"
-                  rows={2}
-                  className="w-full rounded-lg border border-input bg-transparent px-3 py-2 text-base outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-input/30"
-                />
-                <div className="flex gap-2">
-                  <Button type="button" loading={busy} onClick={enviarProveedor}>
-                    {provListo ? 'Guardar' : 'Enviar reseña'}
-                  </Button>
-                  {editProv && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      loading={busy}
-                      onClick={() => {
-                        setEditProv(false)
-                        setProv(savedProv)
-                        setComentario(savedComentario)
-                      }}
-                    >
-                      Cancelar
-                    </Button>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Viajero → app */}
-            {appListo && !editApp ? (
-              <div className="space-y-1">
-                <p className="text-sm font-medium">Calificaste la app Ketzal</p>
-                <div className="flex items-center gap-3">
-                  <StarPicker value={savedApp} readOnly />
-                  <button
-                    type="button"
-                    onClick={() => setEditApp(true)}
-                    className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
-                  >
-                    Editar
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <p className="text-sm font-medium">¿Y la app Ketzal?</p>
-                <StarPicker value={app} onChange={setApp} />
-                <div className="flex gap-2">
-                  <Button type="button" variant="outline" loading={busy} onClick={enviarApp}>
-                    {appListo ? 'Guardar' : 'Enviar'}
-                  </Button>
-                  {editApp && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      loading={busy}
-                      onClick={() => {
-                        setEditApp(false)
-                        setApp(savedApp)
-                      }}
-                    >
-                      Cancelar
-                    </Button>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+        {/* b102: la calificación vive en el detalle del viaje y solo cuando ya
+            ocurrió; la tarjeta es el estado de la compra y la puerta al viaje. */}
+        <Button
+          variant="outline"
+          className="w-full"
+          render={<Link href={`/mis-compras/${order.booking_id}`} />}
+        >
+          Ver mi viaje <ChevronRightIcon className="size-4" />
+        </Button>
       </CardContent>
     </Card>
   )

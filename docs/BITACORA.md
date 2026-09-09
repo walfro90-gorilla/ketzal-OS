@@ -9,6 +9,20 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Calificar solo después del viaje, y desde el detalle (2026-09-09, b102).** El
+> fundador compró un tour de prueba y en "Mis compras" le apareció de inmediato
+> "Califica tu viaje". Causa: `can_rate` era `pagado y (sin fecha o fecha pasada)`;
+> sin fecha de viaje se prendía al pagar. Y el bloque de calificar vivía en la
+> tarjeta de la lista. Ahora la tarjeta es el estado de la compra (pagos, plan,
+> saldo) con un botón "Ver mi viaje"; el detalle del viaje muestra la sección
+> "Califica tu viaje" solo cuando `can_rate` es verdadero, y antes avisa "Podrás
+> calificar tu viaje después del {fecha}". b102 re-aplica desde el DDL vivo
+> `submit_rating` y `list_my_marketplace_orders` (pagado y fecha NO nula ya pasada)
+> y suma el bloque `rating` a `get_my_trip`. Componente `CalificarViaje` extraído de
+> la tarjeta. Hard-test `calificar_despues_del_viaje.sql` (12): futuro/sin fecha/sin
+> pagar → no; pasado → sí; la BD rechaza calificar antes; otro viajero no ve ni
+> califica. Suite 42.
+
 > **Primer reembolso real de punta a punta (2026-09-09).** Tras la primera venta real
 > cobrada en línea (booking `7ed11e89…`, $50, [[ADR-0062]]), se probó la devolución
 > desde el sistema (`reembolsarPago`, `/ventas/[id]` → abonos → Devolver): llama la API
