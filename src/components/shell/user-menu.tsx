@@ -115,7 +115,7 @@ export function UserMenu({
           {marketplaceActivo() && (
             <DropdownMenuItem render={<Link href="/mis-compras" />}>
               <ShoppingBagIcon />
-              Mis compras
+              Mis viajes
             </DropdownMenuItem>
           )}
           <DropdownMenuItem

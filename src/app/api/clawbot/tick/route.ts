@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { logSistema } from '@/lib/system-log'
 import { emitirHuecos } from '@/lib/clawbot/huecos'
+import { recordarCalificar } from '@/lib/clawbot/calificar'
 
 // Clawbot tick — lo llama Vercel Cron a diario (ver vercel.json). (1) genera los
 // recordatorios del día en el outbox (idempotente); (2) corre el chequeo de
@@ -53,6 +54,17 @@ export async function GET(request: Request) {
     await logSistema(supabase, 'clawbot_tick', 'info', 'huecos de calendario revisados', huecos)
   } catch (e) {
     await logSistema(supabase, 'clawbot_tick', 'error', 'fallo al emitir huecos de calendario', {
+      message: (e as Error).message,
+    })
+  }
+
+  // 1d. Recordatorio de calificar (b106): al viajero, el día después de su viaje,
+  //     una sola vez por pedido.
+  try {
+    const calif = await recordarCalificar(supabase)
+    await logSistema(supabase, 'clawbot_tick', 'info', 'recordatorios de calificar', calif)
+  } catch (e) {
+    await logSistema(supabase, 'clawbot_tick', 'error', 'fallo al recordar calificar', {
       message: (e as Error).message,
     })
   }

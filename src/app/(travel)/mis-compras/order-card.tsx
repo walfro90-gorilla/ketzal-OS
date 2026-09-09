@@ -30,6 +30,8 @@ export type Order = {
   travel_date: string | null
   payment_type: string
   service_name: string
+  /** b106: portada del servicio (banner o primera del álbum); null si no tiene. */
+  service_image: string | null
   total: number
   paid: number
   balance: number
@@ -72,6 +74,15 @@ function fechaCorta(d: string | null): string | null {
   if (!d) return null
   const [y, m, day] = d.split('-').map(Number)
   return new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }).format(
+    new Date(y, m - 1, day)
+  )
+}
+
+/** 'YYYY-MM-DD' → 'sáb, 14 sep 2026': el día de la semana es lo que uno recuerda de un viaje. */
+function fechaViaje(d: string | null): string | null {
+  if (!d) return null
+  const [y, m, day] = d.split('-').map(Number)
+  return new Intl.DateTimeFormat('es-MX', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }).format(
     new Date(y, m - 1, day)
   )
 }
@@ -209,7 +220,18 @@ export function OrderCard({ order }: { order: Order }) {
     <Card>
       <CardContent className="space-y-4 p-4">
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
+          {/* b106: la tarjeta es un viaje, no un pedido: portada + día de la semana. */}
+          {order.service_image && (
+            <Link href={`/mis-compras/${order.booking_id}`} className="shrink-0" aria-hidden tabIndex={-1}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={order.service_image}
+                alt=""
+                className={cn('size-14 rounded-lg object-cover', cancelado && 'grayscale opacity-60')}
+              />
+            </Link>
+          )}
+          <div className="min-w-0 flex-1">
             <Link
               href={`/mis-compras/${order.booking_id}`}
               className="group flex items-center gap-1 font-semibold hover:text-primary"
@@ -222,7 +244,7 @@ export function OrderCard({ order }: { order: Order }) {
                 manual && order.status === 'draft'
                   ? 'Cotización'
                   : (ESTADO[order.status] ?? order.status),
-                fechaCorta(order.travel_date),
+                fechaViaje(order.travel_date),
               ]
                 .filter(Boolean)
                 .join(' · ')}

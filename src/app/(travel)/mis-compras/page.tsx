@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { marketplaceActivo } from '@/lib/marketplace'
 import { buttonVariants } from '@/components/ui/button'
 import { OrderCard, type Order } from './order-card'
+import { hoyEn } from '@/lib/domain/oportunidades'
+import { agruparViajes } from '@/lib/domain/mis-viajes'
 import { PagoProcesando } from './pago-procesando'
 import { UsarCredito, type CreditoViajero } from './usar-credito'
 
@@ -33,7 +35,7 @@ export default async function MisComprasPage({
   if (!user) {
     return (
       <div className="mx-auto w-full max-w-lg flex-1 px-4 py-12 text-center">
-        <h1 className="text-2xl font-bold">Mis compras</h1>
+        <h1 className="text-2xl font-bold">Mis viajes</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Inicia sesión para ver tus viajes.
         </p>
@@ -58,10 +60,11 @@ export default async function MisComprasPage({
     (crData as unknown as (CreditoViajero & { vigente: boolean })[]) ?? []
   ).filter((c) => c.vigente && Number(c.saldo_mxn) > 0)
   const mxnFmt = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' })
+  const grupos = agruparViajes(orders, hoyEn())
 
   return (
     <div className="mx-auto w-full max-w-lg flex-1 px-4 py-8 sm:py-12">
-      <h1 className="text-2xl font-bold tracking-tight">Mis compras</h1>
+      <h1 className="text-2xl font-bold tracking-tight">Mis viajes</h1>
       {creditos.length > 0 && (
         <div className="mt-4 rounded-lg border bg-muted/40 p-4 text-sm">
           <p className="font-medium">Crédito a tu favor</p>
@@ -92,18 +95,31 @@ export default async function MisComprasPage({
           y reserva el primero.
         </p>
       ) : (
-        <div className="mt-6 space-y-4">
-          {orders.map((o) => (
-            <div key={o.booking_id} className="space-y-2">
-              <OrderCard order={o} />
-              {/* b051: el crédito universal lo aplica el TITULAR (una agencia
-                  ajena ya no puede consumirlo). Por eso el botón vive aquí. */}
-              <UsarCredito
-                bookingId={o.booking_id}
-                saldoPedido={Number(o.balance ?? 0)}
-                creditos={creditos}
-              />
-            </div>
+        // b106: Próximos · Pasados · Cancelados. Con un solo grupo no hay
+        // encabezados: la lista se ve como siempre.
+        <div className="mt-6 space-y-8">
+          {grupos.map(({ titulo, items }) => (
+            <section key={titulo} className="space-y-4">
+              {grupos.length > 1 && (
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  {titulo}
+                </h2>
+              )}
+              {items.map((o) => (
+                <div key={o.booking_id} className="space-y-2">
+                  <OrderCard order={o} />
+                  {/* b051: el crédito universal lo aplica el TITULAR (una agencia
+                      ajena ya no puede consumirlo). Por eso el botón vive aquí. */}
+                  {o.status !== 'cancelled' && (
+                    <UsarCredito
+                      bookingId={o.booking_id}
+                      saldoPedido={Number(o.balance ?? 0)}
+                      creditos={creditos}
+                    />
+                  )}
+                </div>
+              ))}
+            </section>
           ))}
         </div>
       )}
