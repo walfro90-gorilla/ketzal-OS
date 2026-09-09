@@ -14,22 +14,25 @@ import { sumarDias } from './temporadas-mx'
 
 export type Accion = { hora: string; texto: string }
 
-const HORA = /^(\d{1,2}):(\d{2})\s*(?:[·\-–]\s*)?(.*)$/
+// Solo se come el separador que sigue a la hora; el resto del texto se
+// respeta TAL CUAL, con sus espacios. El form parte y une en cada tecla: si
+// aquí se recortara, el espacio final desaparecería al escribirlo y no se
+// podría teclear "Abordaje inicial". Recortar es del guardado, no del tecleo.
+const HORA = /^(\d{1,2}):(\d{2})(?:\s*[·\-–]\s*|\s+|$)(.*)$/
 
 /** "07:00 · Abordaje" → { hora: '07:00', texto: 'Abordaje' }; sin prefijo, hora ''. */
 export function partirAccion(linea: string): Accion {
-  const m = HORA.exec(linea.trim())
-  if (!m) return { hora: '', texto: linea.trim() }
+  const m = HORA.exec(linea)
+  if (!m) return { hora: '', texto: linea }
   const h = Number(m[1])
   const min = Number(m[2])
-  if (h > 23 || min > 59) return { hora: '', texto: linea.trim() }
-  return { hora: `${String(h).padStart(2, '0')}:${m[2]}`, texto: m[3].trim() }
+  if (h > 23 || min > 59) return { hora: '', texto: linea }
+  return { hora: `${String(h).padStart(2, '0')}:${m[2]}`, texto: m[3] }
 }
 
-/** El renglón que se guarda. Sin hora, solo el texto. */
+/** El renglón que se guarda. Sin hora, solo el texto. Sin recortes: eso lo hace el guardado. */
 export function unirAccion(a: Accion): string {
-  const texto = a.texto.trim()
-  return a.hora ? `${a.hora} · ${texto}`.trim() : texto
+  return a.hora ? `${a.hora} · ${a.texto}` : a.texto
 }
 
 /**
