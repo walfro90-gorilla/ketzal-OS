@@ -15,6 +15,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { NativeSelect } from '@/components/ui/native-select'
+import { Switch } from '@/components/ui/switch'
 import {
   Table,
   TableBody,
@@ -36,10 +37,13 @@ import {
   margenAddon,
   packReferencia,
   puntoEquilibrio,
-  tablaPorPack,
+  filasPrecio,
+  resumen,
   totalLinea,
   unidades,
+  UNITS,
   type CostLine,
+  type Unit,
   type Costeo,
   type RateLine,
 } from '@/lib/domain/costeo'
@@ -81,6 +85,8 @@ export function CosteoForm({
   salidas,
   maxN,
   preseleccion,
+  agenciaId,
+  comisionPortalPct,
 }: {
   serviceId: string
   initial: Costeo
@@ -92,6 +98,10 @@ export function CosteoForm({
   maxN: number
   /** Transporte y hotel ya ligados al servicio: el picker abre en ellos. */
   preseleccion: string[]
+  /** Agencia dueña: los costos propios (gasolina, casetas) se cuelgan de ella. */
+  agenciaId: string
+  /** Comisión de Ketzal (%) que se descuenta si el costeo se marca "portal". */
+  comisionPortalPct: number
 }) {
   const [packs, setPacks] = useState<Pack[]>(packsIniciales)
   const [cab, setCab] = useState({
@@ -99,6 +109,19 @@ export function CosteoForm({
     nights: String(initial.nights),
     days: String(initial.days),
     margin_pct: String(initial.margin_pct),
+    precio_venta: initial.precio_venta != null ? String(initial.precio_venta) : '',
+    imprevistos_pct: String(initial.imprevistos_pct),
+  })
+  const [portal, setPortal] = useState(initial.portal)
+  // Qué ocupaciones se escriben al servicio al "crear/guardar opciones de precio".
+  const [seleccion, setSeleccion] = useState<PackKey[]>(() =>
+    packsIniciales.length ? packsIniciales.map((p) => p.key) : ['doble', 'triple', 'cuadruple']
+  )
+  const [propio, setPropio] = useState<{ label: string; unit: Unit; cost: string; cap: string }>({
+    label: '',
+    unit: 'grupo',
+    cost: '',
+    cap: '',
   })
   const [lineas, setLineas] = useState<LineaUI[]>(() =>
     initial.lines.map((l) => ({ ...l, uid: ++seq, qty: String(l.qty) }))
@@ -122,23 +145,24 @@ export function CosteoForm({
       limpiarCosteo(
         {
           ...cab,
+          portal,
           lines: lineas,
           addon_costs: extras,
         },
         addonKeys
       ),
-    [cab, lineas, extras, addonKeys]
+    [cab, portal, lineas, extras, addonKeys]
   )
 
   const ref = packReferencia(packs)
   const refKey: PackKey = ref?.key ?? 'doble'
   const n = doc.plan_pax
-  const tabla = tablaPorPack(doc, packs)
-  const costoRef = costoPorPax(doc, refKey, n)
-  const utilidadPlan = ref ? margenA(doc, refKey, n, ref.price) : null
-  const equilibrio = ref ? puntoEquilibrio(doc, refKey, maxN, ref.price) : null
+  // ADR-0061: el precio con que se evalúa es el tecleado o el sugerido, haya
+  // packs o no; así equilibrio y utilidad salen desde el primer costo.
+  const res = resumen(doc, refKey, maxN, comisionPortalPct)
+  const filas = filasPrecio(doc, packs, comisionPortalPct)
   const hayHospedaje = doc.lines.some((l) => l.unit === 'habitacion')
-  const sugeridosAplicables = tabla.filter((f) => f.sugerido != null)
+  const paraGuardar = filas.filter((f) => seleccion.includes(f.key) && f.propuesto != null)
 
   const proveedor = proveedores.find((p) => p.id === provSel) ?? null
   const tarifasPax = proveedores.flatMap((p) =>
@@ -175,25 +199,49 @@ export function CosteoForm({
     })
   }
 
-  function aplicar() {
+  /** Escribe al servicio las ocupaciones elegidas con su precio propuesto: crea las opciones o las repone. */
+  function guardarPrecios() {
     if (!confirmarAplicar) {
       setConfirmarAplicar(true)
       return
     }
-    const nuevos = packs.map((p) => ({
-      key: p.key,
-      price: tabla.find((f) => f.key === p.key)?.sugerido ?? p.price,
-    }))
+    const nuevos = paraGuardar.map((f) => ({ key: f.key, price: f.propuesto! }))
     startTransition(async () => {
-      const res = await setServicioPacks(serviceId, nuevos)
+      const r = await setServicioPacks(serviceId, nuevos)
       setConfirmarAplicar(false)
-      if ('error' in res) {
-        toast.error(res.error)
+      if ('error' in r) {
+        toast.error(r.error)
         return
       }
-      setPacks(res.packs)
-      toast.success('Precios aplicados a los packs')
+      setPacks(r.packs)
+      toast.success(packs.length ? 'Precios guardados en el servicio' : 'Opciones de precio creadas')
     })
+  }
+
+  /** Costo que no viene de un proveedor (gasolina, casetas, propinas): se cuelga de la agencia. */
+  function agregarPropio() {
+    const label = propio.label.trim()
+    const cost = Number(propio.cost)
+    if (!label || !Number.isFinite(cost) || cost < 0) {
+      toast.error('Ponle nombre y costo al concepto.')
+      return
+    }
+    const cap = Number(propio.cap)
+    setLineas((ls) => [
+      ...ls,
+      {
+        uid: ++seq,
+        supplier_id: agenciaId,
+        supplier_name: 'Costo propio',
+        rate_key: `propio-${label.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '').replace(/\s+/g, '-')}`,
+        label,
+        unit: propio.unit,
+        cost,
+        cap: propio.unit !== 'pax' && Number.isInteger(cap) && cap > 0 ? cap : undefined,
+        qty: propio.unit === 'dia' ? String(doc.days) : propio.unit === 'noche' ? String(Math.max(1, doc.nights)) : '1',
+      },
+    ])
+    setPropio({ label: '', unit: 'grupo', cost: '', cap: '' })
   }
 
   const campo = (k: keyof typeof cab, label: string, extra?: Partial<ComponentProps<typeof Input>>) => (
@@ -220,11 +268,29 @@ export function CosteoForm({
             es bruto, sobre el precio, antes de comisiones de agente o embajador.
           </CardDescription>
         </CardHeader>
-        <CardContent className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {campo('plan_pax', 'Pasajeros plan', { min: 1, step: 1 })}
-          {campo('days', 'Días', { min: 1, step: 1 })}
-          {campo('nights', 'Noches', { min: 0, step: 1 })}
-          {campo('margin_pct', 'Margen %', { min: 0, max: 99, step: 0.5, inputMode: 'decimal' })}
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {campo('plan_pax', 'Pasajeros plan', { min: 1, step: 1 })}
+            {campo('days', 'Días', { min: 1, step: 1 })}
+            {campo('nights', 'Noches', { min: 0, step: 1 })}
+            {campo('margin_pct', 'Margen %', { min: 0, max: 99, step: 0.5, inputMode: 'decimal' })}
+            {campo('imprevistos_pct', 'Imprevistos %', { min: 0, max: 100, step: 0.5, inputMode: 'decimal' })}
+            {campo('precio_venta', 'Precio de venta / pax', {
+              min: 0,
+              step: 1,
+              inputMode: 'decimal',
+              placeholder: res.sugerido != null ? `sugerido ${res.sugerido}` : 'vacío = el sugerido',
+            })}
+          </div>
+          <label className="flex items-center gap-3 text-sm">
+            <Switch checked={portal} onCheckedChange={setPortal} aria-label="Se vende por el portal" />
+            <span>
+              Se vende por el portal: la utilidad neta descuenta la comisión de Ketzal ({comisionPortalPct} %).
+              <span className="block text-xs text-muted-foreground">
+                Las comisiones de agente o embajador no se descuentan aquí.
+              </span>
+            </span>
+          </label>
         </CardContent>
       </Card>
 
@@ -286,6 +352,57 @@ export function CosteoForm({
               ) : null}
             </div>
           )}
+
+          <div className="rounded-lg border p-3">
+            <p className="mb-2 text-sm font-medium">Agregar un costo propio</p>
+            <p className="mb-3 text-xs text-muted-foreground">
+              Lo que no viene de un proveedor: gasolina, casetas, propinas, seguro por pasajero, publicidad.
+            </p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+              <Input
+                aria-label="Concepto del costo propio"
+                placeholder="Concepto"
+                value={propio.label}
+                className="col-span-2 sm:col-span-2"
+                onChange={(e) => setPropio((p) => ({ ...p, label: e.target.value }))}
+              />
+              <NativeSelect
+                aria-label="Cómo se cobra el costo propio"
+                value={propio.unit}
+                onChange={(e) => setPropio((p) => ({ ...p, unit: e.target.value as Unit }))}
+              >
+                {UNITS.filter((u) => u !== 'habitacion').map((u) => (
+                  <option key={u} value={u}>
+                    {UNIT_LABELS[u]}
+                  </option>
+                ))}
+              </NativeSelect>
+              <Input
+                type="number"
+                inputMode="decimal"
+                min={0}
+                aria-label="Costo del concepto propio"
+                placeholder="Costo MXN"
+                value={propio.cost}
+                onChange={(e) => setPropio((p) => ({ ...p, cost: e.target.value }))}
+              />
+              <div className="flex gap-2">
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  aria-label="Cupo por unidad del costo propio"
+                  placeholder="Cupo"
+                  value={propio.cap}
+                  disabled={propio.unit === 'pax'}
+                  onChange={(e) => setPropio((p) => ({ ...p, cap: e.target.value }))}
+                />
+                <Button type="button" variant="outline" size="icon" aria-label="Agregar costo propio" onClick={agregarPropio}>
+                  <PlusIcon className="size-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
 
           {lineas.length === 0 ? (
             <p className="text-sm text-muted-foreground">Todavía no hay costos en este viaje.</p>
@@ -479,74 +596,116 @@ export function CosteoForm({
         <CardHeader>
           <CardTitle>Resultado a {n} pasajeros</CardTitle>
           <CardDescription>
-            {ref
-              ? `Con todos en ${ref.label.toLowerCase()} al precio actual de ${mxn.format(ref.price)}.`
-              : 'Este servicio no tiene packs con precio; solo se muestra el costo.'}
-            {!hayHospedaje && packs.length > 0 ? ' Sin hospedaje en el costeo, el costo es igual para todos los packs.' : ''}
+            {res.precio == null
+              ? 'Agrega costos para ver el resultado.'
+              : doc.precio_venta != null
+                ? `Al precio que tecleaste: ${mxn.format(doc.precio_venta)} por pax.`
+                : `Al precio sugerido por tu margen: ${mxn.format(res.precio)} por pax. Teclea otro arriba para probarlo.`}
+            {portal ? ` Neto de la comisión del portal (${comisionPortalPct} %).` : ''}
+            {!hayHospedaje ? ' Sin hospedaje, el costo es igual para todas las ocupaciones.' : ` Referencia: ${(ref?.label ?? 'doble').toLowerCase()}.`}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <StatTile label="Costo total" value={dinero(costoRef == null ? null : costoRef * n)} />
-            <StatTile label="Costo por pax" value={dinero(costoRef)} hint={ref ? ref.label : undefined} />
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <StatTile
+              label="Costo total"
+              value={dinero(res.costoPax == null ? null : res.costoPax * n)}
+              hint={doc.imprevistos_pct ? `incluye ${doc.imprevistos_pct} % de imprevistos` : undefined}
+            />
+            <StatTile label="Costo por pax" value={dinero(res.costoPax)} hint={hayHospedaje && ref ? ref.label : undefined} />
+            <StatTile label="Precio sugerido" value={dinero(res.sugerido)} hint={`margen ${doc.margin_pct} %, redondeo comercial`} />
             <StatTile
               label="Punto de equilibrio"
-              value={ref ? (equilibrio == null ? 'nunca' : `${equilibrio} pax`) : '—'}
-              tone={ref ? (equilibrio == null ? 'bad' : equilibrio <= n ? 'good' : 'warn') : 'neutral'}
-              hint={ref ? `hasta ${maxN} pax` : undefined}
+              value={res.precio == null ? '—' : res.equilibrio == null ? 'nunca' : `${res.equilibrio} pax`}
+              tone={res.precio == null ? 'neutral' : res.equilibrio == null ? 'bad' : res.equilibrio <= n ? 'good' : 'warn'}
+              hint={res.precio != null ? `a ${mxn.format(res.precio)}, hasta ${maxN} pax` : undefined}
             />
             <StatTile
-              label="Utilidad plan"
-              value={dinero(utilidadPlan?.utilidad)}
-              tone={utilidadPlan ? (utilidadPlan.utilidad >= 0 ? 'good' : 'bad') : 'neutral'}
-              hint={utilidadPlan ? `margen ${pct(utilidadPlan.pct)}` : undefined}
+              label={portal ? 'Utilidad plan (neta)' : 'Utilidad plan'}
+              value={dinero(res.plan?.utilidad)}
+              tone={res.plan ? (res.plan.utilidad >= 0 ? 'good' : 'bad') : 'neutral'}
+              hint={res.plan ? `${n} pax · margen ${pct(res.plan.pct)}` : undefined}
+            />
+            <StatTile
+              label={portal ? 'Utilidad lleno (neta)' : 'Utilidad lleno'}
+              value={dinero(res.lleno?.utilidad)}
+              tone={res.lleno ? (res.lleno.utilidad >= 0 ? 'good' : 'bad') : 'neutral'}
+              hint={res.lleno ? `${maxN} pax · margen ${pct(res.lleno.pct)}` : undefined}
             />
           </div>
 
-          {packs.length > 0 && (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Pack</TableHead>
-                    <TableHead className="text-right">Costo / pax</TableHead>
-                    <TableHead className="text-right">Sugerido ({doc.margin_pct} %)</TableHead>
-                    <TableHead className="text-right">Precio actual</TableHead>
-                    <TableHead className="text-right">Margen actual</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {tabla.map((f) => (
-                    <TableRow key={f.key}>
+          {/* ADR-0061: una fila por ocupación del catálogo. Sirve para CREAR las
+              opciones de precio de un servicio que no las tiene (Dunas: precio 0,
+              sin packs) o para reponer las que tiene. Lo que se escribe es el
+              precio propuesto: el tecleado (sin hospedaje) o el sugerido. */}
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-8" />
+                  <TableHead>Opción de precio</TableHead>
+                  <TableHead className="text-right">Costo / pax</TableHead>
+                  <TableHead className="text-right">Sugerido</TableHead>
+                  <TableHead className="text-right">Precio actual</TableHead>
+                  <TableHead className="text-right">Propuesto</TableHead>
+                  <TableHead className="text-right">Margen</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filas.map((f) => {
+                  const marcado = seleccion.includes(f.key)
+                  const sinCosto = f.propuesto == null
+                  return (
+                    <TableRow key={f.key} className={sinCosto ? 'opacity-60' : ''}>
+                      <TableCell>
+                        <input
+                          type="checkbox"
+                          className="accent-primary"
+                          aria-label={`Incluir ${f.label}`}
+                          checked={marcado && !sinCosto}
+                          disabled={sinCosto}
+                          onChange={() =>
+                            setSeleccion((sel) => (marcado ? sel.filter((k) => k !== f.key) : [...sel, f.key]))
+                          }
+                        />
+                      </TableCell>
                       <TableCell className="font-medium">{f.label}</TableCell>
                       <TableCell className="text-right tabular-nums">{dinero(f.costo)}</TableCell>
                       <TableCell className="text-right tabular-nums">{dinero(f.sugerido)}</TableCell>
-                      <TableCell className="text-right tabular-nums">{mxn.format(f.actual)}</TableCell>
-                      <TableCell
-                        className={`text-right tabular-nums ${f.margen && f.margen.utilidad < 0 ? 'text-destructive' : ''}`}
-                      >
-                        {pct(f.margen?.pct)}
+                      <TableCell className="text-right tabular-nums text-muted-foreground">
+                        {f.actual == null ? 'sin opción' : mxn.format(f.actual)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums font-medium">{dinero(f.propuesto)}</TableCell>
+                      <TableCell className={`text-right tabular-nums ${f.margen && f.margen.utilidad < 0 ? 'text-destructive' : ''}`}>
+                        {sinCosto ? 'el hotel no la ofrece' : pct(f.margen?.pct)}
                       </TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </div>
 
           <div className="flex flex-wrap items-center gap-2">
             <Button type="button" onClick={guardar} disabled={isPending}>
               {isPending ? 'Guardando…' : 'Guardar costeo'}
             </Button>
-            {sugeridosAplicables.length > 0 && (
-              <Button type="button" variant={confirmarAplicar ? 'destructive' : 'outline'} onClick={aplicar} disabled={isPending}>
-                {confirmarAplicar ? 'Confirmar: cambiar precios públicos' : 'Aplicar precios sugeridos a los packs'}
-              </Button>
-            )}
+            <Button
+              type="button"
+              variant={confirmarAplicar ? 'destructive' : 'outline'}
+              onClick={guardarPrecios}
+              disabled={isPending || paraGuardar.length === 0}
+            >
+              {confirmarAplicar
+                ? 'Confirmar: cambiar precios públicos'
+                : packs.length
+                  ? 'Guardar precios en el servicio'
+                  : 'Crear opciones de precio en el servicio'}
+            </Button>
             {confirmarAplicar && (
               <>
                 <span className="text-xs text-muted-foreground">
-                  {sugeridosAplicables.map((f) => `${f.label.split(' ')[0]} ${mxn.format(f.sugerido!)}`).join(' · ')}
+                  {paraGuardar.map((f) => `${f.label.split(' ')[0]} ${mxn.format(f.propuesto!)}`).join(' · ')}
                 </span>
                 <Button type="button" variant="ghost" size="sm" onClick={() => setConfirmarAplicar(false)}>
                   Cancelar
@@ -580,7 +739,7 @@ export function CosteoForm({
               <TableBody>
                 {salidas.map((s) => {
                   const precio = precioDePack(ref.price, refKey, s.price_pct, s.pack_price_overrides)
-                  const m = s.seats_taken > 0 ? margenA(doc, refKey, s.seats_taken, precio) : null
+                  const m = s.seats_taken > 0 ? margenA(doc, refKey, s.seats_taken, precio, comisionPortalPct) : null
                   return (
                     <TableRow key={s.id}>
                       <TableCell className="font-medium">{formatTravelDate(s.departs_on)}</TableCell>

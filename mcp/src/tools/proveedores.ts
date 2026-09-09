@@ -27,7 +27,7 @@ import { z } from 'zod'
 
 export const TIPOS_PROVEEDOR = ['transporte', 'hotel', 'otro'] as const
 export const UNIDADES = ['pax', 'grupo', 'dia', 'noche', 'habitacion'] as const
-export const PACKS = ['sencilla', 'doble', 'triple', 'cuadruple'] as const
+export const PACKS = ['sencilla', 'doble', 'triple', 'cuadruple', 'cabana6', 'cabana8', 'cabana10', 'camping2', 'camping4'] as const
 
 export const ESTADOS_MX = [
   'Aguascalientes', 'Baja California', 'Baja California Sur', 'Campeche', 'Chiapas',
@@ -173,7 +173,7 @@ const esquemaTarifa = z.object({
   costo_por_pack: z
     .record(z.string(), z.number().positive())
     .optional()
-    .describe('Solo habitacion: costo por noche según pack {sencilla, doble, triple, cuadruple}.'),
+    .describe('Solo habitacion: costo por noche por unidad según pack {sencilla, doble, triple, cuadruple, cabana6, cabana8, cabana10, camping2, camping4}. Una cabaña de 8 a $1,900 la noche va en cabana8: 1900.'),
 })
 
 export type TarifaIn = z.infer<typeof esquemaTarifa>

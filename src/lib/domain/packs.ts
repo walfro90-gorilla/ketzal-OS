@@ -8,6 +8,14 @@ export const PACK_TYPES = [
   { key: 'doble', label: 'Doble (2 personas)' },
   { key: 'triple', label: 'Triple (3 personas)' },
   { key: 'cuadruple', label: 'Cuádruple (4 personas)' },
+  // ADR-0061 (b101): hospedaje rústico. Una cabaña de 8 o un espacio de
+  // camping para 4 se venden igual que una habitación: por unidad de N
+  // personas, precio por persona. Mismo modelo, más ocupaciones.
+  { key: 'cabana6', label: 'Cabaña (6 personas)' },
+  { key: 'cabana8', label: 'Cabaña (8 personas)' },
+  { key: 'cabana10', label: 'Cabaña (10 personas)' },
+  { key: 'camping2', label: 'Camping (2 personas)' },
+  { key: 'camping4', label: 'Camping (4 personas)' },
 ] as const
 
 export type PackKey = (typeof PACK_TYPES)[number]['key']
@@ -18,6 +26,11 @@ export const OCCUPANCY: Record<PackKey, number> = {
   doble: 2,
   triple: 3,
   cuadruple: 4,
+  cabana6: 6,
+  cabana8: 8,
+  cabana10: 10,
+  camping2: 2,
+  camping4: 4,
 }
 
 /** Lo que manda la UI: tipo + precio por persona. El label lo sella el server. */

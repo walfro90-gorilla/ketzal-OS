@@ -80,6 +80,16 @@ export type Costeo = {
   days: number
   /** Margen bruto objetivo sobre el precio, 0 ≤ x < 100. */
   margin_pct: number
+  /**
+   * ADR-0061: precio de venta por pax que la persona quiere probar; null =
+   * usar el sugerido por el margen. Con él salen equilibrio y utilidad aunque
+   * el servicio aún no tenga packs.
+   */
+  precio_venta: number | null
+  /** Colchón sobre TODO el costo (gasolina que sube, propina, un pax que no llega). */
+  imprevistos_pct: number
+  /** true = se vende por el portal: la utilidad neta descuenta la comisión de Ketzal. */
+  portal: boolean
   lines: CostLine[]
   /** Costo por persona de cada add-on vendido, por `services.add_ons[].key`. */
   addon_costs: Record<string, AddonCost>
@@ -90,6 +100,9 @@ export const COSTEO_VACIO: Costeo = {
   nights: 0,
   days: 1,
   margin_pct: 30,
+  precio_venta: null,
+  imprevistos_pct: 5,
+  portal: false,
   lines: [],
   addon_costs: {},
 }
@@ -198,6 +211,15 @@ export function limpiarCosteo(doc: unknown, addonKeys: string[]): Costeo {
     nights: entero(d.nights, 0, Math.max(0, days - 1)),
     days,
     margin_pct: margin == null ? COSTEO_VACIO.margin_pct : Math.min(99, Math.max(0, round2(margin))),
+    precio_venta: (() => {
+      const p = num(d.precio_venta)
+      return p != null && p > 0 ? round2(p) : null
+    })(),
+    imprevistos_pct: (() => {
+      const i = num(d.imprevistos_pct)
+      return i == null ? COSTEO_VACIO.imprevistos_pct : Math.min(100, Math.max(0, round2(i)))
+    })(),
+    portal: d.portal === true,
     lines,
     addon_costs,
   }
@@ -254,19 +276,38 @@ export function habitacionPorPax(doc: Costeo, pack: PackKey): number | null {
   return s
 }
 
-/** Costo por pasajero en un pack, con el grupo a N pax. `null` si N ≤ 0 o el pack no tiene hospedaje. */
+/**
+ * Costo por pasajero en un pack, con el grupo a N pax, ya con el colchón de
+ * imprevistos. `null` si N ≤ 0 o el pack no tiene hospedaje.
+ */
 export function costoPorPax(doc: Costeo, pack: PackKey, n: number): number | null {
   if (!(n > 0)) return null
   const hab = habitacionPorPax(doc, pack)
   if (hab == null) return null
-  return fijos(doc, n) / n + variablesPorPax(doc) + hab
+  return (fijos(doc, n) / n + variablesPorPax(doc) + hab) * (1 + (doc.imprevistos_pct ?? 0) / 100)
 }
 
-/** Precio por pax que deja el margen objetivo, redondeado a peso hacia arriba (nunca por debajo del margen). */
+/**
+ * Redondeo comercial hacia ARRIBA (nunca por debajo del margen): a partir de
+ * $1,000 termina en 99 (2,714 → 2,799, como los precios reales de las agencias);
+ * abajo termina en 9 (732 → 739). Un precio exacto ya "comercial" no se mueve.
+ */
+export function redondeoComercial(x: number): number {
+  if (!(x > 0)) return 0
+  const paso = x >= 1000 ? 100 : 10
+  return Math.ceil((x + 1) / paso) * paso - 1
+}
+
+/** Precio por pax que deja el margen objetivo, con redondeo comercial. */
 export function precioSugerido(doc: Costeo, pack: PackKey, n: number): number | null {
   const c = costoPorPax(doc, pack, n)
   if (c == null) return null
-  return Math.ceil(c / (1 - doc.margin_pct / 100))
+  return redondeoComercial(c / (1 - doc.margin_pct / 100))
+}
+
+/** El precio con el que se evalúa el plan: el que tecleó la persona, o el sugerido. */
+export function precioEfectivo(doc: Costeo, pack: PackKey, n: number): number | null {
+  return doc.precio_venta ?? precioSugerido(doc, pack, n)
 }
 
 /** Pack de referencia: doble si existe (lo que casi todos compran), si no el más barato. */
@@ -275,16 +316,22 @@ export function packReferencia(packs: Pack[]): Pack | null {
   return packs.find((p) => p.key === 'doble') ?? packs.reduce((a, b) => (b.price < a.price ? b : a))
 }
 
-export type Margen = { ingreso: number; costo: number; utilidad: number; pct: number | null }
+export type Margen = { ingreso: number; comision: number; costo: number; utilidad: number; pct: number | null }
 
-/** Margen del viaje a N pax, todos en `pack` al precio dado por pax. */
-export function margenA(doc: Costeo, pack: PackKey, n: number, precioPorPax: number): Margen | null {
+/**
+ * Margen del viaje a N pax, todos en `pack` al precio dado por pax. Si el
+ * costeo está marcado `portal`, la comisión de Ketzal (`comisionPct`, la de
+ * `app_settings`) sale del ingreso antes de la utilidad: es NETA de plataforma,
+ * sigue siendo bruta de comisiones de agente o embajador.
+ */
+export function margenA(doc: Costeo, pack: PackKey, n: number, precioPorPax: number, comisionPct = 0): Margen | null {
   const c = costoPorPax(doc, pack, n)
   if (c == null) return null
   const ingreso = precioPorPax * n
+  const comision = doc.portal ? (ingreso * comisionPct) / 100 : 0
   const costo = c * n
-  const utilidad = ingreso - costo
-  return { ingreso, costo, utilidad, pct: ingreso > 0 ? (utilidad / ingreso) * 100 : null }
+  const utilidad = ingreso - comision - costo
+  return { ingreso, comision, costo, utilidad, pct: ingreso > 0 ? (utilidad / ingreso) * 100 : null }
 }
 
 /**
@@ -292,12 +339,37 @@ export function margenA(doc: Costeo, pack: PackKey, n: number, precioPorPax: num
  * segunda sprinter puede hacer que 15 gane y 16 pierda, y una fórmula cerrada
  * no ve ese escalón. `null` si ningún N alcanza.
  */
-export function puntoEquilibrio(doc: Costeo, pack: PackKey, maxN: number, precioPorPax: number): number | null {
+export function puntoEquilibrio(doc: Costeo, pack: PackKey, maxN: number, precioPorPax: number, comisionPct = 0): number | null {
   for (let n = 1; n <= maxN; n++) {
-    const m = margenA(doc, pack, n, precioPorPax)
+    const m = margenA(doc, pack, n, precioPorPax, comisionPct)
     if (m && m.utilidad >= 0) return n
   }
   return null
+}
+
+export type Resumen = {
+  pack: PackKey
+  precio: number | null
+  sugerido: number | null
+  costoPax: number | null
+  equilibrio: number | null
+  plan: Margen | null
+  lleno: Margen | null
+}
+
+/** Lo que pinta la tarjeta de resultado: un precio (tecleado o sugerido) y sus consecuencias. */
+export function resumen(doc: Costeo, pack: PackKey, maxN: number, comisionPct = 0): Resumen {
+  const n = doc.plan_pax
+  const precio = precioEfectivo(doc, pack, n)
+  return {
+    pack,
+    precio,
+    sugerido: precioSugerido(doc, pack, n),
+    costoPax: costoPorPax(doc, pack, n),
+    equilibrio: precio == null ? null : puntoEquilibrio(doc, pack, maxN, precio, comisionPct),
+    plan: precio == null ? null : margenA(doc, pack, n, precio, comisionPct),
+    lleno: precio == null || maxN <= 0 ? null : margenA(doc, pack, maxN, precio, comisionPct),
+  }
 }
 
 /** Utilidad por unidad vendida de un extra. Sin costo capturado, todo el precio es utilidad. */
@@ -315,13 +387,50 @@ export type FilaPack = {
 }
 
 /** Una fila por pack del servicio, al pax plan: costo/pax, sugerido y margen con el precio actual. */
-export function tablaPorPack(doc: Costeo, packs: Pack[]): FilaPack[] {
+export function tablaPorPack(doc: Costeo, packs: Pack[], comisionPct = 0): FilaPack[] {
   return packs.map((p) => ({
     key: p.key,
     label: p.label,
     actual: p.price,
     costo: costoPorPax(doc, p.key, doc.plan_pax),
     sugerido: precioSugerido(doc, p.key, doc.plan_pax),
-    margen: margenA(doc, p.key, doc.plan_pax, p.price),
+    margen: margenA(doc, p.key, doc.plan_pax, p.price, comisionPct),
   }))
+}
+
+export type FilaPrecio = {
+  key: PackKey
+  label: string
+  /** Precio que hoy tiene el servicio en ese pack; null = el pack no existe. */
+  actual: number | null
+  costo: number | null
+  sugerido: number | null
+  /** Lo que se escribiría al servicio: el precio tecleado (si no hay hospedaje, todos igual) o el sugerido. */
+  propuesto: number | null
+  margen: Margen | null
+}
+
+/**
+ * Una fila por cada ocupación del catálogo (ADR-0061): sirve para CREAR las
+ * opciones de precio de un servicio que aún no las tiene, o para revisar las
+ * que tiene. Con hospedaje cada pack cuesta distinto y el propuesto es su
+ * sugerido; sin hospedaje el costo es igual para todos y el precio tecleado
+ * aplica a los que se elijan.
+ */
+export function filasPrecio(doc: Costeo, packs: Pack[], comisionPct = 0): FilaPrecio[] {
+  const hayHospedaje = doc.lines.some((l) => l.unit === 'habitacion')
+  return PACK_TYPES.map((t) => {
+    const actual = packs.find((p) => p.key === t.key)?.price ?? null
+    const sugerido = precioSugerido(doc, t.key, doc.plan_pax)
+    const propuesto = doc.precio_venta != null && !hayHospedaje ? doc.precio_venta : sugerido
+    return {
+      key: t.key,
+      label: t.label,
+      actual,
+      costo: costoPorPax(doc, t.key, doc.plan_pax),
+      sugerido,
+      propuesto,
+      margen: propuesto == null ? null : margenA(doc, t.key, doc.plan_pax, propuesto, comisionPct),
+    }
+  })
 }
