@@ -9,6 +9,20 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Primera venta real cobrada en línea + el marketplace no se cobra a sí mismo
+> (2026-09-09, ADR-0062).** El split (b053) nunca había movido dinero real; al
+> probarlo MP tiró 400 code 2059 "You cannot use application_fee with this payment"
+> porque el vendedor (Wanderlust) es la MISMA cuenta MP que el marketplace (todo
+> bajo el único MP user del fundador). El log del motivo se había perdido: la rama
+> de error descartaba el cuerpo de MP (PR #179 lo loguea: status/detail/cause, sin
+> tarjeta ni token). Fix (PR #180): `resolverSplitMp` pide una vez el id de la
+> cuenta de plataforma (`/users/me`, memoizado) y, si coincide con el `mp_user_id`
+> del vendedor (`mismaCuentaMp`), cobra directo sin `application_fee`. El devengo de
+> comisión (ADR-0019) no cambia; solo la separación en MP. Resultado en vivo:
+> `payment_intents` estrenó fila `approved` — booking `7ed11e89…`, $50, `split=false`,
+> `mp_payment_id 178047162986`. Split real (application_fee) aún sin probar: falta
+> una agencia con cuenta MP distinta de la marketplace.
+
 > **Form de servicio: Guardar en la barra, etiquetas en "Qué incluye", hora por acción y día derivado (2026-09-09, PRs #181, #182, #183).**
 > Tres pedidos del fundador sobre el form. (1) El submit "Guardar" se mueve a la
 > barra sticky de estatus, junto al toggle Privado/Público, siempre visible; el
