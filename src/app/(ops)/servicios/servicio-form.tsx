@@ -519,18 +519,30 @@ export function ServicioForm({
                 : 'Solo tu agencia lo ve; se vende directo.'}
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <Label htmlFor="servicio-publicado" className="cursor-pointer text-sm font-medium">
-            {published ? 'Público' : 'Privado'}
-          </Label>
-          <Switch
-            id="servicio-publicado"
-            checked={published}
-            onCheckedChange={(next) => servicioId && setPendiente(next)}
-            disabled={!servicioId || publishing}
-            aria-label={published ? 'Quitar del catálogo público' : 'Publicar en el catálogo'}
-          />
+        <div className="flex shrink-0 items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Label htmlFor="servicio-publicado" className="cursor-pointer text-sm font-medium">
+              {published ? 'Público' : 'Privado'}
+            </Label>
+            <Switch
+              id="servicio-publicado"
+              checked={published}
+              onCheckedChange={(next) => servicioId && setPendiente(next)}
+              disabled={!servicioId || publishing}
+              aria-label={published ? 'Quitar del catálogo público' : 'Publicar en el catálogo'}
+            />
+          </div>
+          {/* El submit vive aquí, junto al toggle y siempre visible: en un form
+              largo el botón del fondo obligaba a bajar para guardar. */}
+          <Button type="submit" size="sm" disabled={isPending}>
+            {isPending ? 'Guardando…' : servicioId ? 'Guardar cambios' : 'Guardar servicio'}
+          </Button>
         </div>
+        {error && (
+          <p role="alert" className="basis-full text-sm text-destructive">
+            {error}
+          </p>
+        )}
       </div>
 
       {/* Confirmación antes de cambiar lo que ve el público. */}
@@ -1183,21 +1195,6 @@ export function ServicioForm({
         </CardContent>
       </Card>
 
-      {error && (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      )}
-
-      <div className="flex items-center gap-3">
-        <Button type="submit" disabled={isPending}>
-          {isPending
-            ? 'Guardando…'
-            : servicioId
-              ? 'Guardar cambios'
-              : 'Guardar servicio'}
-        </Button>
-      </div>
     </form>
   )
 }
