@@ -9,6 +9,16 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Perfil social del viajero, Fase 2a: foto gateada (2026-09-09, b106).** La foto
+> del perfil NO va al bucket público (como logos/servicios), sino a `ketzal-privado`:
+> sólo se sirve por URL firmada del servidor. Columna `social_photo_path` (ruta, no
+> URL); policy de INSERT en storage para `profiles/<uid>/` en el bucket privado (antes
+> sólo dejaba subir comprobantes SPEI); `update_my_traveler_profile` gana `p_social_photo_path`
+> validado a la carpeta del propio usuario (verificado contra la BD real: la propia se
+> guarda, la de otro revienta "La foto debe subirse a tu propio perfil"). En `/perfil` el
+> dueño sube su foto (directo al bucket privado) y la ve firmada. **Sigue sin exponerse a
+> otros**: eso es la Fase 2b (proyección de co-pasajeros + reportar/ocultar + ADR + harness).
+
 > **Un borrador con checkout abierto se puede quitar; ya no se acumulan (2026-09-09, b105).**
 > El fundador no podía eliminar dos pedidos pendientes: "Este pedido tiene un
 > intento de pago en curso". `delete_my_draft_order` bloqueaba con CUALQUIER fila

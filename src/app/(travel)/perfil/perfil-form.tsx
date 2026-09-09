@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { guardarPerfilViajero } from './perfil-actions'
+import { subirFotoPerfilSocial } from './subir-foto'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -17,6 +18,8 @@ export function PerfilForm({
   bio: bioInicial,
   ciudad: ciudadInicial,
   publico: publicoInicial,
+  fotoUrl,
+  fotoPath: fotoPathInicial,
 }: {
   nombre: string
   telefono: string
@@ -25,6 +28,8 @@ export function PerfilForm({
   bio: string
   ciudad: string
   publico: boolean
+  fotoUrl: string | null
+  fotoPath: string | null
 }) {
   const [nombre, setNombre] = useState(nombreInicial)
   const [telefono, setTelefono] = useState(telefonoInicial)
@@ -33,8 +38,28 @@ export function PerfilForm({
   const [bio, setBio] = useState(bioInicial)
   const [ciudad, setCiudad] = useState(ciudadInicial)
   const [publico, setPublico] = useState(publicoInicial)
+  const [fotoPath, setFotoPath] = useState<string | null>(fotoPathInicial)
+  const [fotoPreview, setFotoPreview] = useState<string | null>(fotoUrl)
+  const [subiendoFoto, setSubiendoFoto] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
   const [loading, setLoading] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
+
+  async function handleFoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setSubiendoFoto(true)
+    setMsg(null)
+    const res = await subirFotoPerfilSocial(file)
+    setSubiendoFoto(false)
+    if ('error' in res) {
+      setMsg({ ok: false, text: res.error })
+      return
+    }
+    setFotoPath(res.path)
+    setFotoPreview(URL.createObjectURL(file))
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -48,6 +73,7 @@ export function PerfilForm({
       bio,
       ciudad,
       publico,
+      fotoPath,
     })
     setLoading(false)
     setMsg(
@@ -87,6 +113,37 @@ export function PerfilForm({
           <p className="text-xs text-muted-foreground">
             Cuéntales a tus compañeros de viaje quién eres.
           </p>
+        </div>
+
+        {/* Foto: se guarda en bucket privado y se muestra sólo por URL firmada. */}
+        <div className="flex items-center gap-4">
+          <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-full border bg-muted">
+            {fotoPreview ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={fotoPreview} alt="Tu foto" className="size-full object-cover" />
+            ) : (
+              <span className="text-2xl text-muted-foreground">🙂</span>
+            )}
+          </div>
+          <div className="space-y-1">
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="sr-only"
+              onChange={handleFoto}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={subiendoFoto}
+              onClick={() => fileRef.current?.click()}
+            >
+              {subiendoFoto ? 'Subiendo…' : fotoPreview ? 'Cambiar foto' : 'Subir foto'}
+            </Button>
+            <p className="text-xs text-muted-foreground">JPG, PNG o WebP, máx 5 MB.</p>
+          </div>
         </div>
         <div className="space-y-2">
           <Label htmlFor="apodo">Apodo</Label>
