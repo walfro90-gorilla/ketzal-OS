@@ -243,6 +243,22 @@ begin
   exception when others then reset role; fails:=fails+1; det:=det||format(' [28 el superadmin no pudo: %s]', sqlerrm); end;
   perform set_config('request.jwt.claims', null, true);
 
+  -- 31 · b101: una cabaña de 8 entra como pack de habitación (cost_by_pack.cabana8).
+  begin
+    update ketzal.supplier_rate_cards
+       set rates = '[{"key":"cab","label":"Cabaña","unit":"habitacion","cost_by_pack":{"cabana8":1900,"camping4":600}}]'
+     where supplier_id = prov_q;
+    ok:=ok+1;
+  exception when others then fails:=fails+1; det:=det||format(' [31 el pack cabana8/camping4 fue rechazado: %s]', sqlerrm); end;
+  -- 32 · b101: la cabecera del costeo acepta precio_venta, imprevistos_pct y portal…
+  r := pg_temp.rechaza(32, 'imprevistos 150 %',
+    format('insert into ketzal.service_costings(service_id,doc) values (%L, %L)', serv_s,
+      costeo_ok || '{"imprevistos_pct":150}'::jsonb)); if r = '' then ok:=ok+1; else fails:=fails+1; det:=det||r; end if;
+  -- 33 · …y rechaza un precio de venta negativo (null sí pasa).
+  r := pg_temp.rechaza(33, 'precio_venta negativo',
+    format('insert into ketzal.service_costings(service_id,doc) values (%L, %L)', serv_s,
+      costeo_ok || '{"precio_venta":-1}'::jsonb)); if r = '' then ok:=ok+1; else fails:=fails+1; det:=det||r; end if;
+
   --------------------------------------------------------------- cascade ---
   -- 29 · Borrar el servicio se lleva su costeo; borrar el proveedor, su tarifario.
   delete from ketzal.services where id = serv_s;

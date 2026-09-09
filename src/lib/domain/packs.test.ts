@@ -58,8 +58,20 @@ describe('limpiarPacks', () => {
 })
 
 describe('OCCUPANCY', () => {
-  it('sencilla=1, doble=2, triple=3, cuadruple=4', () => {
-    expect(OCCUPANCY).toEqual({ sencilla: 1, doble: 2, triple: 3, cuadruple: 4 })
+  it('sencilla=1, doble=2, triple=3, cuadruple=4; cabañas 6/8/10; camping 2/4 (b101)', () => {
+    expect(OCCUPANCY).toEqual({
+      sencilla: 1, doble: 2, triple: 3, cuadruple: 4,
+      cabana6: 6, cabana8: 8, cabana10: 10, camping2: 2, camping4: 4,
+    })
+    expect(PACK_TYPES.map((t) => t.key)).toEqual(Object.keys(OCCUPANCY))
+  })
+  it('las ocupaciones nuevas entran al limpiar y se ordenan después de las clásicas', () => {
+    const out = limpiarPacks([{ key: 'camping4', price: 450 }, { key: 'cabana8', price: 600 }, { key: 'doble', price: 900 }] as PackInput[])
+    expect(out.map((p) => [p.key, p.label])).toEqual([
+      ['doble', 'Doble (2 personas)'],
+      ['cabana8', 'Cabaña (8 personas)'],
+      ['camping4', 'Camping (4 personas)'],
+    ])
   })
 
   it('cubre exactamente los tipos de PACK_TYPES y coincide con su label', () => {

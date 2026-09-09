@@ -42,7 +42,7 @@ export default async function CosteoPage({ params }: { params: Promise<{ id: str
     )
   }
 
-  const [costeoRes, provRes, salidasRes] = await Promise.all([
+  const [costeoRes, provRes, salidasRes, ajustesRes] = await Promise.all([
     supabase.from('service_costings' as never).select('doc').eq('service_id', id).maybeSingle(),
     // Proveedores de la agencia DUEÑA del servicio (no de `my_supplier_id()`,
     // que es null para superadmin) con su tarifario embebido (FK 1:1).
@@ -52,7 +52,10 @@ export default async function CosteoPage({ params }: { params: Promise<{ id: str
       .eq('owner_supplier_id' as never, servicio.supplier_id as never)
       .order('name'),
     listarSalidas(id),
+    // Comisión de Ketzal para la utilidad neta "vendido por el portal" (ADR-0061).
+    supabase.from('app_settings').select('platform_commission_rate').eq('id', 1).maybeSingle(),
   ])
+  const comisionPortalPct = Number(ajustesRes.data?.platform_commission_rate ?? 10)
 
   const packs = limpiarPacks((servicio.packs ?? []) as unknown as PackInput[])
   const addOns = (Array.isArray(servicio.add_ons) ? servicio.add_ons : []) as unknown as AddOn[]
@@ -100,6 +103,8 @@ export default async function CosteoPage({ params }: { params: Promise<{ id: str
         salidas={salidas}
         maxN={maxN}
         preseleccion={preseleccion}
+        agenciaId={servicio.supplier_id}
+        comisionPortalPct={Number.isFinite(comisionPortalPct) ? comisionPortalPct : 10}
       />
     </div>
   )

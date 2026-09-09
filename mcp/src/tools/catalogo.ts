@@ -189,6 +189,12 @@ const PACKS = [
   { key: 'doble', label: 'Doble (2 personas)' },
   { key: 'triple', label: 'Triple (3 personas)' },
   { key: 'cuadruple', label: 'Cuádruple (4 personas)' },
+  // ADR-0061 (b101): cabañas y camping se venden por unidad de N personas.
+  { key: 'cabana6', label: 'Cabaña (6 personas)' },
+  { key: 'cabana8', label: 'Cabaña (8 personas)' },
+  { key: 'cabana10', label: 'Cabaña (10 personas)' },
+  { key: 'camping2', label: 'Camping (2 personas)' },
+  { key: 'camping4', label: 'Camping (4 personas)' },
 ] as const
 
 type PackKey = (typeof PACKS)[number]['key']
@@ -318,7 +324,7 @@ export function normalizarOverrides(input: unknown): Record<string, number> | nu
   for (const [key, valor] of Object.entries(input as Record<string, unknown>)) {
     if (valor == null || valor === '') continue
     if (!PACKS.some((t) => t.key === key)) {
-      throw new KetzalError(`Paquete inválido: ${key}. Son sencilla, doble, triple o cuadruple.`)
+      throw new KetzalError(`Paquete inválido: ${key}. Son ${PACKS.map((t) => t.key).join(', ')}.`)
     }
     const n = Number(valor)
     if (!Number.isFinite(n) || n <= 0) {

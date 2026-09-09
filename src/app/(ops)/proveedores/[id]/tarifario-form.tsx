@@ -31,7 +31,8 @@ const vacia = (): Fila => ({
   unit: 'pax',
   cost: '',
   cap: '',
-  porPack: { sencilla: '', doble: '', triple: '', cuadruple: '' },
+  // Una casilla por ocupación del catálogo (b101 sumó cabañas y camping).
+  porPack: Object.fromEntries(PACK_TYPES.map((t) => [t.key, ''])) as Record<PackKey, string>,
 })
 
 function desdeGuardado(r: RateLine): Fila {

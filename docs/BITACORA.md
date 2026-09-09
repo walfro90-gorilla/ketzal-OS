@@ -9,6 +9,24 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **El costeo ya da precio, equilibrio y utilidad sin packs, y crea las opciones (2026-09-08, b101, ADR-0061).**
+> Dunas Mágicas (sin packs, precio 0) se quedaba en "costo por pax" con equilibrio
+> y utilidad vacíos. Cabecera nueva: **Precio de venta / pax** (vacío = el sugerido
+> por el margen, ahora con redondeo comercial a …99 arriba de mil y …9 abajo),
+> **Imprevistos %** (default 5, sobre todo el costo) y el interruptor **Se vende
+> por el portal** (utilidad neta de la comisión de Ketzal, leída de
+> `app_settings`). Resultado con seis cifras: costo total, costo/pax, sugerido,
+> equilibrio, utilidad plan y utilidad lleno. Tabla de **opciones de precio** con
+> las 9 ocupaciones (se suman cabaña 6/8/10 y camping 2/4 al catálogo, mismo
+> modelo por persona) con casillas y botón "Crear opciones de precio en el
+> servicio" / "Guardar precios", con confirmación. **Costo propio** sin proveedor
+> (gasolina, casetas, propinas) colgado de la agencia. Motor: `resumen()`,
+> `filasPrecio()`, `redondeoComercial()`, `precioEfectivo()`; `margenA` acepta la
+> comisión. Probado: 240 tests de dominio (13 nuevos), 88 del MCP, `costeo.sql`
+> 33/33 (cabana8 entra; imprevistos 150 y precio negativo no), `costeo_pagina.mjs`
+> con la app construida. El costeo guardado de Dunas no se toca: los campos
+> nuevos tienen default.
+
 > **La ficha de servicio se agrupa por tema y estrena índice lateral (2026-09-08).**
 > El formulario creció hasta que encontrar una sección costaba scroll a ciegas, y
 > "Datos del servicio" era un cajón de sastre de 200 líneas con catorce bloques

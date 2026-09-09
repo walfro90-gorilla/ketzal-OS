@@ -9,8 +9,12 @@ import {
   margenA,
   margenAddon,
   packReferencia,
+  precioEfectivo,
   precioSugerido,
   puntoEquilibrio,
+  redondeoComercial,
+  resumen,
+  filasPrecio,
   tablaPorPack,
   totalLinea,
   unidades,
@@ -37,6 +41,10 @@ const doc: Costeo = {
   nights: 2,
   days: 3,
   margin_pct: 30,
+  // El fixture histórico no lleva colchón: los números de abajo son exactos.
+  precio_venta: null,
+  imprevistos_pct: 0,
+  portal: false,
   lines: [
     linea({ unit: 'grupo', label: 'Sprinter', cost: 8000, cap: 15 }),
     linea({ unit: 'dia', label: 'Guía', cost: 1500, qty: 3 }), // 3 días de guía
@@ -78,6 +86,69 @@ describe('por día: la cantidad son los días; la cabecera no vuelve a multiplic
   })
 })
 
+describe('ADR-0061: imprevistos, redondeo comercial, precio de venta y utilidad neta', () => {
+  it('imprevistos sube TODO el costo por pax en el %', () => {
+    const base = costoPorPax(doc, 'doble', 16)!
+    expect(costoPorPax({ ...doc, imprevistos_pct: 5 }, 'doble', 16)).toBeCloseTo(base * 1.05, 6)
+  })
+  it('redondeo comercial: 99 arriba de mil, 9 abajo; nunca por debajo', () => {
+    expect(redondeoComercial(2714)).toBe(2799)
+    expect(redondeoComercial(2799)).toBe(2799)
+    expect(redondeoComercial(2800)).toBe(2899)
+    expect(redondeoComercial(732.14)).toBe(739)
+    expect(redondeoComercial(739)).toBe(739)
+    expect(redondeoComercial(740)).toBe(749)
+    expect(redondeoComercial(0)).toBe(0)
+  })
+  it('el sugerido ya viene comercial y respeta el margen', () => {
+    const c = costoPorPax(doc, 'doble', 16)!
+    const s = precioSugerido(doc, 'doble', 16)!
+    expect(s).toBeGreaterThanOrEqual(c / 0.7)
+    expect(s % 100).toBe(99)
+  })
+  it('precio_venta manda sobre el sugerido; sin él, el sugerido', () => {
+    expect(precioEfectivo({ ...doc, precio_venta: 3000 }, 'doble', 16)).toBe(3000)
+    expect(precioEfectivo(doc, 'doble', 16)).toBe(precioSugerido(doc, 'doble', 16))
+  })
+  it('portal descuenta la comisión de Ketzal del ingreso; sin portal no', () => {
+    const bruto = margenA(doc, 'doble', 16, 3000, 10)!
+    const neto = margenA({ ...doc, portal: true }, 'doble', 16, 3000, 10)!
+    expect(bruto.comision).toBe(0)
+    expect(neto.comision).toBe(4800) // 3000 · 16 · 10 %
+    expect(neto.utilidad).toBe(bruto.utilidad - 4800)
+  })
+  it('resumen: plan y lleno con el mismo precio; equilibrio sube si se vende por portal', () => {
+    const r = resumen({ ...doc, precio_venta: 3000 }, 'doble', 40, 10)
+    expect(r.precio).toBe(3000)
+    expect(r.plan?.ingreso).toBe(3000 * 16)
+    expect(r.lleno?.ingreso).toBe(3000 * 40)
+    expect(r.equilibrio).not.toBeNull()
+    const rPortal = resumen({ ...doc, precio_venta: 3000, portal: true }, 'doble', 40, 10)
+    expect(rPortal.equilibrio!).toBeGreaterThan(r.equilibrio!)
+    // Un precio que ni lleno cubre el costo: nunca empata.
+    expect(resumen({ ...doc, precio_venta: 1500 }, 'doble', 40).equilibrio).toBeNull()
+  })
+  it('filasPrecio: una fila por ocupación; sin hospedaje el precio tecleado aplica a todas', () => {
+    const sinHotel: Costeo = { ...doc, precio_venta: 900, lines: doc.lines.filter((l) => l.unit !== 'habitacion') }
+    const filas = filasPrecio(sinHotel, [{ key: 'doble', label: 'Doble (2 personas)', price: 850 }])
+    expect(filas).toHaveLength(9)
+    expect(filas.every((f) => f.propuesto === 900)).toBe(true)
+    expect(filas.find((f) => f.key === 'doble')?.actual).toBe(850)
+    expect(filas.find((f) => f.key === 'camping4')?.actual).toBeNull()
+    // Con hospedaje cada pack tiene su sugerido y el tecleado NO pisa.
+    const conHotel = filasPrecio({ ...doc, precio_venta: 900 }, [])
+    expect(conHotel.find((f) => f.key === 'doble')?.propuesto).toBe(precioSugerido(doc, 'doble', 16))
+    expect(conHotel.find((f) => f.key === 'triple')?.propuesto).toBeNull() // el hotel no ofrece triple
+  })
+  it('limpiarCosteo: defaults (imprevistos 5, sin precio, sin portal) y rangos', () => {
+    const c = limpiarCosteo({ plan_pax: 10, days: 2 }, [])
+    expect([c.imprevistos_pct, c.precio_venta, c.portal]).toEqual([5, null, false])
+    const d = limpiarCosteo({ plan_pax: 10, days: 2, imprevistos_pct: 150, precio_venta: -5, portal: 'si' }, [])
+    expect([d.imprevistos_pct, d.precio_venta, d.portal]).toEqual([100, null, false])
+    expect(limpiarCosteo({ plan_pax: 10, days: 2, precio_venta: '2799.5', portal: true }, []).precio_venta).toBe(2799.5)
+  })
+})
+
 describe('fijos / variablesPorPax / habitacionPorPax', () => {
   it('los fijos escalonan con la segunda sprinter: 12,500 a 15 pax, 20,500 a 16', () => {
     expect(fijos(doc, 15)).toBe(8000 + 1500 * 3)
@@ -96,20 +167,20 @@ describe('fijos / variablesPorPax / habitacionPorPax', () => {
 })
 
 describe('costoPorPax / precioSugerido', () => {
-  it('doble a 16 pax: 20,500/16 + 100 + 1,200 = 2,581.25 ⇒ sugerido ceil(2,581.25/0.7) = 3,688', () => {
+  it('doble a 16 pax: 20,500/16 + 100 + 1,200 = 2,581.25 ⇒ 2,581.25/0.7 = 3,687.5 ⇒ comercial 3,699', () => {
     expect(costoPorPax(doc, 'doble', 16)).toBeCloseTo(2581.25, 2)
-    expect(precioSugerido(doc, 'doble', 16)).toBe(3688)
+    expect(precioSugerido(doc, 'doble', 16)).toBe(3699)
   })
-  it('doble a 15 pax es más barato por pax (una sola sprinter): 2,133.33 ⇒ 3,048', () => {
+  it('doble a 15 pax es más barato por pax (una sola sprinter): 2,133.33 ⇒ 3,047.6 ⇒ comercial 3,099', () => {
     expect(costoPorPax(doc, 'doble', 15)).toBeCloseTo(12500 / 15 + 1300, 2)
-    expect(precioSugerido(doc, 'doble', 15)).toBe(3048)
+    expect(precioSugerido(doc, 'doble', 15)).toBe(3099)
   })
   it('N = 0 no divide entre cero ⇒ null', () => {
     expect(costoPorPax(doc, 'doble', 0)).toBeNull()
     expect(precioSugerido(doc, 'doble', 0)).toBeNull()
   })
   it('margen 0 ⇒ el sugerido es el costo redondeado a peso hacia arriba', () => {
-    expect(precioSugerido({ ...doc, margin_pct: 0 }, 'doble', 16)).toBe(2582)
+    expect(precioSugerido({ ...doc, margin_pct: 0 }, 'doble', 16)).toBe(2599)
   })
   it('pack sin hospedaje ⇒ sin costo ni sugerido', () => {
     expect(precioSugerido(doc, 'triple', 16)).toBeNull()
@@ -135,9 +206,9 @@ describe('margenA / puntoEquilibrio', () => {
     expect(puntoEquilibrio(doc, 'doble', 100, 1000)).toBeNull()
   })
   it('margen en % es utilidad ÷ ingreso', () => {
-    const m = margenA(doc, 'doble', 16, 3688)!
-    expect(m.ingreso).toBe(3688 * 16)
-    expect(m.pct).toBeCloseTo(((3688 - 2581.25) / 3688) * 100, 6)
+    const m = margenA(doc, 'doble', 16, 3699)!
+    expect(m.ingreso).toBe(3699 * 16)
+    expect(m.pct).toBeCloseTo(((3699 - 2581.25) / 3699) * 100, 6)
   })
 })
 
@@ -156,7 +227,7 @@ describe('packReferencia / tablaPorPack / margenAddon', () => {
       { key: 'doble', label: 'D', price: 3500 },
       { key: 'triple', label: 'T', price: 3000 },
     ])
-    expect(t[0].sugerido).toBe(3688)
+    expect(t[0].sugerido).toBe(3699)
     expect(t[0].margen!.utilidad).toBeCloseTo((3500 - 2581.25) * 16, 2)
     expect(t[1].costo).toBeNull()
     expect(t[1].margen).toBeNull()
@@ -244,7 +315,7 @@ describe('limpiarCosteo', () => {
     expect(c.addon_costs).toEqual({ tirolesa: { cost: 350, supplier_id: 'p9', supplier_name: 'Tiro' } })
   })
   it('un proveedor borrado no rompe nada: la línea conserva nombre y costo copiados', () => {
-    const c = limpiarCosteo({ plan_pax: 10, days: 3, nights: 2, lines: doc.lines }, [])
+    const c = limpiarCosteo({ plan_pax: 10, days: 3, nights: 2, imprevistos_pct: 0, lines: doc.lines }, [])
     expect(c.lines).toHaveLength(4)
     expect(costoPorPax(c, 'doble', 10)).toBeCloseTo(12500 / 10 + 100 + 1200, 2)
   })
