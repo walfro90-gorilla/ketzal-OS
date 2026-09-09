@@ -65,6 +65,7 @@ const HARNESS = [
   { f: 'ubicacion_contacto.sql',          necesita: ['db'],                       adr: '0057', afirma: 'el estado no guarda países y un proveedor sin ningún contacto no se registra' },
   { f: 'calificar_despues_del_viaje.sql', necesita: ['db'],                       adr: '0039', afirma: 'se califica solo un viaje pagado cuya fecha ya pasó; la BD lo exige y el detalle trae la reseña' },
   { f: 'cancelado_devuelto.sql',          necesita: ['db'],                       adr: '0010', afirma: 'el viajero sigue viendo su pedido cancelado, con lo devuelto, y no puede calificarlo' },
+  { f: 'borrar_borrador_con_intento.sql', necesita: ['db'],                       adr: '0016', afirma: 'un borrador con checkout MP abierto se cancela (no se borra), el de SPEI declarado se bloquea, y un approved tardío avisa al superadmin' },
   { f: 'oportunidades.sql',               necesita: ['db'],                       adr: '0058', afirma: 'el historial de huecos es de su agencia (admin y agente), no se borra y la salida que nace de él queda ligada' },
   { f: 'home.mjs',                        necesita: ['app'],                      adr: '0046', afirma: 'la home sirve su hero con UNA sola imagen prioritaria, la nav no enlaza al marketplace, responde también por RSC y /styleguide exige sesión' },
   // ── .sql ────────────────────────────────────────────────────────────────
