@@ -9,6 +9,20 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Mis viajes: nombre único, tarjeta de viaje, secciones y recordatorio de calificar (2026-09-09, b106).**
+> Cuatro pendientes de la sección del viajero, en un PR. (1) La página y el menú
+> decían "Mis compras" y el regreso decía "Mis viajes": ahora todo es **Mis
+> viajes** (la ruta `/mis-compras` no cambia). (2) La tarjeta trae la portada del
+> servicio (`service_image` en la RPC, b106: banner o primera del álbum) y la fecha
+> con día de la semana ("sáb, 14 sep 2026"); cancelada, la foto va en gris.
+> (3) La lista se agrupa en **Próximos · Pasados · Cancelados** (`agruparViajes`,
+> puro, con test); con un solo grupo no hay encabezados. (4) El Clawbot manda al
+> viajero "¿Cómo estuvo tu viaje?" con link al detalle, de uno a tres días
+> después de la fecha del viaje, una sola vez por pedido (ni si ya calificó);
+> evento `calificar` con ícono de estrella en la campana. Probado: tests puros de
+> agrupación y del aviso; el tick real contra la BD corrió sin error
+> (0 viajes terminados en la ventana hoy).
+
 > **Perfil social del viajero, Fase 2b: quiénes van en mi viaje + reportar (2026-09-09,
 > b107, ADR-0063).** La parte que expone datos entre desconocidos, así que va con
 > harness. `co_travelers(p_booking)` (DEFINER) devuelve exactamente apodo/ciudad/viaje

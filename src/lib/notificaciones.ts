@@ -25,6 +25,8 @@ export const EVENTOS = [
   'pasajeros',
   /** ADR-0058: un puente o temporada sin salida, emitido por el Clawbot. */
   'hueco_temporada',
+  /** b106: al viajero, el día después de su viaje, para que lo califique. */
+  'calificar',
 ] as const
 
 export type EventoNoti = (typeof EVENTOS)[number]

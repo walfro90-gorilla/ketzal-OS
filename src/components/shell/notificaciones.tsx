@@ -7,6 +7,7 @@ import {
   BellIcon,
   BellRingIcon,
   CalendarPlusIcon,
+  StarIcon,
   ClockIcon,
   FileTextIcon,
   HandCoinsIcon,
@@ -53,6 +54,7 @@ const ICONOS: Record<EventoNoti, LucideIcon> = {
   embajador: MegaphoneIcon,
   pasajeros: UsersIcon,
   hueco_temporada: CalendarPlusIcon,
+  calificar: StarIcon,
 }
 
 /** Las filas anteriores a esto no traen evento: campana genérica. */
