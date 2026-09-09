@@ -31,12 +31,10 @@ import type { AddOn } from '@/lib/domain/addons'
 import { precioDePack } from '@/lib/domain/pricing'
 import {
   UNIT_LABELS,
-  costoPorPax,
   limpiarCosteo,
   margenA,
   margenAddon,
   packReferencia,
-  puntoEquilibrio,
   escalonesEntre,
   filasPrecio,
   resumen,
