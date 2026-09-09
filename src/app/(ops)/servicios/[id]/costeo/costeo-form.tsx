@@ -37,6 +37,7 @@ import {
   margenAddon,
   packReferencia,
   puntoEquilibrio,
+  escalonesEntre,
   filasPrecio,
   resumen,
   totalLinea,
@@ -163,6 +164,8 @@ export function CosteoForm({
   const filas = filasPrecio(doc, packs, comisionPortalPct)
   const hayHospedaje = doc.lines.some((l) => l.unit === 'habitacion')
   const paraGuardar = filas.filter((f) => seleccion.includes(f.key) && f.propuesto != null)
+  // Por qué "lleno" puede perder cuando "plan" gana: a más pax, otra quinta u otra sprinter.
+  const brincos = escalonesEntre(doc, n, maxN)
 
   const proveedor = proveedores.find((p) => p.id === provSel) ?? null
   const tarifasPax = proveedores.flatMap((p) =>
@@ -630,7 +633,15 @@ export function CosteoForm({
               label={portal ? 'Utilidad lleno (neta)' : 'Utilidad lleno'}
               value={dinero(res.lleno?.utilidad)}
               tone={res.lleno ? (res.lleno.utilidad >= 0 ? 'good' : 'bad') : 'neutral'}
-              hint={res.lleno ? `${maxN} pax · margen ${pct(res.lleno.pct)}` : undefined}
+              hint={
+                res.lleno
+                  ? brincos.length
+                    ? `${maxN} pax · margen ${pct(res.lleno.pct)} · rebasa el cupo de ${brincos
+                        .map((b) => `${b.label} (${b.de} → ${b.a})`)
+                        .join(', ')}`
+                    : `${maxN} pax · margen ${pct(res.lleno.pct)}`
+                  : undefined
+              }
             />
           </div>
 

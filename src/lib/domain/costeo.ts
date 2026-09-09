@@ -347,6 +347,24 @@ export function puntoEquilibrio(doc: Costeo, pack: PackKey, maxN: number, precio
   return null
 }
 
+export type Escalon = { label: string; de: number; a: number; cap: number }
+
+/**
+ * Líneas con cupo que necesitan MÁS unidades a `m` pax que a `n` (una quinta
+ * de 40 a 45 pax son dos quintas). Es lo que explica que "lleno" pierda cuando
+ * "plan" gana: el costo no crece parejo, brinca.
+ */
+export function escalonesEntre(doc: Costeo, n: number, m: number): Escalon[] {
+  const out: Escalon[] = []
+  for (const l of doc.lines) {
+    if (!l.cap || l.unit === 'habitacion' || l.unit === 'pax') continue
+    const de = unidades(l, n)
+    const a = unidades(l, m)
+    if (a !== de) out.push({ label: l.label, de, a, cap: l.cap })
+  }
+  return out
+}
+
 export type Resumen = {
   pack: PackKey
   precio: number | null

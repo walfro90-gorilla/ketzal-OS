@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   COSTEO_VACIO,
   costoPorPax,
+  escalonesEntre,
   fijos,
   habitacionPorPax,
   limpiarCosteo,
@@ -139,6 +140,18 @@ describe('ADR-0061: imprevistos, redondeo comercial, precio de venta y utilidad 
     const conHotel = filasPrecio({ ...doc, precio_venta: 900 }, [])
     expect(conHotel.find((f) => f.key === 'doble')?.propuesto).toBe(precioSugerido(doc, 'doble', 16))
     expect(conHotel.find((f) => f.key === 'triple')?.propuesto).toBeNull() // el hotel no ofrece triple
+  })
+  it('escalonesEntre: qué líneas brincan de unidades entre plan y lleno', () => {
+    const quinta = linea({ unit: 'dia', label: 'Quinta p/40', cost: 12500, cap: 40, qty: 1 })
+    const van = linea({ unit: 'dia', label: 'Sprinter 20', cost: 2000, cap: 20, qty: 2 })
+    const guia = linea({ unit: 'dia', label: 'Guía', cost: 1500, qty: 2 }) // sin cupo: nunca brinca
+    const d: Costeo = { ...doc, lines: [quinta, van, guia] }
+    expect(escalonesEntre(d, 40, 45)).toEqual([
+      { label: 'Quinta p/40', de: 1, a: 2, cap: 40 },
+      { label: 'Sprinter 20', de: 2, a: 3, cap: 20 },
+    ])
+    expect(escalonesEntre(d, 40, 40)).toEqual([])
+    expect(escalonesEntre(d, 20, 40)).toEqual([{ label: 'Sprinter 20', de: 1, a: 2, cap: 20 }])
   })
   it('limpiarCosteo: defaults (imprevistos 5, sin precio, sin portal) y rangos', () => {
     const c = limpiarCosteo({ plan_pax: 10, days: 2 }, [])
