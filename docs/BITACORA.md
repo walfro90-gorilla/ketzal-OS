@@ -9,6 +9,18 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Diagnóstico: por qué MP rechaza al crear el pago (2026-09-08).** El fundador
+> probó pago con débito y salió "Mercado Pago rechazó el pago. Intenta con otra
+> tarjeta." Ese texto solo sale de `pagarConBrickMarketplace` cuando el POST a
+> `/v1/payments` da no-2xx (no es decline de tarjeta, que vuelve 201 con
+> status=rejected). Esa rama **descartaba** el cuerpo de MP, así que el motivo real
+> nunca llegaba a los logs de Vercel. Se agrega `console.error('[pago MP] creación
+> falló', res.status, {status, status_detail, message, cause, split})` — SOLO la
+> respuesta de MP, nunca tarjeta/token/email. El servicio de la prueba es de
+> Wanderlust (cuenta MP conectada, live, token válido a 2027-02), así que el split
+> rutea al token de la agencia; sospechas: MP 145 "invalid users involved"
+> (test vs real) o pagarte a ti mismo. Con el log, el próximo intento da el código.
+
 > **El costeo ya da precio, equilibrio y utilidad sin packs, y crea las opciones (2026-09-08, b101, ADR-0061).**
 > Dunas Mágicas (sin packs, precio 0) se quedaba en "costo por pax" con equilibrio
 > y utilidad vacíos. Cabecera nueva: **Precio de venta / pax** (vacío = el sugerido

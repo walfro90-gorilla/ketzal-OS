@@ -463,8 +463,28 @@ export async function pagarConBrickMarketplace(
     id?: number
     status?: string
     status_detail?: string
+    message?: string
+    error?: string
+    cause?: { code?: string | number; description?: string }[]
   }
   if (!res.ok || !pago.id) {
+    // MP manda el porqué en el cuerpo; sin esto el log no lo tenía y el motivo
+    // real se perdía. Solo la respuesta de MP (status/detail/cause) y si fue
+    // split: NUNCA la tarjeta, el token ni el email del pagador.
+    console.error(
+      '[pago MP] creación falló',
+      res.status,
+      JSON.stringify({
+        status: pago.status,
+        status_detail: pago.status_detail,
+        message: pago.message ?? pago.error,
+        cause: pago.cause?.map((c) => ({
+          code: c.code,
+          description: c.description,
+        })),
+        split: esSplit,
+      })
+    )
     return { error: 'Mercado Pago rechazó el pago. Intenta con otra tarjeta.' }
   }
 
