@@ -9,6 +9,18 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Perfil social del viajero, Fase 2b: quiénes van en mi viaje + reportar (2026-09-09,
+> b107, ADR-0063).** La parte que expone datos entre desconocidos, así que va con
+> harness. `co_travelers(p_booking)` (DEFINER) devuelve exactamente apodo/ciudad/viaje
+> soñado/bio/ruta de foto de los otros dueños de pedido activo en la MISMA salida
+> (service+fecha) con `is_public`; nunca email/teléfono/nombre; niega con excepción un
+> pedido ajeno (ADR-0037). `profile_reports` (deny-all) + `report_traveler` (exige
+> compartir salida; reportar oculta al reportado para quien reporta) +
+> `list_profile_reports` (solo superadmin; la pantalla es fast-follow). En `/mis-compras/[id]`
+> la sección "Quiénes van en este viaje" pinta las tarjetas con la foto firmada en el
+> servidor (solo rutas `profiles/<uuid>/…`) y un botón de reportar. Harness
+> `co_pasajeros.sql`: **14/14**, y mutado (sin el filtro `is_public` se pone rojo). Suite 45.
+
 > **Perfil social del viajero, Fase 2a: foto gateada (2026-09-09, b106).** La foto
 > del perfil NO va al bucket público (como logos/servicios), sino a `ketzal-privado`:
 > sólo se sirve por URL firmada del servidor. Columna `social_photo_path` (ruta, no
