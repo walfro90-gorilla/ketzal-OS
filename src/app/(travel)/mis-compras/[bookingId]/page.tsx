@@ -16,6 +16,8 @@ import { marketplaceActivo } from '@/lib/marketplace'
 import { buttonVariants } from '@/components/ui/button'
 import { VoucherViajero } from './voucher-viajero'
 import { AcompanantesSection, type Acompanante } from './acompanantes'
+import { CoPasajerosSection, type CoPasajero } from './co-pasajeros'
+import { createServiceClient } from '@/lib/supabase/service'
 import { CalificarViaje, type RatingViaje } from './calificar-viaje'
 import type { SeatMapData } from '@/lib/actions/asientos'
 
@@ -123,6 +125,31 @@ export default async function TripPage({
     acompanantes = (pax as unknown as Acompanante[]) ?? []
     seatMap = (sm as unknown as SeatMapData) ?? null
   }
+
+  // ADR-0063: co-pasajeros públicos de mi salida. La proyección (DEFINER) ya
+  // filtra: misma salida, pedido activo, is_public, no reportados por mí, cero
+  // PII. Las fotos viven en el bucket privado: se firman aquí, en el servidor.
+  let coPasajeros: CoPasajero[] = []
+  if (puedeVoucher) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: cp } = await (supabase as any).rpc('co_travelers', { p_booking_id: bookingId })
+    const filas = (cp as {
+      id: string; nickname: string | null; city: string | null
+      dream_trip: string | null; bio: string | null; photo_path: string | null
+    }[] | null) ?? []
+    const storage = createServiceClient().storage.from('ketzal-privado')
+    coPasajeros = await Promise.all(
+      filas.map(async (f) => {
+        let fotoUrl: string | null = null
+        // Sólo se firma una ruta de perfil (nunca una ruta arbitraria).
+        if (f.photo_path && /^profiles\/[0-9a-f-]{36}\/[A-Za-z0-9._-]{1,120}$/i.test(f.photo_path)) {
+          const { data: firma } = await storage.createSignedUrl(f.photo_path, 300)
+          fotoUrl = firma?.signedUrl ?? null
+        }
+        return { id: f.id, apodo: f.nickname, ciudad: f.city, viajeSonado: f.dream_trip, bio: f.bio, fotoUrl }
+      })
+    )
+  }
   const ruta = [sv.city_from, sv.city_to].filter(Boolean).join(' → ') || sv.location
   const fecha = fechaLarga(bk.travel_date)
 
@@ -212,6 +239,8 @@ export default async function TripPage({
           seatMap={seatMap}
         />
       )}
+
+      {puedeVoucher && <CoPasajerosSection bookingId={bk.id} initial={coPasajeros} />}
 
       {puedeVoucher && (
         <section className="mt-6">
