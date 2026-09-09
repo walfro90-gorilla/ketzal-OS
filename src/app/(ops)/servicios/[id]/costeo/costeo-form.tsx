@@ -297,6 +297,7 @@ export function CosteoForm({
                     <TableHead>Concepto</TableHead>
                     <TableHead>Se cobra</TableHead>
                     <TableHead className="text-right">Cant.</TableHead>
+                    <TableHead className="text-right">Unidades</TableHead>
                     <TableHead className="text-right">Costo</TableHead>
                     <TableHead className="text-right">Total a {n} pax</TableHead>
                     <TableHead />
@@ -347,6 +348,33 @@ export function CosteoForm({
                             </span>
                           )}
                         </TableCell>
+                        <TableCell className="text-right">
+                          {/* Campo deshabilitado a propósito: las unidades las decide
+                              el cupo (2 sprinters de 20 para 40 pax), no la persona.
+                              Mostrar el número y el porqué es lo que evita leer el
+                              escalón como "se multiplicó por 2". */}
+                          {l.unit === 'habitacion' ? (
+                            <span className="text-muted-foreground">—</span>
+                          ) : (
+                            <span className="ml-auto flex flex-col items-end gap-1">
+                              <Input
+                                readOnly
+                                disabled
+                                tabIndex={-1}
+                                className="w-20 text-right"
+                                aria-label={`Unidades de ${l.label}`}
+                                value={l.unit === 'pax' ? n : limpio ? unidades(limpio, n) : 1}
+                              />
+                              <span className="text-xs text-muted-foreground">
+                                {l.unit === 'pax'
+                                  ? 'una por pasajero'
+                                  : limpio?.cap
+                                    ? `${n} pax ÷ cupo ${limpio.cap}`
+                                    : 'sin cupo: siempre 1'}
+                              </span>
+                            </span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-right tabular-nums">{resumenCosto(l)}</TableCell>
                         <TableCell className="text-right tabular-nums">
                           {l.unit === 'habitacion'
@@ -354,14 +382,6 @@ export function CosteoForm({
                             : limpio
                               ? mxn.format(totalLinea(limpio, n))
                               : '—'}
-                          {/* El escalón por cupo (2 sprinters de 20 para 40 pax) es lo
-                              que hace que el total "se doble"; se dice aquí para que
-                              no parezca error de cálculo. */}
-                          {limpio && l.unit !== 'habitacion' && unidades(limpio, n) > 1 && (
-                            <p className="text-xs font-normal text-muted-foreground">
-                              {unidades(limpio, n)} unidades · cupo {limpio.cap} para {n} pax
-                            </p>
-                          )}
                         </TableCell>
                         <TableCell>
                           <Button
