@@ -19,6 +19,7 @@ import { CamposUbicacion, type Ubicacion } from '@/components/data/campos-ubicac
 import { MEXICO, estadoCanonico, paisCanonico } from '@/lib/domain/mexico'
 import { Switch } from '@/components/ui/switch'
 import { EtiquetasInput } from '@/components/data/etiquetas-input'
+import { partirAccion, unirAccion } from '@/lib/domain/itinerario'
 import {
   AlertDialog,
   AlertDialogContent,
@@ -842,7 +843,9 @@ export function ServicioForm({
           <CardTitle>Itinerario</CardTitle>
           <CardDescription>
             Día por día (opcional). Se muestra en la cotización que envías al
-            cliente.
+            cliente. La hora de cada acción es opcional; el día de la semana no
+            se captura aquí: sale solo de la fecha de cada salida en la
+            cotización y el voucher.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -873,15 +876,26 @@ export function ServicioForm({
                   `description` separadas por salto de línea, así ningún render
                   (cotización, mis-compras) necesita cambiar de forma. */}
               {(dia.description ? dia.description.split('\n') : ['']).map(
-                (accion, j, lineas) => (
+                (accion, j, lineas) => {
+                  // La hora vive como prefijo "07:00 · texto" del mismo renglón.
+                  const { hora, texto } = partirAccion(accion)
+                  const poner = (a: { hora: string; texto: string }) => {
+                    const next = [...lineas]
+                    next[j] = unirAccion(a)
+                    actualizarDia(i, { description: next.join('\n') })
+                  }
+                  return (
                   <div key={j} className="flex items-center gap-2">
                     <Input
-                      value={accion}
-                      onChange={(e) => {
-                        const next = [...lineas]
-                        next[j] = e.target.value
-                        actualizarDia(i, { description: next.join('\n') })
-                      }}
+                      type="time"
+                      className="w-28 shrink-0"
+                      aria-label={`Hora de la acción ${j + 1} del día ${i + 1}`}
+                      value={hora}
+                      onChange={(e) => poner({ hora: e.target.value, texto })}
+                    />
+                    <Input
+                      value={texto}
+                      onChange={(e) => poner({ hora, texto: e.target.value })}
                       placeholder="Qué se hace… Ej. Visita a las cascadas de Cusárare"
                     />
                     {lineas.length > 1 && (
@@ -901,7 +915,8 @@ export function ServicioForm({
                       </Button>
                     )}
                   </div>
-                )
+                  )
+                }
               )}
               <Button
                 type="button"
