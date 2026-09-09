@@ -38,6 +38,7 @@ import {
   puntoEquilibrio,
   tablaPorPack,
   totalLinea,
+  unidades,
   type CostLine,
   type Costeo,
   type RateLine,
@@ -353,6 +354,14 @@ export function CosteoForm({
                             : limpio
                               ? mxn.format(totalLinea(limpio, n))
                               : '—'}
+                          {/* El escalón por cupo (2 sprinters de 20 para 40 pax) es lo
+                              que hace que el total "se doble"; se dice aquí para que
+                              no parezca error de cálculo. */}
+                          {limpio && l.unit !== 'habitacion' && unidades(limpio, n) > 1 && (
+                            <p className="text-xs font-normal text-muted-foreground">
+                              {unidades(limpio, n)} unidades · cupo {limpio.cap} para {n} pax
+                            </p>
+                          )}
                         </TableCell>
                         <TableCell>
                           <Button
