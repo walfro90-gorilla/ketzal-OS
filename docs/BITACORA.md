@@ -9,6 +9,20 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Primer reembolso real de punta a punta (2026-09-09).** Tras la primera venta real
+> cobrada en línea (booking `7ed11e89…`, $50, [[ADR-0062]]), se probó la devolución
+> desde el sistema (`reembolsarPago`, `/ventas/[id]` → abonos → Devolver): llama la API
+> de refund de MP (`/v1/payments/{id}/refunds`, orden MP→ledger) y postea el asiento.
+> Verificado en BD: `payments` estrenó fila `type=refund` COMPLETED de $50 ligada al pago
+> (`refunds_payment_id`); saldo derivado neto 0 (pagado 50 − reembolsado 50);
+> `ledger_entries` con dos grupos (cobro y reembolso) que suman **0.00 cada uno**
+> (balance-0 intacto). Como el código devuelve en MP ANTES de tocar el ledger, que el
+> refund exista COMPLETED prueba que MP devolvió. Fue reembolso plano (el pago fue cobro
+> directo sin `application_fee`); el reembolso de un split CON comisión sigue sin probar,
+> igual que el cobro con split real. No requirió ADR: las decisiones (orden MP→ledger,
+> una devolución ligada por pago, parciales b048, "correcciones son reembolsos no
+> borrados") ya estaban en los ADR de cancelaciones (0010/0011) y en el código.
+
 > **Primera venta real cobrada en línea + el marketplace no se cobra a sí mismo
 > (2026-09-09, ADR-0062).** El split (b053) nunca había movido dinero real; al
 > probarlo MP tiró 400 code 2059 "You cannot use application_fee with this payment"
