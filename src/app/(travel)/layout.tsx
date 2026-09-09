@@ -45,6 +45,7 @@ export default async function TravelLayout({
         persona="viajero"
         seenKey="ketzal_tour_viajero_v1"
         yaVisto={yaVisto}
+        logoUrl={logoUrl}
       />
       <InstalarApp esperar={!yaVisto} />
     </TravelShell>
