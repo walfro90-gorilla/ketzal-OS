@@ -9,6 +9,24 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Un borrador con checkout abierto se puede quitar; ya no se acumulan (2026-09-09, b105).**
+> El fundador no podía eliminar dos pedidos pendientes: "Este pedido tiene un
+> intento de pago en curso". `delete_my_draft_order` bloqueaba con CUALQUIER fila
+> en payment_intents, y los checkouts de Mercado Pago nacían sin expiración: un
+> borrador que abrió el checkout quedaba atorado para siempre. El candado existía
+> por algo: borrar la fila con un pago tardío en camino deja dinero en MP sin
+> pedido, y el webhook trataba `intent_not_found` como éxito silencioso. Ahora
+> (con Rick enterado, es su carril): sin intentos se borra; con checkout MP se
+> **cancela** (la fila queda, los intentos pasan a 'abandoned') y la lista del
+> viajero esconde los cancelados sin ningún pago; con transferencia SPEI declarada
+> sigue bloqueado con mensaje claro. Un approved tardío cae en la rama 'cancelled'
+> de `confirm_online_payment`, que ahora además deja notificación URGENT a los
+> superadmins; el webhook loguea `intent_not_found` como critical y avisa. Las
+> preferencias de MP se crean con `expires` + `expiration_date_to` a 24 h (formato
+> ISO con desfase; no verificado en vivo: el token de MP no vive en local).
+> Harness `borrar_borrador_con_intento.sql` (10). Choque de número con la b104 de
+> Rick (perfil social): la mía se renombró a b105 en schema_migrations. Suite 44.
+
 > **Perfil social del viajero, Fase 1 (2026-09-09, b104).** El `/perfil` del viajero
 > pasó de nombre+teléfono a un perfil tipo RRSS: apodo, ciudad, viaje soñado, bio, y
 > un opt-in `is_public` **apagado por default**. `profiles` es RPC-only-write (b017),

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { logSistema } from '@/lib/system-log'
 import { mpSignatureValid } from '@/lib/mp-signature'
-import { adminsDeAgencia, notificar } from '@/lib/push/send'
+import { adminsDeAgencia, notificar, superadmins } from '@/lib/push/send'
 import { sendPurchaseEvents } from '@/lib/marketing/conversions'
 
 const mxn = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' })
@@ -101,7 +101,7 @@ export async function POST(request: Request) {
   const status = pago.status ?? 'pending'
   if (!intentId) return NextResponse.json({ ok: true })
 
-  const { error } = await supabase.rpc('confirm_online_payment', {
+  const { data: confirmado, error } = await supabase.rpc('confirm_online_payment', {
     p_intent_id: intentId,
     p_mp_payment_id: String(paymentId),
     p_status: status,
@@ -115,6 +115,31 @@ export async function POST(request: Request) {
     // 500 → MP reintenta (el RPC confirm_online_payment es idempotente), en vez
     // de dar por perdido un pago real por un fallo transitorio nuestro.
     return NextResponse.json({ ok: false, reason: 'confirm_failed' }, { status: 500 })
+  }
+
+  // b105: un approved cuyo intento ya no existe es dinero real sin pedido. No
+  // es éxito ni error transitorio (reintentar no lo arregla): se registra como
+  // crítico y se avisa al superadmin para devolverlo. 200 para que MP no insista.
+  const r = confirmado as { ok?: boolean; reason?: string } | null
+  if (r && r.ok === false && r.reason === 'intent_not_found') {
+    await logSistema(supabase, 'mp_webhook', 'critical', 'pago aprobado sin intento', {
+      paymentId,
+      intentId,
+      status,
+    })
+    if (status === 'approved') {
+      try {
+        await notificar(await superadmins(), {
+          evento: 'pago',
+          title: 'Pago de Mercado Pago sin pedido',
+          body: `MP aprobó el pago ${paymentId} y su intento ${intentId} no existe. Revísalo y devuélvelo.`,
+          url: '/ventas',
+        })
+      } catch {
+        /* best-effort */
+      }
+    }
+    return NextResponse.json({ ok: false, reason: 'intent_not_found' })
   }
 
   await logSistema(supabase, 'mp_webhook', 'info', 'pago confirmado', {

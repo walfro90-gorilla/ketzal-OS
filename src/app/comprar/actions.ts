@@ -374,6 +374,10 @@ export async function crearLinkPagoMarketplace(
         pending: `${origin}/mis-compras`,
       },
       auto_return: 'approved',
+      // b105: un checkout abandonado no puede pagarse días después contra un
+      // borrador que el viajero ya eliminó. 24 h es de sobra para terminarlo.
+      expires: true,
+      expiration_date_to: fechaMp(Date.now() + 24 * 60 * 60 * 1000),
     }),
   })
   if (!res.ok) return { error: 'Mercado Pago rechazó la solicitud. Intenta de nuevo.' }
@@ -395,6 +399,11 @@ export async function crearLinkPagoMarketplace(
   }
 
   return { url: pref.init_point }
+}
+
+/** ISO 8601 con desfase explícito, el formato que documenta Mercado Pago (no acepta la "Z"). */
+function fechaMp(ms: number): string {
+  return new Date(ms).toISOString().replace(/Z$/, '+00:00')
 }
 
 // Fase 1 (checkout embebido): cobra con el Payment Brick, sin salir de Ketzal
