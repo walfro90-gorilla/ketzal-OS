@@ -49,6 +49,7 @@ export const VIAJERO_STEPS: TourStep[] = [
     icon: SparklesIcon,
     title: 'Bienvenido a Ketzal',
     body: 'Aquí encuentras viajes de agencias locales de Juárez y alrededores. Apartas tu lugar con un anticipo y pagas el resto en abonos antes de la salida.',
+    brand: true,
   },
   {
     id: 'via-apartar',
