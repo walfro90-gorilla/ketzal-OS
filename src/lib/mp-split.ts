@@ -7,6 +7,20 @@ import { grossUpMp } from '@/lib/domain/gross-up'
 // crearLinkPagoMarketplace (Checkout Pro) para que el checkout embebido
 // (Payment Brick, Checkout API) lo reuse sin duplicar la lógica.
 
+/**
+ * ¿El vendedor y el marketplace son la MISMA cuenta MP? MP guarda el id como
+ * número o string según el origen; se compara normalizado. `null`/ausente ⇒
+ * false (no se puede afirmar mismo dueño). Cuando es true NO se manda
+ * `application_fee`: MP responde 400 code 2059 (no puedes cobrarte a ti mismo).
+ */
+export function mismaCuentaMp(
+  a: string | number | null | undefined,
+  b: string | number | null | undefined
+): boolean {
+  if (a == null || b == null) return false
+  return String(a) === String(b)
+}
+
 // El id de la cuenta MP dueña del token de plataforma. Se pide una vez a MP
 // (/users/me) y se memoiza por instancia; nunca se imprime el token. Sirve para
 // no mandarle `application_fee` a un cobro donde el vendedor ES la plataforma
@@ -68,8 +82,7 @@ export async function resolverSplitMp(
       // Vendedor == marketplace: no se puede separar `application_fee` (MP 2059).
       // Se cobra directo con el token de plataforma, sin split ni comisión.
       const platformUid = await platformMpUserId(platformToken)
-      const sellerUid = cuenta?.mp_user_id != null ? String(cuenta.mp_user_id) : null
-      if (platformUid && sellerUid && platformUid === sellerUid) {
+      if (mismaCuentaMp(cuenta?.mp_user_id, platformUid)) {
         return { cobroToken: platformToken, marketplaceFee: 0, esSplit: false, montoACobrar: Number(amount), cargoProcesamiento: 0 }
       }
       if (cuenta?.access_token) {
