@@ -9,6 +9,19 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Perfil social del viajero, Fase 1 (2026-09-09, b104).** El `/perfil` del viajero
+> pasó de nombre+teléfono a un perfil tipo RRSS: apodo, ciudad, viaje soñado, bio, y
+> un opt-in `is_public` **apagado por default**. `profiles` es RPC-only-write (b017),
+> así que la escritura entra por `update_my_traveler_profile` (DEFINER, upsert gateado
+> a `type='viajero'` — un agente NO se vuelve viajero ni edita por ahí; verificado
+> contra la BD real: viajero sí, agente intacto). Longitudes topadas (apodo 40, ciudad
+> 80, viaje 140, bio 300). Contacto (nombre/teléfono) marcado privado, nunca se muestra
+> a otros. **Fase 1 no expone NADA a otros usuarios** — sólo el viajero edita y ve lo
+> suyo. Fase 2 (aparte, con ADR): foto gateada (bucket privado + URL firmada) y la
+> pantalla "quiénes van en este viaje" con una proyección DEFINER que devuelve sólo los
+> campos sociales de co-pasajeros con `is_public` en la misma salida. Decisiones de Wal:
+> opt-in apagado, foto gateada, solo se ven (sin contacto entre viajeros).
+
 > **El pedido cancelado y devuelto se sigue viendo en Mis compras (2026-09-09, b103).**
 > Tras el primer reembolso real (#186) la compra de prueba "desapareció" del portal
 > del viajero: `list_my_marketplace_orders` y `get_my_trip` filtraban
