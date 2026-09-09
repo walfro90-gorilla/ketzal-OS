@@ -9,6 +9,16 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **El pedido cancelado y devuelto se sigue viendo en Mis compras (2026-09-09, b103).**
+> Tras el primer reembolso real (#186) la compra de prueba "desapareció" del portal
+> del viajero: `list_my_marketplace_orders` y `get_my_trip` filtraban
+> `status <> 'cancelled'`. Ahora los cancelados se listan y se abren, con
+> `refunded` (suma de pagos tipo refund completados) para pintar "Cancelado ·
+> devuelto $X"; la tarjeta tacha el total, no ofrece pagar y explica qué pasó; el
+> detalle dice lo mismo en el bloque de dinero. Un cancelado no se califica.
+> Harness `cancelado_devuelto.sql` (6) con pago y devolución vía
+> `register_payment`. Suite 43.
+
 > **Calificar solo después del viaje, y desde el detalle (2026-09-09, b102).** El
 > fundador compró un tour de prueba y en "Mis compras" le apareció de inmediato
 > "Califica tu viaje". Causa: `can_rate` era `pagado y (sin fecha o fecha pasada)`;

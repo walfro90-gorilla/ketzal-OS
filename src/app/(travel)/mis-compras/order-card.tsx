@@ -33,6 +33,8 @@ export type Order = {
   total: number
   paid: number
   balance: number
+  /** b103: lo devuelto al viajero (pagos tipo refund). */
+  refunded: number
   next_due: number
   next_due_date: string | null
   can_rate: boolean
@@ -62,6 +64,7 @@ const ESTADO: Record<string, string> = {
   draft: 'Pendiente de pago',
   reserved: 'Apartado (en abonos)',
   paid: 'Pagado',
+  cancelled: 'Cancelado',
 }
 
 /** 'YYYY-MM-DD' → '12 mar 2026' (local, sin corrimiento de zona). */
@@ -199,6 +202,8 @@ export function OrderCard({ order }: { order: Order }) {
 
   const conPlan = order.payment_type === 'abonos'
   const manual = order.channel === 'manual'
+  // b103: un pedido cancelado se ve (con lo devuelto) pero ya no se paga.
+  const cancelado = order.status === 'cancelled'
 
   return (
     <Card>
@@ -258,17 +263,36 @@ export function OrderCard({ order }: { order: Order }) {
             )}
           </div>
           <span className="shrink-0 text-right text-sm tabular-nums">
-            <span className="font-semibold">{mxn.format(order.total)}</span>
-            {order.balance > 0 && (
-              <span className="block text-xs text-muted-foreground">
-                Saldo {mxn.format(order.balance)}
-              </span>
+            <span className={cn('font-semibold', cancelado && 'text-muted-foreground line-through')}>
+              {mxn.format(order.total)}
+            </span>
+            {cancelado ? (
+              (order.refunded ?? 0) > 0 && (
+                <span className="block text-xs font-medium text-primary">
+                  Devuelto {mxn.format(order.refunded)}
+                </span>
+              )
+            ) : (
+              order.balance > 0 && (
+                <span className="block text-xs text-muted-foreground">
+                  Saldo {mxn.format(order.balance)}
+                </span>
+              )
             )}
           </span>
         </div>
 
+        {cancelado && (
+          <p className="rounded-lg bg-muted/50 p-3 text-sm text-muted-foreground">
+            Este pedido se canceló
+            {(order.refunded ?? 0) > 0
+              ? ` y se te devolvieron ${mxn.format(order.refunded)}.`
+              : '. Si tienes un crédito a favor, aparece arriba en Mis compras.'}
+          </p>
+        )}
+
         {/* Plan de pagos (b039): checklist colapsado. */}
-        {order.plan && order.plan.length > 0 && (
+        {!cancelado && order.plan && order.plan.length > 0 && (
           <PlanChecklist plan={order.plan} paid={order.paid} />
         )}
 
@@ -293,6 +317,7 @@ export function OrderCard({ order }: { order: Order }) {
         ) : (
           /* Pago pendiente */
           !manual &&
+          !cancelado &&
           order.balance > 0 &&
           order.service_id && (
             <div className="flex flex-col gap-2">

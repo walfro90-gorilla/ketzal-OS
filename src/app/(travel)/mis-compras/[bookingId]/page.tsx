@@ -35,7 +35,7 @@ type Trip = {
     /** b091: 'manual' = la lleva el agente. */
     channel: string
   }
-  money: { total: number; paid: number; balance: number }
+  money: { total: number; paid: number; balance: number; refunded?: number }
   service: {
     name: string
     description: string | null
@@ -60,6 +60,7 @@ const ESTADO: Record<string, string> = {
   draft: 'Pendiente de pago',
   reserved: 'Apartado (en abonos)',
   paid: 'Pagado',
+  cancelled: 'Cancelado',
 }
 
 function fechaLarga(d: string | null): string | null {
@@ -169,7 +170,14 @@ export default async function TripPage({
           <span className="text-muted-foreground">Total</span>
           <span className="font-semibold tabular-nums">{mxn.format(money.total)}</span>
         </div>
-        {money.balance > 0 ? (
+        {bk.status === 'cancelled' ? (
+          // b103: cancelado. Se dice cuánto volvió; no hay nada que pagar.
+          <p className="mt-1 text-sm text-muted-foreground">
+            {(money.refunded ?? 0) > 0
+              ? `Cancelado · devuelto ${mxn.format(money.refunded ?? 0)}`
+              : 'Cancelado'}
+          </p>
+        ) : money.balance > 0 ? (
           <>
             <div className="mt-1 flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Saldo</span>
