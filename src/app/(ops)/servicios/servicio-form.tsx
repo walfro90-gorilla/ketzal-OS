@@ -18,6 +18,7 @@ import { NativeSelect } from '@/components/ui/native-select'
 import { CamposUbicacion, type Ubicacion } from '@/components/data/campos-ubicacion'
 import { MEXICO, estadoCanonico, paisCanonico } from '@/lib/domain/mexico'
 import { Switch } from '@/components/ui/switch'
+import { EtiquetasInput } from '@/components/data/etiquetas-input'
 import {
   AlertDialog,
   AlertDialogContent,
@@ -176,8 +177,10 @@ export function ServicioForm({
     initial?.available_from ?? ''
   )
   const [availableTo, setAvailableTo] = useState(initial?.available_to ?? '')
-  const [includesText, setIncludesText] = useState(initial?.includes ?? '')
-  const [excludesText, setExcludesText] = useState(initial?.excludes ?? '')
+  // Incluye / no incluye como etiquetas (ADR-0043: el valor ya es la lista;
+  // `initial` llega como texto con saltos porque así lo arma la página).
+  const [includes, setIncludes] = useState<string[]>(() => separarLineas(initial?.includes ?? ''))
+  const [excludes, setExcludes] = useState<string[]>(() => separarLineas(initial?.excludes ?? ''))
   const [itinerary, setItinerary] = useState<ItineraryDay[]>(
     initial?.itinerary ?? []
   )
@@ -374,8 +377,8 @@ export function ServicioForm({
     if (d.max_capacity != null) setMaxCapacity(String(d.max_capacity))
     if (d.available_from) setAvailableFrom(d.available_from)
     if (d.available_to) setAvailableTo(d.available_to)
-    if (d.includes?.length) setIncludesText(d.includes.join('\n'))
-    if (d.excludes?.length) setExcludesText(d.excludes.join('\n'))
+    if (d.includes?.length) setIncludes(d.includes)
+    if (d.excludes?.length) setExcludes(d.excludes)
     if (d.itinerary?.length) setItinerary(d.itinerary)
     if (d.packs) {
       const leidos = Object.fromEntries(
@@ -460,8 +463,8 @@ export function ServicioForm({
       transport_type: transportType || undefined,
       available_from: availableFrom || undefined,
       available_to: availableTo || undefined,
-      includes: separarLineas(includesText),
-      excludes: separarLineas(excludesText),
+      includes,
+      excludes,
       itinerary,
       packs,
       add_ons: addOnsInput,
@@ -805,26 +808,29 @@ export function ServicioForm({
           <CardTitle>Qué incluye</CardTitle>
           <CardDescription>
             Lo que el precio cubre y lo que no. Aparece tal cual en la cotización y en la ficha pública.
+            Escribe un concepto y presiona <kbd className="rounded border px-1">Enter</kbd> o coma para
+            agregarlo; <kbd className="rounded border px-1">Retroceso</kbd> quita el último. También puedes
+            pegar una lista separada por comas.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="servicio-incluye">Incluye</Label>
-              <Textarea
+              <EtiquetasInput
                 id="servicio-incluye"
-                value={includesText}
-                onChange={(e) => setIncludesText(e.target.value)}
-                placeholder={'Una línea por concepto. Ej.\nTransporte redondo\nDesayuno'}
+                valor={includes}
+                onChange={setIncludes}
+                placeholder="Ej. Transporte redondo, desayuno, guía certificado"
               />
             </div>
             <div className="space-y-2 sm:col-span-2">
               <Label htmlFor="servicio-no-incluye">No incluye</Label>
-              <Textarea
+              <EtiquetasInput
                 id="servicio-no-incluye"
-                value={excludesText}
-                onChange={(e) => setExcludesText(e.target.value)}
-                placeholder={'Una línea por concepto. Ej.\nPropinas\nComidas no especificadas'}
+                valor={excludes}
+                onChange={setExcludes}
+                placeholder="Ej. Propinas, comidas no especificadas, seguro de viaje"
               />
             </div>
           </div>
