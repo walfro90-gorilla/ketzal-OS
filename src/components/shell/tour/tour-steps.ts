@@ -28,6 +28,8 @@ export type TourStep = {
   href?: string
   /** Etiqueta del enlace (nombre de la sección). */
   label?: string
+  /** Pinta el logo de marca arriba de la tarjeta (la bienvenida del viajero). */
+  brand?: boolean
   adminOnly?: boolean
   superadminOnly?: boolean
   /**

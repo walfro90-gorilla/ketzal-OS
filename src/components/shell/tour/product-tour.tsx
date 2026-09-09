@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { BrandMark } from '@/components/brand-mark'
 import { getTourSteps } from './tour-steps'
 import { EMBAJADOR_STEPS, VIAJERO_STEPS } from './tour-steps-personas'
 import { marcarTourVisto } from './onboarding-actions'
@@ -188,6 +189,20 @@ export function ProductTour({
       >
         <XIcon />
       </Button>
+
+      {step.brand && (
+        // Marca en la bienvenida del viajero: símbolo + wordmark, centrado y
+        // con aire, separado del resto por una línea. Su primer contacto con
+        // Ketzal — que se vea de casa.
+        <div className="-mt-1 flex flex-col items-center gap-2 border-b pb-4">
+          <span className="inline-flex items-center gap-2">
+            <BrandMark className="size-8 text-primary" />
+            <span className="font-display text-3xl font-semibold tracking-tight text-primary">
+              Ketzal
+            </span>
+          </span>
+        </div>
+      )}
 
       <div className="flex items-center gap-3">
         <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
