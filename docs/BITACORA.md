@@ -9,6 +9,21 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Form de servicio: Guardar en la barra, etiquetas en "Qué incluye", hora por acción y día derivado (2026-09-09, PRs #181, #182, #183).**
+> Tres pedidos del fundador sobre el form. (1) El submit "Guardar" se mueve a la
+> barra sticky de estatus, junto al toggle Privado/Público, siempre visible; el
+> error se muestra ahí mismo y se quita el botón del fondo. (2) *Incluye* y *No
+> incluye* dejan de ser textareas de "una línea por concepto": componente nuevo
+> `EtiquetasInput` (Enter o coma agregan, Retroceso quita la última, pegar una
+> lista la reparte, sin repetir) sobre el módulo puro `etiquetas.ts`; el payload
+> sigue siendo `string[]`, que es lo que consume la ficha pública. (3) Itinerario:
+> cada acción gana una hora opcional que vive como prefijo "07:00 · texto" en el
+> mismo renglón (cero cambio de modelo; cotización, mis-compras y el import por IA
+> siguen igual). El día de la semana NO se captura en el servicio (un tour sale
+> viernes una vez y martes otra): `etiquetaDia(i, fechaSalida)` lo deriva de la
+> salida y la cotización y mis-compras muestran "Día 1 · sábado, 12 de septiembre".
+> Rick y Morty confirmaron vía libre en `servicio-form.tsx` antes de cada cambio.
+
 > **El split no se cobra comisión a sí mismo (2026-09-08).** Con el log de #179 se
 > vio la causa del pago rechazado: MP 400 code **2059** "You cannot use
 > application_fee with this payment" — el vendedor (Wanderlust, única cuenta MP

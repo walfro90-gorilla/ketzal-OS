@@ -18,6 +18,7 @@ import { VoucherViajero } from './voucher-viajero'
 import { AcompanantesSection, type Acompanante } from './acompanantes'
 import type { SeatMapData } from '@/lib/actions/asientos'
 
+import { etiquetaDia } from '@/lib/domain/itinerario'
 // Detalle del viaje del comprador B2C (#6): itinerario, qué incluye/no incluye y
 // contacto de la agencia. Datos vía RPC get_my_trip (SECURITY DEFINER, ownership
 // por marketplace_customer_id = auth.uid()). Tras el flag del marketplace.
@@ -232,6 +233,9 @@ export default async function TripPage({
           <ol className="mt-3 space-y-3">
             {sv.itinerary.map((paso, i) => (
               <li key={i} className="rounded-xl border p-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  {etiquetaDia(i, bk.travel_date)}
+                </p>
                 {paso.title && <p className="font-semibold">{paso.title}</p>}
                 {paso.description && (
                   <p className="mt-1 whitespace-pre-line text-sm text-muted-foreground">{paso.description}</p>

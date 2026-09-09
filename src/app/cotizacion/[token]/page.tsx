@@ -27,6 +27,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 
+import { etiquetaDia } from '@/lib/domain/itinerario'
 // Página PÚBLICA (sin sesión): el cliente final la abre desde WhatsApp.
 // Datos y tipos viven en ./data (getQuote). El preview social lo genera
 // ./opengraph-image; aquí solo el <title>/<meta> vía generateMetadata.
@@ -212,7 +213,7 @@ export default async function CotizacionPublicaPage({
             {quote.service.itinerary.map((dia, i) => (
               <div key={i}>
                 <p className="text-sm font-semibold">
-                  Día {i + 1}
+                  {etiquetaDia(i, quote.travel_date)}
                   {dia.title ? `: ${dia.title}` : ''}
                 </p>
                 {dia.description && (
