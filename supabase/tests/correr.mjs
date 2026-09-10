@@ -82,6 +82,8 @@ const HARNESS = [
   { f: 'cotizacion_reclamada.sql',        necesita: ['db'], adr: '0039', afirma: 'la cotización se guarda con su token, el correo liga solo verificado y la venta manual es solo lectura' },
   { f: 'simulacion_1000_ops.sql',         necesita: ['db'], adr: '0006', afirma: 'los invariantes aguantan volumen' },
   { f: 'volumen_y_clawbot.sql',           necesita: ['db'], adr: '0006', afirma: 'el Clawbot no rompe invariantes a volumen' },
+  { f: 'plan_abonos_fecha_viaje.sql',   necesita: ['db'], adr: '0064', afirma: 'el comprador no pone el vencimiento de su deuda: el plan se ancla a la fecha del viaje' },
+  { f: 'publicar_completo.sql',         necesita: ['db'], adr: '0064', afirma: 'no se publica un servicio incompleto, y el error dice qué falta' },
   { f: 'mp_desconectar.sql',              necesita: ['db'], adr: '0042', afirma: 'solo el admin de la agencia (o superadmin) desconecta su MP; la tabla sigue deny-all y queda rastro' },
   { f: 'costeo.sql',                      necesita: ['db'], adr: '0055', afirma: 'tarifario y costeo los ve y escribe solo el admin de la agencia dueña; los CHECK rechazan el documento roto' },
   { f: 'co_pasajeros.sql',                necesita: ['db'], adr: '0063', afirma: 'un viajero ve el perfil social (sin PII) solo de quien comparte su salida y prendió is_public; reportar oculta; los reportes son solo superadmin' },
