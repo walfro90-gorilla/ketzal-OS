@@ -9,11 +9,11 @@
 
 ## Entradas nuevas (más reciente arriba)
 
-> **Mis viajes: nombre único, tarjeta de viaje, secciones y recordatorio de calificar (2026-09-09, b106).**
+> **Mis viajes: nombre único, tarjeta de viaje, secciones y recordatorio de calificar (2026-09-09, b108).**
 > Cuatro pendientes de la sección del viajero, en un PR. (1) La página y el menú
 > decían "Mis compras" y el regreso decía "Mis viajes": ahora todo es **Mis
 > viajes** (la ruta `/mis-compras` no cambia). (2) La tarjeta trae la portada del
-> servicio (`service_image` en la RPC, b106: banner o primera del álbum) y la fecha
+> servicio (`service_image` en la RPC, b108: banner o primera del álbum) y la fecha
 > con día de la semana ("sáb, 14 sep 2026"); cancelada, la foto va en gris.
 > (3) La lista se agrupa en **Próximos · Pasados · Cancelados** (`agruparViajes`,
 > puro, con test); con un solo grupo no hay encabezados. (4) El Clawbot manda al

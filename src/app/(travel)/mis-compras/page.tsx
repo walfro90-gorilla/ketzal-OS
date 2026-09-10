@@ -95,7 +95,7 @@ export default async function MisComprasPage({
           y reserva el primero.
         </p>
       ) : (
-        // b106: Próximos · Pasados · Cancelados. Con un solo grupo no hay
+        // b108: Próximos · Pasados · Cancelados. Con un solo grupo no hay
         // encabezados: la lista se ve como siempre.
         <div className="mt-6 space-y-8">
           {grupos.map(({ titulo, items }) => (

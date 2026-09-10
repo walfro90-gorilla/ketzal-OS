@@ -1,11 +1,11 @@
--- b106 — La tarjeta de Mis viajes trae la imagen del servicio.
+-- b108 — La tarjeta de Mis viajes trae la imagen del servicio.
 --
--- Migración aplicada: `b106_mis_viajes_con_imagen` (2026-09-09).
+-- Migración aplicada: `b108_mis_viajes_con_imagen` (2026-09-09).
 --
 -- La tarjeta de la lista era un pedido (nombre, estado, total). Para que sea
 -- un viaje hace falta su portada: `service_image` = banner del servicio o la
 -- primera foto del álbum. Re-aplicado desde el DDL vivo (b105); solo cambia la
--- línea marcada "b106".
+-- línea marcada "b108".
 
 CREATE OR REPLACE FUNCTION ketzal.list_my_marketplace_orders()
  RETURNS jsonb
@@ -24,7 +24,7 @@ begin
         b.payment_type, b.created_at,
         b.channel,
         coalesce(sv.name, 'Viaje') as service_name,
-        -- b106: portada del servicio (banner, o la primera del álbum) para la tarjeta.
+        -- b108: portada del servicio (banner, o la primera del álbum) para la tarjeta.
         coalesce(sv.images->>'imgBanner', sv.images->'imgAlbum'->>0) as service_image,
         bwb.total, bwb.paid, bwb.balance,
         (select coalesce(sum(p.amount_mxn), 0) from ketzal.payments p
