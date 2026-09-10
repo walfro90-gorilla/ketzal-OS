@@ -62,6 +62,27 @@ function esCodigoReferidoDuplicado(
 }
 
 /**
+ * b111: el nombre y el correo de un proveedor son únicos DENTRO de la agencia
+ * (antes lo eran en toda la plataforma, y Border no podía dar de alta un
+ * proveedor que Wanderlust ya tenía). Cuando el choque es legítimo —el mismo
+ * proveedor, dos veces, en la misma agencia— hay que decirlo con palabras, no
+ * con "no se pudo guardar".
+ */
+function duplicadoEnMiAgencia(
+  error: { code?: string; message?: string } | null
+): string | null {
+  if (error?.code !== '23505') return null
+  const msg = (error.message ?? '').toLowerCase()
+  if (msg.includes('uq_suppliers_proveedor_nombre') || msg.includes('uq_suppliers_agencia_nombre')) {
+    return 'Ya tienes un proveedor con ese nombre. Abre el que existe o dale un nombre que los distinga.'
+  }
+  if (msg.includes('uq_suppliers_proveedor_correo') || msg.includes('uq_suppliers_agencia_correo')) {
+    return 'Ya tienes un proveedor con ese correo. Abre el que existe o usa otro correo de contacto.'
+  }
+  return null
+}
+
+/**
  * Normaliza el código de referido de un embajador: mayúsculas, sin espacios,
  * solo A-Z 0-9 _ -. Devuelve `{ code }` (null si vacío) o `{ error }`.
  * Solo aplica a embajadores; para el resto se guarda null.
@@ -250,6 +271,8 @@ export async function crearProveedor(
     if (esCodigoReferidoDuplicado(error)) {
       return { error: 'Ese código de referido ya está en uso por otro embajador.' }
     }
+    const duplicado = duplicadoEnMiAgencia(error)
+    if (duplicado) return { error: duplicado }
     // 42501 = la policy de RLS negó la fila: no es un fallo de datos, es de
     // permiso. Se lo decimos claro en vez del genérico "no se pudo guardar".
     if (error?.code === '42501') {
@@ -288,6 +311,8 @@ export async function actualizarProveedor(
     if (esCodigoReferidoDuplicado(error)) {
       return { error: 'Ese código de referido ya está en uso por otro embajador.' }
     }
+    const duplicado = duplicadoEnMiAgencia(error)
+    if (duplicado) return { error: duplicado }
     return { error: safeError(error) }
   }
 

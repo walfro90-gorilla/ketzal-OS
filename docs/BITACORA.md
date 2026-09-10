@@ -9,6 +9,38 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **El mismo proveedor en dos agencias: el `UNIQUE` global de `suppliers` (2026-09-09, b111, ADR-0065).**
+> Salió corriendo la suite completa después de mergear #196: dos rojos, y uno era
+> un bug real. `ketzal.suppliers` guarda las agencias y los proveedores que las
+> surten en la misma tabla, y traía `UNIQUE (name)` y `UNIQUE (contact_email)`
+> **globales**. Como Wanderlust dio de alta "Rancho San Lorenzo" el 2026-09-08,
+> Border Travels ya no podía: `23505` y en pantalla "Los datos no cumplen una
+> restricción de la base de datos" — un choque contra una fila que la RLS le
+> esconde. Con tres agencias reales que comparten proveedores de la región, ese
+> es el caso normal. b111 sustituye las dos restricciones por cuatro índices
+> parciales: nombre y correo únicos de plataforma **solo** para las agencias
+> (`owner_supplier_id is null`) y únicos **por agencia dueña** para los
+> proveedores, los cuatro sobre `lower(...)` (antes "RANCHO SAN LORENZO" entraba
+> como proveedor distinto). Verificado contra los datos vivos antes de aplicar:
+> cero colisiones, se crearon sin tocar una fila. `crearProveedor` y
+> `actualizarProveedor` traducen el `23505` de esos índices a un mensaje que dice
+> qué campo repite. Harness nuevo `proveedor_por_agencia.sql`: **10/10**, y
+> **mutado** (reviviendo el índice global dentro de una transacción revertida, el
+> caso 2 se cae). `mcp_proveedores.mjs`, rojo desde que existe el proveedor real,
+> vuelve a verde sin tocarle una línea. El segundo rojo era del harness, no del
+> invariante: `simulacion_1000_ops.sql` usa UUID reales del entorno y su fixture
+> chocaba contra el cliente que la compra de prueba de Mis viajes ya había creado
+> (único parcial de b091); ahora reusa la fila con `on conflict do update`.
+> Suite **46**.
+
+> **Renumeración `b106` → `b108` (2026-09-09).** Apliqué
+> `b106_mis_viajes_con_imagen` sin revisar `schema_migrations` primero y choqué
+> con `b106_perfil_foto_gateada` del otro carril, que además ya tenía `b107`.
+> Renombrada en la BD a `b108_mis_viajes_con_imagen`; el PR #196 alineó el espejo
+> `db/proposed/` y los comentarios. Segunda vez en dos días: **revisar
+> `schema_migrations` antes de tomar número**, `ls db/proposed/` no basta porque
+> el otro carril aplica antes de mergear su espejo.
+
 > **Mis viajes: nombre único, tarjeta de viaje, secciones y recordatorio de calificar (2026-09-09, b108).**
 > Cuatro pendientes de la sección del viajero, en un PR. (1) La página y el menú
 > decían "Mis compras" y el regreso decía "Mis viajes": ahora todo es **Mis
