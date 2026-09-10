@@ -61,6 +61,7 @@ export function ProductTour({
   seenKey = SEEN_KEY,
   yaVisto = false,
   tieneAgencia = false,
+  logoUrl = null,
 }: {
   role?: string | null
   /**
@@ -82,6 +83,9 @@ export function ProductTour({
    * no podía saber si la tarjeta del Panel existía para quien lo estaba leyendo.
    */
   tieneAgencia?: boolean
+  /** Logo oficial de la marca (el mismo del header, `getBrandLogo()`); se pinta
+   *  en la tarjeta con `brand`. Sin él cae al símbolo + wordmark. */
+  logoUrl?: string | null
 }) {
   const steps = useMemo(() => {
     if (persona === 'embajador') return EMBAJADOR_STEPS
@@ -191,16 +195,26 @@ export function ProductTour({
       </Button>
 
       {step.brand && (
-        // Marca en la bienvenida del viajero: símbolo + wordmark, centrado y
-        // con aire, separado del resto por una línea. Su primer contacto con
-        // Ketzal — que se vea de casa.
+        // Marca en la bienvenida del viajero: el MISMO logo oficial del header
+        // (`getBrandLogo()`), centrado y separado por una línea. Su primer
+        // contacto con Ketzal — que sea la marca real. Sin logo cargado, cae al
+        // símbolo + wordmark.
         <div className="-mt-1 flex flex-col items-center gap-2 border-b pb-4">
-          <span className="inline-flex items-center gap-2">
-            <BrandMark className="size-8 text-primary" />
-            <span className="font-display text-3xl font-semibold tracking-tight text-primary">
-              Ketzal
+          {logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={logoUrl}
+              alt="Ketzal"
+              className="h-11 w-auto max-w-[180px] object-contain"
+            />
+          ) : (
+            <span className="inline-flex items-center gap-2">
+              <BrandMark className="size-8 text-primary" />
+              <span className="font-display text-3xl font-semibold tracking-tight text-primary">
+                Ketzal
+              </span>
             </span>
-          </span>
+          )}
         </div>
       )}
 
