@@ -71,8 +71,15 @@ begin
       ('B', v_agB, v_persona),       ('B', v_agB, null::uuid)
     ) t(lado, ag, persona)
   loop
+    -- b091 puso un único parcial (supplier_id, marketplace_customer_id): si la
+    -- persona ya es cliente de esa agencia por una compra real, el insert
+    -- reventaba y la simulación entera moría antes de la primera operación.
+    -- Reusar la fila existente es lo correcto: la simulación quiere UN cliente
+    -- ligado a esa persona por agencia, no necesariamente uno recién creado.
     insert into ketzal.customers(supplier_id, created_by, full_name, marketplace_customer_id)
     values (v_fix.ag, v_uA, 'SIM '||v_fix.lado||' '||coalesce(v_fix.persona::text,'anon'), v_fix.persona)
+    on conflict (supplier_id, marketplace_customer_id) where marketplace_customer_id is not null
+    do update set full_name = excluded.full_name
     returning id into v_c;
     if v_fix.lado = 'A' then v_custA := v_custA || v_c; else v_custB := v_custB || v_c; end if;
   end loop;
