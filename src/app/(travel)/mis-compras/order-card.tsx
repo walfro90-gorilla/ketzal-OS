@@ -30,7 +30,7 @@ export type Order = {
   travel_date: string | null
   payment_type: string
   service_name: string
-  /** b106: portada del servicio (banner o primera del álbum); null si no tiene. */
+  /** b108: portada del servicio (banner o primera del álbum); null si no tiene. */
   service_image: string | null
   total: number
   paid: number
@@ -220,7 +220,7 @@ export function OrderCard({ order }: { order: Order }) {
     <Card>
       <CardContent className="space-y-4 p-4">
         <div className="flex items-start justify-between gap-3">
-          {/* b106: la tarjeta es un viaje, no un pedido: portada + día de la semana. */}
+          {/* b108: la tarjeta es un viaje, no un pedido: portada + día de la semana. */}
           {order.service_image && (
             <Link href={`/mis-compras/${order.booking_id}`} className="shrink-0" aria-hidden tabIndex={-1}>
               {/* eslint-disable-next-line @next/next/no-img-element */}

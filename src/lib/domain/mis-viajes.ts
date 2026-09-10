@@ -1,5 +1,5 @@
 /**
- * Agrupa los pedidos del viajero en Próximos · Pasados · Cancelados (b106).
+ * Agrupa los pedidos del viajero en Próximos · Pasados · Cancelados (b108).
  * Puro: la página le pasa la lista de la RPC y el "hoy" de la agencia.
  */
 export type ViajeAgrupable = { status: string; travel_date: string | null; created_at?: string }
