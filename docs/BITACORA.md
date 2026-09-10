@@ -9,6 +9,37 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **El viajero le ponía fecha de vencimiento a su propia deuda (2026-09-09).**
+> En la compra en línea, el plan de abonos mostraba un "Fecha límite de pago"
+> que llenaba el comprador. Al medirlo antes de tocar, el reporte resultó más
+> angosto y más interesante: el campo YA era condicional a que el pedido no
+> tuviera `travel_date`, y de 7 servicios publicados 6 tenían salidas y ahí la
+> fecha ya salía sola. El único sin **ninguna** fecha era "TEST pago en línea
+> $50", fixture de las pruebas de cobro. O sea que el hueco no era "el viajero
+> siempre elige" sino "cuando el catálogo está incompleto, el viajero elige" —
+> y eso abrió dos arreglos en vez de uno. **b109**: `generate_marketplace_payment_plan`
+> ancla en `travel_date` y ya no acepta `coalesce(v_travel, p_final_date)`; sin
+> salida no hay plan y se vende de contado. Se descartó caer a `available_to`
+> porque significa "hasta cuándo se vende", no cuándo se viaja: sería inventar
+> una fecha con cara de dato (y hoy 0 servicios lo llenan, o sea código muerto
+> aparentando cobertura). **b110**: no se publica un servicio sin nombre,
+> agencia, precio, destino y foto — en la BD, porque publicar es un UPDATE de
+> una columna y el MCP lo hace sin pasar por React. Extiende la compuerta de
+> b076 en vez de sumar un segundo trigger, y NO exige salidas: vender sin salida
+> es un modo soportado a propósito. **Tres cosas que solo salieron probando:**
+> (1) la compuerta de comisión de b076 llevaba lanzando `check_violation`, que
+> `safeError` enmascara — el operador llevaba desde entonces viendo "No se pudo
+> completar la acción" sin saber qué le faltaba; ahora ambos raise son P0001.
+> (2) El harness cazó un defecto del trigger recién escrito: `text[] || 'literal'`
+> es ambiguo y Postgres lo resuelve por `anyarray || anyarray`, reventando con
+> "malformed array literal" — el `apply` no lo ve porque es error de ejecución.
+> (3) Una aserción mía medía la RLS y no el plan: leer `bookings` como el
+> viajero devuelve NULL porque lee por `list_my_marketplace_orders`, no directo.
+> Probado por mutación: devolver el `coalesce` cae con "el comprador se puso su
+> propio vencimiento"; debilitar la compuerta cae con "publicó un servicio
+> incompleto". → [ADR-0064](adr/0064-el-vencimiento-lo-pone-el-viaje-no-el-deudor.md).
+
+> **Mis viajes: nombre único, tarjeta de viaje, secciones y recordatorio de calificar (2026-09-09, b106).**
 > **El mismo proveedor en dos agencias: el `UNIQUE` global de `suppliers` (2026-09-09, b111, ADR-0065).**
 > Salió corriendo la suite completa después de mergear #196: dos rojos, y uno era
 > un bug real. `ketzal.suppliers` guarda las agencias y los proveedores que las

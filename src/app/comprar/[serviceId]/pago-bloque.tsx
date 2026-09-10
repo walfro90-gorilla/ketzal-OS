@@ -54,7 +54,6 @@ export function PagoBloque({
   const router = useRouter()
   const [modo, setModo] = useState<'contado' | 'plan'>('contado')
   const [freq, setFreq] = useState('quincenal')
-  const [finalDate, setFinalDate] = useState('')
   const [preview, setPreview] = useState<PlanPreview | null>(null)
   const [busy, setBusy] = useState(false)
   // Monto que MUESTRA el Payment Brick (con el gross-up del fee de MP si hay
@@ -77,7 +76,6 @@ export function PagoBloque({
     setBrickAmount(d.montoACobrar) // lo que el Brick muestra y cobra
   }
   // lazy init: Date.now() no puede correr en render (regla de pureza)
-  const [manana] = useState(() => new Date(Date.now() + 86400000).toISOString().slice(0, 10))
 
   // SPEI (b034): datos bancarios de la agencia (null ⇒ no acepta transferencia).
   const [spei, setSpei] = useState<SpeiInfo | null>(null)
@@ -89,7 +87,6 @@ export function PagoBloque({
   }, [bookingId])
 
   // La salida manda la fecha límite; si no hay, la que elige el comprador.
-  const finalEfectiva = travelDate ?? finalDate
 
   // Respaldo: checkout de Mercado Pago por redirect (Checkout Pro). Sigue vivo
   // por si el Brick falla o el banco exige un 3DS que no resuelve bien.
@@ -119,12 +116,12 @@ export function PagoBloque({
   }
 
   async function calcular() {
-    if (!finalEfectiva) {
-      toast.error('Elige una fecha límite.')
+    if (!travelDate) {
+      toast.error('Este viaje no tiene fecha de salida; no se puede pagar en abonos.')
       return
     }
     setBusy(true)
-    const res = await previewPlan(total, finalEfectiva, freq)
+    const res = await previewPlan(total, travelDate, freq)
     setBusy(false)
     if ('error' in res) {
       toast.error(res.error)
@@ -136,7 +133,7 @@ export function PagoBloque({
   async function pagarEnganche() {
     if (!preview) return
     setBusy(true)
-    const gen = await generarPlanMarketplace(bookingId, freq, travelDate ? null : finalDate)
+    const gen = await generarPlanMarketplace(bookingId, freq)
     setBusy(false)
     if ('error' in gen) {
       toast.error(gen.error)
@@ -150,7 +147,7 @@ export function PagoBloque({
     if (!preview) return
     track('pago_metodo', { booking_id: bookingId, service_id: serviceId, metodo: 'spei' })
     setBusy(true)
-    const gen = await generarPlanMarketplace(bookingId, freq, travelDate ? null : finalDate)
+    const gen = await generarPlanMarketplace(bookingId, freq)
     setBusy(false)
     if ('error' in gen) {
       toast.error(gen.error)
@@ -185,28 +182,40 @@ export function PagoBloque({
 
   return (
     <div className="mt-6 space-y-4">
-      <div className="grid grid-cols-2 gap-2">
-        <Button
-          type="button"
-          variant={modo === 'contado' ? 'default' : 'outline'}
-          onClick={() => {
-            setModo('contado')
-            setSpeiOpen(false)
-          }}
-        >
-          Pago total
-        </Button>
-        <Button
-          type="button"
-          variant={modo === 'plan' ? 'default' : 'outline'}
-          onClick={() => {
-            setModo('plan')
-            setSpeiOpen(false)
-          }}
-        >
-          En abonos
-        </Button>
-      </div>
+      {/* b109: el plan de abonos se ancla a la fecha del viaje, así que sin
+          salida no se ofrece. Antes aparecía igual y el comprador elegía su
+          propio vencimiento en un date picker — una fecha de dinero puesta por
+          quien debe el dinero. Sin salida queda el pago de contado, que no
+          necesita ancla. La BD lo vuelve a exigir por su lado (ADR-0064). */}
+      {travelDate ? (
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            type="button"
+            variant={modo === 'contado' ? 'default' : 'outline'}
+            onClick={() => {
+              setModo('contado')
+              setSpeiOpen(false)
+            }}
+          >
+            Pago total
+          </Button>
+          <Button
+            type="button"
+            variant={modo === 'plan' ? 'default' : 'outline'}
+            onClick={() => {
+              setModo('plan')
+              setSpeiOpen(false)
+            }}
+          >
+            En abonos
+          </Button>
+        </div>
+      ) : (
+        <p className="rounded-lg border border-dashed px-3 py-2 text-sm text-muted-foreground">
+          Este viaje todavía no tiene fecha de salida, así que se paga completo.
+          ¿Necesitas pagarlo en abonos? Escríbele a la agencia.
+        </p>
+      )}
 
       {modo === 'contado' ? (
         <div className="space-y-2">
@@ -275,24 +284,6 @@ export function PagoBloque({
               ))}
             </NativeSelect>
           </div>
-
-          {!travelDate && (
-            <div className="space-y-2">
-              <label htmlFor="fecha" className="text-sm font-medium">
-                Fecha límite de pago
-              </label>
-              <Input
-                id="fecha"
-                type="date"
-                min={manana}
-                value={finalDate}
-                onChange={(e) => {
-                  setFinalDate(e.target.value)
-                  setPreview(null)
-                }}
-              />
-            </div>
-          )}
 
           {!preview ? (
             <Button

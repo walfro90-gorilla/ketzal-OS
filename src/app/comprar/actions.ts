@@ -543,7 +543,7 @@ export type PlanPreview = {
   final: string
 }
 
-/** Preview del plan (cálculo puro, no persiste). finalDate = salida o la que eligió. */
+/** Preview del plan (cálculo puro, no persiste). Desde b109 `finalDate` es siempre la fecha del viaje. */
 export async function previewPlan(
   total: number,
   finalDate: string,
@@ -564,11 +564,15 @@ export async function previewPlan(
   return { plan: data as unknown as PlanPreview }
 }
 
-/** Genera y persiste el plan del pedido del comprador. finalDate null ⇒ usa la salida. */
+/**
+ * Genera y persiste el plan del pedido del comprador.
+ *
+ * b109: ya NO recibe fecha. El vencimiento sale de `bookings.travel_date` y el
+ * RPC rebota si no hay: el comprador no pone la fecha límite de su propia deuda.
+ */
 export async function generarPlanMarketplace(
   bookingId: string,
   frequency: string,
-  finalDate: string | null,
 ): Promise<{ error: string } | { plan: PlanPreview }> {
   const supabase = await createClient()
   const {
@@ -579,7 +583,6 @@ export async function generarPlanMarketplace(
   const { data, error } = await supabase.rpc('generate_marketplace_payment_plan' as never, {
     p_booking_id: bookingId,
     p_frequency: frequency,
-    p_final_date: finalDate,
   } as never)
   if (error || !data) return { error: safeError(error, 'No se pudo crear el plan.') }
   const plan = data as unknown as PlanPreview
