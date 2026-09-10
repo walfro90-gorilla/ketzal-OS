@@ -90,6 +90,18 @@ siguiente imprimió `⚠ barridos 4 restos de una corrida anterior` y terminó c
 0. Confirmado aparte contra `auth.users`: 6 usuarios, 0 con prefijo `qa.`,
 0 profiles huérfanos, y la encuesta real del fundador intacta.
 
+**Actualización 2026-09-09.** El barrido tenía un hueco que solo aparece con
+dos sesiones a la vez: borraba por prefijo, así que una corrida se llevaba las
+cuentas de la otra. Lo caro no es el rojo por azar sino el **verde por azar** —
+si te barren las cuentas después de crearlas y antes de assertar, hay
+aserciones que pasan por vacuidad. Ahora el barrido ignora lo creado hace menos
+de `EDAD_RESTO_MS` (un resto de una corrida muerta siempre es viejo; una viva
+tiene minutos) y `destruir()` comprueba que sus cuentas sigan ahí: si se las
+llevaron, el harness sale **NO CORRIÓ** (código 75, que `correr.mjs` traduce)
+en vez de verde. Lo prueba `supabase/tests/fixtures_no_se_pisan.mjs` — **5/5**,
+y **mutado por las dos mitades**: barrando otra vez por prefijo cae el caso 1,
+y dejando que `destruir()` detecte y calle cae el caso 2.
+
 ## Fuentes
 b059 (`services_read` acotada), ADR-0018 (harness HTTP que cazó la fuga de PII),
 ADR-0020 (un check que siempre falla entrena a ignorar los checks).

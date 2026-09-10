@@ -9,6 +9,25 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Dos corridas de la suite se barrían las fixtures (2026-09-09).** Salió al
+> cruzarme con otro carril: los dos corriendo `pnpm hard-test` a la vez, y a los
+> dos se nos caían harness que pasaban diez minutos antes. `barrerRestos` borraba
+> **toda** cuenta con el prefijo `qa.efimero.`, sin distinguir de quién. Lo caro
+> no es el rojo por azar —ese te hace investigar— sino el **verde por azar**: si
+> te barren las cuentas después de crearlas y antes de assertar, hay aserciones
+> que pasan por vacuidad ("no vi filas ajenas" cuando no hay filas de nadie) y el
+> tablero miente. Dos mitades: el barrido ignora lo creado hace menos de 30
+> minutos (un resto de una corrida muerta siempre es viejo, una viva tiene
+> minutos, la suite tarda tres), y `destruir()` comprueba que sus cuentas sigan
+> ahí — si se las llevaron, el harness sale **NO CORRIÓ** con el motivo, por
+> código 75 que `correr.mjs` traduce al canal que ya existía para SQL sin
+> conexión. La verificación final también dejó de contar como basura propia las
+> cuentas de una corrida ajena viva. Harness nuevo `fixtures_no_se_pisan.mjs`:
+> **5/5** y **mutado por las dos mitades** (barrando por prefijo cae el caso 1;
+> dejando que `destruir()` detecte y calle cae el caso 2). Techo declarado con
+> comentario `ponytail:`: `barrerAvisosQa()` sigue borrando por patrón de
+> mensaje, pero eso produce rojo y no verde falso. Suite **49**.
+
 > **El viajero le ponía fecha de vencimiento a su propia deuda (2026-09-09).**
 > En la compra en línea, el plan de abonos mostraba un "Fecha límite de pago"
 > que llenaba el comprador. Al medirlo antes de tocar, el reporte resultó más

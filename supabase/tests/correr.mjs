@@ -28,6 +28,7 @@ import { readFile } from 'node:fs/promises'
 import { spawn } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+import { CODIGO_NO_CORRIO } from './_fixtures.mjs'
 
 const AQUI = dirname(fileURLToPath(import.meta.url))
 const RAIZ = join(AQUI, '..', '..')
@@ -88,6 +89,7 @@ const HARNESS = [
   { f: 'costeo.sql',                      necesita: ['db'], adr: '0055', afirma: 'tarifario y costeo los ve y escribe solo el admin de la agencia dueña; los CHECK rechazan el documento roto' },
   { f: 'co_pasajeros.sql',                necesita: ['db'], adr: '0063', afirma: 'un viajero ve el perfil social (sin PII) solo de quien comparte su salida y prendió is_public; reportar oculta; los reportes son solo superadmin' },
   { f: 'proveedor_por_agencia.sql',       necesita: ['db'], adr: '0065', afirma: 'dos agencias pueden dar de alta al mismo proveedor; dentro de una agencia el nombre y el correo siguen siendo únicos, sin escaparse por mayúsculas' },
+  { f: 'fixtures_no_se_pisan.mjs',        necesita: [],     adr: '0023', afirma: 'dos corridas simultáneas no se barren las fixtures: el barrido respeta lo recién creado y una corrida a la que le quitaron sus cuentas sale NO CORRIÓ, nunca verde' },
   { f: 'costeo_pagina.mjs',               necesita: ['supabase', 'app'],          adr: '0055', afirma: 'el costeo abre para el admin con su contenido (también por RSC), el agente no llega y por PostgREST recibe cero filas' },
 ]
 
@@ -143,7 +145,17 @@ function correrMjs(archivo) {
     let salida = ''
     hijo.stdout.on('data', (d) => { salida += d })
     hijo.stderr.on('data', (d) => { salida += d })
-    hijo.on('close', (code) => resolve({ ok: code === 0, salida }))
+    hijo.on('close', (code) => {
+      // 75 = el harness se declaró NO CORRIÓ (hoy: otra corrida le barrió las
+      // cuentas efímeras a media prueba). Distinguirlo de un fallo importa —
+      // si sale como rojo, mañana alguien "arregla" el harness en vez de dejar
+      // de correr dos suites a la vez.
+      if (code === CODIGO_NO_CORRIO) {
+        const m = salida.match(/^NO CORRIÓ: (.+)$/m)
+        return resolve({ noCorrio: m ? m[1] : 'el harness no pudo correr', salida })
+      }
+      resolve({ ok: code === 0, salida })
+    })
     hijo.on('error', (e) => resolve({ ok: false, salida: e.message }))
   })
 }
