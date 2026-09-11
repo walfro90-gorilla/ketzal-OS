@@ -29,6 +29,25 @@ import { randomUUID } from 'node:crypto'
 // así que tiene que ser algo que ninguna cuenta real pueda llevar jamás.
 export const PREFIJO = 'qa.efimero.'
 
+// Dos corridas a la vez se destruían mutuamente: `barrerRestos` borraba TODA
+// cuenta con el prefijo, incluidas las que otra sesión acababa de crear. El
+// modo caro no es el rojo por azar (ese te hace investigar) sino el VERDE por
+// azar: si te barren las cuentas después de crearlas y antes de assertar, hay
+// aserciones que pasan por vacuidad — "no vi filas ajenas" cuando no hay filas
+// de nadie — y el tablero miente.
+//
+// El arreglo no necesita que las corridas se conozcan entre sí: un resto de una
+// corrida muerta SIEMPRE es viejo, y una corrida viva tiene minutos (la suite
+// completa tarda ~3). Barrer por edad y no por prefijo basta.
+const EDAD_RESTO_MS = 30 * 60_000
+
+/** Sale del harness sin fingir verde: el corredor traduce el 75 a NO CORRIÓ. */
+export const CODIGO_NO_CORRIO = 75
+export function noCorrio(motivo) {
+  console.error(`NO CORRIÓ: ${motivo}`)
+  process.exitCode = CODIGO_NO_CORRIO
+}
+
 const U = process.env.NEXT_PUBLIC_SUPABASE_URL
 const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 const SK = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -72,6 +91,11 @@ async function borrarUsuario(id) {
 // llama "QA …" y su correo lleva PREFIJO, así que el mensaje empieza por "QA ".
 const FILTRO_AVISOS_QA = `or=(message.ilike.QA%20*,message.ilike.*${PREFIJO}*)`
 
+// ponytail: esto sigue borrando por patrón de mensaje, así que dos corridas
+// simultáneas se barren los avisos entre ellas. A diferencia de las cuentas eso
+// produce ROJO y no verde falso (la aserción "recibió el aviso" no encuentra
+// nada), así que se queda. Salida si algún día estorba: `notifications` tiene
+// `created_at`, se filtra igual que EDAD_RESTO_MS.
 /** Borra los avisos que dejaron las fixtures y verifica que no quede ninguno. */
 async function barrerAvisosQa() {
   const r = await fetch(`${U}/rest/v1/notifications?${FILTRO_AVISOS_QA}`, {
@@ -90,7 +114,15 @@ async function barrerRestos() {
     const avisos = await barrerAvisosQa()
     if (avisos.borrados) console.log(`   ⚠ barridos ${avisos.borrados} aviso(s) QA de corridas anteriores`)
   } catch (e) { console.error(`   ⚠ no se pudieron barrer avisos QA: ${e.message}`) }
-  const restos = (await listarUsuarios()).filter((u) => u.email?.startsWith(PREFIJO))
+  // Solo lo viejo: una cuenta con el prefijo creada hace minutos es de una
+  // corrida VIVA (mía o de otra sesión) y borrarla arruina las dos.
+  const corte = Date.now() - EDAD_RESTO_MS
+  const todas = (await listarUsuarios()).filter((u) => u.email?.startsWith(PREFIJO))
+  const restos = todas.filter((u) => Date.parse(u.created_at ?? 0) < corte)
+  const ajenas = todas.length - restos.length
+  if (ajenas) {
+    console.log(`   ⚠ ${ajenas} cuenta(s) efímeras recientes: otra corrida está viva, no las toco`)
+  }
   let tercos = 0
   for (const u of restos) {
     // No tirar la corrida por un resto que no se deja borrar: si tiene pagos o
@@ -122,13 +154,30 @@ export async function crearPosiciones(posiciones) {
   const salida = {
     destruir: async () => {
       let quedan = []
+      // Antes de borrar: ¿siguen ahí las mías? Si otra corrida se las llevó a
+      // media prueba, lo que el harness acaba de assertar no vale — y varias
+      // aserciones habrán pasado por vacuidad. Eso no es verde, es NO CORRIÓ.
+      try {
+        const vivas = new Set((await listarUsuarios()).map((u) => u.id))
+        const perdidas = creadas.filter((c) => !vivas.has(c.id))
+        if (perdidas.length) {
+          noCorrio(
+            `otra corrida borró ${perdidas.length} de mis ${creadas.length} cuentas efímeras a media prueba; ` +
+              'el resultado no es confiable. Corre la suite tú solo.'
+          )
+        }
+      } catch (e) {
+        console.error(`   ⚠ no se pudo comprobar si mis cuentas siguen vivas: ${e.message}`)
+      }
       for (const c of creadas) {
         try { await borrarUsuario(c.id) } catch (e) { console.error(`   ✘ no se borró ${c.email}: ${e.message}`) }
       }
       // Verificar, no suponer: si el borrado falló, la cuenta sigue viva en prod.
       let avisos
       try {
-        quedan = (await listarUsuarios()).filter((u) => u.email?.startsWith(PREFIJO))
+        // Solo las MÍAS: las de otra corrida viva no son basura que yo dejé.
+        const mias = new Set(creadas.map((c) => c.id))
+        quedan = (await listarUsuarios()).filter((u) => mias.has(u.id))
         avisos = await barrerAvisosQa()
       } catch (e) {
         console.error(`   ✘ no se pudo verificar la limpieza: ${e.message}`)
