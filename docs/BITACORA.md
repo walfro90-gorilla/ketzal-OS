@@ -9,6 +9,36 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Ketzal empieza a cobrar: comisión de plataforma al 10% y pagos a persona a $100 (2026-09-11).**
+> Auditando qué faltaba para vender de verdad salió que **las tres reglas de
+> `payee_type='plataforma'` estaban `active=false`**: el OS llevaba desde siempre
+> sin cobrar un peso de comisión, y nadie lo había notado porque el motor
+> devuelve 0 en silencio cuando no encuentra regla (`platform_fee_for_payment`
+> hace `if r.basis is null then return 0`). Decisión del fundador, con los
+> números a la vista:
+> · **Comisión de plataforma: 10% global** (`service_id` y `scope_supplier_id`
+>   nulos), que es el valor que ya vivía en `app_settings.platform_commission_rate`.
+>   Las otras dos reglas se quedan apagadas: la de 20% era de pruebas y la de
+>   $1000 fijo apuntaba a un servicio suelto. Se descartó el 3% de
+>   `suppliers.commission_rate` porque Ketzal cobraría MENOS que la pasarela
+>   (18.57 contra 29.70 en Dunas).
+> · **Embajador y agente: $100 por pax**, antes $250 y $300. Con los viejos, un
+>   tour de $619 como Dunas pagaba $550 a personas y dejaba $69 a la agencia.
+> **Verificado contra el motor real**, en transacción revertida: portal con pago
+> completo de 1800 → **180.00**; abono de 450 del mismo pedido → **45.00**
+> (prorrateo correcto); venta **manual** → **0** (ADR: Ketzal comisiona sólo el
+> portal). Hoy el devengo se registra en el ledger pero MP no separa nada, porque
+> las agencias del fundador comparten cuenta con la plataforma (ADR-0062, MP 2059);
+> cuando Border conecte la suya, ahí sí se separa.
+> **Sobre cobrar extra por pagar en abonos**, que el fundador planteó: se
+> descartó. Cobrar por diferir el pago ES crédito y obliga a publicar CAT y
+> precio de contado. Y el costo real no lo justifica: el sobrecosto de cobrar en
+> 4 abonos es **plano, $13.92** (sólo se multiplica la cuota fija de MP, no el
+> porcentaje) — 2.25% en Dunas pero 0.06% en Colombia. Además los abonos NO
+> cuestan capital: el viajero paga antes del viaje, la flotación juega a favor.
+> Si se quiere el efecto, va como descuento por contado, que es un descuento
+> comercial y no un interés.
+
 > **El webhook de Mercado Pago rechazaba TODO y no decía por qué (2026-09-10).**
 > Midiendo qué falta para vender de verdad salió en `system_log`: **12 eventos
 > `firma inválida`, los 12 del MISMO pago real** (MP reintenta) y los 12 con
