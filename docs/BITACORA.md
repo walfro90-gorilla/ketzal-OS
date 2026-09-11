@@ -9,6 +9,32 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **El webhook de Mercado Pago rechazaba TODO y no decía por qué (2026-09-10).**
+> Midiendo qué falta para vender de verdad salió en `system_log`: **12 eventos
+> `firma inválida`, los 12 del MISMO pago real** (MP reintenta) y los 12 con
+> `hasSignature: true`. Cero notificaciones aceptadas desde que se configuró
+> `MP_WEBHOOK_SECRET`. No se había notado porque `confirm_online_payment` corre
+> también desde el Brick al volver del checkout, así que el tablero se ve bien —
+> pero ese camino exige que el comprador NO cierre el navegador, y para SPEI y
+> efectivo, que se pagan horas después, **el webhook es el único camino**. Un
+> cliente transfiere y su pedido nunca se marca pagado.
+> Dos arreglos. (1) El manifest se armaba sólo con el `data.id` del query, así
+> que por la vía **IPN legacy** (`?topic=...&id=<n>`, sin `data.id`) se armaba
+> SIN `id:` y no podía cuadrar nunca; ahora se prueban los tres orígenes del id
+> —query moderno, query legacy y body— y `idUsado` queda escrito. (2) El rechazo
+> era mudo: `mpSignatureValid` devolvía un booleano. Ahora `verificarFirmaMp`
+> devuelve **motivo** (`sin_header`, `header_sin_ts_o_v1`, `sin_secret`,
+> `no_cuadra`) y el log registra si venía `data.id` en el query, si venía el `id`
+> legacy y el LARGO del secret — nunca el secret ni el hash. Es el mismo
+> expediente que `safeError` tapando el `check_violation` de b076: un rechazo
+> mudo se queda meses. 9 tests nuevos en `mp-signature.test.ts`, **mutados**
+> (volviendo a mirar sólo `data.id`, cae el caso del IPN legacy).
+> **Diagnóstico honesto:** no se pudo reproducir la firma real contra producción
+> porque `vercel env pull` NO desencripta los valores marcados Sensitive —
+> devuelve un marcador (los cinco secretos salían con largo 11), así que la
+> prueba que se intentó no probaba nada y se descartó. Cuál de las dos causas era
+> lo dirá el `motivo` en el log a la próxima notificación de MP.
+
 > **Dos corridas de la suite se barrían las fixtures (2026-09-09).** Salió al
 > cruzarme con otro carril: los dos corriendo `pnpm hard-test` a la vez, y a los
 > dos se nos caían harness que pasaban diez minutos antes. `barrerRestos` borraba

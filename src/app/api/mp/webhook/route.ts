@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { logSistema } from '@/lib/system-log'
-import { mpSignatureValid } from '@/lib/mp-signature'
+import { verificarFirmaMp } from '@/lib/mp-signature'
 import { adminsDeAgencia, notificar, superadmins } from '@/lib/push/send'
 import { sendPurchaseEvents } from '@/lib/marketing/conversions'
 
@@ -44,16 +44,28 @@ export async function POST(request: Request) {
   // el `data.id` del query, no el del body.
   const webhookSecret = process.env.MP_WEBHOOK_SECRET
   if (webhookSecret) {
-    const valido = mpSignatureValid({
+    // Se prueban los tres orígenes posibles del `data.id`: el del webhook
+    // moderno (query `data.id`), el del IPN legacy (query `id`) y el del body.
+    // Antes sólo se miraba el primero, así que por la vía legacy el manifest se
+    // armaba sin `id:` y la firma no podía cuadrar nunca.
+    const firma = verificarFirmaMp({
       signatureHeader: request.headers.get('x-signature'),
       requestId: request.headers.get('x-request-id'),
-      dataId: queryDataId,
+      dataIds: [queryDataId, url.searchParams.get('id'), paymentId],
       secret: webhookSecret,
     })
-    if (!valido) {
+    if (!firma.valido) {
+      // El motivo es lo que convierte este rechazo en algo accionable: dice si
+      // faltó el header, si venía mal armado o si de plano el hash no cuadra
+      // (secret equivocado). Nunca se registra el secreto ni el hash esperado.
       await logSistema(supabase, 'mp_webhook', 'error', 'firma inválida', {
         paymentId,
+        motivo: firma.motivo,
+        candidatosId: firma.candidatos,
+        traeDataIdEnQuery: queryDataId != null,
+        traeIdLegacyEnQuery: url.searchParams.get('id') != null,
         hasSignature: request.headers.get('x-signature') != null,
+        largoSecret: webhookSecret.length,
       })
       return NextResponse.json({ ok: false, reason: 'invalid_signature' }, { status: 401 })
     }
