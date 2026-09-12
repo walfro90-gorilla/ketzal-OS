@@ -9,6 +9,16 @@
 
 ## Entradas nuevas (más reciente arriba)
 
+> **Snapshot regenerado hasta b111 (2026-09-11).** `supabase/snapshots/ketzal_schema.sql`
+> llevaba 18 migraciones atrás (desde b094; el último fue en #119 con b093). Regenerado con
+> `supabase db dump --schema ketzal` (Docker + `DATABASE_URL`, 2 min) y verificado por
+> identificador: b094 `list_public_services` … b111 índice parcial por `owner_supplier_id`;
+> b110 ya sin `trg_require_commission_to_publish`; b109 conserva `p_final_date` a propósito.
+> 0 `COPY`/`INSERT`. Hallazgo aparte: **b095b y b110b están aplicadas en `schema_migrations`
+> pero no tienen espejo en `db/proposed/`** — la fuente para regenerar es la BD viva, no los
+> espejos. Trampa medida: el dump entrecomilla identificadores, así que un grep por
+> `ketzal.fn` sin comillas da falsos negativos (el gate de verificación lo cazó y no commiteó).
+
 > **Ketzal empieza a cobrar: comisión de plataforma al 10% y pagos a persona a $100 (2026-09-11).**
 > Auditando qué faltaba para vender de verdad salió que **las tres reglas de
 > `payee_type='plataforma'` estaban `active=false`**: el OS llevaba desde siempre
