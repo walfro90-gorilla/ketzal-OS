@@ -38,6 +38,11 @@
 -- `anyarray || anyarray`, intentando leer el texto como arreglo:
 -- "malformed array literal". Lo cazó el harness, no el apply.
 --
+-- OJO: este archivo NO calca lo que b110 aplicó. b110 se aplicó SIN los
+-- `::text` y dejó la compuerta rota en runtime; el casteo entró minutos
+-- después en `b110b_no_publicar_incompleto_array_literal`, que tiene su propio
+-- espejo al lado. Aquí quedó el cuerpo final para que se lea código que sirve.
+--
 -- Medido antes de aplicar (2026-09-09): de 7 servicios publicados, 6 pasan
 -- esta compuerta. El único que falla es "TEST pago en línea $50" (sin destino,
 -- sin foto), fixture de las pruebas de cobro. Como el trigger no retro-aplica,
